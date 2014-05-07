@@ -32,22 +32,17 @@ rapidjson::Value* chart_t::get_obj( const std::vector<std::string>& path )
     return v;
 
   if ( ! js_.HasMember( path[ 0 ].c_str() ) )
-  {
-    rapidjson::Type obj_type = rapidjson::kObjectType;
-    if ( path.size() > 2 && util::is_number( path[ 1 ] ) )
-      obj_type = rapidjson::kArrayType;
-
-    js_.AddMember( path[ 0 ].c_str(), obj_type, js_.GetAllocator() );
-  }
+    js_.AddMember( path[ 0 ].c_str(), rapidjson::kNullType, js_.GetAllocator() );
 
   v = &( js_[ path[ 0 ].c_str() ] ); 
 
-  for ( size_t i = 1, end = path.size() - 1; i < end; i++ )
+  for ( size_t i = 1, end = path.size(); i < end; i++ )
   {
     // Number is array indexing [0..size-1]
     if ( util::is_number( path[ i ] ) )
     {
-      assert( v -> GetType() == rapidjson::kArrayType );
+      if ( v -> GetType() != rapidjson::kArrayType )
+        v -> SetArray();
 
       unsigned idx = util::to_unsigned( path[ i ] ), missing = 0;
       if ( v -> Size() <= idx )
@@ -55,26 +50,18 @@ rapidjson::Value* chart_t::get_obj( const std::vector<std::string>& path )
 
       // Pad with objects, until we have enough
       for ( unsigned midx = 0; midx < missing; midx++ )
-      {
-        rapidjson::Value mvalue( rapidjson::kObjectType );
-        v -> PushBack( mvalue, js_.GetAllocator() );
-      }
+        v -> PushBack( rapidjson::kNullType, js_.GetAllocator() );
 
       v = &( (*v)[ rapidjson::SizeType( idx ) ] );
     }
     // Object traversal
     else
     {
-      assert( v -> GetType() == rapidjson::kObjectType );
+      if ( v -> GetType() != rapidjson::kObjectType )
+        v -> SetObject();
 
       if ( ! v -> HasMember( path[ i ].c_str() ) )
-      {
-        rapidjson::Type obj_type = rapidjson::kObjectType;
-        if ( i < end - 1 && util::is_number( path[ i + 1 ] ) )
-          obj_type = rapidjson::kArrayType;
-
-        v -> AddMember( path[ i ].c_str(), obj_type, js_.GetAllocator() );
-      }
+        v -> AddMember( path[ i ].c_str(), rapidjson::kNullType, js_.GetAllocator() );
 
       v = &( (*v)[ path[ i ].c_str() ] );
     }
@@ -92,10 +79,7 @@ void chart_t::set_param( const std::string& path, const T& value )
   if ( ! obj )
     return;
 
-  if ( ! obj -> HasMember( path_split.back().c_str() ) )
-    obj -> AddMember( path_split.back().c_str(), value, js_.GetAllocator() );
-  else
-    (*obj)[ path_split.back().c_str() ] = value;
+  *obj = value;
 }
 
 template<typename T>
@@ -107,10 +91,10 @@ void chart_t::set_params( const std::string& path, const std::vector<T>& values 
   if ( ! obj )
     return;
 
-  if ( ! obj -> HasMember( path_split.back().c_str() ) )
-    obj = &( obj -> AddMember( path_split.back().c_str(), rapidjson::kArrayType, js_.GetAllocator() ) );
-  else
-    obj -> Clear();
+  if ( obj -> GetType() != rapidjson::kArrayType )
+    obj -> SetArray();
+
+  obj -> Clear();
 
   for ( size_t i = 0, end = values.size(); i < end; i++ )
     obj -> PushBack( values[ i ], js_.GetAllocator() );
