@@ -5,6 +5,8 @@
 
 #include "simulationcraft.hpp"
 #include "sc_report.hpp"
+#include "sc_highchart.hpp"
+
 #include <cmath>
 #include <clocale>
 
@@ -1811,6 +1813,12 @@ std::string chart::timeline(  player_t* p,
     s << simple_encoding( ( int ) ( ( timeline_data[ i ] - timeline_min ) * encoding_adjust ) );
   }
   s << amp;
+
+  highchart::chart_t ts( timeline_name + " Timeline" );
+  for ( size_t i = 0; i < max_buckets; i += increment )
+    ts.add( "series.0.data", timeline_data[ i ] );
+
+  std::cout << ts.to_string() << std::endl;
 
   if ( ! ( p -> sim -> print_styles == 1 ) )
   {
