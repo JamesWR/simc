@@ -8,6 +8,8 @@
 #include <string>
 #include <vector>
 
+#include "rapidjson/document.h"
+
 namespace highchart
 {
   struct chart_t
@@ -17,8 +19,7 @@ namespace highchart
 
     chart_t( const std::string& name );
 
-    virtual std::string to_string() const
-    { return std::string(); }
+    virtual std::string to_string() const;
 
     rapidjson::Value* get_obj( const std::vector<std::string>& path );
 
