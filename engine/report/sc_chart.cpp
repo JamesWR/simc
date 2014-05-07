@@ -1804,6 +1804,10 @@ std::string chart::timeline(  player_t* p,
   sc_chart chart( timeline_name + " Timeline", LINE, p -> sim -> print_styles );
   chart.set_height( 200 );
 
+  highchart::time_series_t ts( "test" );
+  ts.set_title( timeline_name + " Timeline" );
+  ts.add( "colors", "#" + color );
+
   std::ostringstream s;
   s << chart.create();
   char * old_locale = setlocale( LC_ALL, "C" );
@@ -1811,14 +1815,12 @@ std::string chart::timeline(  player_t* p,
   for ( size_t i = 0; i < max_buckets; i += increment )
   {
     s << simple_encoding( ( int ) ( ( timeline_data[ i ] - timeline_min ) * encoding_adjust ) );
+    ts.add( "series.0.data", timeline_data[ i ] );
   }
   s << amp;
 
-  highchart::chart_t ts( timeline_name + " Timeline" );
-  for ( size_t i = 0; i < max_buckets; i += increment )
-    ts.add( "series.0.data", timeline_data[ i ] );
+  ts.set_series_name( 0, "DPS" );
 
-  std::cout << ts.to_string() << std::endl;
 
   if ( ! ( p -> sim -> print_styles == 1 ) )
   {
@@ -1834,8 +1836,12 @@ std::string chart::timeline(  player_t* p,
     s << "chm=h," << color::yellow << ",0," << ( avg - timeline_min ) / timeline_range << ",0.4";
     s << "|h," << color::red << ",0," << ( 0 - timeline_min ) / timeline_range << ",0.4";
     s << amp;
+
+    ts.add_hline( "#" + color::yellow, "average", avg );
+    ts.add_hline( "#" + color::red, "min", timeline_min );
   }
 
+  std::cout << ts.to_string() << std::endl;
   s << "chxt=x,y";
   s << amp;
 
