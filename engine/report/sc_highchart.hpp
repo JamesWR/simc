@@ -11,17 +11,6 @@
 #include "rapidjson/stringbuffer.h"
 #include "rapidjson/prettywriter.h"
 
-namespace {
-template <typename T>
-static void do_insert( rapidjson::Value& v,
-                       const std::vector<T>& values,
-                       rapidjson::Document::AllocatorType& alloc )
-{
-  for ( size_t i = 0, end = values.size(); i < end; i++ )
-    v.PushBack( values[ i ], alloc );
-}
-}
-
 namespace highchart
 {
 
@@ -44,6 +33,8 @@ struct chart_t
   void set( const std::string& path, const std::vector<T>& values );
   template<typename T>
   void set( rapidjson::Value& obj, const std::string& name, const T& value_ );
+  template<typename T>
+  void set( rapidjson::Value& obj, const std::string& name, const std::vector<T>& value_ );
 
   template <typename T>
   void add( const std::string& path, const T& value_ );
@@ -62,7 +53,23 @@ struct chart_t
 
 protected:
   rapidjson::Value* value( const std::string& path );
-  void do_set( rapidjson::Value& obj, rapidjson::Value& name, rapidjson::Value& value );
+  rapidjson::Value& do_set( rapidjson::Value& obj, const char* name_, rapidjson::Value& value_ )
+  {
+    assert( obj.GetType() == rapidjson::kObjectType );
+
+    return obj.AddMember( name_, js_.GetAllocator(), value_, js_.GetAllocator() );
+  }
+
+  template <typename T>
+  rapidjson::Value& do_insert( rapidjson::Value& obj, const std::vector<T>& values )
+  {
+    assert( obj.GetType() == rapidjson::kArrayType );
+
+    for ( size_t i = 0, end = values.size(); i < end; i++ )
+      obj.PushBack( values[ i ], js_.GetAllocator() );
+
+    return obj;
+  }
 };
 
 struct time_series_t : public chart_t
@@ -71,7 +78,6 @@ struct time_series_t : public chart_t
 
   time_series_t( const stats_t* stats );
 
-  void set_series_name( size_t series_idx, const std::string& name );
   void add_series( const std::string& color, const std::string& name, const std::vector<double>& series );
 
   void set_mean( double value_ );
@@ -95,7 +101,7 @@ void chart_t::set( const std::string& path, const std::vector<T>& values )
 
     obj -> Clear();
 
-    do_insert( *obj, values, js_.GetAllocator() );
+    do_insert( *obj, values );
   }
 }
 
@@ -119,7 +125,7 @@ void chart_t::add( const std::string& path, const std::vector<T>& values )
     if ( obj -> GetType() != rapidjson::kArrayType )
       obj -> SetArray();
 
-    do_insert( *obj, values, js_.GetAllocator() );
+    do_insert( *obj, values );
   }
 }
 
@@ -128,12 +134,20 @@ void chart_t::set( rapidjson::Value& obj, const std::string& name_, const T& val
 {
   assert( obj.GetType() == rapidjson::kObjectType );
 
-  rapidjson::Value name_obj( name_.c_str(), js_.GetAllocator() );
   rapidjson::Value value_obj( value_ );
 
-  do_set( obj, name_obj, value_obj );
+  do_set( obj, name_.c_str(), value_obj );
 }
 
+template<typename T>
+void chart_t::set( rapidjson::Value& obj, const std::string& name_, const std::vector<T>& value_ )
+{
+  assert( obj.GetType() == rapidjson::kObjectType );
+
+  rapidjson::Value value_obj( rapidjson::kArrayType );
+
+  do_set( obj, name_.c_str(), do_insert( value_obj, value_ ) );
+}
 }
 
 #endif

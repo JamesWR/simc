@@ -88,11 +88,6 @@ rapidjson::Value* chart_t::value( const std::string& path_str )
   return v;
 }
 
-void chart_t::do_set( rapidjson::Value& obj, rapidjson::Value& name, rapidjson::Value& value )
-{
-  obj.AddMember( name, value, js_.GetAllocator() );
-}
-
 void chart_t::set( const std::string& path, const char* value_ )
 {
   if ( rapidjson::Value* obj = value( path ) )
@@ -152,14 +147,13 @@ void chart_t::add( const std::string& path, double x, double y )
   }
 }
 
-void chart_t::set( rapidjson::Value& obj, const std::string& name, const char* value_ )
+void chart_t::set( rapidjson::Value& obj, const std::string& name_, const char* value_ )
 {
   assert( obj.GetType() == rapidjson::kObjectType );
 
-  rapidjson::Value name_obj( name.c_str(), js_.GetAllocator() );
   rapidjson::Value value_obj( value_, js_.GetAllocator() );
 
-  do_set( obj, name_obj, value_obj );
+  do_set( obj, name_.c_str(), value_obj );
 }
 
 void chart_t::set( rapidjson::Value& obj, const std::string& name, const std::string& value_ )
@@ -244,22 +238,23 @@ void time_series_t::set_mean( double value_ )
   }
 }
 
-void time_series_t::set_series_name( size_t series_idx, const std::string& name )
-{
-  set( "series." + util::to_string( series_idx ) + ".name", name );
-}
-
 void time_series_t::add_series( const std::string& color,
                                 const std::string& name,
                                 const std::vector<double>& series )
 {
+  rapidjson::Value series_obj( rapidjson::kObjectType );
+
+  set( series_obj, "data", series );
+  set( series_obj, "name", name );
+
+  add( "colors", color );
 }
 
 std::string time_series_t::build_id( const stats_t* stats )
 {
   std::string s;
 
-  s += "player" + util::to_string( stats -> player -> index );
+  s += "actor" + util::to_string( stats -> player -> index );
   s += "_" + stats -> name_str;
 
   return s;
