@@ -6,6 +6,8 @@
 #include "simulationcraft.hpp"
 #include "sc_report.hpp"
 
+#include "sc_highchart.hpp"
+
 // ==========================================================================
 // Report
 // ==========================================================================
@@ -932,6 +934,8 @@ void report::generate_player_charts( player_t* p, player_processed_report_inform
     for ( size_t i = 0; i < stats_list.size(); i++ )
     {
       stats_t* s = stats_list[ i ];
+
+      highchart::time_series_t ts( s );
 
       // Create Stats Timeline Chart
       sc_timeline_t timeline_aps;

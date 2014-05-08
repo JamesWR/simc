@@ -24,13 +24,14 @@ static void do_insert( rapidjson::Value& v,
 
 namespace highchart
 {
+
 struct chart_t
 {
-  std::string name_;
+  std::string id_str_;
   size_t height_, width_;
   rapidjson::Document js_;
 
-  chart_t( const std::string& name );
+  chart_t( const std::string& id_str );
 
   void set_title( const std::string& title )
   { this -> set( "title.text", title.c_str() ); }
@@ -41,6 +42,8 @@ struct chart_t
   void set( const std::string& path, const T& value );
   template <typename T>
   void set( const std::string& path, const std::vector<T>& values );
+  template<typename T>
+  void set( rapidjson::Value& obj, const std::string& name, const T& value_ );
 
   template <typename T>
   void add( const std::string& path, const T& value_ );
@@ -49,21 +52,30 @@ struct chart_t
 
   void set( const std::string& path, const char* value );
   void set( const std::string& path, const std::string& value );
+  void set( rapidjson::Value& obj, const std::string& name, const char* value_ );
+  void set( rapidjson::Value& obj, const std::string& name, const std::string& value_ );
 
   void add( const std::string& path, const std::string& value_ );
   void add( const std::string& path, const char* value_ );
   void add( const std::string& path, double x, double low, double high );
   void add( const std::string& path, double x, double y );
 
+protected:
   rapidjson::Value* value( const std::string& path );
+  void do_set( rapidjson::Value& obj, rapidjson::Value& name, rapidjson::Value& value );
 };
 
 struct time_series_t : public chart_t
 {
-  time_series_t( const std::string name );
+  const stats_t* stats_;
+
+  time_series_t( const stats_t* stats );
 
   void set_series_name( size_t series_idx, const std::string& name );
-  void add_hline( const std::string& color, const std::string& label, double value_ );
+  void add_series( const std::string& color, const std::string& name, const std::vector<double>& series );
+
+  void set_mean( double value_ );
+  std::string build_id( const stats_t* stats );
 };
 
 template <typename T>
@@ -109,6 +121,17 @@ void chart_t::add( const std::string& path, const std::vector<T>& values )
 
     do_insert( *obj, values, js_.GetAllocator() );
   }
+}
+
+template<typename T>
+void chart_t::set( rapidjson::Value& obj, const std::string& name_, const T& value_ )
+{
+  assert( obj.GetType() == rapidjson::kObjectType );
+
+  rapidjson::Value name_obj( name_.c_str(), js_.GetAllocator() );
+  rapidjson::Value value_obj( value_ );
+
+  do_set( obj, name_obj, value_obj );
 }
 
 }
