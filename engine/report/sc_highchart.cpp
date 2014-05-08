@@ -32,7 +32,7 @@ std::string chart_t::to_string() const
     return b.GetString();
 }
 
-rapidjson::Value* chart_t::value( const std::string& path_str )
+rapidjson::Value* chart_t::path_value( const std::string& path_str )
 {
   std::vector<std::string> path = util::string_split( path_str, "." );
   rapidjson::Value* v = 0;
@@ -88,23 +88,24 @@ rapidjson::Value* chart_t::value( const std::string& path_str )
   return v;
 }
 
-void chart_t::set( const std::string& path, const char* value_ )
+chart_t& chart_t::set( const std::string& path, const char* value_ )
 {
-  if ( rapidjson::Value* obj = value( path ) )
+  if ( rapidjson::Value* obj = path_value( path ) )
   {
     rapidjson::Value v( value_, js_.GetAllocator() );
     *obj = v;
   }
+  return *this;
 }
 
-void chart_t::set( const std::string& path, const std::string& value_ )
+chart_t& chart_t::set( const std::string& path, const std::string& value_ )
 {
-  set( path, value_.c_str() );
+  return set( path, value_.c_str() );
 }
 
-void chart_t::add( const std::string& path, const char* value_ )
+chart_t& chart_t::add( const std::string& path, const char* value_ )
 {
-  if ( rapidjson::Value* obj = value( path ) )
+  if ( rapidjson::Value* obj = path_value( path ) )
   {
     if ( obj -> GetType() != rapidjson::kArrayType )
       obj -> SetArray();
@@ -112,16 +113,29 @@ void chart_t::add( const std::string& path, const char* value_ )
     rapidjson::Value v( value_, js_.GetAllocator() );
     obj -> PushBack( v, js_.GetAllocator() );
   }
+  return *this;
 }
 
-void chart_t::add( const std::string& path, const std::string& value_ )
+chart_t& chart_t::add( const std::string& path, const std::string& value_ )
 {
-  add( path, value_.c_str() );
+  return add( path, value_.c_str() );
 }
 
-void chart_t::add( const std::string& path, double x, double low, double high )
+chart_t& chart_t::add( const std::string& path, rapidjson::Value& value_ )
 {
-  if ( rapidjson::Value* obj = value( path ) )
+  if ( rapidjson::Value* obj = path_value( path ) )
+  {
+    if ( obj -> GetType() != rapidjson::kArrayType )
+      obj -> SetArray();
+
+    obj -> PushBack( value_, js_.GetAllocator() );
+  }
+  return *this;
+}
+
+chart_t& chart_t::add( const std::string& path, double x, double low, double high )
+{
+  if ( rapidjson::Value* obj = path_value( path ) )
   {
     if ( obj -> GetType() != rapidjson::kArrayType )
       obj -> SetArray();
@@ -131,11 +145,12 @@ void chart_t::add( const std::string& path, double x, double low, double high )
 
     obj -> PushBack( v, js_.GetAllocator() );
   }
+  return *this;
 }
 
-void chart_t::add( const std::string& path, double x, double y )
+chart_t& chart_t::add( const std::string& path, double x, double y )
 {
-  if ( rapidjson::Value* obj = value( path ) )
+  if ( rapidjson::Value* obj = path_value( path ) )
   {
     if ( obj -> GetType() != rapidjson::kArrayType )
       obj -> SetArray();
@@ -145,18 +160,20 @@ void chart_t::add( const std::string& path, double x, double y )
 
     obj -> PushBack( v, js_.GetAllocator() );
   }
+  return *this;
 }
 
-void chart_t::set( rapidjson::Value& obj, const std::string& name_, const char* value_ )
+chart_t& chart_t::set( rapidjson::Value& obj, const std::string& name_, const char* value_ )
 {
   assert( obj.GetType() == rapidjson::kObjectType );
 
   rapidjson::Value value_obj( value_, js_.GetAllocator() );
 
   do_set( obj, name_.c_str(), value_obj );
+  return *this;
 }
 
-void chart_t::set( rapidjson::Value& obj, const std::string& name, const std::string& value_ )
+chart_t& chart_t::set( rapidjson::Value& obj, const std::string& name, const std::string& value_ )
 {
   return set( obj, name, value_.c_str() );
 }
@@ -171,21 +188,18 @@ time_series_t::time_series_t( const stats_t* stats ) :
   set( "chart.type", "area" );
   set( "chart.style.fontSize", "11px" );
 
-  add( "chart.spacing", 5 );
-  add( "chart.spacing", 5 );
-  add( "chart.spacing", 5 );
-  add( "chart.spacing", 5 );
-
-  set( "plotOptions.series.shadow", true );
-  set( "plotOptions.area.lineWidth", 1.25 );
-  set( "plotOptions.area.states.hover.lineWidth", 1 );
-  set( "plotOptions.area.fillOpacity", 0.2 );
+  add( "chart.spacing", 5 ).add( "chart.spacing", 5 ).add( "chart.spacing", 5 ).add( "chart.spacing", 5 );
 
   // Setup background color
   if ( stats_ -> player -> sim -> print_styles == 1 )
     set( "chart.backgroundColor", CHART_BGCOLOR_ALT );
   else
     set( "chart.backgroundColor", CHART_BGCOLOR );
+
+  set( "plotOptions.series.shadow", true );
+  set( "plotOptions.area.lineWidth", 1.25 );
+  set( "plotOptions.area.states.hover.lineWidth", 1 );
+  set( "plotOptions.area.fillOpacity", 0.2 );
 
   // Setup axes
   std::string color = TEXT_COLOR;
@@ -218,7 +232,7 @@ time_series_t::time_series_t( const stats_t* stats ) :
 
 void time_series_t::set_mean( double value_ )
 {
-  if ( rapidjson::Value* obj = value( "yAxis.plotLines" ) )
+  if ( rapidjson::Value* obj = path_value( "yAxis.plotLines" ) )
   {
     if ( obj -> GetType() != rapidjson::kArrayType )
       obj -> SetArray();
@@ -242,11 +256,12 @@ void time_series_t::add_series( const std::string& color,
                                 const std::string& name,
                                 const std::vector<double>& series )
 {
-  rapidjson::Value series_obj( rapidjson::kObjectType );
+  rapidjson::Value obj( rapidjson::kObjectType );
 
-  set( series_obj, "data", series );
-  set( series_obj, "name", name );
-
+  set( obj, "data", series );
+  set( obj, "name", name );
+  
+  add( "series", obj );
   add( "colors", color );
 }
 
