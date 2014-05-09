@@ -21,6 +21,7 @@ struct chart_t
   rapidjson::Document js_;
 
   chart_t( const std::string& id_str );
+  virtual ~chart_t() { }
 
   void set_title( const std::string& title )
   { this -> set( "title.text", title.c_str() ); }
