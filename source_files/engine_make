@@ -9,7 +9,7 @@ SRC += \
     util$(PATHSEP)io.hpp \
     util$(PATHSEP)generic.hpp \
     util$(PATHSEP)concurrency.hpp \
-    reports$(PATHSEP)sc_highchart.hpp \
+    report$(PATHSEP)sc_highchart.hpp \
     dbc$(PATHSEP)specialization.hpp \
     dbc$(PATHSEP)dbc.hpp \
     simulationcraft.hpp \

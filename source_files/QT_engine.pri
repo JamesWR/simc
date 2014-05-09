@@ -9,7 +9,7 @@
  HEADERS += engine/util/io.hpp
  HEADERS += engine/util/generic.hpp
  HEADERS += engine/util/concurrency.hpp
- HEADERS += engine/reports/sc_highchart.hpp
+ HEADERS += engine/report/sc_highchart.hpp
  HEADERS += engine/dbc/specialization.hpp
  HEADERS += engine/dbc/dbc.hpp
  PRECOMPILED_HEADER += engine/simulationcraft.hpp
