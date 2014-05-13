@@ -6,8 +6,6 @@
 #include "simulationcraft.hpp"
 #include "sc_report.hpp"
 
-#include "sc_highchart.hpp"
-
 // ==========================================================================
 // Report
 // ==========================================================================
@@ -935,12 +933,7 @@ void report::generate_player_charts( player_t* p, player_processed_report_inform
     {
       stats_t* s = stats_list[ i ];
 
-      highchart::time_series_t ts( s );
-
       // Create Stats Timeline Chart
-      sc_timeline_t timeline_aps;
-      s -> timeline_amount.build_derivative_timeline( timeline_aps );
-      s -> timeline_aps_chart = chart::timeline( p, timeline_aps.data(), s -> name_str + ' ' + stat_type_letter( s -> type ) + "PS", timeline_aps.mean() );
       s -> aps_distribution_chart = chart::distribution( p -> sim -> print_styles, s -> portion_aps.distribution, s -> name_str + ( s -> type == STATS_DMG ? " DPS" : " HPS" ),
                                                          s -> portion_aps.mean(), s -> portion_aps.min(), s -> portion_aps.max() );
     }

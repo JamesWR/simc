@@ -370,11 +370,11 @@ void print_xml_player_actions( xml_writer_t & writer, player_t* p )
       writer.print_attribute( "apr", util::to_string( s -> apr[ p -> primary_resource() ] ) );
       writer.print_attribute( "pdps", util::to_string( s -> portion_aps.mean() ) );
 
-      if ( ! s -> timeline_aps_chart.empty() )
+      if ( s -> has_direct_amount_results() || s -> has_tick_amount_results() )
       {
         writer.begin_tag( "chart" );
         writer.print_attribute( "type", "timeline_aps" );
-        writer.print_attribute( "href", s -> timeline_aps_chart );
+        writer.print_text( "<!CDATA[" + chart::stats_time_series( s, true ) + "]]>" );
         writer.end_tag( "chart" );
       }
 
@@ -443,11 +443,6 @@ void print_xml_player_actions( xml_writer_t & writer, player_t* p )
         writer.end_tag( "tick_results" );
       }
 
-
-      writer.begin_tag( "chart" );
-      writer.print_attribute( "type", "timeline_stat_aps" );
-      writer.print_attribute_unescaped( "href", s -> timeline_aps_chart );
-      writer.end_tag( "chart" );
 
       // Action Details
       std::vector<std::string> processed_actions;

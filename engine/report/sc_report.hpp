@@ -47,6 +47,9 @@ std::string gear_weights_wowhead   ( player_t*, bool hit_expertise );
 std::string gear_weights_askmrrobot( player_t* );
 std::string gear_weights_pawn      ( player_t*, bool hit_expertise );
 
+std::string stats_time_series( const stats_t* s, bool json = false );
+
+
 } // end namespace sc_chart
 
 namespace report

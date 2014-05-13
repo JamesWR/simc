@@ -5113,8 +5113,6 @@ public:
   timespan_t total_time;
   std::string aps_distribution_chart;
 
-  std::string timeline_aps_chart;
-
   // Scale factor container
   gear_stats_t scaling;
   gear_stats_t scaling_error;
@@ -5134,6 +5132,9 @@ public:
   void analyze();
   void merge( const stats_t& other );
   const char* name() const { return name_str.c_str(); }
+
+  bool has_direct_amount_results() const;
+  bool has_tick_amount_results() const;
 };
 
 // Action ===================================================================

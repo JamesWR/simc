@@ -19,14 +19,18 @@ struct chart_t
   std::string id_str_;
   size_t height_, width_;
   rapidjson::Document js_;
+  const sim_t* sim_;
 
-  chart_t( const std::string& id_str );
+  chart_t( const std::string& id_str, const sim_t* sim );
   virtual ~chart_t() { }
 
-  void set_title( const std::string& title )
-  { this -> set( "title.text", title.c_str() ); }
+  void set_title( const std::string& title );
+  void set_xaxis_title( const std::string& label );
+  void set_yaxis_title( const std::string& label );
+  void add_series( const std::string& color, const std::string& name, const std::vector<double>& series );
 
   virtual std::string to_string() const;
+  virtual std::string to_json() const;
 
   // Set the value of JSON object indicated by path to value_
   template <typename T>
@@ -61,6 +65,8 @@ struct chart_t
   chart_t& add( const std::string& path, double x, double low, double high );
   chart_t& add( const std::string& path, double x, double y );
 
+  static std::string build_id( const stats_t* stats );
+
 protected:
   // Find the Value object given by a path, and construct any missing objects along the way
   rapidjson::Value* path_value( const std::string& path );
@@ -85,11 +91,8 @@ protected:
 
 struct time_series_t : public chart_t
 {
-  const stats_t* stats_;
+  time_series_t( const std::string& id_str, const sim_t* sim );
 
-  time_series_t( const stats_t* stats );
-
-  void add_series( const std::string& color, const std::string& name, const std::vector<double>& series );
 
   void set_mean( double value_ );
   std::string build_id( const stats_t* stats );

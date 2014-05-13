@@ -28,16 +28,6 @@ bool has_multistrike( const std::vector<stats_t::stats_results_t>& s)
   return ( s[ RESULT_MULTISTRIKE ].count.mean() + s[ RESULT_MULTISTRIKE_CRIT ].count.mean() ) > 0;
 }
 
-bool has_amount_results( const std::vector<stats_t::stats_results_t>& res )
-{
-  return (
-      res[ RESULT_HIT ].actual_amount.mean() > 0 ||
-      res[ RESULT_CRIT ].actual_amount.mean() > 0 ||
-      res[ RESULT_MULTISTRIKE ].actual_amount.mean() > 0 ||
-      res[ RESULT_MULTISTRIKE_CRIT ].actual_amount.mean() > 0
-  );
-}
-
 bool has_block( const stats_t* s )
 {
   return ( s -> direct_results_detail[ FULLTYPE_HIT_BLOCK ].count.mean() +
@@ -301,7 +291,7 @@ void print_html_action_info( report::sc_html_stream& os, unsigned stats_mask, st
   std::string row_class = ( j & 1 ) ? " class=\"odd\"" : "";
 
   os << "\t\t\t\t\t\t\t<tr" << row_class << ">\n";
-  int result_rows = has_amount_results( s -> direct_results ) + has_amount_results( s -> tick_results );
+  int result_rows = s -> has_direct_amount_results() + s -> has_tick_amount_results();
   if ( result_rows == 0 )
     result_rows = 1;
 
@@ -363,9 +353,9 @@ void print_html_action_info( report::sc_html_stream& os, unsigned stats_mask, st
       s -> apet );
 
     bool periodic_only = false;
-    if ( has_amount_results( s -> direct_results ) )
+    if ( s -> has_direct_amount_results() )
       print_html_action_summary( os, stats_mask, 0, s, p );
-    else if ( has_amount_results( s -> tick_results ) )
+    else if ( s -> has_tick_amount_results() )
     {
       periodic_only = true;
       print_html_action_summary( os, stats_mask, 1, s, p );
@@ -375,7 +365,7 @@ void print_html_action_info( report::sc_html_stream& os, unsigned stats_mask, st
 
     os.printf( "\t\t\t\t\t\t\t</tr>\n" );
 
-    if ( ! periodic_only && has_amount_results( s -> tick_results ) )
+    if ( ! periodic_only && s -> has_tick_amount_results() )
     {
       os << "\t\t\t\t\t\t\t<tr" << row_class << ">\n";
       print_html_action_summary( os, stats_mask, 1, s, p );
@@ -386,11 +376,6 @@ void print_html_action_info( report::sc_html_stream& os, unsigned stats_mask, st
 
   if ( p -> sim -> report_details )
   {
-    std::string timeline_stat_aps_str                    = "";
-    if ( ! s -> timeline_aps_chart.empty() )
-    {
-      timeline_stat_aps_str = "<img src=\"" + s -> timeline_aps_chart + "\" alt=\"" + ( s -> type == STATS_DMG ? "DPS" : "HPS" ) + " Timeline Chart\" />\n";
-    }
     std::string aps_distribution_str                    = "";
     if ( ! s -> aps_distribution_chart.empty() )
     {
@@ -678,17 +663,15 @@ void print_html_action_info( report::sc_html_stream& os, unsigned stats_mask, st
             s -> tick_results_detail[ i ].overkill_pct.mean() );
         }
       }
-
-
     }
     
     os << "\t\t\t\t\t\t\t\t\t</table>\n";
 
     os << "\t\t\t\t\t\t\t\t\t<div class=\"clear\">&nbsp;</div>\n";
 
-    os.printf(
-      "\t\t\t\t\t\t\t\t\t%s\n",
-      timeline_stat_aps_str.c_str() );
+    if ( s -> has_direct_amount_results() || s -> has_tick_amount_results() )
+      os << chart::stats_time_series( s );
+
     os.printf(
       "\t\t\t\t\t\t\t\t\t%s\n",
       aps_distribution_str.c_str() );

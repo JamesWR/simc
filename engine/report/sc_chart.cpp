@@ -5,6 +5,7 @@
 
 #include "simulationcraft.hpp"
 #include "sc_report.hpp"
+#include "sc_highchart.hpp"
 
 #include <cmath>
 #include <clocale>
@@ -273,7 +274,7 @@ std::string school_color( school_e type )
     case SCHOOL_PHYSICAL:     return color::tan;
     case SCHOOL_HOLY:         return color::from_pct( 1.0, 0.9, 0.5 );
     case SCHOOL_FIRE:         return color::red;
-    case SCHOOL_NATURE:       return color::green;
+    case SCHOOL_NATURE:       return color::hunter_green;
     case SCHOOL_FROST:        return color::blue;
     case SCHOOL_SHADOW:       return color::purple;
     case SCHOOL_ARCANE:       return color::light_blue;
@@ -2579,3 +2580,35 @@ std::string chart::dps_error( player_t& p )
 {
   return chart::normal_distribution( p.collected_data.dps.mean(), p.collected_data.dps.mean_std_dev, p.sim -> confidence, p.sim -> confidence_estimator, p.sim -> print_styles );
 }
+
+// Generate a "standard" timeline highcharts object as a string based on a stats_t object
+std::string chart::stats_time_series( const stats_t* s, bool json )
+{
+  sc_timeline_t timeline_aps;
+  s -> timeline_amount.build_derivative_timeline( timeline_aps );
+
+  highchart::time_series_t ts( highchart::chart_t::build_id( s ), s -> player -> sim );
+  if ( s -> type == STATS_DMG )
+  {
+    ts.set_yaxis_title( "Damage per second" );
+    if ( s -> action_list.size() > 0 && s -> action_list[ 0 ] -> s_data -> id() != 0 )
+      ts.set_title( std::string( s -> action_list[ 0 ] -> s_data -> name_cstr() ) + " Damage per second" );
+    else
+      ts.set_title( s -> name_str + " Damage per second" );
+  }
+  else
+    ts.set_yaxis_title( "Healing per second" );
+
+  std::string area_color = color::yellow;
+  if ( s -> action_list.size() > 0 )
+    area_color = school_color( s -> action_list[ 0 ] -> school );
+
+  ts.add_series( area_color, s -> type == STATS_DMG ? "DPS" : "HPS", timeline_aps.data() );
+  ts.set_mean( s -> portion_aps.mean() );
+
+  if ( json )
+    return ts.to_json();
+  else
+    return ts.to_string();
+}
+
