@@ -1,3 +1,5 @@
+#include "simulationcraft.hpp"
+
 #include "sc_highchart.hpp"
 
 namespace
@@ -6,7 +8,8 @@ static const char* TEXT_OUTLINE      = "-1px -1px 0 #000000, 1px -1px 0 #000000,
 static const char* TEXT_COLOR        = "#CACACA";
 static const char* TEXT_COLOR_ALT    = "black";
 
-static const char* TEXT_MEAN_COLOR   = "#CC4444";
+static const char* TEXT_MEAN_COLOR   = "#CC8888";
+static const char* TEXT_MAX_COLOR    = "#8888CC";
 
 static const char* CHART_BGCOLOR     = "#333333";
 static const char* CHART_BGCOLOR_ALT = "white";
@@ -24,6 +27,23 @@ std::string chart_t::build_id( const stats_t* stats )
   return s;
 }
    
+std::string chart_t::build_id( const player_t* actor, const std::string& suffix )
+{
+  std::string s = "actor" + util::to_string( actor -> index );
+  s += suffix;
+  return s;
+}
+
+std::string chart_t::build_id( const buff_t* buff, const std::string& suffix )
+{
+  std::string s = "buff_" + buff -> name_str;
+  if ( buff -> player )
+    s += "_actor" + util::to_string( buff -> player -> index );
+
+  s += suffix;
+  return s;
+}
+
 // Init default (shared) json structure
 chart_t::chart_t( const std::string& id_str, const sim_t* sim ) :
   id_str_( id_str ), height_( 250 ), width_( 550 ), sim_( sim )
@@ -61,6 +81,20 @@ std::string chart_t::to_json() const
   js_.Accept( writer );
 
   return b.GetString();
+}
+
+std::string chart_t::to_xml() const
+{
+  rapidjson::StringBuffer b;
+  rapidjson::PrettyWriter< rapidjson::StringBuffer > writer( b );
+
+  js_.Accept( writer );
+
+  std::string str = "<!CDATA[";
+  str += b.GetString();
+  str += "]]>";
+
+  return str;
 }
 
 rapidjson::Value* chart_t::path_value( const std::string& path_str )
@@ -118,6 +152,9 @@ rapidjson::Value* chart_t::path_value( const std::string& path_str )
 
   return v;
 }
+
+void chart_t::set_xaxis_max( double max )
+{ set( "xAxis.max", max ); }
 
 void chart_t::set_xaxis_title( const std::string& label )
 { set( "xAxis.title.text", label ); }
@@ -238,7 +275,6 @@ chart_t& chart_t::set( rapidjson::Value& obj, const std::string& name, const std
 time_series_t::time_series_t( const std::string& id_str, const sim_t* sim ) :
   chart_t( id_str, sim )
 {
-  height_ = 200;
   set( "legend.enabled", false );
 
   set( "chart.type", "area" );
@@ -294,12 +330,59 @@ void time_series_t::set_mean( double value_ )
       obj -> SetArray();
 
     set( "subtitle.style.fontsize", "10px" );
-    set( "subtitle.style.color", TEXT_MEAN_COLOR );
     set( "subtitle.style.textShadow", TEXT_OUTLINE );
-    set( "subtitle.text", "mean=" + util::to_string( value_ ) );
+
+    if ( rapidjson::Value* text_v = path_value( "subtitle.text" ) )
+    {
+      std::string mean_str = "<span style=\"color: ";
+      mean_str += TEXT_MEAN_COLOR;
+      mean_str += ";\">";
+      mean_str += "mean=" + util::to_string( value_ );
+      mean_str += "</span>";
+
+      if ( text_v -> GetType() == rapidjson::kStringType )
+        mean_str = std::string( text_v -> GetString() ) + ", " + mean_str;
+
+      text_v -> SetString( mean_str.c_str(), mean_str.size(), js_.GetAllocator() );
+    }
 
     rapidjson::Value new_obj( rapidjson::kObjectType );
     set( new_obj, "color", TEXT_MEAN_COLOR );
+    set( new_obj, "value", value_ );
+    set( new_obj, "width", 1.25 );
+    set( new_obj, "zIndex", 5 );
+
+    obj -> PushBack( new_obj, js_.GetAllocator() );
+  }
+}
+
+void time_series_t::set_max( double value_ )
+{
+  if ( rapidjson::Value* obj = path_value( "yAxis.plotLines" ) )
+  {
+    if ( obj -> GetType() != rapidjson::kArrayType )
+      obj -> SetArray();
+
+    set( "subtitle.style.fontsize", "10px" );
+    set( "subtitle.style.color", TEXT_MAX_COLOR );
+    set( "subtitle.style.textShadow", TEXT_OUTLINE );
+
+    if ( rapidjson::Value* text_v = path_value( "subtitle.text" ) )
+    {
+      std::string max_str = "<span style=\"color: ";
+      max_str += TEXT_MAX_COLOR;
+      max_str += ";\">";
+      max_str += "max=" + util::to_string( value_ );
+      max_str += "</span>";
+
+      if ( text_v -> GetType() == rapidjson::kStringType )
+        max_str = std::string( text_v -> GetString() ) + ", " + max_str;
+
+      text_v -> SetString( max_str.c_str(), max_str.size(), js_.GetAllocator() );
+    }
+
+    rapidjson::Value new_obj( rapidjson::kObjectType );
+    set( new_obj, "color", TEXT_MAX_COLOR );
     set( new_obj, "value", value_ );
     set( new_obj, "width", 1.25 );
     set( new_obj, "zIndex", 5 );

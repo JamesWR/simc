@@ -31,7 +31,7 @@ void print_xml_player_procs( xml_writer_t & writer, player_t * p );
 void print_xml_player_gains( xml_writer_t & writer, player_t * p );
 void print_xml_player_scale_factors( xml_writer_t & writer, player_t * p, player_processed_report_information_t& );
 void print_xml_player_dps_plots( xml_writer_t & writer, player_t * p );
-void print_xml_player_charts( xml_writer_t & writer, player_processed_report_information_t& );
+void print_xml_player_charts( xml_writer_t & writer, player_processed_report_information_t&, player_t* );
 void print_xml_player_gear( xml_writer_t & writer, player_t* p );
 
 struct compare_hat_donor_interval
@@ -194,7 +194,7 @@ void print_xml_player( sim_t * sim, xml_writer_t & writer, player_t * p, player_
   print_xml_player_gains( writer, p );
   print_xml_player_scale_factors( writer, p, p->report_information );
   print_xml_player_dps_plots( writer, p );
-  print_xml_player_charts( writer, p->report_information );
+  print_xml_player_charts( writer, p->report_information, p );
 
   writer.end_tag( "player" );
 }
@@ -374,7 +374,7 @@ void print_xml_player_actions( xml_writer_t & writer, player_t* p )
       {
         writer.begin_tag( "chart" );
         writer.print_attribute( "type", "timeline_aps" );
-        writer.print_text( "<!CDATA[" + chart::stats_time_series( s, true ) + "]]>" );
+        writer.print_text( chart::generate_stats_timeline( s ).to_string() );
         writer.end_tag( "chart" );
       }
 
@@ -718,7 +718,7 @@ void print_xml_player_dps_plots( xml_writer_t & writer, player_t * p )
   writer.end_tag( "dps_plot_data" );
 }
 
-void print_xml_player_charts( xml_writer_t & writer, player_processed_report_information_t& ri )
+void print_xml_player_charts( xml_writer_t & writer, player_processed_report_information_t& ri, player_t* p )
 {
   writer.begin_tag( "charts" );
 
@@ -762,11 +762,11 @@ void print_xml_player_charts( xml_writer_t & writer, player_processed_report_inf
     writer.end_tag( "chart" );
   }
 
-  if ( ! ri.timeline_dps_chart.empty() )
+  if ( p -> collected_data.dps.mean() > 0 )
   {
     writer.begin_tag( "chart" );
     writer.print_attribute( "type", "timeline_dps" );
-    writer.print_attribute_unescaped( "href", ri.timeline_dps_chart );
+    writer.print_text( chart::generate_actor_dps_series( p ).to_xml() );
     writer.end_tag( "chart" );
   }
 

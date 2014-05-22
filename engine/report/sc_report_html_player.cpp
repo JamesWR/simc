@@ -5,6 +5,7 @@
 
 #include "simulationcraft.hpp"
 #include "sc_report.hpp"
+#include "sc_highchart.hpp"
 
 namespace { // UNNAMED NAMESPACE ==========================================
 
@@ -670,7 +671,7 @@ void print_html_action_info( report::sc_html_stream& os, unsigned stats_mask, st
     os << "\t\t\t\t\t\t\t\t\t<div class=\"clear\">&nbsp;</div>\n";
 
     if ( s -> has_direct_amount_results() || s -> has_tick_amount_results() )
-      os << chart::stats_time_series( s );
+      os << chart::generate_stats_timeline( s ).to_string();
 
     os.printf(
       "\t\t\t\t\t\t\t\t\t%s\n",
@@ -2149,17 +2150,43 @@ void print_html_player_resources( report::sc_html_stream& os, player_t* p, playe
 
   os.tabs() << "<div class=\"charts\">\n";
   ++os;
-  for ( unsigned r = RESOURCE_NONE + 1; r < RESOURCE_MAX; r++ )
+  for ( size_t i = 0, end = p -> collected_data.resource_timelines.size(); i < end; i++ )
   {
-    if ( p -> resources.max[ r ] > 0 && ! ri.timeline_resource_chart[ r ].empty() )
-    {
-      os.tabs() << "<img src=\"" << ri.timeline_resource_chart[ r ] << "\" alt=\"Resource Timeline Chart\" />\n";
-    }
+    const player_collected_data_t::resource_timeline_t& timeline = p -> collected_data.resource_timelines[ i ];
+
+    if ( p -> resources.max[ timeline.type ] == 0 )
+      continue;
+    
+    if ( timeline.timeline.mean() == 0 )
+      continue;
+
+    std::string resource_str = util::resource_type_string( timeline.type );
+    highchart::time_series_t ts = chart::generate_actor_timeline( p,
+                                                                  "resource_" + resource_str,
+                                                                  resource_str,
+                                                                  chart::resource_color( timeline.type ), 
+                                                                  timeline.timeline );
+    os << ts.to_string();
   }
   if ( p -> primary_role() == ROLE_TANK ) // Experimental, restrict to tanks for now
   {
-    os.tabs() << "<img src=\"" << ri.health_change_chart << "\" alt=\"Health Change Timeline Chart\" />\n";
-    os.tabs() << "<img src=\"" << ri.health_change_sliding_chart << "\" alt=\"Health Change Sliding Timeline Chart\" />\n";
+    highchart::time_series_t chart = chart::generate_actor_timeline( p,
+                                                                     "health_change",
+                                                                     "Health Change",
+                                                                     chart::resource_color( RESOURCE_HEALTH ),
+                                                                     p -> collected_data.health_changes.merged_timeline );
+
+    os << chart.to_string();
+
+    sc_timeline_t sliding_average_tl;
+    p -> collected_data.health_changes.merged_timeline.build_sliding_average_timeline( sliding_average_tl, 6 );
+    highchart::time_series_t chart2 = chart::generate_actor_timeline( p,
+                                                                      "health_change_ma",
+                                                                      "Health Change (moving average, 6s window)",
+                                                                      chart::resource_color( RESOURCE_HEALTH ),
+                                                                      sliding_average_tl );
+    os << chart2.to_string();
+
 
     if ( ! p -> is_enemy() )
     {
@@ -2223,12 +2250,17 @@ void print_html_player_charts( report::sc_html_stream& os, sim_t* sim, player_t*
     os.printf( fmt, ri.scaling_dps_chart.c_str() );
   }
 
-  sc_timeline_t timeline_dps_taken;
-  p -> collected_data.timeline_dmg_taken.build_derivative_timeline( timeline_dps_taken );
-  std::string timeline_dps_takenchart = chart::timeline( p, timeline_dps_taken.data(), "dps_taken", timeline_dps_taken.mean(), "FDD017" );
-  if ( ! timeline_dps_takenchart.empty() )
+  if ( p -> collected_data.timeline_dmg_taken.mean() > 0 )
   {
-    os << "<img src=\"" << timeline_dps_takenchart << "\" alt=\"DPS Taken Timeline Chart\" />\n";
+    highchart::time_series_t dps_taken( highchart::chart_t::build_id( p, "dps_taken" ), p -> sim );
+    sc_timeline_t timeline_dps_taken;
+    p -> collected_data.timeline_dmg_taken.build_derivative_timeline( timeline_dps_taken );
+    dps_taken.set_yaxis_title( "Damage taken per second" );
+    dps_taken.set_title( p -> name_str + " Damage taken per second" );
+    dps_taken.add_series( "#FDD017", "DPS taken", timeline_dps_taken.data() );
+    dps_taken.set_mean( timeline_dps_taken.mean() );
+
+    os << dps_taken.to_string();
   }
 
   os << "\t\t\t\t\t\t</div>\n"
@@ -2275,20 +2307,20 @@ void print_html_player_charts( report::sc_html_stream& os, sim_t* sim, player_t*
     os.printf( fmt, ri.scale_factors_chart.c_str() );
   }
 
-  if ( ! ri.timeline_dps_chart.empty() )
-  {
-    const char* fmt;
-    if ( num_players == 1 )
-      fmt = "\t\t\t\t\t\t\t<img src=\"%s\" alt=\"DPS Timeline Chart\" />\n";
-    else
-      fmt = "\t\t\t\t\t\t\t<span class=\"chart-timeline-dps\" title=\"DPS Timeline Chart\">%s</span>\n";
-    os.printf( fmt, ri.timeline_dps_chart.c_str() );
-  }
+  if ( p -> collected_data.dps.mean() > 0 )
+    os << chart::generate_actor_dps_series( p ).to_string();
 
-  std::string vengeance_timeline_chart = chart::timeline( p, p -> vengeance_timeline().data(), "vengeance", 0, "ff0000", static_cast<size_t>( p -> collected_data.fight_length.max() ) );
-  if ( ! vengeance_timeline_chart.empty() )
+  if ( p -> vengeance_timeline().mean() > 0 )
   {
-    os << "<img src=\"" << vengeance_timeline_chart << "\" alt=\"Vengeance Timeline Chart\" />\n";
+    highchart::time_series_t vengeance( highchart::chart_t::build_id( p, "vengeance" ), p -> sim );
+    vengeance.set_yaxis_title( "Attack Power" );
+    vengeance.set_title( p -> name_str + " Vengeance attack power" );
+    vengeance.add_series( "#FF0000", "Attack Power", p -> vengeance_timeline().data() );
+    vengeance.set_mean( p -> vengeance_timeline().mean() );
+    vengeance.set_max( p -> vengeance_timeline().max() );
+    vengeance.set_xaxis_max( p -> sim -> simulation_length.max() );
+
+    os << vengeance.to_string();
   }
 
   if ( ! ri.distribution_dps_chart.empty() )
@@ -2311,17 +2343,17 @@ void print_html_player_charts( report::sc_html_stream& os, sim_t* sim, player_t*
     os.printf( fmt, ri.time_spent_chart.c_str() );
   }
 
-  for ( size_t i = 0; i < ri.timeline_stat_chart.size(); ++i )
+  for ( size_t i = 0, end = p -> collected_data.stat_timelines.size(); i < end; i++ )
   {
-    if ( ri.timeline_stat_chart[ i ].length() > 0 )
-    {
-      const char* fmt;
-      if ( num_players == 1 )
-        fmt = "\t\t\t\t\t\t\t<img src=\"%s\" alt=\"Stat Chart\" />\n";
-      else
-        fmt = "\t\t\t\t\t\t\t<span class=\"chart-scaling-dps\" title=\"Stat Chart\">%s</span>\n";
-      os.printf( fmt, ri.timeline_stat_chart[ i ].c_str() );
-    }
+    if ( p -> collected_data.stat_timelines[ i ].timeline.mean() == 0 )
+      continue;
+
+    std::string stat_str = util::stat_type_string( p -> collected_data.stat_timelines[ i ].type );
+    highchart::time_series_t ts = chart::generate_actor_timeline( p, "stat_" + stat_str,
+                                                                  stat_str,
+                                                                  chart::stat_color( p -> collected_data.stat_timelines[ i ].type ), 
+                                                                  p -> collected_data.stat_timelines[ i ].timeline );
+    os << ts.to_string();
   }
 
   os << "\t\t\t\t\t\t</div>\n"
@@ -2482,13 +2514,18 @@ void print_html_player_buff( report::sc_html_stream& os, buff_t* b, int report_d
     }
     os << "\t\t\t\t\t\t\t\t</tr>";
 
-    if ( ! b -> constant && ! b -> overridden && b -> sim -> buff_uptime_timeline )
+    if ( ! b -> constant && ! b -> overridden && b -> sim -> buff_uptime_timeline && b -> uptime_array.mean() > 0 )
     {
-      std::string uptime_chart = chart::timeline( b -> player, b -> uptime_array.data(), "Average Uptime", 0, "ff0000", static_cast<size_t>( b -> sim -> simulation_length.max() ) );
-      if ( ! uptime_chart.empty() )
-      {
-        os << "\t\t\t\t\t\t\t\t<tr><td colspan=\"2\" class=\"filler\"><img src=\"" << uptime_chart << "\" alt=\"Average Uptime Timeline Chart\" />\n</td></tr>\n";
-      }
+      highchart::time_series_t buff_uptime( highchart::chart_t::build_id( b, "uptime" ), b -> sim );
+      buff_uptime.set_yaxis_title( "Average uptime" );
+      buff_uptime.set_title( b -> name_str + " Uptime" );
+      buff_uptime.add_series( "#FF0000", "Uptime", b -> uptime_array.data() );
+      buff_uptime.set_mean( b -> uptime_array.mean() );
+      buff_uptime.set_xaxis_max( b -> sim -> simulation_length.max() );
+
+      os << "\t\t\t\t\t\t\t\t<tr><td colspan=\"2\" class=\"filler\">\n";
+      os << buff_uptime.to_string();
+      os << "\t\t\t\t\t\t\t\t</td></tr>\n";
     }
     os << "\t\t\t\t\t\t\t</table></td>\n";
 

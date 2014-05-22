@@ -3710,12 +3710,10 @@ struct player_processed_report_information_t
 {
   bool charts_generated, buff_lists_generated;
   std::string action_dpet_chart, action_dmg_chart, time_spent_chart;
-  std::array<std::string, RESOURCE_MAX> timeline_resource_chart, gains_chart;
-  std::array<std::string, STAT_MAX> timeline_stat_chart;
-  std::string timeline_dps_chart, timeline_dps_error_chart, timeline_resource_health_chart;
+  std::array<std::string, RESOURCE_MAX> gains_chart;
+  std::string timeline_dps_error_chart, timeline_resource_health_chart;
   std::string distribution_dps_chart, scaling_dps_chart, scale_factors_chart;
   std::string reforge_dps_chart, dps_error_chart, distribution_deaths_chart;
-  std::string health_change_chart, health_change_sliding_chart;
   std::string gear_weights_lootrank_link, gear_weights_wowhead_std_link, gear_weights_wowhead_alt_link, gear_weights_askmrrobot_link;
   std::string gear_weights_pawn_std_string, gear_weights_pawn_alt_string;
   std::string save_str;

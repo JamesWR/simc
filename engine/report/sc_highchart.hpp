@@ -5,8 +5,6 @@
 #ifndef SC_HIGHCHART_HPP
 #define SC_HIGHCHART_HPP
 
-#include "simulationcraft.hpp"
-
 #include "rapidjson/document.h"
 #include "rapidjson/stringbuffer.h"
 #include "rapidjson/prettywriter.h"
@@ -27,10 +25,12 @@ struct chart_t
   void set_title( const std::string& title );
   void set_xaxis_title( const std::string& label );
   void set_yaxis_title( const std::string& label );
+  void set_xaxis_max( double max );
   void add_series( const std::string& color, const std::string& name, const std::vector<double>& series );
 
   virtual std::string to_string() const;
   virtual std::string to_json() const;
+  virtual std::string to_xml() const;
 
   // Set the value of JSON object indicated by path to value_
   template <typename T>
@@ -66,6 +66,8 @@ struct chart_t
   chart_t& add( const std::string& path, double x, double y );
 
   static std::string build_id( const stats_t* stats );
+  static std::string build_id( const player_t* actor, const std::string& suffix );
+  static std::string build_id( const buff_t* buff, const std::string& suffix );
 
 protected:
   // Find the Value object given by a path, and construct any missing objects along the way
@@ -93,8 +95,8 @@ struct time_series_t : public chart_t
 {
   time_series_t( const std::string& id_str, const sim_t* sim );
 
-
   void set_mean( double value_ );
+  void set_max( double value_ );
   std::string build_id( const stats_t* stats );
 };
 

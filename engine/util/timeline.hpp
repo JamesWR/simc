@@ -117,10 +117,20 @@ public:
   }
 
   double mean() const
-  { return statistics::calculate_mean( data().begin(), data().end() ); }
+  { 
+    if ( data().size() == 0 )
+      return 0;
+
+    return statistics::calculate_mean( data().begin(), data().end() );
+  }
 
   double mean_stddev() const
-  { return statistics::calculate_mean_stddev( data().begin(), data().end() ); }
+  { 
+    if ( data().size() == 0 )
+      return 0;
+
+    return statistics::calculate_mean_stddev( data().begin(), data().end() ); 
+  }
 
   // Merge with other timeline
   void merge( const timeline_t& other )

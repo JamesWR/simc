@@ -328,29 +328,6 @@ std::string school_color( school_e type )
   }
 }
 
-std::string stat_color( stat_e type )
-{
-  switch ( type )
-  {
-    case STAT_STRENGTH:                 return class_color( WARRIOR );
-    case STAT_AGILITY:                  return class_color( HUNTER );
-    case STAT_INTELLECT:                return class_color( MAGE );
-    case STAT_SPIRIT:                   return color::darker_silver;
-    case STAT_ATTACK_POWER:             return class_color( ROGUE );
-    case STAT_SPELL_POWER:              return class_color( WARLOCK );
-    case STAT_READINESS_RATING:         return class_color( DEATH_KNIGHT );
-    case STAT_CRIT_RATING:              return class_color( PALADIN );
-    case STAT_HASTE_RATING:             return class_color( SHAMAN );
-    case STAT_MASTERY_RATING:           return class_color( ROGUE );
-    case STAT_MULTISTRIKE_RATING:       return color::mix( color::red, color::tan );
-    case STAT_DODGE_RATING:             return class_color( MONK );
-    case STAT_PARRY_RATING:             return color::teal;
-    case STAT_ARMOR:                    return class_color( PRIEST );
-    case STAT_BONUS_ARMOR:              return class_color( PRIEST );
-    default:                            return std::string();
-  }
-}
-
 std::string get_color( player_t* p )
 {
   player_e type;
@@ -1766,7 +1743,7 @@ std::string chart::reforge_dps( player_t* p )
 }
 
 // chart::timeline ==========================================================
-
+/*
 std::string chart::timeline(  player_t* p,
                               const std::vector<double>& timeline_data,
                               const std::string& timeline_name,
@@ -1855,7 +1832,7 @@ std::string chart::timeline(  player_t* p,
   setlocale( LC_ALL, old_locale );
   return s.str();
 }
-
+*/
 // chart::timeline_dps_error ================================================
 
 std::string chart::timeline_dps_error( player_t* p )
@@ -2573,6 +2550,29 @@ std::string chart::resource_color( int type )
   }
 }
 
+std::string chart::stat_color( stat_e type )
+{
+  switch ( type )
+  {
+    case STAT_STRENGTH:                 return class_color( WARRIOR );
+    case STAT_AGILITY:                  return class_color( HUNTER );
+    case STAT_INTELLECT:                return class_color( MAGE );
+    case STAT_SPIRIT:                   return color::darker_silver;
+    case STAT_ATTACK_POWER:             return class_color( ROGUE );
+    case STAT_SPELL_POWER:              return class_color( WARLOCK );
+    case STAT_READINESS_RATING:         return class_color( DEATH_KNIGHT );
+    case STAT_CRIT_RATING:              return class_color( PALADIN );
+    case STAT_HASTE_RATING:             return class_color( SHAMAN );
+    case STAT_MASTERY_RATING:           return class_color( ROGUE );
+    case STAT_MULTISTRIKE_RATING:       return color::mix( color::red, color::tan );
+    case STAT_DODGE_RATING:             return class_color( MONK );
+    case STAT_PARRY_RATING:             return color::teal;
+    case STAT_ARMOR:                    return class_color( PRIEST );
+    case STAT_BONUS_ARMOR:              return class_color( PRIEST );
+    default:                            return std::string();
+  }
+}
+
 /* Creates a normal distribution chart for p.dps
  *
  */
@@ -2582,12 +2582,13 @@ std::string chart::dps_error( player_t& p )
 }
 
 // Generate a "standard" timeline highcharts object as a string based on a stats_t object
-std::string chart::stats_time_series( const stats_t* s, bool json )
+highchart::time_series_t chart::generate_stats_timeline( const stats_t* s )
 {
   sc_timeline_t timeline_aps;
   s -> timeline_amount.build_derivative_timeline( timeline_aps );
 
   highchart::time_series_t ts( highchart::chart_t::build_id( s ), s -> player -> sim );
+  ts.height_ = 200;
   if ( s -> type == STATS_DMG )
   {
     ts.set_yaxis_title( "Damage per second" );
@@ -2606,9 +2607,42 @@ std::string chart::stats_time_series( const stats_t* s, bool json )
   ts.add_series( area_color, s -> type == STATS_DMG ? "DPS" : "HPS", timeline_aps.data() );
   ts.set_mean( s -> portion_aps.mean() );
 
-  if ( json )
-    return ts.to_json();
-  else
-    return ts.to_string();
+  return ts;
+}
+
+highchart::time_series_t chart::generate_actor_dps_series( const player_t* p )
+{
+  sc_timeline_t timeline_dps;
+  p -> collected_data.timeline_dmg.build_derivative_timeline( timeline_dps );
+
+  highchart::time_series_t ts( highchart::chart_t::build_id( p, "dps" ), p -> sim );
+  ts.set_yaxis_title( "Damage per second" );
+  ts.set_title( p -> name_str + " Damage per second" );
+  ts.add_series( class_color( p -> type ), "DPS", timeline_dps.data() );
+  ts.set_mean( p -> collected_data.dps.mean() );
+  ts.set_max( p -> collected_data.dps.max() );
+
+  return ts;
+}
+
+highchart::time_series_t chart::generate_actor_timeline( const player_t*      p,
+                                                         const std::string&   id_str,
+                                                         const std::string&   attribute,
+                                                         const std::string&   series_color,
+                                                         const sc_timeline_t& data )
+{
+  highchart::time_series_t ts( highchart::chart_t::build_id( p, id_str ), p -> sim );
+  std::string attr_str = util::inverse_tokenize( attribute );
+  ts.set_title( p -> name_str + " " + attr_str );
+  ts.set_yaxis_title( "Average " + attr_str );
+  ts.add_series( series_color, attr_str, data.data() );
+  ts.set_xaxis_max( p -> sim -> simulation_length.max() );
+  if ( data.mean() != 0 )
+    ts.set_mean( data.mean() );
+
+  if ( data.max() != 0 )
+    ts.set_max( data.max() );
+
+  return ts;
 }
 

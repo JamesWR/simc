@@ -7,6 +7,7 @@
 #define SC_REPORT_HPP
 
 #include "simulationcraft.hpp"
+#include "sc_highchart.hpp"
 #include <fstream>
 
 struct player_t;
@@ -22,6 +23,7 @@ namespace chart
 enum chart_e { HORIZONTAL_BAR_STACKED, HORIZONTAL_BAR, VERTICAL_BAR, PIE, LINE, XY_LINE };
 
 std::string resource_color( int type );
+std::string stat_color( stat_e stat );
 std::string raid_downtime ( std::vector<player_t*> &players_by_name, int print_styles = 0 );
 size_t raid_aps ( std::vector<std::string>& images, sim_t*, std::vector<player_t*>&, bool dps );
 size_t raid_dpet( std::vector<std::string>& images, sim_t* );
@@ -31,7 +33,7 @@ std::string action_dpet        ( player_t* );
 std::string aps_portion        ( player_t* );
 std::string time_spent         ( player_t* );
 std::string gains              ( player_t*, resource_e );
-std::string timeline           ( player_t*, const std::vector<double>&, const std::string&, double avg = 0, std::string color = "FDD017", size_t max_length = 0 );
+///std::string timeline           ( player_t*, const std::vector<double>&, const std::string&, double avg = 0, std::string color = "FDD017", size_t max_length = 0 );
 std::string timeline_dps_error ( player_t* );
 std::string scale_factors      ( player_t* );
 std::string scaling_dps        ( player_t* );
@@ -49,6 +51,13 @@ std::string gear_weights_pawn      ( player_t*, bool hit_expertise );
 
 std::string stats_time_series( const stats_t* s, bool json = false );
 
+highchart::time_series_t generate_stats_timeline( const stats_t* s );
+highchart::time_series_t generate_actor_timeline( const player_t*      p,
+                                                  const std::string&   id_str,
+                                                  const std::string&   attribute,
+                                                  const std::string&   series_color,
+                                                  const sc_timeline_t& data );
+highchart::time_series_t generate_actor_dps_series( const player_t* p );
 
 } // end namespace sc_chart
 

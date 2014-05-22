@@ -951,12 +951,6 @@ void report::generate_player_charts( player_t* p, player_processed_report_inform
   std::string encoded_name = p -> name_str;
   util::urlencode( encoded_name );
 
-  {
-    sc_timeline_t timeline_dps;
-    p -> collected_data.timeline_dmg.build_derivative_timeline( timeline_dps );
-    ri.timeline_dps_chart = chart::timeline( p, timeline_dps.data(), encoded_name + " DPS", cd.dps.mean() );
-  }
-
   ri.timeline_dps_error_chart = chart::timeline_dps_error( p );
   ri.dps_error_chart = chart::dps_error( *p );
 
@@ -987,51 +981,7 @@ void report::generate_player_charts( player_t* p, player_processed_report_inform
   for ( size_t i = 0; i < cd.resource_timelines.size(); ++i )
   {
     resource_e rt = cd.resource_timelines[ i ].type;
-    ri.timeline_resource_chart[ rt ] =
-      chart::timeline( p,
-                       cd.resource_timelines[ i ].timeline.data(),
-                       encoded_name + ' ' + util::inverse_tokenize( util::resource_type_string( rt ) ),
-                       cd.resource_timelines[ i ].timeline.mean(),
-                       chart::resource_color( rt ),
-                       max_buckets );
     ri.gains_chart[ rt ] = chart::gains( p, rt );
-  }
-
-  // Stat Charts
-  for ( size_t i = 0; i < cd.stat_timelines.size(); ++i )
-  {
-    stat_e st = cd.stat_timelines[ i ].type;
-    if ( cd.stat_timelines[ i ].timeline.mean() >  0 )
-    {
-      ri.timeline_stat_chart[ st ] =
-        chart::timeline( p,
-                         cd.stat_timelines[ i ].timeline.data(),
-                         encoded_name + ' ' + util::inverse_tokenize( util::stat_type_string( st ) ),
-                         cd.stat_timelines[ i ].timeline.mean(),
-                         "FFFFFF",
-                         max_buckets );
-    }
-  }
-
-  if ( ! p -> is_pet() && p -> primary_role() == ROLE_TANK )
-  {
-    ri.health_change_chart =
-      chart::timeline( p,
-                       cd.health_changes.merged_timeline.data(),
-                       encoded_name + ' ' + "Health Change",
-                       cd.health_changes.merged_timeline.mean(),
-                       chart::resource_color( RESOURCE_HEALTH ),
-                       max_buckets );
-
-    sc_timeline_t sliding_average_tl;
-    cd.health_changes.merged_timeline.build_sliding_average_timeline( sliding_average_tl, 6 );
-    ri.health_change_sliding_chart =
-      chart::timeline( p,
-                       sliding_average_tl.data(),
-                       encoded_name + ' ' + "Health Change (moving average, 6s window)",
-                       sliding_average_tl.mean(),
-                       chart::resource_color( RESOURCE_HEALTH ),
-                       max_buckets );
   }
 
   // Scaling charts
