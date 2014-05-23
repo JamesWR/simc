@@ -2589,6 +2589,7 @@ highchart::time_series_t chart::generate_stats_timeline( const stats_t* s )
 
   highchart::time_series_t ts( highchart::chart_t::build_id( s ), s -> player -> sim );
   ts.height_ = 200;
+  ts.set( "yAxis.min", 0 );
   if ( s -> type == STATS_DMG )
   {
     ts.set_yaxis_title( "Damage per second" );
@@ -2616,6 +2617,7 @@ highchart::time_series_t chart::generate_actor_dps_series( const player_t* p )
   p -> collected_data.timeline_dmg.build_derivative_timeline( timeline_dps );
 
   highchart::time_series_t ts( highchart::chart_t::build_id( p, "dps" ), p -> sim );
+  ts.set( "yAxis.min", 0 );
   ts.set_yaxis_title( "Damage per second" );
   ts.set_title( p -> name_str + " Damage per second" );
   ts.add_series( class_color( p -> type ), "DPS", timeline_dps.data() );
