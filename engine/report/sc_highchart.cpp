@@ -13,6 +13,7 @@ static const char* TEXT_MAX_COLOR    = "#8888CC";
 
 static const char* CHART_BGCOLOR     = "#333333";
 static const char* CHART_BGCOLOR_ALT = "white";
+
 }
 
 using namespace highchart;
@@ -322,7 +323,17 @@ time_series_t::time_series_t( const std::string& id_str, const sim_t* sim ) :
   }
 }
 
-void time_series_t::set_mean( double value_ )
+/**
+ * Add y-axis plotline to the chart at value_ height. If name is given, a
+ * subtitle will be added to the chart, stating name_=value_. Both the line and
+ * the text use color_. line_width_ sets the line width of the plotline. If
+ * there are multiple plotlines defined, the subtitle text will be concatenated
+ * at the end.
+ */
+time_series_t& time_series_t::add_yplotline( double value_,
+                                             const std::string& name_,
+                                             double line_width_,
+                                             const std::string& color_ )
 {
   if ( rapidjson::Value* obj = path_value( "yAxis.plotLines" ) )
   {
@@ -332,12 +343,18 @@ void time_series_t::set_mean( double value_ )
     set( "subtitle.style.fontsize", "10px" );
     set( "subtitle.style.textShadow", TEXT_OUTLINE );
 
+    std::string color = color_;
+    if ( color.empty() )
+      color = "#FFFFFF";
+
     if ( rapidjson::Value* text_v = path_value( "subtitle.text" ) )
     {
       std::string mean_str = "<span style=\"color: ";
-      mean_str += TEXT_MEAN_COLOR;
+      mean_str += color;
       mean_str += ";\">";
-      mean_str += "mean=" + util::to_string( value_ );
+      if ( ! name_.empty() )
+        mean_str += name_ + "=";
+      mean_str += util::to_string( value_ );
       mean_str += "</span>";
 
       if ( text_v -> GetType() == rapidjson::kStringType )
@@ -347,47 +364,32 @@ void time_series_t::set_mean( double value_ )
     }
 
     rapidjson::Value new_obj( rapidjson::kObjectType );
-    set( new_obj, "color", TEXT_MEAN_COLOR );
+    set( new_obj, "color", color );
     set( new_obj, "value", value_ );
-    set( new_obj, "width", 1.25 );
+    set( new_obj, "width", line_width_ );
     set( new_obj, "zIndex", 5 );
 
     obj -> PushBack( new_obj, js_.GetAllocator() );
   }
+
+  return *this;
 }
 
-void time_series_t::set_max( double value_ )
+time_series_t& time_series_t::set_mean( double value_, const std::string& color )
 {
-  if ( rapidjson::Value* obj = path_value( "yAxis.plotLines" ) )
-  {
-    if ( obj -> GetType() != rapidjson::kArrayType )
-      obj -> SetArray();
+  std::string mean_color = color;
+  if ( mean_color.empty() )
+    mean_color = TEXT_MEAN_COLOR;
 
-    set( "subtitle.style.fontsize", "10px" );
-    set( "subtitle.style.color", TEXT_MAX_COLOR );
-    set( "subtitle.style.textShadow", TEXT_OUTLINE );
+  return add_yplotline( value_, "mean", 1.25, mean_color );
+}
 
-    if ( rapidjson::Value* text_v = path_value( "subtitle.text" ) )
-    {
-      std::string max_str = "<span style=\"color: ";
-      max_str += TEXT_MAX_COLOR;
-      max_str += ";\">";
-      max_str += "max=" + util::to_string( value_ );
-      max_str += "</span>";
+time_series_t& time_series_t::set_max( double value_, const std::string& color )
+{
+  std::string max_color = color;
+  if ( max_color.empty() )
+    max_color = TEXT_MAX_COLOR;
 
-      if ( text_v -> GetType() == rapidjson::kStringType )
-        max_str = std::string( text_v -> GetString() ) + ", " + max_str;
-
-      text_v -> SetString( max_str.c_str(), max_str.size(), js_.GetAllocator() );
-    }
-
-    rapidjson::Value new_obj( rapidjson::kObjectType );
-    set( new_obj, "color", TEXT_MAX_COLOR );
-    set( new_obj, "value", value_ );
-    set( new_obj, "width", 1.25 );
-    set( new_obj, "zIndex", 5 );
-
-    obj -> PushBack( new_obj, js_.GetAllocator() );
-  }
+  return add_yplotline( value_, "max", 1.25, max_color );
 }
 

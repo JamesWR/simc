@@ -95,9 +95,14 @@ struct time_series_t : public chart_t
 {
   time_series_t( const std::string& id_str, const sim_t* sim );
 
-  void set_mean( double value_ );
-  void set_max( double value_ );
+  time_series_t& set_mean( double value_, const std::string& color = std::string() );
+  time_series_t& set_max( double value_, const std::string& color = std::string() );
   std::string build_id( const stats_t* stats );
+
+  time_series_t& add_yplotline( double value_,
+                                const std::string& name_,
+                                double line_width_ = 1.25,
+                                const std::string& color_ = std::string() );
 };
 
 template <typename T>

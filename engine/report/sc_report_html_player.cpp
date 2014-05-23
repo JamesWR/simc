@@ -2183,6 +2183,8 @@ void print_html_player_resources( report::sc_html_stream& os, player_t* p, playe
                                                                   resource_str,
                                                                   chart::resource_color( timeline.type ), 
                                                                   timeline.timeline );
+    ts.set_mean( timeline.timeline.mean() );
+
     os << ts.to_string();
   }
   if ( p -> primary_role() == ROLE_TANK ) // Experimental, restrict to tanks for now
@@ -2193,6 +2195,7 @@ void print_html_player_resources( report::sc_html_stream& os, player_t* p, playe
                                                                      chart::resource_color( RESOURCE_HEALTH ),
                                                                      p -> collected_data.health_changes.merged_timeline );
 
+    chart.set_mean( p -> collected_data.health_changes.merged_timeline.mean() );
     os << chart.to_string();
 
     sc_timeline_t sliding_average_tl;
@@ -2202,6 +2205,7 @@ void print_html_player_resources( report::sc_html_stream& os, player_t* p, playe
                                                                       "Health Change (moving average, 6s window)",
                                                                       chart::resource_color( RESOURCE_HEALTH ),
                                                                       sliding_average_tl );
+    chart2.set_mean( sliding_average_tl.mean() );
     os << chart2.to_string();
 
 
@@ -2370,6 +2374,7 @@ void print_html_player_charts( report::sc_html_stream& os, sim_t* sim, player_t*
                                                                   stat_str,
                                                                   chart::stat_color( p -> collected_data.stat_timelines[ i ].type ), 
                                                                   p -> collected_data.stat_timelines[ i ].timeline );
+    ts.set_mean( p -> collected_data.stat_timelines[ i ].timeline.mean() );
     os << ts.to_string();
   }
 

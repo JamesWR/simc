@@ -2620,7 +2620,6 @@ highchart::time_series_t chart::generate_actor_dps_series( const player_t* p )
   ts.set_title( p -> name_str + " Damage per second" );
   ts.add_series( class_color( p -> type ), "DPS", timeline_dps.data() );
   ts.set_mean( p -> collected_data.dps.mean() );
-  ts.set_max( p -> collected_data.dps.max() );
 
   return ts;
 }
@@ -2637,11 +2636,6 @@ highchart::time_series_t chart::generate_actor_timeline( const player_t*      p,
   ts.set_yaxis_title( "Average " + attr_str );
   ts.add_series( series_color, attr_str, data.data() );
   ts.set_xaxis_max( p -> sim -> simulation_length.max() );
-  if ( data.mean() != 0 )
-    ts.set_mean( data.mean() );
-
-  if ( data.max() != 0 )
-    ts.set_max( data.max() );
 
   return ts;
 }
