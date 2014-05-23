@@ -163,7 +163,7 @@ std::string output_action_name( stats_t* s, player_t* actor )
 
   wowhead::wowhead_e domain = SC_BETA ? wowhead::BETA : wowhead::LIVE;
   if ( ! SC_BETA )
-    domain = a -> player -> dbc.ptr ? wowhead::PTR : wowhead::LIVE;
+    domain = s -> player -> dbc.ptr ? wowhead::PTR : wowhead::LIVE;
 
   std::string name = wowhead::decorated_action_name( s -> name_str, a, domain );
 
@@ -717,7 +717,7 @@ void print_html_action_info( report::sc_html_stream& os, unsigned stats_mask, st
         "\t\t\t\t\t\t\t\t\t\t</ul>\n"
         "\t\t\t\t\t\t\t\t\t</div>\n",
         a -> id,
-        util::school_type_string( a-> school ),
+        util::school_type_string( a -> get_school() ),
         util::resource_type_string( a -> current_resource() ),
         a -> range,
         a -> travel_speed,
@@ -981,6 +981,15 @@ void print_html_profile ( report::sc_html_stream& os, player_t* a )
 void print_html_stats ( report::sc_html_stream& os, player_t* a )
 {
   player_collected_data_t::buffed_stats_t& buffed_stats = a -> collected_data.buffed_stats_snapshot;
+  std::array<double, ATTRIBUTE_MAX> hybrid_attributes;
+  range::fill( hybrid_attributes, 0 );
+
+  for ( slot_e i = SLOT_MIN; i < SLOT_MAX; i++ )
+    for ( attribute_e j = ATTR_STAMINA; ++j < ATTRIBUTE_MAX; )
+    {
+      hybrid_attributes[ a -> convert_hybrid_stat( static_cast<stat_e>( j ) ) ] += a -> items[ i ].stats.attribute[ j ];
+    }
+
 
   if ( a -> collected_data.fight_length.mean() > 0 )
   {
@@ -992,25 +1001,30 @@ void print_html_stats ( report::sc_html_stream& os, player_t* a )
        << "\t\t\t\t\t\t\t\t<table class=\"sc\">\n"
        << "\t\t\t\t\t\t\t\t\t<tr>\n"
        << "\t\t\t\t\t\t\t\t\t\t<th></th>\n"
-       << "\t\t\t\t\t\t\t\t\t\t<th>Raid-Buffed</th>\n"
-       << "\t\t\t\t\t\t\t\t\t\t<th>Unbuffed</th>\n"
-       << "\t\t\t\t\t\t\t\t\t\t<th>Gear Amount</th>\n"
+       << "\t\t\t\t\t\t\t\t\t\t<th><a href=\"#help-stats-raid-buffed\" class=\"help\">Raid-Buffed</a></th>\n"
+       << "\t\t\t\t\t\t\t\t\t\t<th><a href=\"#help-stats-unbuffed\" class=\"help\">Unbuffed</a></th>\n"
+       << "\t\t\t\t\t\t\t\t\t\t<th><a href=\"#help-stats-gear\" class=\"help\">Gear Amount</a></th>\n"
        << "\t\t\t\t\t\t\t\t\t</tr>\n";
 
-    for ( attribute_e i = ATTRIBUTE_NONE; ++i < ATTRIBUTE_MAX; )
+    for ( attribute_e i = ATTRIBUTE_NONE; ++i < ATTR_AGI_INT; )
     {
       os.printf(
         "\t\t\t\t\t\t\t\t\t<tr%s>\n"
         "\t\t\t\t\t\t\t\t\t\t<th class=\"left\">%s</th>\n"
         "\t\t\t\t\t\t\t\t\t\t<td class=\"right\">%.0f</td>\n"
         "\t\t\t\t\t\t\t\t\t\t<td class=\"right\">%.0f</td>\n"
-        "\t\t\t\t\t\t\t\t\t\t<td class=\"right\">%.0f</td>\n"
-        "\t\t\t\t\t\t\t\t\t</tr>\n",
+        "\t\t\t\t\t\t\t\t\t\t<td class=\"right\">%.0f",
         ( j % 2 == 1 ) ? " class=\"odd\"" : "",
         util::inverse_tokenize( util::attribute_type_string( i ) ).c_str(),
         buffed_stats.attribute[ i ],
         a -> get_attribute( i ),
         a -> initial.stats.attribute[ i ] );
+      // append hybrid attributes as a parenthetical if appropriate
+      if ( hybrid_attributes[ i ] > 0 )
+        os.printf( " (%.0f)", hybrid_attributes[ i ]);
+
+      os.printf( "</td>\n\t\t\t\t\t\t\t\t\t</tr>\n");
+        
       j++;
     }
     for ( resource_e i = RESOURCE_NONE; ++i < RESOURCE_MAX; )
@@ -1224,37 +1238,40 @@ void print_html_stats ( report::sc_html_stream& os, player_t* a )
       100.0 * a -> cache.mastery_value(),
       a -> initial.stats.mastery_rating );
     j++;
-    if ( a -> dual_wield() )
+    if ( buffed_stats.mh_attack_expertise > 0 )
     {
-      os.printf(
-        "\t\t\t\t\t\t\t\t\t<tr%s>\n"
-        "\t\t\t\t\t\t\t\t\t\t<th class=\"left\">Expertise</th>\n"
-        "\t\t\t\t\t\t\t\t\t\t<td class=\"right\">%.2f%% / %.2f%%</td>\n"
-        "\t\t\t\t\t\t\t\t\t\t<td class=\"right\">%.2f%% / %.2f%% </td>\n"
-        "\t\t\t\t\t\t\t\t\t\t<td class=\"right\">%.0f </td>\n"
-        "\t\t\t\t\t\t\t\t\t</tr>\n",
-        ( j % 2 == 1 ) ? " class=\"odd\"" : "",
-        100 * buffed_stats.mh_attack_expertise,
-        100 * buffed_stats.oh_attack_expertise,
-        100 * a -> composite_melee_expertise( &( a -> main_hand_weapon ) ),
-        100 * a -> composite_melee_expertise( &( a -> off_hand_weapon ) ),
-        a -> initial.stats.expertise_rating );
-      j++;
-    }
-    else
-    {
-      os.printf(
-        "\t\t\t\t\t\t\t\t\t<tr%s>\n"
-        "\t\t\t\t\t\t\t\t\t\t<th class=\"left\">Expertise</th>\n"
-        "\t\t\t\t\t\t\t\t\t\t<td class=\"right\">%.2f%%</td>\n"
-        "\t\t\t\t\t\t\t\t\t\t<td class=\"right\">%.2f%% </td>\n"
-        "\t\t\t\t\t\t\t\t\t\t<td class=\"right\">%.0f </td>\n"
-        "\t\t\t\t\t\t\t\t\t</tr>\n",
-        ( j % 2 == 1 ) ? " class=\"odd\"" : "",
-        100 * buffed_stats.mh_attack_expertise,
-        100 * a -> composite_melee_expertise( &( a -> main_hand_weapon ) ),
-        a -> initial.stats.expertise_rating );
-      j++;
+      if ( a -> dual_wield() )
+      {
+        os.printf(
+          "\t\t\t\t\t\t\t\t\t<tr%s>\n"
+          "\t\t\t\t\t\t\t\t\t\t<th class=\"left\">Expertise</th>\n"
+          "\t\t\t\t\t\t\t\t\t\t<td class=\"right\">%.2f%% / %.2f%%</td>\n"
+          "\t\t\t\t\t\t\t\t\t\t<td class=\"right\">%.2f%% / %.2f%% </td>\n"
+          "\t\t\t\t\t\t\t\t\t\t<td class=\"right\">%.0f </td>\n"
+          "\t\t\t\t\t\t\t\t\t</tr>\n",
+          ( j % 2 == 1 ) ? " class=\"odd\"" : "",
+          100 * buffed_stats.mh_attack_expertise,
+          100 * buffed_stats.oh_attack_expertise,
+          100 * a -> composite_melee_expertise( &( a -> main_hand_weapon ) ),
+          100 * a -> composite_melee_expertise( &( a -> off_hand_weapon ) ),
+          a -> initial.stats.expertise_rating );
+        j++;
+      }
+      else
+      {
+        os.printf(
+          "\t\t\t\t\t\t\t\t\t<tr%s>\n"
+          "\t\t\t\t\t\t\t\t\t\t<th class=\"left\">Expertise</th>\n"
+          "\t\t\t\t\t\t\t\t\t\t<td class=\"right\">%.2f%%</td>\n"
+          "\t\t\t\t\t\t\t\t\t\t<td class=\"right\">%.2f%% </td>\n"
+          "\t\t\t\t\t\t\t\t\t\t<td class=\"right\">%.0f </td>\n"
+          "\t\t\t\t\t\t\t\t\t</tr>\n",
+          ( j % 2 == 1 ) ? " class=\"odd\"" : "",
+          100 * buffed_stats.mh_attack_expertise,
+          100 * a -> composite_melee_expertise( &( a -> main_hand_weapon ) ),
+          a -> initial.stats.expertise_rating );
+        j++;
+      }
     }
     os.printf(
       "\t\t\t\t\t\t\t\t\t<tr%s>\n"
@@ -2668,6 +2685,9 @@ void print_html_player_description( report::sc_html_stream& os, sim_t* sim, play
         os.printf( ", %.3fk ETMI", etmi_display / 1.0e3 );
       else
         os.printf( ", %.1fk ETMI", etmi_display / 1.0e3 );
+      // if we're using a non-standard window, append that to the label appropriately (i.e. TMI-4.0 for a 4.0-second window)
+      if ( p -> tmi_window != 6.0 )
+        os.printf( "-%1.1f", p -> tmi_window );
     }
 
     os << "\n";
@@ -2864,10 +2884,13 @@ void print_html_player_results_spec_gear( report::sc_html_stream& os, sim_t* sim
        << "\t\t\t\t\t\t\t\t<th><a href=\"#help-tmi\" class=\"help\">TMI Max</a></th>\n"
        << "\t\t\t\t\t\t\t\t<th><a href=\"#help-tmirange\" class=\"help\">TMI Range</a></th>\n"
        << "\t\t\t\t\t\t\t\t<th>&nbsp</th>\n"
-       << "\t\t\t\t\t\t\t\t<th><a href=\"#help-msd\" class=\"help\">MSD Mean</a></th>\n"
-       << "\t\t\t\t\t\t\t\t<th><a href=\"#help-msd\" class=\"help\">MSD Min</a></th>\n"
-       << "\t\t\t\t\t\t\t\t<th><a href=\"#help-msd\" class=\"help\">MSD Max</a></th>\n"
+       << "\t\t\t\t\t\t\t\t<th><a href=\"#help-msd" << p -> actor_index << "\" class=\"help\">MSD Mean</a></th>\n"
+       << "\t\t\t\t\t\t\t\t<th><a href=\"#help-msd" << p -> actor_index << "\" class=\"help\">MSD Min</a></th>\n"
+       << "\t\t\t\t\t\t\t\t<th><a href=\"#help-msd" << p -> actor_index << "\" class=\"help\">MSD Max</a></th>\n"
        << "\t\t\t\t\t\t\t\t<th><a href=\"#help-msd-freq\" class=\"help\">MSD Freq.</a></th>\n"
+       << "\t\t\t\t\t\t\t\t<th>&nbsp</th>\n"
+       << "\t\t\t\t\t\t\t\t<th><a href=\"#help-tmiwin\" class=\"help\">Window</a></th>\n"
+       << "\t\t\t\t\t\t\t\t<th><a href=\"#help-tmibin\" class=\"help\">Bin Size</a></th>\n"
        << "\t\t\t\t\t\t\t</tr>\n" // end second row
        << "\t\t\t\t\t\t\t<tr>\n"; // start third row
 
@@ -2938,6 +2961,13 @@ void print_html_player_results_spec_gear( report::sc_html_stream& os, sim_t* sim
     
     // print rough estimate of spike frequency
     os.printf( "\t\t\t\t\t\t\t\t<td>%.1f</td>\n", cd.theck_meloree_index.mean() ? std::exp( cd.theck_meloree_index.mean() / 1e3 / cd.max_spike_amount.mean() ) : 0.0 );
+    
+    // spacer
+    os << "\t\t\t\t\t\t\t\t<td>&nbsp&nbsp&nbsp&nbsp&nbsp</td>\n";
+
+    // print TMI window and bin size
+    os.printf( "\t\t\t\t\t\t\t\t<td>%.2fs</td>\n", p -> tmi_window);
+    os.printf( "\t\t\t\t\t\t\t\t<td>%.2fs</td>\n", sim -> tmi_bin_size );
 
     // End defensive table
     os << "\t\t\t\t\t\t\t</tr>\n"
@@ -3082,7 +3112,7 @@ bool is_output_stat( unsigned mask, bool child, const stats_t* s )
   if ( ! ( ( 1 << s -> type ) & mask ) )
     return false;
 
-  if ( s -> num_executes.mean() <= 1 && s -> compound_amount == 0 && ! s -> player -> sim -> debug )
+  if ( s -> num_executes.mean() <= 0.001 && s -> compound_amount == 0 && ! s -> player -> sim -> debug )
     return false;
 
   // If we are checking output on a non-child stats object, only return false
