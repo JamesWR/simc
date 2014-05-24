@@ -372,9 +372,10 @@ void print_xml_player_actions( xml_writer_t & writer, player_t* p )
 
       if ( s -> has_direct_amount_results() || s -> has_tick_amount_results() )
       {
+        highchart::time_series_t ts( highchart::build_id( s ), s -> player -> sim );
         writer.begin_tag( "chart" );
         writer.print_attribute( "type", "timeline_aps" );
-        writer.print_text( chart::generate_stats_timeline( s ).to_string() );
+        writer.print_text( chart::generate_stats_timeline( ts, s ).to_xml() );
         writer.end_tag( "chart" );
       }
 
@@ -764,9 +765,10 @@ void print_xml_player_charts( xml_writer_t & writer, player_processed_report_inf
 
   if ( p -> collected_data.dps.mean() > 0 )
   {
+    highchart::time_series_t ts( highchart::build_id( p, "dps" ), p -> sim );
     writer.begin_tag( "chart" );
     writer.print_attribute( "type", "timeline_dps" );
-    writer.print_text( chart::generate_actor_dps_series( p ).to_xml() );
+    writer.print_text( chart::generate_actor_dps_series( ts, p ).to_xml() );
     writer.end_tag( "chart" );
   }
 

@@ -18,7 +18,7 @@ static const char* CHART_BGCOLOR_ALT = "white";
 
 using namespace highchart;
 
-std::string chart_t::build_id( const stats_t* stats )
+std::string highchart::build_id( const stats_t* stats )
 {
   std::string s;
 
@@ -28,14 +28,14 @@ std::string chart_t::build_id( const stats_t* stats )
   return s;
 }
    
-std::string chart_t::build_id( const player_t* actor, const std::string& suffix )
+std::string highchart::build_id( const player_t* actor, const std::string& suffix )
 {
   std::string s = "actor" + util::to_string( actor -> index );
   s += suffix;
   return s;
 }
 
-std::string chart_t::build_id( const buff_t* buff, const std::string& suffix )
+std::string highchart::build_id( const buff_t* buff, const std::string& suffix )
 {
   std::string s = "buff_" + buff -> name_str;
   if ( buff -> player )

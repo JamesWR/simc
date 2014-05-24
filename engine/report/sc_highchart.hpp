@@ -11,6 +11,9 @@
 
 namespace highchart
 {
+std::string build_id( const stats_t* stats );
+std::string build_id( const player_t* actor, const std::string& suffix );
+std::string build_id( const buff_t* buff, const std::string& suffix );
 
 struct chart_t
 {
@@ -65,10 +68,6 @@ struct chart_t
   chart_t& add( const std::string& path, double x, double low, double high );
   chart_t& add( const std::string& path, double x, double y );
 
-  static std::string build_id( const stats_t* stats );
-  static std::string build_id( const player_t* actor, const std::string& suffix );
-  static std::string build_id( const buff_t* buff, const std::string& suffix );
-
 protected:
   // Find the Value object given by a path, and construct any missing objects along the way
   rapidjson::Value* path_value( const std::string& path );
@@ -97,7 +96,7 @@ struct time_series_t : public chart_t
 
   time_series_t& set_mean( double value_, const std::string& color = std::string() );
   time_series_t& set_max( double value_, const std::string& color = std::string() );
-  std::string build_id( const stats_t* stats );
+
 
   time_series_t& add_yplotline( double value_,
                                 const std::string& name_,

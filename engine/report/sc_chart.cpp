@@ -2582,12 +2582,11 @@ std::string chart::dps_error( player_t& p )
 }
 
 // Generate a "standard" timeline highcharts object as a string based on a stats_t object
-highchart::time_series_t chart::generate_stats_timeline( const stats_t* s )
+highchart::time_series_t& chart::generate_stats_timeline( highchart::time_series_t& ts, const stats_t* s )
 {
   sc_timeline_t timeline_aps;
   s -> timeline_amount.build_derivative_timeline( timeline_aps );
 
-  highchart::time_series_t ts( highchart::chart_t::build_id( s ), s -> player -> sim );
   ts.height_ = 200;
   ts.set( "yAxis.min", 0 );
   if ( s -> type == STATS_DMG )
@@ -2611,12 +2610,11 @@ highchart::time_series_t chart::generate_stats_timeline( const stats_t* s )
   return ts;
 }
 
-highchart::time_series_t chart::generate_actor_dps_series( const player_t* p )
+highchart::time_series_t& chart::generate_actor_dps_series( highchart::time_series_t& ts, const player_t* p )
 {
   sc_timeline_t timeline_dps;
   p -> collected_data.timeline_dmg.build_derivative_timeline( timeline_dps );
 
-  highchart::time_series_t ts( highchart::chart_t::build_id( p, "dps" ), p -> sim );
   ts.set( "yAxis.min", 0 );
   ts.set_yaxis_title( "Damage per second" );
   ts.set_title( p -> name_str + " Damage per second" );
@@ -2626,13 +2624,12 @@ highchart::time_series_t chart::generate_actor_dps_series( const player_t* p )
   return ts;
 }
 
-highchart::time_series_t chart::generate_actor_timeline( const player_t*      p,
-                                                         const std::string&   id_str,
-                                                         const std::string&   attribute,
-                                                         const std::string&   series_color,
-                                                         const sc_timeline_t& data )
+highchart::time_series_t& chart::generate_actor_timeline( highchart::time_series_t& ts,
+                                                          const player_t*      p,
+                                                          const std::string&   attribute,
+                                                          const std::string&   series_color,
+                                                          const sc_timeline_t& data )
 {
-  highchart::time_series_t ts( highchart::chart_t::build_id( p, id_str ), p -> sim );
   std::string attr_str = util::inverse_tokenize( attribute );
   ts.set_title( p -> name_str + " " + attr_str );
   ts.set_yaxis_title( "Average " + attr_str );

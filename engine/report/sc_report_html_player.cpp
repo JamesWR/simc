@@ -671,7 +671,10 @@ void print_html_action_info( report::sc_html_stream& os, unsigned stats_mask, st
     os << "\t\t\t\t\t\t\t\t\t<div class=\"clear\">&nbsp;</div>\n";
 
     if ( s -> has_direct_amount_results() || s -> has_tick_amount_results() )
-      os << chart::generate_stats_timeline( s ).to_string();
+    {
+      highchart::time_series_t ts( highchart::build_id( s ), s -> player -> sim );
+      os << chart::generate_stats_timeline( ts, s ).to_string();
+    }
 
     os.printf(
       "\t\t\t\t\t\t\t\t\t%s\n",
@@ -2178,36 +2181,28 @@ void print_html_player_resources( report::sc_html_stream& os, player_t* p, playe
       continue;
 
     std::string resource_str = util::resource_type_string( timeline.type );
-    highchart::time_series_t ts = chart::generate_actor_timeline( p,
-                                                                  "resource_" + resource_str,
-                                                                  resource_str,
-                                                                  chart::resource_color( timeline.type ), 
-                                                                  timeline.timeline );
+
+    highchart::time_series_t ts = highchart::time_series_t( highchart::build_id( p, "resource_" + resource_str ), p -> sim );
+    chart::generate_actor_timeline( ts, p, resource_str, chart::resource_color( timeline.type ), timeline.timeline );
     ts.set_mean( timeline.timeline.mean() );
 
     os << ts.to_string();
   }
   if ( p -> primary_role() == ROLE_TANK ) // Experimental, restrict to tanks for now
   {
-    highchart::time_series_t chart = chart::generate_actor_timeline( p,
-                                                                     "health_change",
-                                                                     "Health Change",
-                                                                     chart::resource_color( RESOURCE_HEALTH ),
-                                                                     p -> collected_data.health_changes.merged_timeline );
-
+    highchart::time_series_t chart = highchart::time_series_t( highchart::build_id( p, "health_change" ), p -> sim );
+    chart::generate_actor_timeline( chart, p, "Health Change", chart::resource_color( RESOURCE_HEALTH ), p -> collected_data.health_changes.merged_timeline );
     chart.set_mean( p -> collected_data.health_changes.merged_timeline.mean() );
+
     os << chart.to_string();
 
     sc_timeline_t sliding_average_tl;
     p -> collected_data.health_changes.merged_timeline.build_sliding_average_timeline( sliding_average_tl, 6 );
-    highchart::time_series_t chart2 = chart::generate_actor_timeline( p,
-                                                                      "health_change_ma",
-                                                                      "Health Change (moving average, 6s window)",
-                                                                      chart::resource_color( RESOURCE_HEALTH ),
-                                                                      sliding_average_tl );
+    highchart::time_series_t chart2 = highchart::time_series_t( highchart::build_id( p, "health_change_ma" ), p -> sim );
+    chart::generate_actor_timeline( chart2, p, "Health Change (moving average, 6s window)", chart::resource_color( RESOURCE_HEALTH ), sliding_average_tl );
     chart2.set_mean( sliding_average_tl.mean() );
-    os << chart2.to_string();
 
+    os << chart2.to_string();
 
     if ( ! p -> is_enemy() )
     {
@@ -2273,7 +2268,7 @@ void print_html_player_charts( report::sc_html_stream& os, sim_t* sim, player_t*
 
   if ( p -> collected_data.timeline_dmg_taken.mean() > 0 )
   {
-    highchart::time_series_t dps_taken( highchart::chart_t::build_id( p, "dps_taken" ), p -> sim );
+    highchart::time_series_t dps_taken( highchart::build_id( p, "dps_taken" ), p -> sim );
     sc_timeline_t timeline_dps_taken;
     p -> collected_data.timeline_dmg_taken.build_derivative_timeline( timeline_dps_taken );
     dps_taken.set_yaxis_title( "Damage taken per second" );
@@ -2329,11 +2324,14 @@ void print_html_player_charts( report::sc_html_stream& os, sim_t* sim, player_t*
   }
 
   if ( p -> collected_data.dps.mean() > 0 )
-    os << chart::generate_actor_dps_series( p ).to_string();
+  {
+    highchart::time_series_t ts( highchart::build_id( p, "dps" ), p -> sim );
+    os << chart::generate_actor_dps_series( ts, p ).to_string();
+  }
 
   if ( p -> vengeance_timeline().mean() > 0 )
   {
-    highchart::time_series_t vengeance( highchart::chart_t::build_id( p, "vengeance" ), p -> sim );
+    highchart::time_series_t vengeance( highchart::build_id( p, "vengeance" ), p -> sim );
     vengeance.set_yaxis_title( "Attack Power" );
     vengeance.set_title( p -> name_str + " Vengeance attack power" );
     vengeance.add_series( "#FF0000", "Attack Power", p -> vengeance_timeline().data() );
@@ -2370,11 +2368,10 @@ void print_html_player_charts( report::sc_html_stream& os, sim_t* sim, player_t*
       continue;
 
     std::string stat_str = util::stat_type_string( p -> collected_data.stat_timelines[ i ].type );
-    highchart::time_series_t ts = chart::generate_actor_timeline( p, "stat_" + stat_str,
-                                                                  stat_str,
-                                                                  chart::stat_color( p -> collected_data.stat_timelines[ i ].type ), 
-                                                                  p -> collected_data.stat_timelines[ i ].timeline );
+    highchart::time_series_t ts( highchart::build_id( p, "stat_" + stat_str ), p -> sim );
+    chart::generate_actor_timeline( ts, p, stat_str, chart::stat_color( p -> collected_data.stat_timelines[ i ].type ), p -> collected_data.stat_timelines[ i ].timeline );
     ts.set_mean( p -> collected_data.stat_timelines[ i ].timeline.mean() );
+
     os << ts.to_string();
   }
 
@@ -2538,7 +2535,7 @@ void print_html_player_buff( report::sc_html_stream& os, buff_t* b, int report_d
 
     if ( ! b -> constant && ! b -> overridden && b -> sim -> buff_uptime_timeline && b -> uptime_array.mean() > 0 )
     {
-      highchart::time_series_t buff_uptime( highchart::chart_t::build_id( b, "uptime" ), b -> sim );
+      highchart::time_series_t buff_uptime( highchart::build_id( b, "uptime" ), b -> sim );
       buff_uptime.set_yaxis_title( "Average uptime" );
       buff_uptime.set_title( b -> name_str + " Uptime" );
       buff_uptime.add_series( "#FF0000", "Uptime", b -> uptime_array.data() );

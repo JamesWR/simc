@@ -51,13 +51,13 @@ std::string gear_weights_pawn      ( player_t*, bool hit_expertise );
 
 std::string stats_time_series( const stats_t* s, bool json = false );
 
-highchart::time_series_t generate_stats_timeline( const stats_t* s );
-highchart::time_series_t generate_actor_timeline( const player_t*      p,
-                                                  const std::string&   id_str,
-                                                  const std::string&   attribute,
-                                                  const std::string&   series_color,
-                                                  const sc_timeline_t& data );
-highchart::time_series_t generate_actor_dps_series( const player_t* p );
+highchart::time_series_t& generate_stats_timeline( highchart::time_series_t& series, const stats_t* s );
+highchart::time_series_t& generate_actor_timeline( highchart::time_series_t& series,
+                                                   const player_t*      p,
+                                                   const std::string&   attribute,
+                                                   const std::string&   series_color,
+                                                   const sc_timeline_t& data );
+highchart::time_series_t& generate_actor_dps_series( highchart::time_series_t& series, const player_t* p );
 
 } // end namespace sc_chart
 
