@@ -51,6 +51,7 @@ std::string gear_weights_pawn      ( player_t*, bool hit_expertise );
 
 std::string stats_time_series( const stats_t* s, bool json = false );
 
+highchart::bar_chart_t& generate_action_dpet( highchart::bar_chart_t& series, const player_t* s );
 highchart::time_series_t& generate_stats_timeline( highchart::time_series_t& series, const stats_t* s );
 highchart::time_series_t& generate_actor_timeline( highchart::time_series_t& series,
                                                    const player_t*      p,

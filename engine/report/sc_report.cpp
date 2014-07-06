@@ -941,7 +941,6 @@ void report::generate_player_charts( player_t* p, player_processed_report_inform
   // End Stats Charts
 
   // Player Charts
-  ri.action_dpet_chart    = chart::action_dpet  ( p );
   ri.action_dmg_chart     = chart::aps_portion  ( p );
   ri.time_spent_chart     = chart::time_spent   ( p );
   ri.scaling_dps_chart    = chart::scaling_dps  ( p );

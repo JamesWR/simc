@@ -2236,14 +2236,10 @@ void print_html_player_charts( report::sc_html_stream& os, sim_t* sim, player_t*
      << "\t\t\t\t\t<div class=\"toggle-content\">\n"
      << "\t\t\t\t\t\t<div class=\"charts charts-left\">\n";
 
-  if ( ! ri.action_dpet_chart.empty() )
+  if ( ! p -> stats_list.empty() )
   {
-    const char* fmt;
-    if ( num_players == 1 )
-      fmt = "\t\t\t\t\t\t\t<img src=\"%s\" alt=\"Action DPET Chart\" />\n";
-    else
-      fmt = "\t\t\t\t\t\t\t<span class=\"chart-action-dpet\" title=\"Action DPET Chart\">%s</span>\n";
-    os.printf( fmt, ri.action_dpet_chart.c_str() );
+    highchart::bar_chart_t bc( highchart::build_id( p, "dpet" ), p -> sim );
+    os <<  chart::generate_action_dpet( bc , p ).to_string();
   }
 
   if ( ! ri.action_dmg_chart.empty() )

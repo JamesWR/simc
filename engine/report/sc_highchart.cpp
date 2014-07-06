@@ -393,3 +393,52 @@ time_series_t& time_series_t::set_max( double value_, const std::string& color )
   return add_yplotline( value_, "max", 1.25, max_color );
 }
 
+bar_chart_t::bar_chart_t( const std::string& id_str, const sim_t* sim ) :
+    chart_t( id_str, sim )
+{
+  set( "legend.enabled", false );
+
+  set( "chart.type", "bar" );
+  set( "chart.style.fontSize", "11px" );
+
+  add( "chart.spacing", 5 ).add( "chart.spacing", 5 ).add( "chart.spacing", 5 ).add( "chart.spacing", 5 );
+
+  // Setup background color
+  if ( sim_ -> print_styles == 1 )
+    set( "chart.backgroundColor", CHART_BGCOLOR_ALT );
+  else
+    set( "chart.backgroundColor", CHART_BGCOLOR );
+
+  set( "plotOptions.series.shadow", true );
+  set( "plotOptions.area.lineWidth", 1.25 );
+  set( "plotOptions.area.states.hover.lineWidth", 1 );
+  set( "plotOptions.area.fillOpacity", 0.2 );
+
+  // Setup axes
+  std::string color = TEXT_COLOR;
+  if ( sim_ -> print_styles == 1 )
+    color = TEXT_COLOR_ALT;
+
+  set( "xAxis.lineColor", color );
+  set( "xAxis.tickColor", color );
+  set( "xAxis.title.style.color", color );
+  set( "xAxis.labels.style.color", color );
+
+  set( "yAxis.lineColor", color );
+  set( "yAxis.tickColor", color );
+  set( "yAxis.title.style.color", color );
+  set( "yAxis.labels.style.color", color );
+  set_yaxis_title( "Damage per Execute Time" );
+
+  set( "title.style.fontSize", "13px" );
+  set( "title.style.color", color );
+
+  if ( sim_ -> print_styles != 1 )
+  {
+    set( "title.style.textShadow", TEXT_OUTLINE );
+    set( "xAxis.title.style.textShadow", TEXT_OUTLINE );
+    set( "yAxis.title.style.textShadow", TEXT_OUTLINE );
+    set( "xAxis.labels.style.textShadow", TEXT_OUTLINE );
+  }
+}
+

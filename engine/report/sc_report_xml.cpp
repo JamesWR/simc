@@ -723,11 +723,12 @@ void print_xml_player_charts( xml_writer_t & writer, player_processed_report_inf
 {
   writer.begin_tag( "charts" );
 
-  if ( ! ri.action_dpet_chart.empty() )
+  if ( ! p -> stats_list.empty() )
   {
+    highchart::bar_chart_t bc( highchart::build_id( p, "dpet" ), p -> sim );
     writer.begin_tag( "chart" );
     writer.print_attribute( "type", "dpet" );
-    writer.print_attribute_unescaped( "href", ri.action_dpet_chart );
+    writer.print_text( chart::generate_action_dpet( bc , p ).to_xml() );
     writer.end_tag( "chart" );
   }
 

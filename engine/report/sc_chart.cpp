@@ -408,14 +408,14 @@ struct compare_dpet
 {
   bool operator()( const stats_t* l, const stats_t* r ) const
   {
-    return l -> apet > r -> apet;
+    return l -> apet < r -> apet;
   }
 };
 
 struct filter_stats_dpet
 {
   bool player_is_healer;
-  filter_stats_dpet( player_t& p ) : player_is_healer( p.primary_role() == ROLE_HEAL ) {}
+  filter_stats_dpet( const player_t& p ) : player_is_healer( p.primary_role() == ROLE_HEAL ) {}
   bool operator()( const stats_t* st ) const
   {
     if ( st->quiet ) return true;
@@ -2580,6 +2580,41 @@ std::string chart::stat_color( stat_e type )
 std::string chart::dps_error( player_t& p )
 {
   return chart::normal_distribution( p.collected_data.dps.mean(), p.collected_data.dps.mean_std_dev, p.sim -> confidence, p.sim -> confidence_estimator, p.sim -> print_styles );
+}
+
+highchart::bar_chart_t& chart::generate_action_dpet( highchart::bar_chart_t& bc, const player_t* p )
+{
+  bc.height_ = 200;
+  bc.set_title( p -> name_str + " Damage per Execute Time" );
+
+  std::vector<stats_t*> stats_list;
+
+  // Copy all stats* from p -> stats_list to stats_list, which satisfy the filter
+  range::remove_copy_if( p -> stats_list, back_inserter( stats_list ), filter_stats_dpet( *p ) );
+
+  if ( ! stats_list.empty() )
+  {
+    size_t num_stats = stats_list.size();
+    range::sort( stats_list, compare_dpet() );
+
+    bc.height_ = num_stats * 30 + 30;
+
+    for ( size_t i = 0; i < num_stats; ++i )
+    {
+      const stats_t* stats = stats_list[ i ];
+      std::string color = school_color( stats_list[ i ] -> school );
+      if ( color.empty() )
+      {
+        p -> sim -> errorf( "chart_t::action_dpet assertion error! School color unknown, stats %s from %s. School %s\n", stats_list[ i ] -> name_str.c_str(), p -> name(), util::school_type_string( stats_list[ i ] -> school ) );
+        assert( 0 );
+      }
+      std::vector<double> data; data.push_back( stats->apet );
+      bc.add_series( color, stats -> name_str, data );
+    }
+  }
+
+  return bc;
+
 }
 
 // Generate a "standard" timeline highcharts object as a string based on a stats_t object

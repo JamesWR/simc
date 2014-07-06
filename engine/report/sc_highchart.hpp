@@ -104,6 +104,12 @@ struct time_series_t : public chart_t
                                 const std::string& color_ = std::string() );
 };
 
+struct bar_chart_t : public chart_t
+{
+  bar_chart_t( const std::string& id_str, const sim_t* sim );
+
+};
+
 template <typename T>
 chart_t& chart_t::set( const std::string& path, const T& value_ )
 {
