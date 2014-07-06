@@ -941,7 +941,6 @@ void report::generate_player_charts( player_t* p, player_processed_report_inform
   // End Stats Charts
 
   // Player Charts
-  ri.time_spent_chart     = chart::time_spent   ( p );
   ri.scaling_dps_chart    = chart::scaling_dps  ( p );
   ri.reforge_dps_chart    = chart::reforge_dps  ( p );
   ri.scale_factors_chart  = chart::scale_factors( p );

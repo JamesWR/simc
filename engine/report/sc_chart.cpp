@@ -1021,168 +1021,6 @@ size_t chart::raid_dpet( std::vector<std::string>& images,
   return images.size();
 }
 
-// chart::action_dmg ========================================================
-
-std::string chart::aps_portion(  player_t* p )
-{
-  std::vector<stats_t*> stats_list;
-
-  for ( size_t i = 0; i < p -> stats_list.size(); ++i )
-  {
-    stats_t* st = p -> stats_list[ i ];
-    if ( st -> quiet ) continue;
-    if ( st -> actual_amount.mean() <= 0 ) continue;
-    if ( ( p -> primary_role() == ROLE_HEAL ) != ( st -> type != STATS_DMG ) ) continue;
-    stats_list.push_back( st );
-  }
-
-  for ( size_t i = 0; i < p -> pet_list.size(); ++i )
-  {
-    pet_t* pet = p -> pet_list[ i ];
-    for ( size_t j = 0; j < pet -> stats_list.size(); ++j )
-    {
-      stats_t* st = pet -> stats_list[ j ];
-      if ( st -> quiet ) continue;
-      if ( st -> actual_amount.mean() <= 0 ) continue;
-      if ( ( p -> primary_role() == ROLE_HEAL ) != ( st -> type != STATS_DMG ) ) continue;
-      stats_list.push_back( st );
-    }
-  }
-
-  int num_stats = ( int ) stats_list.size();
-  if ( num_stats == 0 )
-    return std::string();
-
-  range::sort( stats_list, compare_amount() );
-
-  char buffer[ 1024 ];
-
-  std::string formatted_name = p -> name();
-  util::urlencode( formatted_name );
-  sc_chart chart( formatted_name + ( p -> primary_role() == ROLE_HEAL ? " Healing" : " Damage" ) + " Sources", PIE, p -> sim -> print_styles );
-  chart.set_height( 275 );
-
-  std::string s = chart.create();
-  s += "chd=t:";
-  for ( int i = 0; i < num_stats; i++ )
-  {
-    stats_t* st = stats_list[ i ];
-    snprintf( buffer, sizeof( buffer ), "%s%.0f", ( i ? "," : "" ), 100.0 * st -> actual_amount.mean() / ( ( p -> primary_role() == ROLE_HEAL ) ? p -> collected_data.heal.mean() : p -> collected_data.dmg.mean() ) ); s += buffer;
-  }
-  s += amp;
-  s += "chds=0,100";
-  s += amp;
-  s += "chdls=ffffff";
-  s += amp;
-  s += "chco=";
-  for ( int i = 0; i < num_stats; i++ )
-  {
-    if ( i ) s += ",";
-
-    std::string school = school_color( stats_list[ i ] -> school );
-    if ( school.empty() )
-    {
-      p -> sim -> errorf( "chart_t::action_dmg assertion error! School unknown, stats %s from %s.\n", stats_list[ i ] -> name_str.c_str(), p -> name() );
-      assert( 0 );
-    }
-    s += school;
-
-  }
-  s += amp;
-  s += "chl=";
-  for ( int i = 0; i < num_stats; i++ )
-  {
-    if ( i ) s += "|";
-    if ( stats_list[ i ] -> player -> type == PLAYER_PET || stats_list[ i ] -> player -> type == PLAYER_GUARDIAN )
-    {
-      s += stats_list[ i ] -> player -> name_str.c_str();
-      s += ": ";
-    }
-    s += stats_list[ i ] -> name_str.c_str();
-  }
-  s += amp;
-
-  return s;
-}
-
-// chart::spent_time ========================================================
-
-std::string chart::time_spent( player_t* p )
-{
-  std::vector<stats_t*> filtered_waiting_stats;
-
-  // Filter stats we do not want in the chart ( quiet, background, zero total_time ) and copy them to filtered_waiting_stats
-  range::remove_copy_if( p -> stats_list, back_inserter( filtered_waiting_stats ), filter_waiting_stats() );
-
-  size_t num_stats = filtered_waiting_stats.size();
-  if ( num_stats == 0 && p -> collected_data.waiting_time.mean() == 0 )
-    return std::string();
-
-  range::sort( filtered_waiting_stats, compare_stats_time() );
-
-  char buffer[ 1024 ];
-
-  std::string formatted_name = p -> name();
-  util::urlencode( formatted_name );
-  sc_chart chart( formatted_name + " Spent Time", PIE, p -> sim -> print_styles );
-  chart.set_height( 275 );
-
-  std::string s = chart.create();
-
-  s += "chd=t:";
-  for ( size_t i = 0; i < num_stats; i++ )
-  {
-    snprintf( buffer, sizeof( buffer ), "%s%.1f", ( i ? "," : "" ), 100.0 * filtered_waiting_stats[ i ] -> total_time.total_seconds() / p -> collected_data.fight_length.mean() ); s += buffer;
-
-  }
-  if ( p -> collected_data.waiting_time.mean() > 0 )
-  {
-    snprintf( buffer, sizeof( buffer ), "%s%.1f", ( num_stats > 0 ? "," : "" ), 100.0 * p -> collected_data.waiting_time.mean() / p -> collected_data.fight_length.mean() ); s += buffer;
-
-  }
-  s += amp;
-  s += "chds=0,100";
-  s += amp;
-  s += "chdls=ffffff";
-  s += amp;
-  s += "chco=";
-  for ( size_t i = 0; i < num_stats; i++ )
-  {
-    if ( i ) s += ",";
-
-    std::string school = school_color( filtered_waiting_stats[ i ] -> school );
-    if ( school.empty() )
-    {
-      p -> sim -> errorf( "chart_t::time_spent assertion error! School unknown, stats %s from %s.\n", filtered_waiting_stats[ i ] -> name_str.c_str(), p -> name() );
-      assert( 0 );
-    }
-    s += school;
-  }
-  if ( p -> collected_data.waiting_time.mean() > 0 )
-  {
-    if ( num_stats > 0 ) s += ",";
-    s += p -> sim -> print_styles == 1 ? "EEEEE2" : "ffffff";
-  }
-  s += amp;
-  s += "chl=";
-  for ( size_t i = 0; i < num_stats; i++ )
-  {
-    stats_t* st = filtered_waiting_stats[ i ];
-    if ( i ) s += "|";
-    s += st -> name_str.c_str();
-    snprintf( buffer, sizeof( buffer ), " %.1fs", st -> total_time.total_seconds() ); s += buffer;
-  }
-  if ( p -> collected_data.waiting_time.mean() > 0 )
-  {
-    if ( num_stats > 0 )s += "|";
-    s += "waiting";
-    snprintf( buffer, sizeof( buffer ), " %.1fs", p -> collected_data.waiting_time.mean() ); s += buffer;
-  }
-  s += amp;
-
-  return s;
-}
-
 // chart::gains =============================================================
 
 std::string chart::gains( player_t* p, resource_e type )
@@ -2522,10 +2360,54 @@ std::string chart::dps_error( player_t& p )
   return chart::normal_distribution( p.collected_data.dps.mean(), p.collected_data.dps.mean_std_dev, p.sim -> confidence, p.sim -> confidence_estimator, p.sim -> print_styles );
 }
 
+highchart::pie_chart_t& chart::generate_spent_time( highchart::pie_chart_t& pc, const player_t* p )
+{
+  pc.height_ = 200;
+  pc.set_title( p -> name_str + " Spent Time" );
+  pc.set( "plotOptions.pie.dataLabels.format", "<b>{point.name}</b>: {point.y:.1f}s" );
+
+  std::vector<stats_t*> filtered_waiting_stats;
+
+  // Filter stats we do not want in the chart ( quiet, background, zero total_time ) and copy them to filtered_waiting_stats
+  range::remove_copy_if( p -> stats_list, back_inserter( filtered_waiting_stats ), filter_waiting_stats() );
+
+  size_t num_stats = filtered_waiting_stats.size();
+  if ( num_stats == 0 && p -> collected_data.waiting_time.mean() == 0 )
+    return pc;
+
+  range::sort( filtered_waiting_stats, compare_stats_time() );
+
+   if ( ! filtered_waiting_stats.empty() )
+   {
+     size_t num_stats = filtered_waiting_stats.size();
+
+     pc.height_ = num_stats * 30 + 30;
+
+     for ( size_t i = 0; i < num_stats; ++i )
+     {
+       const stats_t* stats = filtered_waiting_stats[ i ];
+       std::string color = school_color( stats -> school );
+       if ( color.empty() )
+       {
+         p -> sim -> errorf( "chart::generate_spent_time assertion error! School color unknown, stats %s from %s. School %s\n", stats -> name_str.c_str(), p -> name(), util::school_type_string( stats -> school ) );
+         assert( 0 );
+       }
+       //pc.add_series( color, stats -> name_str, stats -> total_time.total_seconds() );
+     }
+   }
+   if ( p -> collected_data.waiting_time.mean() > 0 )
+   {
+     //pc.add_series( "#000000", "player waiting time", p -> collected_data.waiting_time.mean() );
+   }
+
+  return pc;
+}
+
 highchart::pie_chart_t& chart::generate_stats_sources( highchart::pie_chart_t& pc, const player_t* p, const std::string title, const std::vector<stats_t*>& stats_list )
 {
   pc.height_ = 200;
   pc.set_title( title );
+  pc.set( "plotOptions.pie.dataLabels.format", "<b>{point.name}</b>: {point.percentage:.1f} %" );
 
    if ( ! stats_list.empty() )
    {
@@ -2536,10 +2418,11 @@ highchart::pie_chart_t& chart::generate_stats_sources( highchart::pie_chart_t& p
      for ( size_t i = 0; i < num_stats; ++i )
      {
        const stats_t* stats = stats_list[ i ];
-       std::string color = school_color( stats_list[ i ] -> school );
+       std::string color = school_color( stats -> school );
        if ( color.empty() )
        {
-         p -> sim -> errorf( "chart_t::action_dpet assertion error! School color unknown, stats %s from %s. School %s\n", stats_list[ i ] -> name_str.c_str(), p -> name(), util::school_type_string( stats_list[ i ] -> school ) );
+         p -> sim -> errorf( "chart::generate_stats_sources assertion error! School color unknown, stats %s from %s. School %s\n",
+                             stats -> name_str.c_str(), p -> name(), util::school_type_string( stats -> school ) );
          assert( 0 );
        }
        //pc.add_series( color, stats -> name_str, stats -> actual_amount.mean() );
@@ -2548,6 +2431,7 @@ highchart::pie_chart_t& chart::generate_stats_sources( highchart::pie_chart_t& p
 
   return pc;
 }
+
 highchart::pie_chart_t& chart::generate_damage_stats_sources( highchart::pie_chart_t& chart, const player_t* p )
 {
 

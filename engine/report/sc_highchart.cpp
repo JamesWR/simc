@@ -458,7 +458,6 @@ pie_chart_t::pie_chart_t( const std::string& id_str, const sim_t* sim ) :
 
 
   set( "plotOptions.pie.dataLabels.enabled", true );
-  set( "plotOptions.pie.dataLabels.format", "<b>{point.name}</b>: {point.percentage:.1f} %" );
 
 }
 

@@ -791,13 +791,11 @@ void print_xml_player_charts( xml_writer_t & writer, player_processed_report_inf
     writer.end_tag( "chart" );
   }
 
-  if ( ! ri.time_spent_chart.empty() )
-  {
-    writer.begin_tag( "chart" );
-    writer.print_attribute( "type", "time_spent" );
-    writer.print_attribute_unescaped( "href", ri.time_spent_chart );
-    writer.end_tag( "chart" );
-  }
+  highchart::pie_chart_t time_spent( highchart::build_id( p, "time_spent" ), p -> sim );
+  writer.begin_tag( "chart" );
+  writer.print_attribute( "type", "dpet" );
+  writer.print_text( chart::generate_spent_time( time_spent , p ).to_xml() );
+  writer.end_tag( "chart" );
 
   writer.end_tag( "charts" );
 }

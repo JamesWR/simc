@@ -2350,15 +2350,8 @@ void print_html_player_charts( report::sc_html_stream& os, sim_t* sim, player_t*
     os.printf( fmt, ri.distribution_dps_chart.c_str() );
   }
 
-  if ( ! ri.time_spent_chart.empty() )
-  {
-    const char* fmt;
-    if ( num_players == 1 )
-      fmt = "\t\t\t\t\t\t\t<img src=\"%s\" alt=\"Time Spent Chart\" />\n";
-    else
-      fmt = "\t\t\t\t\t\t\t<span class=\"chart-time-spent\" title=\"Time Spent Chart\">%s</span>\n";
-    os.printf( fmt, ri.time_spent_chart.c_str() );
-  }
+  highchart::pie_chart_t time_spent( highchart::build_id( p, "time_spent" ), p -> sim );
+  os <<  chart::generate_spent_time( time_spent , p ).to_string();
 
   for ( size_t i = 0, end = p -> collected_data.stat_timelines.size(); i < end; i++ )
   {

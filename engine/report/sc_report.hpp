@@ -29,8 +29,6 @@ size_t raid_aps ( std::vector<std::string>& images, sim_t*, std::vector<player_t
 size_t raid_dpet( std::vector<std::string>& images, sim_t* );
 size_t raid_gear( std::vector<std::string>& images, sim_t*, int print_styles = 0 );
 
-std::string aps_portion        ( player_t* );
-std::string time_spent         ( player_t* );
 std::string gains              ( player_t*, resource_e );
 ///std::string timeline           ( player_t*, const std::vector<double>&, const std::string&, double avg = 0, std::string color = "FDD017", size_t max_length = 0 );
 std::string timeline_dps_error ( player_t* );
@@ -50,12 +48,13 @@ std::string gear_weights_pawn      ( player_t*, bool hit_expertise );
 
 std::string stats_time_series( const stats_t* s, bool json = false );
 
-highchart::pie_chart_t& generate_stats_sources( highchart::pie_chart_t& series, const player_t*, const std::string title, const std::vector<stats_t*>& stats_list );
-highchart::pie_chart_t& generate_damage_stats_sources( highchart::pie_chart_t& series, const player_t* );
-highchart::pie_chart_t& generate_heal_stats_sources( highchart::pie_chart_t& series, const player_t* );
-highchart::bar_chart_t& generate_action_dpet( highchart::bar_chart_t& series, const player_t* s );
-highchart::time_series_t& generate_stats_timeline( highchart::time_series_t& series, const stats_t* s );
-highchart::time_series_t& generate_actor_timeline( highchart::time_series_t& series,
+highchart::pie_chart_t& generate_spent_time( highchart::pie_chart_t&, const player_t* );
+highchart::pie_chart_t& generate_stats_sources( highchart::pie_chart_t&, const player_t*, const std::string title, const std::vector<stats_t*>& stats_list );
+highchart::pie_chart_t& generate_damage_stats_sources( highchart::pie_chart_t&, const player_t* );
+highchart::pie_chart_t& generate_heal_stats_sources( highchart::pie_chart_t&, const player_t* );
+highchart::bar_chart_t& generate_action_dpet( highchart::bar_chart_t&, const player_t* );
+highchart::time_series_t& generate_stats_timeline( highchart::time_series_t&, const stats_t* );
+highchart::time_series_t& generate_actor_timeline( highchart::time_series_t&,
                                                    const player_t*      p,
                                                    const std::string&   attribute,
                                                    const std::string&   series_color,
