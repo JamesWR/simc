@@ -2242,14 +2242,16 @@ void print_html_player_charts( report::sc_html_stream& os, sim_t* sim, player_t*
     os <<  chart::generate_action_dpet( bc , p ).to_string();
   }
 
-  if ( ! ri.action_dmg_chart.empty() )
+  if ( ! p -> stats_list.empty() )
   {
-    const char* fmt;
-    if ( num_players == 1 )
-      fmt = "\t\t\t\t\t\t\t<img src=\"%s\" alt=\"Action Damage Chart\" />\n";
-    else
-      fmt = "\t\t\t\t\t\t\t<span class=\"chart-action-dmg\" title=\"Action Damage Chart\">%s</span>\n";
-    os.printf( fmt, ri.action_dmg_chart.c_str() );
+    highchart::pie_chart_t pc( highchart::build_id( p, "dps_sources" ), p -> sim );
+    os <<  chart::generate_damage_stats_sources( pc , p ).to_string();
+  }
+
+  if ( ! p -> stats_list.empty() )
+  {
+    highchart::pie_chart_t pc( highchart::build_id( p, "hps_sources" ), p -> sim );
+    os <<  chart::generate_heal_stats_sources( pc , p ).to_string();
   }
 
   if ( ! ri.scaling_dps_chart.empty() )

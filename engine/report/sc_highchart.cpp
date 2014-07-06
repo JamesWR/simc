@@ -18,6 +18,57 @@ static const char* CHART_BGCOLOR_ALT = "white";
 
 using namespace highchart;
 
+sc_chart_formatter_t::sc_chart_formatter_t( std::string bg_color, std::string text_color ) :
+  chart_formatter_t(),
+  _bg_color( bg_color ),
+  _text_color( text_color )
+
+{
+}
+
+void sc_chart_formatter_t::do_format( chart_t& c )
+{
+  c.set( "chart.backgroundColor", _bg_color );
+  c.set( "chart.style.fontSize", "11px" );
+
+  c.set( "xAxis.lineColor", _text_color );
+  c.set( "xAxis.tickColor", _text_color );
+  c.set( "xAxis.title.style.color", _text_color );
+  c.set( "xAxis.labels.style.color", _text_color );
+
+  c.set( "yAxis.lineColor", _text_color );
+  c.set( "yAxis.tickColor", _text_color );
+  c.set( "yAxis.title.style.color", _text_color );
+  c.set( "yAxis.labels.style.color", _text_color );
+
+  c.set( "title.style.fontSize", "13px" );
+  c.set( "title.style.color", _text_color );
+}
+
+default_chart_formatter_t::default_chart_formatter_t() :
+    sc_chart_formatter_t( CHART_BGCOLOR, TEXT_COLOR )
+{
+
+}
+
+void default_chart_formatter_t::do_format( chart_t& c )
+{
+  sc_chart_formatter_t::do_format( c );
+
+  c.set( "title.style.textShadow", TEXT_OUTLINE );
+  c.set( "xAxis.title.style.textShadow", TEXT_OUTLINE );
+  c.set( "yAxis.title.style.textShadow", TEXT_OUTLINE );
+  c.set( "xAxis.labels.style.textShadow", TEXT_OUTLINE );
+  c.set( "yAxis.labels.style.textShadow", TEXT_OUTLINE );
+
+}
+
+alt_chart_formatter_t::alt_chart_formatter_t() :
+    sc_chart_formatter_t( CHART_BGCOLOR_ALT, TEXT_COLOR_ALT )
+{
+
+}
+
 std::string highchart::build_id( const stats_t* stats )
 {
   std::string s;
@@ -52,6 +103,20 @@ chart_t::chart_t( const std::string& id_str, const sim_t* sim ) :
   assert( ! id_str_.empty() );
 
   js_.SetObject();
+
+  // Select which formatter we use for this chart, depending on sim print_styles
+  if ( sim -> print_styles == 1 )
+  {
+    formatter = std::shared_ptr<chart_formatter_t>( new alt_chart_formatter_t() );
+  }
+  else
+  {
+    formatter = std::shared_ptr<chart_formatter_t>( new default_chart_formatter_t() );
+  }
+
+  // Let the formatter format the chart
+  formatter -> do_format( *this );
+
 }
 
 std::string chart_t::to_string() const
@@ -279,48 +344,16 @@ time_series_t::time_series_t( const std::string& id_str, const sim_t* sim ) :
   set( "legend.enabled", false );
 
   set( "chart.type", "area" );
-  set( "chart.style.fontSize", "11px" );
 
   add( "chart.spacing", 5 ).add( "chart.spacing", 5 ).add( "chart.spacing", 5 ).add( "chart.spacing", 5 );
 
-  // Setup background color
-  if ( sim_ -> print_styles == 1 )
-    set( "chart.backgroundColor", CHART_BGCOLOR_ALT );
-  else
-    set( "chart.backgroundColor", CHART_BGCOLOR );
+  set_xaxis_title( "Time (seconds)" );
 
   set( "plotOptions.series.shadow", true );
   set( "plotOptions.area.lineWidth", 1.25 );
   set( "plotOptions.area.states.hover.lineWidth", 1 );
   set( "plotOptions.area.fillOpacity", 0.2 );
 
-  // Setup axes
-  std::string color = TEXT_COLOR;
-  if ( sim_ -> print_styles == 1 )
-    color = TEXT_COLOR_ALT;
-
-  set( "xAxis.lineColor", color );
-  set( "xAxis.tickColor", color );
-  set( "xAxis.title.style.color", color );
-  set( "xAxis.labels.style.color", color );
-  set_xaxis_title( "Time (seconds)" );
-
-  set( "yAxis.lineColor", color );
-  set( "yAxis.tickColor", color );
-  set( "yAxis.title.style.color", color );
-  set( "yAxis.labels.style.color", color );
-
-  set( "title.style.fontSize", "13px" );
-  set( "title.style.color", color );
-
-  if ( sim_ -> print_styles != 1 )
-  {
-    set( "title.style.textShadow", TEXT_OUTLINE );
-    set( "xAxis.title.style.textShadow", TEXT_OUTLINE );
-    set( "yAxis.title.style.textShadow", TEXT_OUTLINE );
-    set( "xAxis.labels.style.textShadow", TEXT_OUTLINE );
-    set( "yAxis.labels.style.textShadow", TEXT_OUTLINE );
-  }
 }
 
 /**
@@ -399,15 +432,8 @@ bar_chart_t::bar_chart_t( const std::string& id_str, const sim_t* sim ) :
   set( "legend.enabled", false );
 
   set( "chart.type", "bar" );
-  set( "chart.style.fontSize", "11px" );
 
-  //add( "chart.spacing", 5 ).add( "chart.spacing", 5 ).add( "chart.spacing", 5 ).add( "chart.spacing", 5 );
-
-  // Setup background color
-  if ( sim_ -> print_styles == 1 )
-    set( "chart.backgroundColor", CHART_BGCOLOR_ALT );
-  else
-    set( "chart.backgroundColor", CHART_BGCOLOR );
+  add( "chart.spacing", 5 ).add( "chart.spacing", 5 ).add( "chart.spacing", 5 ).add( "chart.spacing", 5 );
 
   set( "plotOptions.series.shadow", true );
   //set( "plotOptions.bar.states.hover.lineWidth", 1 );
@@ -415,31 +441,48 @@ bar_chart_t::bar_chart_t( const std::string& id_str, const sim_t* sim ) :
   set( "plotOptions.bar.dataLabels.enabled", true );
   set( "plotOptions.bar.dataLabels.format", "{point.series.name}: {y}" );
 
-  // Setup axes
-  std::string color = TEXT_COLOR;
-  if ( sim_ -> print_styles == 1 )
-    color = TEXT_COLOR_ALT;
-
-  set( "xAxis.lineColor", color );
-  set( "xAxis.tickColor", color );
-  set( "xAxis.title.style.color", color );
-  set( "xAxis.labels.style.color", color );
-
-  set( "yAxis.lineColor", color );
-  set( "yAxis.tickColor", color );
-  set( "yAxis.title.style.color", color );
-  set( "yAxis.labels.style.color", color );
-  set_yaxis_title( "Damage per Execute Time" );
-
-  set( "title.style.fontSize", "13px" );
-  set( "title.style.color", color );
-
-  if ( sim_ -> print_styles != 1 )
-  {
-    set( "title.style.textShadow", TEXT_OUTLINE );
-    set( "xAxis.title.style.textShadow", TEXT_OUTLINE );
-    set( "yAxis.title.style.textShadow", TEXT_OUTLINE );
-    set( "xAxis.labels.style.textShadow", TEXT_OUTLINE );
-  }
 }
 
+pie_chart_t::pie_chart_t( const std::string& id_str, const sim_t* sim ) :
+    chart_t( id_str, sim )
+{
+  set( "legend.enabled", false );
+
+  set( "chart.type", "area" );
+
+  add( "chart.spacing", 5 ).add( "chart.spacing", 5 ).add( "chart.spacing", 5 ).add( "chart.spacing", 5 );
+
+  set( "plotOptions.series.shadow", true );
+  //set( "plotOptions.bar.states.hover.lineWidth", 1 );
+  set( "plotOptions.pie.fillOpacity", 0.2 );
+
+
+  set( "plotOptions.pie.dataLabels.enabled", true );
+  set( "plotOptions.pie.dataLabels.format", "<b>{point.name}</b>: {point.percentage:.1f} %" );
+
+}
+
+void pie_chart_t::add_series( const std::string& name, const std::vector<entry_t> data )
+{
+
+  /*rapidjson::Value d( rapidjson::kObjectType );
+  for ( size_t i = 0; i < data.size(); ++i )
+  {
+    rapidjson::Value obj_data( rapidjson::kObjectType );
+    set( obj_data, "y", data[ i ].value );
+    std::string color_hex = data[ i ].color;
+    if ( color_hex[ 0 ] != '#' )
+      color_hex = '#' + color_hex;
+    set( obj_data, "color", color_hex );
+    set( obj_data, "name", data[ i ].name );
+    d.PushBack( obj_data, js_.GetAllocator() );
+  }
+
+  rapidjson::Value obj( rapidjson::kObjectType );
+
+  set( obj, "data", d );
+  set( obj, "name", name );
+
+
+  add( "series", obj );*/
+}

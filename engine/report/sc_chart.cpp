@@ -1021,66 +1021,6 @@ size_t chart::raid_dpet( std::vector<std::string>& images,
   return images.size();
 }
 
-// chart::action_dpet =======================================================
-
-std::string chart::action_dpet(  player_t* p )
-{
-  std::vector<stats_t*> stats_list;
-
-  // Copy all stats* from p -> stats_list to stats_list, which satisfy the filter
-  range::remove_copy_if( p -> stats_list, back_inserter( stats_list ), filter_stats_dpet( *p ) );
-
-  int num_stats = ( int ) stats_list.size();
-  if ( num_stats == 0 )
-    return std::string();
-
-  range::sort( stats_list, compare_dpet() );
-
-  char buffer[ 1024 ];
-
-  std::string formatted_name = p -> name_str;
-  util::urlencode( formatted_name );
-  sc_chart chart( formatted_name + " Damage Per Execute Time", HORIZONTAL_BAR, p -> sim -> print_styles );
-  chart.set_height( num_stats * 30 + 30 );
-
-  std::string s = chart.create();
-  s += "chd=t:";
-  double max_apet = 0;
-  for ( int i = 0; i < num_stats; i++ )
-  {
-    stats_t* st = stats_list[ i ];
-    snprintf( buffer, sizeof( buffer ), "%s%.0f", ( i ? "|" : "" ), st -> apet ); s += buffer;
-    if ( st -> apet > max_apet ) max_apet = st -> apet;
-  }
-  s += amp;
-  snprintf( buffer, sizeof( buffer ), "chds=0,%.0f", max_apet * 2 ); s += buffer;
-  s += amp;
-  s += "chco=";
-  for ( int i = 0; i < num_stats; i++ )
-  {
-    if ( i ) s += ",";
-
-
-    std::string school = school_color( stats_list[ i ] -> school );
-    if ( school.empty() )
-    {
-      p -> sim -> errorf( "chart_t::action_dpet assertion error! School color unknown, stats %s from %s. School %s\n", stats_list[ i ] -> name_str.c_str(), p -> name(), util::school_type_string( stats_list[ i ] -> school ) );
-      assert( 0 );
-    }
-    s += school;
-  }
-  s += amp;
-  s += "chm=";
-  for ( int i = 0; i < num_stats; i++ )
-  {
-    stats_t* st = stats_list[ i ];
-    snprintf( buffer, sizeof( buffer ), "%st++%.0f++%s,%s,%d,0,15", ( i ? "|" : "" ), st -> apet, st -> name_str.c_str(), school_color( st -> school ).c_str(), i ); s += buffer;
-  }
-  s += amp;
-
-  return s;
-}
-
 // chart::action_dmg ========================================================
 
 std::string chart::aps_portion(  player_t* p )
@@ -2582,10 +2522,100 @@ std::string chart::dps_error( player_t& p )
   return chart::normal_distribution( p.collected_data.dps.mean(), p.collected_data.dps.mean_std_dev, p.sim -> confidence, p.sim -> confidence_estimator, p.sim -> print_styles );
 }
 
+highchart::pie_chart_t& chart::generate_stats_sources( highchart::pie_chart_t& pc, const player_t* p, const std::string title, const std::vector<stats_t*>& stats_list )
+{
+  pc.height_ = 200;
+  pc.set_title( title );
+
+   if ( ! stats_list.empty() )
+   {
+     size_t num_stats = stats_list.size();
+
+     pc.height_ = num_stats * 30 + 30;
+
+     for ( size_t i = 0; i < num_stats; ++i )
+     {
+       const stats_t* stats = stats_list[ i ];
+       std::string color = school_color( stats_list[ i ] -> school );
+       if ( color.empty() )
+       {
+         p -> sim -> errorf( "chart_t::action_dpet assertion error! School color unknown, stats %s from %s. School %s\n", stats_list[ i ] -> name_str.c_str(), p -> name(), util::school_type_string( stats_list[ i ] -> school ) );
+         assert( 0 );
+       }
+       //pc.add_series( color, stats -> name_str, stats -> actual_amount.mean() );
+     }
+   }
+
+  return pc;
+}
+highchart::pie_chart_t& chart::generate_damage_stats_sources( highchart::pie_chart_t& chart, const player_t* p )
+{
+
+  std::vector<stats_t*> stats_list;
+
+   for ( size_t i = 0; i < p -> stats_list.size(); ++i )
+   {
+     stats_t* st = p -> stats_list[ i ];
+     if ( st -> quiet ) continue;
+     if ( st -> actual_amount.mean() <= 0 ) continue;
+     if ( st -> type != STATS_DMG ) continue;
+     stats_list.push_back( st );
+   }
+
+   for ( size_t i = 0; i < p -> pet_list.size(); ++i )
+   {
+     pet_t* pet = p -> pet_list[ i ];
+     for ( size_t j = 0; j < pet -> stats_list.size(); ++j )
+     {
+       stats_t* st = pet -> stats_list[ j ];
+       if ( st -> quiet ) continue;
+       if ( st -> actual_amount.mean() <= 0 ) continue;
+       if ( st -> type != STATS_DMG ) continue;
+       stats_list.push_back( st );
+     }
+   }
+
+  range::sort( stats_list, compare_amount() );
+
+  generate_stats_sources( chart, p, p -> name_str + "Damage Sources", stats_list );
+  return chart;
+}
+highchart::pie_chart_t& chart::generate_heal_stats_sources( highchart::pie_chart_t& chart, const player_t* p )
+{
+  std::vector<stats_t*> stats_list;
+
+   for ( size_t i = 0; i < p -> stats_list.size(); ++i )
+   {
+     stats_t* st = p -> stats_list[ i ];
+     if ( st -> quiet ) continue;
+     if ( st -> actual_amount.mean() <= 0 ) continue;
+     if ( st -> type == STATS_DMG ) continue;
+     stats_list.push_back( st );
+   }
+
+   for ( size_t i = 0; i < p -> pet_list.size(); ++i )
+   {
+     pet_t* pet = p -> pet_list[ i ];
+     for ( size_t j = 0; j < pet -> stats_list.size(); ++j )
+     {
+       stats_t* st = pet -> stats_list[ j ];
+       if ( st -> quiet ) continue;
+       if ( st -> actual_amount.mean() <= 0 ) continue;
+       if ( st -> type == STATS_DMG ) continue;
+       stats_list.push_back( st );
+     }
+   }
+
+  range::sort( stats_list, compare_amount() );
+
+  generate_stats_sources( chart, p, p -> name_str + "Healing Sources", stats_list );
+  return chart;
+}
 highchart::bar_chart_t& chart::generate_action_dpet( highchart::bar_chart_t& bc, const player_t* p )
 {
   bc.height_ = 200;
   bc.set_title( p -> name_str + " Damage per Execute Time" );
+  bc.set_yaxis_title( "Damage per Execute Time" );
 
   std::vector<stats_t*> stats_list;
 

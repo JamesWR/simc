@@ -732,11 +732,21 @@ void print_xml_player_charts( xml_writer_t & writer, player_processed_report_inf
     writer.end_tag( "chart" );
   }
 
-  if ( ! ri.action_dmg_chart.empty() )
+  if ( ! p -> stats_list.empty() )
   {
+    highchart::pie_chart_t pc( highchart::build_id( p, "dps_sources" ), p -> sim );
     writer.begin_tag( "chart" );
-    writer.print_attribute( "type", "dmg" );
-    writer.print_attribute_unescaped( "href", ri.action_dmg_chart );
+    writer.print_attribute( "type", "dps_sources" );
+    writer.print_text( chart::generate_damage_stats_sources( pc , p ).to_xml() );
+    writer.end_tag( "chart" );
+  }
+
+  if ( ! p -> stats_list.empty() )
+  {
+    highchart::pie_chart_t pc( highchart::build_id( p, "hps_sources" ), p -> sim );
+    writer.begin_tag( "chart" );
+    writer.print_attribute( "type", "hps_sources" );
+    writer.print_text( chart::generate_heal_stats_sources( pc , p ).to_xml() );
     writer.end_tag( "chart" );
   }
 
