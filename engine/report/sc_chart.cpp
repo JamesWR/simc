@@ -1612,66 +1612,6 @@ std::string chart::timeline(  player_t* p,
   return s.str();
 }
 */
-// chart::timeline_dps_error ================================================
-
-std::string chart::timeline_dps_error( player_t* p )
-{
-  static const size_t min_data_number = 50;
-  size_t max_buckets = p -> dps_convergence_error.size();
-  if ( max_buckets <= min_data_number )
-    return std::string();
-
-  size_t max_points  = 600;
-  size_t increment   = 1;
-
-  if ( max_buckets > max_points )
-  {
-    increment = ( ( int ) floor( max_buckets / ( double ) max_points ) ) + 1;
-  }
-
-  double dps_max_error = *std::max_element( p -> dps_convergence_error.begin() + min_data_number, p -> dps_convergence_error.end() );
-  double dps_range  = 60.0;
-  double dps_adjust = dps_range / dps_max_error;
-
-  char buffer[ 1024 ];
-
-  sc_chart chart( "Standard Error Confidence ( n >= 50 )", LINE, p -> sim -> print_styles );
-  chart.set_height( 185 );
-
-  std::string s = chart.create();
-
-  s += "chco=FF0000,0000FF";
-  s += amp;
-  s += "chd=s:";
-  for ( size_t i = 0; i < max_buckets; i += increment )
-  {
-    if ( i < min_data_number )
-      s += simple_encoding( 0 );
-    else
-      s += simple_encoding( ( int ) ( p -> dps_convergence_error[ i ] * dps_adjust ) );
-  }
-  s += amp;
-  s += "chxt=x,y";
-  s += amp;
-  s += "chm=";
-  for ( unsigned i = 1; i <= 5; i++ )
-  {
-    unsigned j = ( int ) ( ( max_buckets / 5 ) * i );
-    if ( !j ) continue;
-    if ( j >= max_buckets ) j = as<unsigned>( max_buckets - 1 );
-    if ( i > 1 ) s += "|";
-    snprintf( buffer, sizeof( buffer ), "t%.1f,FFFFFF,0,%d,10", p -> dps_convergence_error[ j ], int( j / increment ) ); s += buffer;
-
-  }
-  s += amp;
-  snprintf( buffer, sizeof( buffer ), "chxl=0:|0|iterations=%d|1:|0|max dps error=%.0f", int( max_buckets + 1 ), dps_max_error ); s += buffer;
-  s += amp;
-  s += "chdl=DPS Error";
-  s += amp;
-
-  return s;
-}
-
 
 // chart::distribution_dps ==================================================
 
@@ -2350,14 +2290,6 @@ std::string chart::stat_color( stat_e type )
     case STAT_BONUS_ARMOR:              return class_color( PRIEST );
     default:                            return std::string();
   }
-}
-
-/* Creates a normal distribution chart for p.dps
- *
- */
-std::string chart::dps_error( player_t& p )
-{
-  return chart::normal_distribution( p.collected_data.dps.mean(), p.collected_data.dps.mean_std_dev, p.sim -> confidence, p.sim -> confidence_estimator, p.sim -> print_styles );
 }
 
 highchart::pie_chart_t& chart::generate_spent_time( highchart::pie_chart_t& pc, const player_t* p )

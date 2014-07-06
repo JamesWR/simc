@@ -3741,7 +3741,7 @@ struct player_processed_report_information_t
 {
   bool charts_generated, buff_lists_generated;
   std::array<std::string, RESOURCE_MAX> gains_chart;
-  std::string timeline_dps_error_chart, timeline_resource_health_chart;
+  std::string timeline_resource_health_chart;
   std::string distribution_dps_chart, scaling_dps_chart, scale_factors_chart;
   std::string reforge_dps_chart, dps_error_chart, distribution_deaths_chart;
   std::string gear_weights_lootrank_link, gear_weights_wowhead_std_link, gear_weights_wowhead_alt_link, gear_weights_askmrrobot_link;

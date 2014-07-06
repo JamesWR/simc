@@ -948,9 +948,6 @@ void report::generate_player_charts( player_t* p, player_processed_report_inform
   std::string encoded_name = p -> name_str;
   util::urlencode( encoded_name );
 
-  ri.timeline_dps_error_chart = chart::timeline_dps_error( p );
-  ri.dps_error_chart = chart::dps_error( *p );
-
   if ( p -> primary_role() == ROLE_HEAL )
   {
     ri.distribution_dps_chart = chart::distribution( p -> sim -> print_styles,

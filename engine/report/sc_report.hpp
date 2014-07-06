@@ -31,13 +31,11 @@ size_t raid_gear( std::vector<std::string>& images, sim_t*, int print_styles = 0
 
 std::string gains              ( player_t*, resource_e );
 ///std::string timeline           ( player_t*, const std::vector<double>&, const std::string&, double avg = 0, std::string color = "FDD017", size_t max_length = 0 );
-std::string timeline_dps_error ( player_t* );
 std::string scale_factors      ( player_t* );
 std::string scaling_dps        ( player_t* );
 std::string reforge_dps        ( player_t* );
 std::string distribution       ( int /*print_style*/, const std::vector<size_t>& /*dist_data*/, const std::string&, double, double, double );
 std::string normal_distribution(  double mean, double std_dev, double confidence, double tolerance_interval = 0, int print_styles = 0  );
-std::string dps_error( player_t& );
 
 #if LOOTRANK_ENABLED == 1
 std::string gear_weights_lootrank  ( player_t* );
@@ -45,8 +43,6 @@ std::string gear_weights_lootrank  ( player_t* );
 std::string gear_weights_wowhead   ( player_t*, bool hit_expertise );
 std::string gear_weights_askmrrobot( player_t* );
 std::string gear_weights_pawn      ( player_t*, bool hit_expertise );
-
-std::string stats_time_series( const stats_t* s, bool json = false );
 
 highchart::pie_chart_t& generate_spent_time( highchart::pie_chart_t&, const player_t* );
 highchart::pie_chart_t& generate_stats_sources( highchart::pie_chart_t&, const player_t*, const std::string title, const std::vector<stats_t*>& stats_list );
