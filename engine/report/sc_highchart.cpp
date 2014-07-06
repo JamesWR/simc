@@ -401,7 +401,7 @@ bar_chart_t::bar_chart_t( const std::string& id_str, const sim_t* sim ) :
   set( "chart.type", "bar" );
   set( "chart.style.fontSize", "11px" );
 
-  add( "chart.spacing", 5 ).add( "chart.spacing", 5 ).add( "chart.spacing", 5 ).add( "chart.spacing", 5 );
+  //add( "chart.spacing", 5 ).add( "chart.spacing", 5 ).add( "chart.spacing", 5 ).add( "chart.spacing", 5 );
 
   // Setup background color
   if ( sim_ -> print_styles == 1 )
@@ -410,9 +410,10 @@ bar_chart_t::bar_chart_t( const std::string& id_str, const sim_t* sim ) :
     set( "chart.backgroundColor", CHART_BGCOLOR );
 
   set( "plotOptions.series.shadow", true );
-  set( "plotOptions.area.lineWidth", 1.25 );
-  set( "plotOptions.area.states.hover.lineWidth", 1 );
-  set( "plotOptions.area.fillOpacity", 0.2 );
+  //set( "plotOptions.bar.states.hover.lineWidth", 1 );
+  set( "plotOptions.bar.fillOpacity", 0.2 );
+  set( "plotOptions.bar.dataLabels.enabled", true );
+  set( "plotOptions.bar.dataLabels.format", "{point.series.name}: {y}" );
 
   // Setup axes
   std::string color = TEXT_COLOR;
