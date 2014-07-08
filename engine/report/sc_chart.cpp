@@ -2377,24 +2377,7 @@ highchart::pie_chart_t& chart::generate_spent_time( highchart::pie_chart_t& pc, 
 
   range::sort( filtered_waiting_stats, compare_stats_time() );
 
-   if ( ! filtered_waiting_stats.empty() )
-   {
-     size_t num_stats = filtered_waiting_stats.size();
-
-     pc.height_ = num_stats * 30 + 30;
-
-     for ( size_t i = 0; i < num_stats; ++i )
-     {
-       const stats_t* stats = filtered_waiting_stats[ i ];
-       std::string color = school_color( stats -> school );
-       if ( color.empty() )
-       {
-         p -> sim -> errorf( "chart::generate_spent_time assertion error! School color unknown, stats %s from %s. School %s\n", stats -> name_str.c_str(), p -> name(), util::school_type_string( stats -> school ) );
-         assert( 0 );
-       }
-       //pc.add_series( color, stats -> name_str, stats -> total_time.total_seconds() );
-     }
-   }
+  generate_stats_sources( pc, p, p -> name_str + " Spent Time", filtered_waiting_stats );
    if ( p -> collected_data.waiting_time.mean() > 0 )
    {
      //pc.add_series( "#000000", "player waiting time", p -> collected_data.waiting_time.mean() );
