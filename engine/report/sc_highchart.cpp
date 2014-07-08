@@ -372,7 +372,7 @@ time_series_t& time_series_t::add_yplotline( double value_,
   {
     if ( obj -> GetType() != rapidjson::kArrayType )
       obj -> SetArray();
-
+    set( "credits", false);
     set( "subtitle.style.fontsize", "10px" );
     set( "subtitle.style.textShadow", TEXT_OUTLINE );
 
@@ -429,6 +429,7 @@ time_series_t& time_series_t::set_max( double value_, const std::string& color )
 bar_chart_t::bar_chart_t( const std::string& id_str, const sim_t* sim ) :
     chart_t( id_str, sim )
 {
+  set( "credits", false);
   set( "legend.enabled", false );
 
   set( "chart.type", "bar" );
@@ -446,6 +447,7 @@ bar_chart_t::bar_chart_t( const std::string& id_str, const sim_t* sim ) :
 pie_chart_t::pie_chart_t( const std::string& id_str, const sim_t* sim ) :
     chart_t( id_str, sim )
 {
+  set( "credits", false);
   set( "legend.enabled", false );
 
   set( "chart.type", "area" );
@@ -459,29 +461,4 @@ pie_chart_t::pie_chart_t( const std::string& id_str, const sim_t* sim ) :
 
   set( "plotOptions.pie.dataLabels.enabled", true );
 
-}
-
-void pie_chart_t::add_series( const std::string& name, const std::vector<entry_t> data )
-{
-
-  /*rapidjson::Value d( rapidjson::kObjectType );
-  for ( size_t i = 0; i < data.size(); ++i )
-  {
-    rapidjson::Value obj_data( rapidjson::kObjectType );
-    set( obj_data, "y", data[ i ].value );
-    std::string color_hex = data[ i ].color;
-    if ( color_hex[ 0 ] != '#' )
-      color_hex = '#' + color_hex;
-    set( obj_data, "color", color_hex );
-    set( obj_data, "name", data[ i ].name );
-    d.PushBack( obj_data, js_.GetAllocator() );
-  }
-
-  rapidjson::Value obj( rapidjson::kObjectType );
-
-  set( obj, "data", d );
-  set( obj, "name", name );
-
-
-  add( "series", obj );*/
 }

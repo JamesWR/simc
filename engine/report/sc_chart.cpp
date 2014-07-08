@@ -2405,32 +2405,53 @@ highchart::pie_chart_t& chart::generate_spent_time( highchart::pie_chart_t& pc, 
 
 highchart::pie_chart_t& chart::generate_stats_sources( highchart::pie_chart_t& pc, const player_t* p, const std::string title, const std::vector<stats_t*>& stats_list )
 {
-  pc.height_ = 200;
+  pc.height_ = 300;
   pc.set_title( title );
   pc.set( "plotOptions.pie.dataLabels.format", "<b>{point.name}</b>: {point.percentage:.1f} %" );
 
    if ( ! stats_list.empty() )
    {
-     size_t num_stats = stats_list.size();
+       rapidjson::Document::AllocatorType& allocator = pc.js_.GetAllocator();
+       size_t num_stats = stats_list.size();
 
-     pc.height_ = num_stats * 30 + 30;
+       rapidjson::Value obj( rapidjson::kObjectType );
 
-     for ( size_t i = 0; i < num_stats; ++i )
-     {
-       const stats_t* stats = stats_list[ i ];
-       std::string color = school_color( stats -> school );
-       if ( color.empty() )
+       pc.set(obj, "type", "pie");
+
+       rapidjson::Value data(rapidjson::kArrayType);
+
+       for ( rapidjson::SizeType i = 0; i < num_stats; ++i )
        {
-         p -> sim -> errorf( "chart::generate_stats_sources assertion error! School color unknown, stats %s from %s. School %s\n",
-                             stats -> name_str.c_str(), p -> name(), util::school_type_string( stats -> school ) );
-         assert( 0 );
+         std::string *color = new std::string[num_stats];
+         const stats_t* stats = stats_list[ i ];
+         color[i] = school_color( stats -> school );
+         if ( color[i].empty() )
+         {
+           p -> sim -> errorf( "chart::generate_stats_sources assertion error! School color unknown, stats %s from %s. School %s\n",
+                               stats -> name_str.c_str(), p -> name(), util::school_type_string( stats -> school ) );
+           assert( 0 );
+         }
+
+         std::string color_hex = (color[i][0] != '#') ? color[i].insert(0, "#") : color[i];
+
+         rapidjson::Value dataKeys;
+
+         dataKeys.SetObject();
+
+         dataKeys.AddMember("y", stats->portion_amount, pc.js_.GetAllocator() );
+         dataKeys.AddMember("color", color_hex.c_str(), pc.js_.GetAllocator() );
+         dataKeys.AddMember("name", stats->name_str.c_str(), pc.js_.GetAllocator() );
+
+         data.PushBack(dataKeys, allocator);
+
        }
-       //pc.add_series( color, stats -> name_str, stats -> actual_amount.mean() );
-     }
+       obj.AddMember("data", data, allocator );
+       pc.add("series", obj);
    }
 
   return pc;
 }
+
 
 highchart::pie_chart_t& chart::generate_damage_stats_sources( highchart::pie_chart_t& chart, const player_t* p )
 {
@@ -2461,7 +2482,7 @@ highchart::pie_chart_t& chart::generate_damage_stats_sources( highchart::pie_cha
 
   range::sort( stats_list, compare_amount() );
 
-  generate_stats_sources( chart, p, p -> name_str + "Damage Sources", stats_list );
+  generate_stats_sources( chart, p, p -> name_str + " Damage Sources", stats_list );
   return chart;
 }
 highchart::pie_chart_t& chart::generate_heal_stats_sources( highchart::pie_chart_t& chart, const player_t* p )
@@ -2492,7 +2513,7 @@ highchart::pie_chart_t& chart::generate_heal_stats_sources( highchart::pie_chart
 
   range::sort( stats_list, compare_amount() );
 
-  generate_stats_sources( chart, p, p -> name_str + "Healing Sources", stats_list );
+  generate_stats_sources( chart, p, p -> name_str + " Healing Sources", stats_list );
   return chart;
 }
 highchart::bar_chart_t& chart::generate_action_dpet( highchart::bar_chart_t& bc, const player_t* p )

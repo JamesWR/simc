@@ -144,7 +144,6 @@ struct pie_chart_t : public chart_t
 {
   pie_chart_t( const std::string& id_str, const sim_t* sim );
   struct entry_t { std::string color, name; double value; };
-  void add_series( const std::string& name, const std::vector<entry_t> data );
 };
 
 template <typename T>
