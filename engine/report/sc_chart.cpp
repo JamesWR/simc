@@ -2294,7 +2294,6 @@ std::string chart::stat_color( stat_e type )
 
 highchart::pie_chart_t& chart::generate_spent_time( highchart::pie_chart_t& pc, const player_t* p )
 {
-  pc.height_ = 200;
   pc.set_title( p -> name_str + " Spent Time" );
   pc.set( "plotOptions.pie.dataLabels.format", "<b>{point.name}</b>: {point.y:.1f}s" );
 
@@ -2309,60 +2308,78 @@ highchart::pie_chart_t& chart::generate_spent_time( highchart::pie_chart_t& pc, 
 
   range::sort( filtered_waiting_stats, compare_stats_time() );
 
-  generate_stats_sources( pc, p, p -> name_str + " Spent Time", filtered_waiting_stats );
+
+  // Build Data
+  std::vector<highchart::pie_chart_t::entry_t> data;
+   if ( ! filtered_waiting_stats.empty() )
+   {
+     for ( size_t i = 0; i < filtered_waiting_stats.size(); ++i )
+     {
+       const stats_t* stats = filtered_waiting_stats[ i ];
+       std::string color = school_color( stats -> school );
+       if ( color.empty() )
+       {
+         p -> sim -> errorf( "chart::generate_stats_sources assertion error! School color unknown, stats %s from %s. School %s\n",
+                             stats -> name_str.c_str(), p -> name(), util::school_type_string( stats -> school ) );
+         assert( 0 );
+       }
+
+       std::string color_hex = "#" + color;
+
+       highchart::pie_chart_t::entry_t e;
+       e.color = color_hex;
+       e.value = stats -> total_time.total_seconds();
+       e.name = stats -> name_str;
+       data.push_back( e );
+     }
+   }
    if ( p -> collected_data.waiting_time.mean() > 0 )
    {
-     //pc.add_series( "#000000", "player waiting time", p -> collected_data.waiting_time.mean() );
+     highchart::pie_chart_t::entry_t e;
+     e.color = "#000000";
+     e.value = p -> collected_data.waiting_time.mean();
+     e.name = "player waiting time";
+     data.push_back( e );
    }
+
+   // Add Data to Chart
+   pc.add_data( data );
 
   return pc;
 }
 
 highchart::pie_chart_t& chart::generate_stats_sources( highchart::pie_chart_t& pc, const player_t* p, const std::string title, const std::vector<stats_t*>& stats_list )
 {
-  pc.height_ = 300;
-  pc.set_title( title );
+   pc.set_title( title );
   pc.set( "plotOptions.pie.dataLabels.format", "<b>{point.name}</b>: {point.percentage:.1f} %" );
 
+  // Build Data
+  std::vector<highchart::pie_chart_t::entry_t> data;
    if ( ! stats_list.empty() )
    {
-       rapidjson::Document::AllocatorType& allocator = pc.js_.GetAllocator();
-       size_t num_stats = stats_list.size();
-
-       rapidjson::Value obj( rapidjson::kObjectType );
-
-       pc.set(obj, "type", "pie");
-
-       rapidjson::Value data(rapidjson::kArrayType);
-
-       for ( rapidjson::SizeType i = 0; i < num_stats; ++i )
+     for ( size_t i = 0; i < stats_list.size(); ++i )
+     {
+       const stats_t* stats = stats_list[ i ];
+       std::string color = school_color( stats -> school );
+       if ( color.empty() )
        {
-         std::string *color = new std::string[num_stats];
-         const stats_t* stats = stats_list[ i ];
-         color[i] = school_color( stats -> school );
-         if ( color[i].empty() )
-         {
-           p -> sim -> errorf( "chart::generate_stats_sources assertion error! School color unknown, stats %s from %s. School %s\n",
-                               stats -> name_str.c_str(), p -> name(), util::school_type_string( stats -> school ) );
-           assert( 0 );
-         }
-
-         std::string color_hex = (color[i][0] != '#') ? color[i].insert(0, "#") : color[i];
-
-         rapidjson::Value dataKeys;
-
-         dataKeys.SetObject();
-
-         dataKeys.AddMember("y", stats->portion_amount, pc.js_.GetAllocator() );
-         dataKeys.AddMember("color", color_hex.c_str(), pc.js_.GetAllocator() );
-         dataKeys.AddMember("name", stats->name_str.c_str(), pc.js_.GetAllocator() );
-
-         data.PushBack(dataKeys, allocator);
-
+         p -> sim -> errorf( "chart::generate_stats_sources assertion error! School color unknown, stats %s from %s. School %s\n",
+                             stats -> name_str.c_str(), p -> name(), util::school_type_string( stats -> school ) );
+         assert( 0 );
        }
-       obj.AddMember("data", data, allocator );
-       pc.add("series", obj);
+
+       std::string color_hex = "#" + color;
+
+       highchart::pie_chart_t::entry_t e;
+       e.color = color_hex;
+       e.value = stats -> portion_amount;
+       e.name = stats -> name_str;
+       data.push_back( e );
+     }
    }
+
+   // Add Data to Chart
+   pc.add_data( data );
 
   return pc;
 }
@@ -2370,7 +2387,6 @@ highchart::pie_chart_t& chart::generate_stats_sources( highchart::pie_chart_t& p
 
 highchart::pie_chart_t& chart::generate_damage_stats_sources( highchart::pie_chart_t& chart, const player_t* p )
 {
-
   std::vector<stats_t*> stats_list;
 
    for ( size_t i = 0; i < p -> stats_list.size(); ++i )

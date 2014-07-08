@@ -447,7 +447,60 @@ bar_chart_t::bar_chart_t( const std::string& id_str, const sim_t* sim ) :
 pie_chart_t::pie_chart_t( const std::string& id_str, const sim_t* sim ) :
     chart_t( id_str, sim )
 {
+  height_ = 300; // Default Pie Chart height
+
   set( "credits", false);
+  set( "legend.enabled", false );
+
+  set( "chart.type", "area" );
+
+  add( "chart.spacing", 5 ).add( "chart.spacing", 5 ).add( "chart.spacing", 5 ).add( "chart.spacing", 5 );
+
+  set( "plotOptions.series.shadow", true );
+  //set( "plotOptions.bar.states.hover.lineWidth", 1 );
+  set( "plotOptions.pie.fillOpacity", 0.2 );
+
+
+  set( "plotOptions.pie.dataLabels.enabled", true );
+
+}
+
+void pie_chart_t::add_data( const std::vector<entry_t>& d )
+{
+  rapidjson::Document::AllocatorType& allocator = js_.GetAllocator();
+
+  rapidjson::Value obj( rapidjson::kObjectType );
+
+  set(obj, "type", "pie");
+
+  rapidjson::Value data(rapidjson::kArrayType);
+
+  for ( size_t i = 0; i < d.size(); ++i )
+  {
+    const entry_t& entry = d[ i ];
+
+    rapidjson::Value dataKeys;
+
+    dataKeys.SetObject();
+
+    dataKeys.AddMember("y", entry.value, js_.GetAllocator() );
+    dataKeys.AddMember("color", entry.color.c_str(), js_.GetAllocator() );
+    dataKeys.AddMember("name", entry.name.c_str(), js_.GetAllocator() );
+
+    data.PushBack(dataKeys, allocator);
+
+  }
+  obj.AddMember("data", data, allocator );
+  add("series", obj);
+}
+
+histogram_chart_t::histogram_chart_t( const std::string& id_str, const sim_t* sim ) :
+    chart_t( id_str, sim )
+{
+
+  // See http://stackoverflow.com/questions/18042165/plot-histograms-in-highcharts
+  // and the two linked examples
+
   set( "legend.enabled", false );
 
   set( "chart.type", "area" );

@@ -144,6 +144,12 @@ struct pie_chart_t : public chart_t
 {
   pie_chart_t( const std::string& id_str, const sim_t* sim );
   struct entry_t { std::string color, name; double value; };
+  void add_data( const std::vector<entry_t>& d );
+};
+
+struct histogram_chart_t : public chart_t
+{
+  histogram_chart_t( const std::string& id_str, const sim_t* sim );
 };
 
 template <typename T>
