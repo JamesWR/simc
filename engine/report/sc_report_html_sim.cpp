@@ -1547,24 +1547,17 @@ void print_html_sim_summary( report::sc_html_stream& os, sim_t* sim, sim_report_
   }
 
   // Raid Downtime Chart
-  if ( !  ri.downtime_chart.empty() )
-  {
-    os.printf(
-      "\t\t\t\t\t<img src=\"%s\" alt=\"Raid Downtime Chart\" />\n",
-      ri.downtime_chart.c_str() );
-  }
+  highchart::bar_chart_t waiting( "player_waiting", sim );
+  os <<  chart::generate_player_waiting_time( waiting, sim ).to_string();
 
   os << "\t\t\t\t</div>\n";
 
   // Right side charts: dpet
   os << "\t\t\t\t<div class=\"charts\">\n";
 
-  for ( size_t i = 0; i < ri.dpet_charts.size(); i++ )
-  {
-    os.printf(
-      "\t\t\t\t\t<img src=\"%s\" alt=\"DPET Chart\" />\n",
-      ri.dpet_charts[ i ].c_str() );
-  }
+  // Raid DPET
+  highchart::bar_chart_t dpet( "raid_dpet", sim );
+  os <<  chart::generate_raid_dpet( dpet, sim ).to_string();
 
   os << "\t\t\t\t</div>\n";
 

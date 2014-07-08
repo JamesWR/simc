@@ -994,14 +994,15 @@ void print_xml_summary( sim_t* sim, xml_writer_t & writer, sim_report_informatio
     writer.print_attribute_unescaped( "img_src", ri.gear_charts[ i ] );
     writer.end_tag( "chart" );
   }
-  count = ri.dpet_charts.size();
-  for ( size_t i = 0; i < count; i++ )
-  {
-    writer.begin_tag( "chart" );
-    writer.print_attribute( "type", "dpet" );
-    writer.print_attribute_unescaped( "img_src", ri.dpet_charts[ i ] );
-    writer.end_tag( "chart" );
-  }
+
+
+  // Raid DPET
+  highchart::bar_chart_t bc( "raid_dpet", sim );
+  writer.begin_tag( "chart" );
+  writer.print_attribute( "type", "dpet" );
+  writer.print_text( chart::generate_raid_dpet( bc , sim ).to_xml() );
+  writer.end_tag( "chart" );
+
   writer.end_tag( "charts" );
 
   writer.begin_tag( "dmg" );

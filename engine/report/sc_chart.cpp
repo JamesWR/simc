@@ -392,7 +392,7 @@ struct compare_downtime
 {
   bool operator()( player_t* l, player_t* r ) const
   {
-    return l -> collected_data.waiting_time.mean() > r -> collected_data.waiting_time.mean();
+    return l -> collected_data.waiting_time.mean() < r -> collected_data.waiting_time.mean();
   }
 };
 
@@ -452,6 +452,18 @@ struct filter_waiting_stats
     if ( st -> background ) return true;
 
     return false;
+  }
+};
+
+struct filter_waiting_time
+{
+  bool operator()( const player_t* p ) const
+  {
+    if ( ( p -> collected_data.waiting_time.mean() / p -> collected_data.fight_length.mean() ) > 0.01 )
+    {
+      return false;
+    }
+    return true;
   }
 };
 
@@ -589,105 +601,6 @@ public:
 // ==========================================================================
 // Chart
 // ==========================================================================
-
-std::string chart::raid_downtime( std::vector<player_t*>& players_by_name, int print_styles )
-{
-  // chart option overview: http://code.google.com/intl/de-DE/apis/chart/image/docs/chart_params.html
-
-  if ( players_by_name.empty() )
-    return std::string();
-
-  std::vector<player_t*> waiting_list;
-  for ( size_t i = 0; i < players_by_name.size(); i++ )
-  {
-    player_t* p = players_by_name[ i ];
-    if ( ( p -> collected_data.waiting_time.mean() / p -> collected_data.fight_length.mean() ) > 0.01 )
-    {
-      waiting_list.push_back( p );
-    }
-  }
-
-  if ( waiting_list.empty() )
-    return std::string();
-
-  range::sort( waiting_list, compare_downtime() );
-
-  // Check if any player name contains non-ascii characters.
-  // If true, add a special char ("\xE4\xB8\x80")  to the title, which fixes a weird bug with google image charts.
-  // See Issue 834
-  bool player_names_non_ascii = false;
-  for ( size_t i = 0; i < waiting_list.size(); i++ )
-  {
-    if ( util::contains_non_ascii( waiting_list[ i ] -> name_str ) )
-    {
-      player_names_non_ascii = true;
-      break;
-    }
-  }
-
-  // Set up chart
-  sc_chart chart( std::string( player_names_non_ascii ? "\xE4\xB8\x80" : "" ) + "Player Waiting Time", HORIZONTAL_BAR, print_styles );
-  chart.set_height( as<unsigned>( waiting_list.size() ) * 30 + 30 );
-
-  std::ostringstream s;
-  s.setf( std::ios_base::fixed ); // Set fixed flag for floating point numbers
-
-  // Create Chart
-  s << chart.create();
-
-  // Fill in data
-  s << "chd=t:";
-  double max_waiting = 0;
-  for ( size_t i = 0; i < waiting_list.size(); i++ )
-  {
-    player_t* p = waiting_list[ i ];
-    double waiting = 100.0 * p -> collected_data.waiting_time.mean() / p -> collected_data.fight_length.mean();
-    if ( waiting > max_waiting ) max_waiting = waiting;
-    s << ( i ? "|" : "" );
-    s << std::setprecision( 2 ) << waiting;
-  }
-  s << amp;
-
-  // Custom chart data scaling
-  s << "chds=0," << ( max_waiting * 1.9 );
-  s << amp;
-
-  // Fill in color series
-  s << "chco=";
-  for ( size_t i = 0; i < waiting_list.size(); i++ )
-  {
-    if ( i ) s << ",";
-    s << class_color( get_player_or_owner_type( waiting_list[ i ] ) );
-  }
-  s << amp;
-
-  // Text Data
-  s << "chm=";
-  for ( size_t i = 0; i < waiting_list.size(); i++ )
-  {
-    player_t* p = waiting_list[ i ];
-
-    std::string formatted_name = p -> name_str;
-    util::urlencode( formatted_name );
-
-    double waiting_pct = ( 100.0 * p -> collected_data.waiting_time.mean() / p -> collected_data.fight_length.mean() );
-
-    s << ( i ? "|" : "" )  << "t++" << std::setprecision( p -> sim -> report_precision / 2 ) << waiting_pct; // Insert waiting percent
-
-    s << "%25++" << formatted_name.c_str(); // Insert player name
-
-    s << "," << get_color( p ); // Insert player class text color
-
-    s << "," << i; // Series Index
-
-    s << ",0"; // <opt_which_points> 0 == draw markers for all points
-
-    s << ",15"; // size
-  }
-  s << amp;
-
-  return s.str();
-}
 
 // chart::raid_dps ==========================================================
 
@@ -922,100 +835,6 @@ size_t chart::raid_gear( std::vector<std::string>& images,
     player_list.erase( player_list.begin(), player_list.begin() + num_players );
     num_players = ( int ) player_list.size();
     if ( num_players == 0 ) break;
-  }
-
-  return images.size();
-}
-
-
-
-// chart::raid_dpet =========================================================
-
-size_t chart::raid_dpet( std::vector<std::string>& images,
-                         sim_t* sim )
-{
-  size_t num_players = sim -> players_by_dps.size();
-
-  if ( num_players == 0 )
-    return 0;
-
-  std::vector<stats_t*> stats_list;
-
-
-  for ( size_t i = 0; i < num_players; i++ )
-  {
-    player_t* p = sim -> players_by_dps[ i ];
-
-    // Copy all stats* from p -> stats_list to stats_list, which satisfy the filter
-    range::remove_copy_if( p -> stats_list, back_inserter( stats_list ), filter_stats_dpet( *p ) );
-  }
-
-  size_t num_stats = stats_list.size();
-  if ( num_stats == 0 ) return 0;
-
-  range::sort( stats_list, compare_dpet() );
-
-  double max_dpet = stats_list[ 0 ] -> apet;
-
-  size_t max_actions_per_chart = 20;
-  size_t max_charts = 4;
-
-  std::string s;
-  char buffer[ 1024 ];
-
-  for ( size_t chart = 0; chart < max_charts; chart++ )
-  {
-    if ( num_stats > max_actions_per_chart ) num_stats = max_actions_per_chart;
-
-    s = get_chart_base_url();
-    s += chart_size( 500, as<unsigned>( num_stats ) * 15 + ( chart == 0 ? 20 : -10 ) ); // Set chart size
-    s += "cht=bhg";
-    s += amp;
-    if ( ! ( sim -> print_styles == 1 ) )
-    {
-      s += fill_chart( FILL_BACKGROUND, FILL_SOLID, "333333" );
-    }
-    s += "chbh=10";
-    s += amp;
-    s += "chd=t:";
-    for ( size_t i = 0; i < num_stats; i++ )
-    {
-      stats_t* st = stats_list[ i ];
-      snprintf( buffer, sizeof( buffer ), "%s%.0f", ( i ? "|" : "" ), st -> apet ); s += buffer;
-    }
-    s += amp;
-    snprintf( buffer, sizeof( buffer ), "chds=0,%.0f", max_dpet * 2.5 ); s += buffer;
-    s += amp;
-    s += "chco=";
-    for ( size_t i = 0; i < num_stats; i++ )
-    {
-      if ( i ) s += ",";
-      s += school_color ( stats_list[ i ] -> school );
-    }
-    s += amp;
-    s += "chm=";
-    for ( size_t i = 0; i < num_stats; i++ )
-    {
-      stats_t* st = stats_list[ i ];
-      std::string formatted_name = st -> player -> name_str;
-      util::urlencode( formatted_name );
-
-      snprintf( buffer, sizeof( buffer ), "%st++%.0f++%s+(%s),%s,%d,0,10", ( i ? "|" : "" ),
-                st -> apet, st -> name_str.c_str(), formatted_name.c_str(), get_color( st -> player ).c_str(), ( int )i ); s += buffer;
-    }
-    s += amp;
-    if ( chart == 0 )
-    {
-      s += chart_title( "Raid Damage Per Execute Time" ); // Set chart title
-    }
-
-    s += chart_title_formatting( chart_bg_color( sim -> print_styles ), 18 );
-
-    images.push_back( s );
-
-    stats_list.erase( stats_list.begin(), stats_list.begin() + num_stats );
-    num_stats = stats_list.size();
-    if ( num_stats == 0 ) break;
   }
 
   return images.size();
@@ -2228,7 +2047,8 @@ std::string chart::stat_color( stat_e type )
 
 highchart::pie_chart_t& chart::generate_gains( highchart::pie_chart_t& pc, const player_t* p, const resource_e type )
 {
-  pc.set_title( p -> name_str + util::resource_type_string( type ) + " Gains" );
+  std::string resource_name = util::inverse_tokenize( util::resource_type_string( type ) );
+  pc.set_title( p -> name_str + " " + resource_name + " Gains" );
   pc.set( "plotOptions.pie.dataLabels.format", "<b>{point.name}</b>: {point.y:.1f}" );
 
   // Build gains List
@@ -2419,21 +2239,59 @@ highchart::pie_chart_t& chart::generate_heal_stats_sources( highchart::pie_chart
   generate_stats_sources( chart, p, p -> name_str + " Healing Sources", stats_list );
   return chart;
 }
-highchart::bar_chart_t& chart::generate_action_dpet( highchart::bar_chart_t& bc, const player_t* p )
+
+highchart::bar_chart_t& chart::generate_player_waiting_time( highchart::bar_chart_t& bc, sim_t* s )
 {
-  bc.height_ = 200;
-  bc.set_title( p -> name_str + " Damage per Execute Time" );
-  bc.set_yaxis_title( "Damage per Execute Time" );
+  bc.set_title( "Player Waiting Time" );
 
+  std::vector<player_t*> waiting_list;
+  range::remove_copy_if( s -> players_by_name, back_inserter( waiting_list ), filter_waiting_time() );
+
+  range::sort( waiting_list, compare_downtime() );
+  for ( size_t i = 0; i < waiting_list.size(); ++i )
+  {
+    const player_t* p = waiting_list[ i ];
+    std::string color = class_color( p -> type );
+    if ( color.empty() )
+    {
+      s -> errorf( "%s Player class color unknown. Type %s\n",
+          p -> name(), util::player_type_string( p -> type ) );
+      assert( 0 );
+    }
+    std::vector<double> data; data.push_back( p -> collected_data.waiting_time.mean() );
+    bc.add_series( color, p -> name_str, data );
+  }
+
+  return bc;
+
+}
+
+highchart::bar_chart_t& chart::generate_raid_dpet( highchart::bar_chart_t& bc, sim_t* s )
+{
+  bc.set_title( "Raid Damage Per Execute Time" );
+
+  // Prepare stats list
   std::vector<stats_t*> stats_list;
+  for ( size_t i = 0; i < s -> players_by_dps.size(); i++ )
+  {
+    player_t* p = s -> players_by_dps[ i ];
 
-  // Copy all stats* from p -> stats_list to stats_list, which satisfy the filter
-  range::remove_copy_if( p -> stats_list, back_inserter( stats_list ), filter_stats_dpet( *p ) );
+    // Copy all stats* from p -> stats_list to stats_list, which satisfy the filter
+    range::remove_copy_if( p -> stats_list, back_inserter( stats_list ), filter_stats_dpet( *p ) );
+  }
+  range::sort( stats_list, compare_dpet() );
 
+  generate_dpet( bc, s, stats_list );
+
+  return bc;
+
+}
+
+highchart::bar_chart_t& chart::generate_dpet( highchart::bar_chart_t& bc , sim_t* s, const std::vector<stats_t*>& stats_list )
+{
   if ( ! stats_list.empty() )
   {
     size_t num_stats = stats_list.size();
-    range::sort( stats_list, compare_dpet() );
 
     bc.height_ = num_stats * 30 + 30;
 
@@ -2443,13 +2301,29 @@ highchart::bar_chart_t& chart::generate_action_dpet( highchart::bar_chart_t& bc,
       std::string color = school_color( stats_list[ i ] -> school );
       if ( color.empty() )
       {
-        p -> sim -> errorf( "chart_t::action_dpet assertion error! School color unknown, stats %s from %s. School %s\n", stats_list[ i ] -> name_str.c_str(), p -> name(), util::school_type_string( stats_list[ i ] -> school ) );
+        s -> errorf( "chart_t::action_dpet assertion error! School color unknown, stats %s from %s. School %s\n",
+            stats -> name_str.c_str(), stats -> player-> name(), util::school_type_string( stats -> school ) );
         assert( 0 );
       }
       std::vector<double> data; data.push_back( stats->apet );
       bc.add_series( color, stats -> name_str, data );
     }
   }
+  return bc;
+}
+
+highchart::bar_chart_t& chart::generate_action_dpet( highchart::bar_chart_t& bc, const player_t* p )
+{
+  bc.set_title( p -> name_str + " Damage per Execute Time" );
+  bc.set_yaxis_title( "Damage per Execute Time" );
+
+  std::vector<stats_t*> stats_list;
+
+  // Copy all stats* from p -> stats_list to stats_list, which satisfy the filter
+  range::remove_copy_if( p -> stats_list, back_inserter( stats_list ), filter_stats_dpet( *p ) );
+  range::sort( stats_list, compare_dpet() );
+
+  generate_dpet( bc, p -> sim, stats_list );
 
   return bc;
 
