@@ -2149,10 +2149,8 @@ void print_html_player_resources( report::sc_html_stream& os, player_t* p, playe
 
     if ( total_gain > 0 )
     {
-      if ( ! ri.gains_chart[ r ].empty() )
-      {
-        os.tabs() << "<img src=\"" << ri.gains_chart[ r ] << "\" alt=\"Resource Gains Chart\" />\n";
-      }
+      highchart::pie_chart_t pc( highchart::build_id( p, std::string("resource_gain_") + util::resource_type_string( r ) ), p -> sim );
+      os <<  chart::generate_gains( pc , p, r ).to_string();
     }
   }
   --os;

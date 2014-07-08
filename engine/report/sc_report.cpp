@@ -971,13 +971,6 @@ void report::generate_player_charts( player_t* p, player_processed_report_inform
                                                       cd.deaths.min(),
                                                       cd.deaths.max() );
 
-  // Resource Charts
-  for ( size_t i = 0; i < cd.resource_timelines.size(); ++i )
-  {
-    resource_e rt = cd.resource_timelines[ i ].type;
-    ri.gains_chart[ rt ] = chart::gains( p, rt );
-  }
-
   // Scaling charts
   if ( ! ( ( p -> sim -> scaling -> num_scaling_stats <= 0 ) || p -> quiet || p -> is_pet() || p -> is_enemy() || p -> is_add() || p -> type == HEALING_ENEMY ) )
   {

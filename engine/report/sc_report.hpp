@@ -29,7 +29,6 @@ size_t raid_aps ( std::vector<std::string>& images, sim_t*, std::vector<player_t
 size_t raid_dpet( std::vector<std::string>& images, sim_t* );
 size_t raid_gear( std::vector<std::string>& images, sim_t*, int print_styles = 0 );
 
-std::string gains              ( player_t*, resource_e );
 ///std::string timeline           ( player_t*, const std::vector<double>&, const std::string&, double avg = 0, std::string color = "FDD017", size_t max_length = 0 );
 std::string scale_factors      ( player_t* );
 std::string scaling_dps        ( player_t* );
@@ -44,6 +43,7 @@ std::string gear_weights_wowhead   ( player_t*, bool hit_expertise );
 std::string gear_weights_askmrrobot( player_t* );
 std::string gear_weights_pawn      ( player_t*, bool hit_expertise );
 
+highchart::pie_chart_t& generate_gains( highchart::pie_chart_t&, const player_t*, const resource_e );
 highchart::pie_chart_t& generate_spent_time( highchart::pie_chart_t&, const player_t* );
 highchart::pie_chart_t& generate_stats_sources( highchart::pie_chart_t&, const player_t*, const std::string title, const std::vector<stats_t*>& stats_list );
 highchart::pie_chart_t& generate_damage_stats_sources( highchart::pie_chart_t&, const player_t* );

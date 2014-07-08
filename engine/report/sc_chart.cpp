@@ -1021,72 +1021,6 @@ size_t chart::raid_dpet( std::vector<std::string>& images,
   return images.size();
 }
 
-// chart::gains =============================================================
-
-std::string chart::gains( player_t* p, resource_e type )
-{
-  std::vector<gain_t*> gains_list;
-
-  double total_gain = 0;
-
-  for ( size_t i = 0; i < p -> gain_list.size(); ++i )
-  {
-    gain_t* g = p -> gain_list[ i ];
-    if ( g -> actual[ type ] <= 0 ) continue;
-    total_gain += g -> actual[ type ];
-    gains_list.push_back( g );
-  }
-
-  int num_gains = ( int ) gains_list.size();
-  if ( num_gains == 0 )
-    return std::string();
-
-  range::sort( gains_list, compare_gain() );
-
-  std::ostringstream s;
-  s.setf( std::ios_base::fixed ); // Set fixed flag for floating point numbers
-
-  std::string formatted_name = p -> name_str;
-  util::urlencode( formatted_name );
-  std::string r = util::resource_type_string( type );
-  util::inverse_tokenize( r );
-
-  sc_chart chart( formatted_name + "+" + r + " Gains", PIE, p -> sim -> print_styles );
-  chart.set_height( 200 + num_gains * 10 );
-
-  s <<  chart.create();
-
-  // Insert Chart Data
-  s << "chd=t:";
-  for ( int i = 0; i < num_gains; i++ )
-  {
-    gain_t* g = gains_list[ i ];
-    s << ( i ? "," : "" );
-    s << std::setprecision( p -> sim -> report_precision / 2 ) << 100.0 * ( g -> actual[ type ] / total_gain );
-  }
-  s << "&amp;";
-
-  // Chart scaling, may not be necessary if numbers are not shown
-  s << "chds=0,100";
-  s << amp;
-
-  // Series color
-  s << "chco=";
-  s << resource_color( type );
-  s << amp;
-
-  // Labels
-  s << "chl=";
-  for ( int i = 0; i < num_gains; i++ )
-  {
-    if ( i ) s << "|";
-    s << gains_list[ i ] -> name();
-  }
-  s << amp;
-
-  return s.str();
-}
-
 // chart::scale_factors =====================================================
 
 std::string chart::scale_factors( player_t* p )
@@ -2292,6 +2226,44 @@ std::string chart::stat_color( stat_e type )
   }
 }
 
+highchart::pie_chart_t& chart::generate_gains( highchart::pie_chart_t& pc, const player_t* p, const resource_e type )
+{
+  pc.set_title( p -> name_str + util::resource_type_string( type ) + " Gains" );
+  pc.set( "plotOptions.pie.dataLabels.format", "<b>{point.name}</b>: {point.y:.1f}" );
+
+  // Build gains List
+  std::vector<gain_t*> gains_list;
+  for ( size_t i = 0; i < p -> gain_list.size(); ++i )
+  {
+    gain_t* g = p -> gain_list[ i ];
+    if ( g -> actual[ type ] <= 0 ) continue;
+    gains_list.push_back( g );
+  }
+  range::sort( gains_list, compare_gain() );
+
+
+  // Build Data
+  std::vector<highchart::pie_chart_t::entry_t> data;
+   if ( ! gains_list.empty() )
+   {
+     for ( size_t i = 0; i < gains_list.size(); ++i )
+     {
+       const gain_t* gain = gains_list[ i ];
+       std::string color_hex = "#" + resource_color( type );;
+
+       highchart::pie_chart_t::entry_t e;
+       e.color = color_hex;
+       e.value = gain -> actual[ type ];
+       e.name = gain -> name_str;
+       data.push_back( e );
+     }
+   }
+
+   // Add Data to Chart
+   pc.add_data( data );
+
+  return pc;
+}
 highchart::pie_chart_t& chart::generate_spent_time( highchart::pie_chart_t& pc, const player_t* p )
 {
   pc.set_title( p -> name_str + " Spent Time" );
