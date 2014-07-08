@@ -24,7 +24,6 @@ enum chart_e { HORIZONTAL_BAR_STACKED, HORIZONTAL_BAR, VERTICAL_BAR, PIE, LINE, 
 
 std::string resource_color( int type );
 std::string stat_color( stat_e stat );
-size_t raid_aps ( std::vector<std::string>& images, sim_t*, std::vector<player_t*>&, bool dps );
 size_t raid_gear( std::vector<std::string>& images, sim_t*, int print_styles = 0 );
 
 ///std::string timeline           ( player_t*, const std::vector<double>&, const std::string&, double avg = 0, std::string color = "FDD017", size_t max_length = 0 );
@@ -46,6 +45,7 @@ highchart::pie_chart_t& generate_spent_time( highchart::pie_chart_t&, const play
 highchart::pie_chart_t& generate_stats_sources( highchart::pie_chart_t&, const player_t*, const std::string title, const std::vector<stats_t*>& stats_list );
 highchart::pie_chart_t& generate_damage_stats_sources( highchart::pie_chart_t&, const player_t* );
 highchart::pie_chart_t& generate_heal_stats_sources( highchart::pie_chart_t&, const player_t* );
+highchart::bar_chart_t& generate_raid_aps( highchart::bar_chart_t&, sim_t*, bool dps_or_heal );
 highchart::bar_chart_t& generate_raid_dpet( highchart::bar_chart_t&, sim_t* );
 highchart::bar_chart_t& generate_player_waiting_time( highchart::bar_chart_t&, sim_t* );
 highchart::bar_chart_t& generate_action_dpet( highchart::bar_chart_t&, const player_t* );

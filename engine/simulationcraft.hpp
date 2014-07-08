@@ -2413,7 +2413,7 @@ private:
 struct sim_report_information_t
 {
   bool charts_generated;
-  std::vector<std::string> dps_charts, hps_charts, gear_charts;
+  std::vector<std::string> gear_charts;
   std::string timeline_chart;
   sim_report_information_t() { charts_generated = false; }
 };

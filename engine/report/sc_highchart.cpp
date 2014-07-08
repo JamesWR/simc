@@ -231,6 +231,37 @@ void chart_t::set_yaxis_title( const std::string& label )
 void chart_t::set_title( const std::string& title )
 { set( "title.text", title ); }
 
+void chart_t::add_series( const std::string& type, const std::string& color, const std::string& name, const std::vector<entry_t>& d )
+{
+
+  rapidjson::Value obj( rapidjson::kObjectType );
+
+  set(obj, "type", type.c_str() );
+
+  rapidjson::Value data(rapidjson::kArrayType);
+
+  for ( size_t i = 0; i < d.size(); ++i )
+  {
+    const entry_t& entry = d[ i ];
+
+    rapidjson::Value dataKeys;
+
+    dataKeys.SetObject();
+    rapidjson::Value val(entry.value);
+    rapidjson::Value color(entry.color.c_str(), js_.GetAllocator());
+    rapidjson::Value name(entry.name.c_str(), js_.GetAllocator());
+    dataKeys.AddMember( "y", js_.GetAllocator(), val, js_.GetAllocator() );
+    std::cerr << entry.color.c_str() << "\n";
+    dataKeys.AddMember("color", js_.GetAllocator(), color, js_.GetAllocator() );
+    dataKeys.AddMember("name", js_.GetAllocator(), name, js_.GetAllocator() );
+
+    data.PushBack(dataKeys, js_.GetAllocator() );
+
+  }
+  obj.AddMember("data", js_.GetAllocator(), data, js_.GetAllocator() );
+  add("series", obj);
+}
+
 void chart_t::add_series( const std::string& color,
                           const std::string& name,
                           const std::vector<double>& series )
@@ -440,8 +471,13 @@ bar_chart_t::bar_chart_t( const std::string& id_str, const sim_t* sim ) :
   //set( "plotOptions.bar.states.hover.lineWidth", 1 );
   set( "plotOptions.bar.fillOpacity", 0.2 );
   set( "plotOptions.bar.dataLabels.enabled", true );
-  set( "plotOptions.bar.dataLabels.format", "{point.series.name}: {y}" );
+  set( "plotOptions.bar.dataLabels.format", "{point.name}: {point.y}" );
 
+}
+
+void bar_chart_t::add_series( const std::vector<entry_t>& d, const std::string& color, const std::string& name )
+{
+  chart_t::add_series( "bar", color, name, d );
 }
 
 pie_chart_t::pie_chart_t( const std::string& id_str, const sim_t* sim ) :
@@ -465,33 +501,9 @@ pie_chart_t::pie_chart_t( const std::string& id_str, const sim_t* sim ) :
 
 }
 
-void pie_chart_t::add_data( const std::vector<entry_t>& d )
+void pie_chart_t::add_series( const std::vector<entry_t>& d, const std::string& color, const std::string& name )
 {
-  rapidjson::Document::AllocatorType& allocator = js_.GetAllocator();
-
-  rapidjson::Value obj( rapidjson::kObjectType );
-
-  set(obj, "type", "pie");
-
-  rapidjson::Value data(rapidjson::kArrayType);
-
-  for ( size_t i = 0; i < d.size(); ++i )
-  {
-    const entry_t& entry = d[ i ];
-
-    rapidjson::Value dataKeys;
-
-    dataKeys.SetObject();
-
-    dataKeys.AddMember("y", entry.value, js_.GetAllocator() );
-    dataKeys.AddMember("color", entry.color.c_str(), js_.GetAllocator() );
-    dataKeys.AddMember("name", entry.name.c_str(), js_.GetAllocator() );
-
-    data.PushBack(dataKeys, allocator);
-
-  }
-  obj.AddMember("data", data, allocator );
-  add("series", obj);
+  chart_t::add_series( "pie", color, name, d );
 }
 
 histogram_chart_t::histogram_chart_t( const std::string& id_str, const sim_t* sim ) :

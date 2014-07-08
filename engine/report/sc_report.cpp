@@ -995,8 +995,6 @@ void report::generate_sim_report_information( sim_t* s , sim_report_information_
   if ( ri.charts_generated )
     return;
 
-  chart::raid_aps     ( ri.dps_charts, s, s -> players_by_dps, true );
-  chart::raid_aps     ( ri.hps_charts, s, s -> players_by_hps, false );
   chart::raid_gear    ( ri.gear_charts, s, s -> print_styles );
   ri.timeline_chart = chart::distribution( s -> print_styles,
                                            s -> simulation_length.distribution, "Timeline",

@@ -968,25 +968,22 @@ void print_xml_summary( sim_t* sim, xml_writer_t & writer, sim_report_informatio
     writer.end_tag( "lag" );
   }
 
-  size_t count = ri.dps_charts.size();
   writer.begin_tag( "charts" );
-  writer.print_attribute( "max_players_per_chart", util::to_string( MAX_PLAYERS_PER_CHART ) );
-  for ( size_t i = 0; i < count; i++ )
-  {
-    writer.begin_tag( "chart" );
-    writer.print_attribute( "type", "dps" );
-    writer.print_attribute_unescaped( "img_src", ri.dps_charts[ i ] );
-    writer.end_tag( "chart" );
-  }
-  count = ri.hps_charts.size();
-  for ( size_t i = 0; i < count; i++ )
-  {
-    writer.begin_tag( "chart" );
-    writer.print_attribute( "type", "hps" );
-    writer.print_attribute_unescaped( "img_src", ri.hps_charts[ i ] );
-    writer.end_tag( "chart" );
-  }
-  count = ri.gear_charts.size();
+
+  highchart::bar_chart_t raid_dps( "raid_dps", sim );
+  writer.begin_tag( "chart" );
+  writer.print_attribute( "type", "raid_dps" );
+  writer.print_text( chart::generate_raid_aps( raid_dps, sim, true ).to_xml() );
+  writer.end_tag( "chart" );
+
+  highchart::bar_chart_t raid_gps( "raid_gps", sim );
+  writer.begin_tag( "chart" );
+  writer.print_attribute( "type", "raid_gps" );
+  writer.print_text( chart::generate_raid_aps( raid_gps, sim, false ).to_xml() );
+  writer.end_tag( "chart" );
+
+
+  size_t count = ri.gear_charts.size();
   for ( size_t i = 0; i < count; i++ )
   {
     writer.begin_tag( "chart" );
