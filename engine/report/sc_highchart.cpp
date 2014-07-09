@@ -251,7 +251,6 @@ void chart_t::add_series( const std::string& type, const std::string& color, con
     rapidjson::Value color(entry.color.c_str(), js_.GetAllocator());
     rapidjson::Value name(entry.name.c_str(), js_.GetAllocator());
     dataKeys.AddMember( "y", js_.GetAllocator(), val, js_.GetAllocator() );
-    std::cerr << entry.color.c_str() << "\n";
     dataKeys.AddMember("color", js_.GetAllocator(), color, js_.GetAllocator() );
     dataKeys.AddMember("name", js_.GetAllocator(), name, js_.GetAllocator() );
 
