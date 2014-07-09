@@ -1008,7 +1008,6 @@ void print_html_head( report::sc_html_stream& os, sim_t* sim )
 {
   os << "<title>Simulationcraft Results</title>\n";
   os << "<meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\" />\n"
-     << "<script type=\"text/javascript\" src=\"http://static.wowhead.com/widgets/power.js\"></script>\n"
      << "<script type=\"text/javascript\" src=\"http://ajax.googleapis.com/ajax/libs/jquery/1/jquery.min.js\"></script>\n"
      << "<script src=\"http://code.highcharts.com/highcharts.js\"></script>\n"
      << "<script>var wowhead_tooltips = { \"colorlinks\": true, \"iconizelinks\": true, \"renamelinks\": true }</script>\n";
@@ -1112,7 +1111,7 @@ void print_html_( report::sc_html_stream& os, sim_t* sim )
 
   // jQuery
   // The /1/ url auto-updates to the latest minified version
-  //os << "<script type=\"text/javascript\" src=\"http://ajax.googleapis.com/ajax/libs/jquery/1/jquery.min.js\"></script>\n";
+  // os << "<script type=\"text/javascript\" src=\"http://ajax.googleapis.com/ajax/libs/jquery/1/jquery.min.js\"></script>\n";
 
   if ( sim -> hosted_html )
   {
@@ -1120,6 +1119,7 @@ void print_html_( report::sc_html_stream& os, sim_t* sim )
     os << "<script type=\"text/javascript\" src=\"http://www.simulationcraft.org/js/ga.js\"></script>\n";
   }
 
+  print_html_image_load_scripts( os );
 
   os << "</body>\n\n"
      << "</html>\n";
