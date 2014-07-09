@@ -687,6 +687,30 @@ bool parse_thread_priority( sim_t*             sim,
   return true;
 }
 
+bool parse_maximize_reporting( sim_t*             sim,
+                                   const std::string& name,
+                                   const std::string& v )
+{
+  if ( v != "0" && v != "1" )
+  {
+    sim -> errorf( "Acceptable values for '%s' are '1' or '0'\n", name.c_str() );
+    return false;
+  }
+  bool r = atoi( v.c_str() ) != 0;
+  if ( r )
+  {
+    sim -> maximize_reporting = true;
+    sim -> statistics_level = 100;
+    sim -> report_raid_summary = true;
+    sim -> report_rng = true;
+    sim -> report_details = true;
+    sim -> report_targets = true;
+    sim -> report_pets_separately = true;
+    sim -> report_precision = 4;
+  }
+
+  return true;
+}
 // Proxy cast ===============================================================
 
 struct proxy_cast_check_t : public event_t
@@ -852,6 +876,7 @@ sim_t::sim_t( sim_t* p, int index ) :
   active_player( 0 ),
   num_players( 0 ),
   num_enemies( 0 ),
+  global_spawn_index( 0 ),
   max_player_level( -1 ),
   queue_lag( timespan_t::from_seconds( 0.037 ) ), queue_lag_stddev( timespan_t::zero() ),
   gcd_lag( timespan_t::from_seconds( 0.150 ) ), gcd_lag_stddev( timespan_t::zero() ),
@@ -891,17 +916,18 @@ sim_t::sim_t( sim_t* p, int index ) :
   raid_dps(), total_dmg(), raid_hps(), total_heal(), total_absorb(), raid_aps(),
   simulation_length( "Simulation Length", false ),
   report_progress( 1 ),
-  bloodlust_percent( 25 ), bloodlust_time( timespan_t::from_seconds( 5.0 ) ),
+  bloodlust_percent( 25 ), bloodlust_time( timespan_t::from_seconds( 0.5 ) ),
   debug_exp( 0 ),
   // Report
   report_precision( 2 ), report_pets_separately( 0 ), report_targets( 1 ), report_details( 1 ), report_raw_abilities( 1 ),
-  report_rng( 0 ), hosted_html( 0 ), print_styles( false ), report_overheal( 0 ),
+  report_rng( 0 ), hosted_html( 0 ), print_styles( 0 ),
   save_raid_summary( 0 ), save_gear_comments( 0 ), statistics_level( 1 ), separate_stats_by_actions( 0 ), report_raid_summary( 0 ), buff_uptime_timeline( 0 ),
   allow_potions( true ),
   allow_food( true ),
   allow_flasks( true ),
   solo_raid( false ),
   global_item_upgrade_level( 0 ),
+  maximize_reporting( false ),
   report_information(),
   // Multi-Threading
   threads( 0 ), thread_index( index ), thread_priority( sc_thread_t::NORMAL ), work_queue(),
@@ -1034,16 +1060,16 @@ void sim_t::combat_begin()
     auras.mastery -> override_buff( 1, dbc.effect_average( dbc.spell( 116956 ) -> effectN( 1 ).id(), max_player_level ) );
 
   if ( overrides.haste                   ) auras.haste                   -> override_buff();
+  if ( overrides.multistrike             ) auras.multistrike             -> override_buff();
   if ( overrides.spell_power_multiplier  ) auras.spell_power_multiplier  -> override_buff();
   if ( overrides.stamina                 ) auras.stamina                 -> override_buff();
   if ( overrides.str_agi_int             ) auras.str_agi_int             -> override_buff();
+  if ( overrides.versatility             ) auras.versatility             -> override_buff();
 
   for ( size_t i = 0; i < target_list.size(); ++i )
   {
     player_t* t = target_list[ i ];
-    if ( overrides.magic_vulnerability    ) t -> debuffs.magic_vulnerability    -> override_buff();
     if ( overrides.mortal_wounds          ) t -> debuffs.mortal_wounds          -> override_buff();
-    if ( overrides.physical_vulnerability ) t -> debuffs.physical_vulnerability -> override_buff();
     if ( overrides.bleeding               ) t -> debuffs.bleeding               -> override_buff( 1, 1.0 );
   }
 
@@ -1400,6 +1426,7 @@ bool sim_t::init_actors()
   range::for_each( actor_list, std::mem_fn( &player_t::create_buffs ) ); // keep here for now
   range::for_each( actor_list, std::mem_fn( &player_t::init_scaling ) );
   range::for_each( actor_list, std::mem_fn( &player_t::init_special_effects ) ); // Must be before init_actions
+  range::for_each( actor_list, std::mem_fn( &player_t::register_callbacks ) ); // Must be before init_actions
 
   // Initialize each actor's actions
   if ( ! init_actions() )
@@ -1420,7 +1447,7 @@ bool sim_t::init_actors()
   // organize parties if necessary
   if ( ! init_parties() )
     return false;
-
+/*
   // Callbacks
   if ( debug )
     out_debug.printf( "Registering Callbacks." );
@@ -1430,7 +1457,7 @@ bool sim_t::init_actors()
     player_t* p = actor_list[ i ];
     p -> register_callbacks();
   }
-
+*/
   // If we make it here, everything initialized properly and we can return true to sim_t::init()
   return true;
 }
@@ -1462,7 +1489,7 @@ bool sim_t::init()
   if ( channel_lag_stddev == timespan_t::zero() ) channel_lag_stddev = channel_lag * 0.25;
   if ( world_lag_stddev    < timespan_t::zero() ) world_lag_stddev   =   world_lag * 0.1;
 
-  if ( challenge_mode && scale_to_itemlevel < 0 ) scale_to_itemlevel = 463;
+  if ( challenge_mode && scale_to_itemlevel < 0 ) scale_to_itemlevel = 620; //Check later
 
 
   // MoP aura initialization
@@ -1491,6 +1518,12 @@ bool sim_t::init()
                       .default_value( dbc.spell( 49868 ) -> effectN( 1 ).percent() )
                       .add_invalidate( CACHE_HASTE );
 
+  // Multistrike, value from Mind Quickening (id=49868) (Priest)
+  auras.multistrike = buff_creator_t( this, "multistrike" )
+                      .max_stack( 100 )
+                      .default_value( dbc.spell( 49868 ) -> effectN( 2 ).percent() )
+                      .add_invalidate( CACHE_MULTISTRIKE );
+
   // Spell Power Multiplier, value from Burning Wrath (id=77747) (Shaman)
   auras.spell_power_multiplier = buff_creator_t( this, "spell_power_multiplier" )
                                  .max_stack( 100 )
@@ -1510,6 +1543,13 @@ bool sim_t::init()
                       .add_invalidate( CACHE_STRENGTH )
                       .add_invalidate( CACHE_AGILITY )
                       .add_invalidate( CACHE_INTELLECT );
+
+  // Versatility --########## ADD IN ACTUAL AURA NAME WITH NEW SPELL DATA #########
+  // Warriors will have it.
+  auras.versatility = buff_creator_t( this, "versatility" )
+                      .max_stack( 100 )
+                      .default_value( 0.03 ) //Check
+                      .add_invalidate( CACHE_VERSATILITY );
 
   // Find Already defined target, otherwise create a new one.
   if ( debug )
@@ -1938,7 +1978,7 @@ player_t* sim_t::find_player( int index )
 
 cooldown_t* sim_t::get_cooldown( const std::string& name )
 {
-  cooldown_t* c = nullptr;
+  cooldown_t* c;
 
   for ( size_t i = 0; i < cooldown_list.size(); ++i )
   {
@@ -1963,14 +2003,14 @@ void sim_t::use_optimal_buffs_and_debuffs( int value )
   overrides.attack_power_multiplier = optimal_raid;
   overrides.critical_strike         = optimal_raid;
   overrides.mastery                 = optimal_raid;
-  overrides.haste             = optimal_raid;
+  overrides.haste                   = optimal_raid;
+  overrides.multistrike             = optimal_raid;
   overrides.spell_power_multiplier  = optimal_raid;
   overrides.stamina                 = optimal_raid;
   overrides.str_agi_int             = optimal_raid;
+  overrides.versatility             = optimal_raid;
 
-  overrides.magic_vulnerability     = optimal_raid;
   overrides.mortal_wounds           = optimal_raid;
-  overrides.physical_vulnerability  = optimal_raid;
   overrides.bleeding                = optimal_raid;
 
   overrides.bloodlust               = optimal_raid;
@@ -2090,12 +2130,12 @@ void sim_t::create_options()
     opt_int( "override.critical_strike", overrides.critical_strike ),
     opt_int( "override.mastery", overrides.mastery ),
     opt_int( "override.haste", overrides.haste ),
+    opt_int( "override.multistrike", overrides.multistrike ),
     opt_int( "override.spell_power_multiplier", overrides.spell_power_multiplier ),
     opt_int( "override.stamina", overrides.stamina ),
     opt_int( "override.str_agi_int", overrides.str_agi_int ),
-    opt_int( "override.magic_vulnerability", overrides.magic_vulnerability ),
+    opt_int( "override.versatility", overrides.versatility ),
     opt_int( "override.mortal_wounds", overrides.mortal_wounds ),
-    opt_int( "override.physical_vulnerability", overrides.physical_vulnerability ),
     opt_int( "override.bleeding", overrides.bleeding ),
     opt_func( "override.spell_data", parse_override_spell_data ),
     opt_float( "override.target_health", overrides.target_health ),
@@ -2228,13 +2268,13 @@ void sim_t::create_options()
     opt_bool( "report_details", report_details ),
     opt_bool( "report_raw_abilities", report_raw_abilities ),
     opt_bool( "report_rng", report_rng ),
-    opt_bool( "report_overheal", report_overheal ),
     opt_int( "statistics_level", statistics_level ),
     opt_bool( "separate_stats_by_actions", separate_stats_by_actions ),
     opt_bool( "report_raid_summary", report_raid_summary ), // Force reporting of raid summary
     opt_string( "reforge_plot_output_file", reforge_plot_output_file_str ),
     opt_string( "csv_output_file_str", csv_output_file_str ),
     opt_bool( "monitor_cpu", monitor_cpu ),
+    opt_func( "maximize_reporting", parse_maximize_reporting ),
     opt_int( "global_item_upgrade_level", global_item_upgrade_level ),
     opt_null()
   };

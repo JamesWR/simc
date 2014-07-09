@@ -156,7 +156,7 @@ public:
   double           _m_delta;         // Effect delta spell scaling multiplier
   double           _m_unk;           // Unused effect scaling multiplier
   //
-  double           _coeff;           // Effect coefficient
+  double           _sp_coeff;           // Effect coefficient
   double           _ap_coeff;        // Effect attack power coefficient
   double           _amplitude;       // Effect amplitude (e.g., tick time)
   // SpellRadius.dbc
@@ -225,7 +225,7 @@ public:
   }
 
   double mastery_value() const
-  { return _coeff * ( 1 / 100.0 ); }
+  { return _sp_coeff * ( 1 / 100.0 ); }
 
   int misc_value1() const
   { return _misc_value; }
@@ -248,8 +248,8 @@ public:
   double m_unk() const
   { return _m_unk; }
 
-  double coeff() const
-  { return _coeff; }
+  double sp_coeff() const
+  { return _sp_coeff; }
 
   double ap_coeff() const
   { return _ap_coeff; }
@@ -279,6 +279,13 @@ public:
 
     assert( index < sizeof_array( _class_flags ) );
     return ( _class_flags[ index ] & ( 1u << bit ) ) != 0;
+  }
+
+  unsigned class_flags( unsigned idx ) const
+  {
+    assert( idx < NUM_CLASS_FAMILY_FLAGS );
+
+    return _class_flags[ idx ];
   }
 
   double average( const player_t* p, unsigned level = 0 ) const;
@@ -649,6 +656,10 @@ public:
     return s.str();
   }
 
+  bool affected_by( const spell_data_t* ) const;
+  bool affected_by( const spelleffect_data_t* ) const;
+  bool affected_by( const spelleffect_data_t& ) const;
+
   // static functions
   static spell_data_t* nil();
   static spell_data_t* not_found();
@@ -801,7 +812,7 @@ public:
   static talent_data_t* find( unsigned, bool ptr = false );
   static talent_data_t* find( unsigned, const char* confirmation, bool ptr = false );
   static talent_data_t* find( const char* name, specialization_e spec, bool ptr = false );
-  static talent_data_t* find_tokenized( const char* name, bool ptr = false );
+  static talent_data_t* find_tokenized( const char* name, specialization_e spec, bool ptr = false );
   static talent_data_t* find( player_e c, unsigned int row, unsigned int col, specialization_e spec, bool ptr = false );
   static talent_data_t* list( bool ptr = false );
   static void           link( bool ptr = false );
@@ -891,6 +902,12 @@ public:
   stat_data_t& attribute_base( pet_e t, unsigned level ) const;
   stat_data_t& race_base( race_e r ) const;
   stat_data_t& race_base( pet_e t ) const;
+  double parry_factor( player_e t ) const;
+  double dodge_factor( player_e t ) const;
+  double miss_factor( player_e t ) const;
+  double block_factor( player_e t ) const;
+  double vertical_stretch( player_e t ) const;
+  double horizontal_shift( player_e t ) const;
 
   double spell_scaling( player_e t, unsigned level ) const;
   double melee_crit_scaling( player_e t, unsigned level ) const;
@@ -902,10 +919,12 @@ public:
   double health_per_stamina( unsigned level ) const;
   double item_socket_cost( unsigned ilevel ) const;
   double real_ppm_coefficient( specialization_e, unsigned ) const;
-  double enemy_armor_mitigation( unsigned level ) const;
+  double armor_mitigation_constant( unsigned level ) const;
 
   double combat_rating( unsigned combat_rating_id, unsigned level ) const;
   double oct_combat_rating( unsigned combat_rating_id, player_e t ) const;
+
+  int resolve_item_scaling( unsigned level ) const;
 
 private:
   template <typename T>
@@ -1008,6 +1027,7 @@ public:
   specialization_e mastery_specialization( const player_e c, uint32_t spell_id ) const;
 
   unsigned glyph_spell_id( player_e c, const char* spell_name ) const;
+  unsigned glyph_spell_id( unsigned property_id ) const;
   unsigned set_bonus_spell_id( player_e c, const char* spell_name, int tier = -1 ) const;
 
   specialization_e class_ability_specialization( const player_e c, uint32_t spell_id ) const;

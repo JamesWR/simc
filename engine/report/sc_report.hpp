@@ -22,6 +22,7 @@ namespace chart
 {
 enum chart_e { HORIZONTAL_BAR_STACKED, HORIZONTAL_BAR, VERTICAL_BAR, PIE, LINE, XY_LINE };
 
+std::string stat_color( stat_e type );
 std::string resource_color( int type );
 std::string stat_color( stat_e stat );
 size_t raid_gear( std::vector<std::string>& images, sim_t*, int print_styles = 0 );
@@ -63,60 +64,14 @@ highchart::time_series_t& generate_actor_dps_series( highchart::time_series_t& s
 namespace report
 {
 
-class indented_stream : public io::ofstream
-{
-  int level_;
-  virtual const char* _tabs() const = 0;
-
-public:
-  indented_stream() : level_( 0 ) {}
-
-  int level() const { return level_; }
-  void set_level( int l ) { level_ = l; }
-
-  indented_stream& tabs()
-  {
-    *this << _tabs();
-    return *this;
-  }
-
-  ofstream& operator+=( int c ) { assert( level_ + c >= 0 ); level_ += c; return *this; }
-  ofstream& operator-=( int c ) { assert( level_ - c >= 0 ); level_ -= c; return *this; }
-
-  ofstream& operator++() { ++level_; return *this; }
-  ofstream& operator--() { assert( level_ > 0 ); --level_; return *this; }
-};
-
-struct sc_html_stream : public indented_stream
-{
-  virtual const char* _tabs() const
-  {
-    switch ( level() )
-    {
-      case  0: return "";
-      case  1: return "\t";
-      case  2: return "\t\t";
-      case  3: return "\t\t\t";
-      case  4: return "\t\t\t\t";
-      case  5: return "\t\t\t\t\t";
-      case  6: return "\t\t\t\t\t\t";
-      case  7: return "\t\t\t\t\t\t\t";
-      case  8: return "\t\t\t\t\t\t\t\t";
-      case  9: return "\t\t\t\t\t\t\t\t\t";
-      case 10: return "\t\t\t\t\t\t\t\t\t\t";
-      case 11: return "\t\t\t\t\t\t\t\t\t\t\t";
-      case 12: return "\t\t\t\t\t\t\t\t\t\t\t\t";
-      default: assert( 0 ); return NULL;
-    }
-  }
-};
+typedef io::ofstream sc_html_stream;
 
 
 void generate_player_charts         ( player_t*, player_processed_report_information_t& );
 void generate_player_buff_lists     ( player_t*, player_processed_report_information_t& );
 void generate_sim_report_information( sim_t*, sim_report_information_t& );
 
-void print_html_sample_data ( report::sc_html_stream&, sim_t*, extended_sample_data_t&, const std::string& name, int& td_counter, int columns = 1 );
+void print_html_sample_data ( report::sc_html_stream&, const sim_t*, const extended_sample_data_t&, const std::string& name, int& td_counter, int columns = 1 );
 
 void print_spell_query ( sim_t*, unsigned level );
 void print_profiles    ( sim_t* );
@@ -127,51 +82,10 @@ void print_xml         ( sim_t* );
 void print_suite       ( sim_t* );
 void print_csv_data( sim_t* );
 
-struct tabs_t
-{
-  int level;
-
-  tabs_t( int l = 0 ) : level( l ) {}
-
-  tabs_t& operator+=( int c ) { assert( level + c >= 0 ); level += c; return *this; }
-  tabs_t& operator-=( int c ) { assert( level - c >= 0 ); level -= c; return *this; }
-
-  tabs_t& operator++() { ++level; return *this; }
-  tabs_t& operator--() { assert( level > 0 ); --level; return *this; }
-
-  tabs_t operator++( int ) { tabs_t tmp = *this; ++*this; return tmp; }
-  tabs_t operator--( int ) { tabs_t tmp = *this; --*this; return tmp; }
-
-  friend tabs_t operator+( tabs_t t, int c ) { return t += c; }
-  friend tabs_t operator-( tabs_t t, int c ) { return t -= c; }
-
-  const char* operator*() const
-  {
-    switch ( level )
-    {
-      case  0: return "";
-      case  1: return "\t";
-      case  2: return "\t\t";
-      case  3: return "\t\t\t";
-      case  4: return "\t\t\t\t";
-      case  5: return "\t\t\t\t\t";
-      case  6: return "\t\t\t\t\t\t";
-      case  7: return "\t\t\t\t\t\t\t";
-      case  8: return "\t\t\t\t\t\t\t\t";
-      case  9: return "\t\t\t\t\t\t\t\t\t";
-      case 10: return "\t\t\t\t\t\t\t\t\t\t";
-      case 11: return "\t\t\t\t\t\t\t\t\t\t\t";
-      case 12: return "\t\t\t\t\t\t\t\t\t\t\t\t";
-      default: assert( 0 ); return NULL;
-    }
-  }
-};
-
 #if SC_BETA
 static const char* const beta_warnings[] =
 {
   "Beta! Beta! Beta! Beta! Beta! Beta!",
-  "<strong>Placeholder Armor mitigation values in sc_enemy.cpp. FIX BEFORE RELEASE</strong>",
   "Not All classes are yet supported.",
   "Some class models still need tweaking.",
   "Some class action lists need tweaking.",

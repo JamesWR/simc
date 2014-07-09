@@ -17,40 +17,46 @@ namespace { // UNNAMED NAMESPACE
 
 namespace enchant
 {
-  void dancing_steel( special_effect_t&, const item_t&, const special_effect_db_item_t& );
-  void jade_spirit( special_effect_t&, const item_t&, const special_effect_db_item_t& );
-  void windsong( special_effect_t&, const item_t&, const special_effect_db_item_t& );
-  void elemental_force( special_effect_t&, const item_t&, const special_effect_db_item_t& );
-  void rivers_song( special_effect_t&, const item_t&, const special_effect_db_item_t& );
-  void colossus( special_effect_t&, const item_t&, const special_effect_db_item_t& );
-  void executioner( special_effect_t&, const item_t&, const special_effect_db_item_t& );
-  void hurricane_spell( special_effect_t&, const item_t&, const special_effect_db_item_t& );
+  void mark_of_the_thunderlord( special_effect_t&, const item_t& );
+  void mark_of_the_shattered_hand( special_effect_t&, const item_t& );
+  void mark_of_the_frostwolf( special_effect_t&, const item_t& );
+  void mark_of_shadowmoon( special_effect_t&, const item_t& );
+  void mark_of_blackrock( special_effect_t&, const item_t& );
+  void mark_of_warsong( special_effect_t&, const item_t& );
+  void dancing_steel( special_effect_t&, const item_t& );
+  void jade_spirit( special_effect_t&, const item_t& );
+  void windsong( special_effect_t&, const item_t& );
+  void rivers_song( special_effect_t&, const item_t& );
+  void colossus( special_effect_t&, const item_t& );
+  void executioner( special_effect_t&, const item_t& );
+  void hurricane_spell( special_effect_t&, const item_t& );
 }
 
 namespace profession
 {
-  void nitro_boosts( special_effect_t&, const item_t&, const special_effect_db_item_t& );
-  void zen_alchemist_stone( special_effect_t&, const item_t&, const special_effect_db_item_t& );
+  void nitro_boosts( special_effect_t&, const item_t& );
+  void zen_alchemist_stone( special_effect_t&, const item_t& );
+  void draenor_philosophers_stone( special_effect_t&, const item_t& );
 }
 
 namespace item
 {
-  void flurry_of_xuen( special_effect_t&, const item_t&, const special_effect_db_item_t& );
-  void essence_of_yulon( special_effect_t&, const item_t&, const special_effect_db_item_t& );
-  void endurance_of_niuzao( special_effect_t&, const item_t&, const special_effect_db_item_t& );
-  void skeers_bloodsoaked_talisman( special_effect_t&, const item_t&, const special_effect_db_item_t& );
-  void black_blood_of_yshaarj( special_effect_t&, const item_t&, const special_effect_db_item_t& );
-  void rune_of_reorigination( special_effect_t&, const item_t&, const special_effect_db_item_t& );
-  void spark_of_zandalar( special_effect_t&, const item_t&, const special_effect_db_item_t& );
-  void unerring_vision_of_leishen( special_effect_t&, const item_t&, const special_effect_db_item_t& );
+  void flurry_of_xuen( special_effect_t&, const item_t& );
+  void essence_of_yulon( special_effect_t&, const item_t& );
+  void endurance_of_niuzao( special_effect_t&, const item_t& );
+  void skeers_bloodsoaked_talisman( special_effect_t&, const item_t& );
+  void black_blood_of_yshaarj( special_effect_t&, const item_t& );
+  void rune_of_reorigination( special_effect_t&, const item_t& );
+  void spark_of_zandalar( special_effect_t&, const item_t& );
+  void unerring_vision_of_leishen( special_effect_t&, const item_t& );
 }
 
 namespace gem
 {
-  void sinister_primal( special_effect_t&, const item_t&, const special_effect_db_item_t& );
-  void indomitable_primal( special_effect_t&, const item_t&, const special_effect_db_item_t& );
-  void capacitive_primal( special_effect_t&, const item_t&, const special_effect_db_item_t& );
-  void courageous_primal( special_effect_t&, const item_t&, const special_effect_db_item_t& );
+  void sinister_primal( special_effect_t&, const item_t& );
+  void indomitable_primal( special_effect_t&, const item_t& );
+  void capacitive_primal( special_effect_t&, const item_t& );
+  void courageous_primal( special_effect_t&, const item_t& );
 }
 
 /**
@@ -250,6 +256,14 @@ static const special_effect_db_item_t __special_effect_db[] = {
    * Enchants
    */
 
+  /* Warlords of Draenor */
+  { 159236, 0,                enchant::mark_of_the_shattered_hand },
+  { 159243, 0,                   enchant::mark_of_the_thunderlord },
+  { 159682, 0,                           enchant::mark_of_warsong },
+  { 159683, 0,                     enchant::mark_of_the_frostwolf },
+  { 159684, 0,                        enchant::mark_of_shadowmoon },
+  { 159685, 0,                         enchant::mark_of_blackrock },
+
   /* Mists of Pandaria */
   { 118333, 0,                             enchant::dancing_steel },
   { 142531, 0,                             enchant::dancing_steel }, /* Bloody Dancing Steel */
@@ -258,7 +272,7 @@ static const special_effect_db_item_t __special_effect_db[] = {
   { 104561, 0,                                  enchant::windsong },
   { 104428, "rppmhaste",                                        0 }, /* Elemental Force */
   { 104441, 0,                               enchant::rivers_song },
-  { 118314, 0,                        enchant::colossus }, /* Colossus */
+  { 118314, 0,                                  enchant::colossus },
 
   /* Cataclysm */
   {  94747, 0,                           enchant::hurricane_spell },
@@ -289,6 +303,7 @@ static const special_effect_db_item_t __special_effect_db[] = {
   {  75177, "OnAttackHit",                                      0 }, /* Swordguard Embroidery Rank 2 */
   {  55776, "OnAttackHit",                                      0 }, /* Swordguard Embroidery Rank 1 */
   { 105574, 0,                    profession::zen_alchemist_stone }, /* Zen Alchemist Stone (stat proc) */
+  { 157136, 0,             profession::draenor_philosophers_stone }, /* Draenor Philosopher's Stone (stat proc) */
   {  55004, 0,                           profession::nitro_boosts },
 
   /**
@@ -302,14 +317,113 @@ static const special_effect_db_item_t __special_effect_db[] = {
   { 137595, 0,                             gem::capacitive_primal }, /* Melee Legendary Gem */
   { 137248, 0,                             gem::courageous_primal }, /* Healer Legendary Gem */
 
+  /* Always NULL terminate, last entry will be used as a "not found" value */
   {      0, 0,                                                  0 }
 };
 
 
 // Enchants ================================================================
 
-void enchant::colossus( special_effect_t& effect, const item_t& item,
-                        const special_effect_db_item_t& /* dbitem */)
+void enchant::mark_of_shadowmoon( special_effect_t& effect, 
+                                  const item_t& item )
+{
+  effect.type = SPECIAL_EFFECT_EQUIP;
+
+  struct mos_proc_callback_t : public dbc_proc_callback_t
+  {
+    mos_proc_callback_t( const item_t& i, const special_effect_t& effect ) :
+      dbc_proc_callback_t( i, effect )
+    { }
+
+    void trigger( action_t* a, void* call_data )
+    {
+      if ( listener -> resources.pct( RESOURCE_MANA ) > 0.5 )
+        return;
+
+      dbc_proc_callback_t::trigger( a, call_data );
+    }
+  };
+
+  new mos_proc_callback_t( item, effect );
+}
+
+void enchant::mark_of_blackrock( special_effect_t& effect, 
+                                 const item_t& item )
+{
+  effect.type = SPECIAL_EFFECT_EQUIP;
+
+  struct mob_proc_callback_t : public dbc_proc_callback_t
+  {
+    mob_proc_callback_t( const item_t& i, const special_effect_t& effect ) :
+      dbc_proc_callback_t( i, effect )
+    { }
+
+    void trigger( action_t* a, void* call_data )
+    {
+      if ( listener -> resources.pct( RESOURCE_HEALTH ) > 0.5 )
+        return;
+
+      dbc_proc_callback_t::trigger( a, call_data );
+    }
+  };
+
+  new mob_proc_callback_t( item, effect );
+}
+
+void enchant::mark_of_warsong( special_effect_t& effect, 
+                               const item_t& item )
+{
+  // Custom callback to help the special effect initialization, we can use
+  // generic initialization for the enchant, but the game client data does not
+  // link driver to the procced spell, so we do it here.
+ 
+  effect.type = SPECIAL_EFFECT_EQUIP;
+  effect.trigger_spell_id = 159675;
+  effect.reverse = true;
+  
+  new dbc_proc_callback_t( item, effect );
+}
+
+void enchant::mark_of_the_thunderlord( special_effect_t& effect, 
+                                       const item_t& item )
+{
+  // Custom callback to help the special effect initialization, we can use
+  // generic initialization for the enchant, but the game client data does not
+  // link driver to the procced spell, so we do it here.
+ 
+  effect.type = SPECIAL_EFFECT_EQUIP;
+  effect.trigger_spell_id = 159234;
+  
+  new dbc_proc_callback_t( item, effect );
+}
+
+void enchant::mark_of_the_frostwolf( special_effect_t& effect, 
+                                     const item_t& item )
+{
+  // Custom callback to help the special effect initialization, we can use
+  // generic initialization for the enchant, but the game client data does not
+  // link driver to the procced spell, so we do it here.
+ 
+  effect.type = SPECIAL_EFFECT_EQUIP;
+  effect.trigger_spell_id = 159676;
+  
+  new dbc_proc_callback_t( item, effect );
+}
+
+void enchant::mark_of_the_shattered_hand( special_effect_t& effect, 
+                                          const item_t& item )
+{
+  // Custom callback to help the special effect initialization, we can use
+  // generic initialization for the enchant, but the game client data does not
+  // link driver to the procced spell, so we do it here.
+ 
+  effect.type = SPECIAL_EFFECT_EQUIP;
+  effect.trigger_spell_id = 159238;
+  
+  new dbc_proc_callback_t( item, effect );
+}
+
+void enchant::colossus( special_effect_t& effect, const item_t& item )
 {
   const spell_data_t* spell = item.player->find_spell( 116631 );
 
@@ -327,8 +441,7 @@ void enchant::colossus( special_effect_t& effect, const item_t& item,
 }
 
 void enchant::rivers_song( special_effect_t& effect,
-                           const item_t& item,
-                           const special_effect_db_item_t& /* dbitem */ )
+                           const item_t& item )
 {
   const spell_data_t* spell = item.player -> find_spell( 116660 );
 
@@ -345,11 +458,10 @@ void enchant::rivers_song( special_effect_t& effect,
 }
 
 void enchant::dancing_steel( special_effect_t& effect, 
-                             const item_t& item,
-                             const special_effect_db_item_t& dbitem )
+                             const item_t& item )
 {
   // Account for Bloody Dancing Steel and Dancing Steel buffs
-  const spell_data_t* spell = item.player -> find_spell( dbitem.spell_id == 142531 ? 142530 : 120032 );
+  const spell_data_t* spell = item.player -> find_spell( effect.spell_id == 142531 ? 142530 : 120032 );
 
   double value = spell -> effectN( 1 ).average( item.player );
   
@@ -375,8 +487,7 @@ struct jade_spirit_check_func
 };
 
 void enchant::jade_spirit( special_effect_t& effect, 
-                           const item_t& item,
-                           const special_effect_db_item_t& )
+                           const item_t& item )
 {
   const spell_data_t* spell = item.player -> find_spell( 104993 );
 
@@ -431,8 +542,7 @@ struct windsong_callback_t : public dbc_proc_callback_t
 };
 
 void enchant::windsong( special_effect_t& effect, 
-                        const item_t& item,
-                        const special_effect_db_item_t& /* dbitem */ )
+                        const item_t& item )
 {
   const spell_data_t* mastery = item.player -> find_spell( 104510 );
   const spell_data_t* haste = item.player -> find_spell( 104423 );
@@ -472,8 +582,7 @@ struct hurricane_spell_proc_t : public dbc_proc_callback_t
 };
 
 void enchant::hurricane_spell( special_effect_t& effect, 
-                               const item_t& item,
-                               const special_effect_db_item_t& dbitem )
+                               const item_t& item )
 {
   int n_hurricane_enchants = 0;
 
@@ -495,7 +604,7 @@ void enchant::hurricane_spell( special_effect_t& effect,
   if ( n_hurricane_enchants == 2 && ( ! mh_buff || ! oh_buff ) )
     return;
 
-  const spell_data_t* driver = item.player -> find_spell( dbitem.spell_id );
+  const spell_data_t* driver = item.player -> find_spell( effect.spell_id );
   const spell_data_t* spell = driver -> effectN( 1 ).trigger();
   stat_buff_t* spell_buff = stat_buff_creator_t( item.player, "Hurricane_spell", spell )
                             .activated( false );
@@ -505,10 +614,9 @@ void enchant::hurricane_spell( special_effect_t& effect,
 }
 
 void enchant::executioner( special_effect_t& effect, 
-                           const item_t& item,
-                           const special_effect_db_item_t& dbitem )
+                           const item_t& item )
 {
-  const spell_data_t* spell = item.player -> find_spell( dbitem.spell_id );
+  const spell_data_t* spell = item.player -> find_spell( effect.spell_id );
   stat_buff_t* buff = static_cast<stat_buff_t*>( buff_t::find( item.player, tokenized_name( spell ) ) );
 
   if ( ! buff )
@@ -542,8 +650,7 @@ struct nitro_boosts_action_t : public action_t
 };
 
 void profession::nitro_boosts( special_effect_t& effect, 
-                               const item_t& item,
-                               const special_effect_db_item_t& )
+                               const item_t& item )
 {
   // TODO-WOD: This is stupid, need to find a better way to implement custom on-use items
   effect.type = SPECIAL_EFFECT_USE;
@@ -551,8 +658,7 @@ void profession::nitro_boosts( special_effect_t& effect,
 };
 
 void profession::zen_alchemist_stone( special_effect_t& effect,
-                                      const item_t& item,
-                                      const special_effect_db_item_t& /* dbitem */ )
+                                      const item_t& item )
 {
   struct zen_alchemist_stone_callback : public dbc_proc_callback_t
   {
@@ -609,9 +715,66 @@ void profession::zen_alchemist_stone( special_effect_t& effect,
   new zen_alchemist_stone_callback( item, effect );
 }
 
+void profession::draenor_philosophers_stone( special_effect_t& effect,
+                                      const item_t& item )
+{
+  struct draenor_philosophers_stone_callback : public dbc_proc_callback_t
+  {
+    stat_buff_t* buff_str;
+    stat_buff_t* buff_agi;
+    stat_buff_t* buff_int;
+
+    draenor_philosophers_stone_callback( const item_t& i, const special_effect_t& data ) :
+      dbc_proc_callback_t( i.player, data )
+    {
+      const spell_data_t* spell = listener -> find_spell( 157136 );
+
+      struct common_buff_creator : public stat_buff_creator_t
+      {
+        common_buff_creator( player_t* p, const std::string& n, const spell_data_t* spell ) :
+          stat_buff_creator_t ( p, "draenor_philosophers_stone_" + n, spell  )
+        {
+          duration( p -> find_spell( 60229 ) -> duration() );
+          chance( 1.0 );
+          activated( false );
+        }
+      };
+
+      double value = spell -> effectN( 1 ).average( i );
+
+      buff_str = common_buff_creator( listener, "str", spell )
+                 .add_stat( STAT_STRENGTH, value );
+      buff_agi = common_buff_creator( listener, "agi", spell )
+                 .add_stat( STAT_AGILITY, value );
+      buff_int = common_buff_creator( listener, "int", spell )
+                 .add_stat( STAT_INTELLECT, value );
+    }
+
+    virtual void execute( action_t* a, action_state_t* /* state */ ) override
+    {
+      player_t* p = a -> player;
+
+      if ( p -> strength() > p -> agility() )
+      {
+        if ( p -> strength() > p -> intellect() )
+          buff_str -> trigger();
+        else
+          buff_int -> trigger();
+      }
+      else if ( p -> agility() > p -> intellect() )
+        buff_agi -> trigger();
+      else
+        buff_int -> trigger();
+    }
+  };
+
+  maintenance_check( 620 );
+
+  new draenor_philosophers_stone_callback( item, effect );
+}
+
 void gem::sinister_primal( special_effect_t& effect, 
-                           const item_t& item,
-                           const special_effect_db_item_t& /* dbitem */ )
+                           const item_t& item )
 {
   if ( item.sim -> challenge_mode )
     return;
@@ -622,8 +785,7 @@ void gem::sinister_primal( special_effect_t& effect,
 }
 
 void gem::indomitable_primal( special_effect_t& effect, 
-                              const item_t& item,
-                              const special_effect_db_item_t& /* dbitem */ )
+                              const item_t& item )
 {
   if ( item.sim -> challenge_mode )
     return;
@@ -634,8 +796,7 @@ void gem::indomitable_primal( special_effect_t& effect,
 }
 
 void gem::capacitive_primal( special_effect_t& effect, 
-                             const item_t& item,
-                             const special_effect_db_item_t& /* dbitem */ )
+                             const item_t& item )
 {
   if ( item.sim -> challenge_mode )
     return;
@@ -700,8 +861,7 @@ void gem::capacitive_primal( special_effect_t& effect,
 }
 
 void gem::courageous_primal( special_effect_t& effect, 
-                             const item_t& item,
-                             const special_effect_db_item_t& /* dbitem */ )
+                             const item_t& item )
 {
   if ( item.sim -> challenge_mode )
     return;
@@ -730,8 +890,7 @@ void gem::courageous_primal( special_effect_t& effect,
 // Items ====================================================================
 
 void item::rune_of_reorigination( special_effect_t& effect,
-                                  const item_t& item,
-                                  const special_effect_db_item_t& dbitem )
+                                  const item_t& item )
 {
   struct rune_of_reorigination_callback_t : public dbc_proc_callback_t
   {
@@ -818,7 +977,7 @@ void item::rune_of_reorigination( special_effect_t& effect,
 
   maintenance_check( 502 );
 
-  const spell_data_t* driver = item.player -> find_spell( dbitem.spell_id );
+  const spell_data_t* driver = item.player -> find_spell( effect.spell_id );
   const spell_data_t* spell = item.player -> find_spell( 139120 );
 
   std::string buff_name = spell -> name_cstr();
@@ -838,8 +997,7 @@ void item::rune_of_reorigination( special_effect_t& effect,
 }
 
 void item::spark_of_zandalar( special_effect_t& effect,
-                              const item_t& item,
-                              const special_effect_db_item_t& /* dbitem */ )
+                              const item_t& item )
 {
   maintenance_check( 502 );
 
@@ -881,8 +1039,7 @@ void item::spark_of_zandalar( special_effect_t& effect,
 };
 
 void item::unerring_vision_of_leishen( special_effect_t& effect,
-                                       const item_t& item,
-                                       const special_effect_db_item_t& dbitem )
+                                       const item_t& item )
 {
   struct perfect_aim_buff_t : public buff_t
   {
@@ -930,7 +1087,7 @@ void item::unerring_vision_of_leishen( special_effect_t& effect,
 
   maintenance_check( 502 );
 
-  const spell_data_t* driver = item.player -> find_spell( dbitem.spell_id );
+  const spell_data_t* driver = item.player -> find_spell( effect.spell_id );
 
   effect.ppm_         = -1.0 * driver -> real_ppm();
   effect.ppm_        *= item_database::approx_scale_coefficient( 528, item.item_level() );
@@ -941,12 +1098,11 @@ void item::unerring_vision_of_leishen( special_effect_t& effect,
 }
 
 void item::skeers_bloodsoaked_talisman( special_effect_t& effect,
-                                        const item_t& item,
-                                        const special_effect_db_item_t& dbitem )
+                                        const item_t& item )
 {
   maintenance_check( 528 );
 
-  const spell_data_t* driver = item.player -> find_spell( dbitem.spell_id );
+  const spell_data_t* driver = item.player -> find_spell( effect.spell_id );
   const spell_data_t* spell = driver -> effectN( 1 ).trigger();
   // Aura is hidden, thre's no linkage in spell data actual
   const spell_data_t* buff = item.player -> find_spell( 146293 );
@@ -969,12 +1125,11 @@ void item::skeers_bloodsoaked_talisman( special_effect_t& effect,
 }
 
 void item::black_blood_of_yshaarj( special_effect_t& effect,
-                                   const item_t& item,
-                                   const special_effect_db_item_t& dbitem )
+                                   const item_t& item )
 {
   maintenance_check( 528 );
 
-  const spell_data_t* driver = item.player -> find_spell( dbitem.spell_id );
+  const spell_data_t* driver = item.player -> find_spell( effect.spell_id );
   const spell_data_t* ticker = driver -> effectN( 1 ).trigger();
   const spell_data_t* buff = item.player -> find_spell( 146202 );
 
@@ -1070,8 +1225,7 @@ struct flurry_of_xuen_cb_t : public dbc_proc_callback_t
 };
 
 void item::flurry_of_xuen( special_effect_t& effect,
-                           const item_t& item,
-                           const special_effect_db_item_t& dbitem )
+                           const item_t& item )
 {
   maintenance_check( 600 );
 
@@ -1079,7 +1233,7 @@ void item::flurry_of_xuen( special_effect_t& effect,
     return;
 
   player_t* p = item.player;
-  const spell_data_t* driver = p -> find_spell( dbitem.spell_id );
+  const spell_data_t* driver = p -> find_spell( effect.spell_id );
 
   effect.ppm_        = -1.0 * driver -> real_ppm();
   effect.ppm_       *= item_database::approx_scale_coefficient( item.parsed.data.level, item.item_level() );
@@ -1132,8 +1286,7 @@ struct essence_of_yulon_cb_t : public dbc_proc_callback_t
 };
 
 void item::essence_of_yulon( special_effect_t& effect,
-                             const item_t& item,
-                             const special_effect_db_item_t& dbitem )
+                             const item_t& item )
 {
   maintenance_check( 600 );
 
@@ -1141,7 +1294,7 @@ void item::essence_of_yulon( special_effect_t& effect,
     return;
 
   player_t* p = item.player;
-  const spell_data_t* driver = p -> find_spell( dbitem.spell_id );
+  const spell_data_t* driver = p -> find_spell( effect.spell_id );
 
   effect.ppm_         = -1.0 * driver -> real_ppm();
   effect.ppm_        *= item_database::approx_scale_coefficient( item.parsed.data.level, item.item_level() );
@@ -1152,8 +1305,7 @@ void item::essence_of_yulon( special_effect_t& effect,
 }
 
 void item::endurance_of_niuzao( special_effect_t& /* effect */,
-                                const item_t& item, 
-                                const special_effect_db_item_t& /* dbitem */ )
+                                const item_t& item )
 {
   maintenance_check( 600 );
 
@@ -1186,26 +1338,34 @@ bool unique_gear::initialize_special_effect( special_effect_t& effect,
 {
   bool ret = true;
 
-  const special_effect_db_item_t& dbitem = find_special_effect_db_item( spell_id );
-
-  // Figure out first phase options from our special effect database
-  if ( dbitem.spell_id == spell_id )
+  // Always check class specific (first phase) special effect initialization
+  // first. If that returns false (nothing done), move to generic init
+  if ( ! item.player -> init_special_effect( effect, item, spell_id ) )
   {
-    // Custom special effect initialization is deferred, and no parsing from 
-    // spell data is done automatically.
-    if ( dbitem.custom_cb != 0 )
-      effect.type = SPECIAL_EFFECT_CUSTOM;
-    
-    // Parse auxilary effect options before doing spell data based parsing
-    if ( dbitem.encoded_options != 0 )
+    const special_effect_db_item_t& dbitem = find_special_effect_db_item( __special_effect_db, (int)sizeof_array( __special_effect_db ), spell_id );
+
+    // Figure out first phase options from our special effect database
+    if ( dbitem.spell_id == spell_id )
     {
-      std::string encoded_options = dbitem.encoded_options;
-      for ( size_t i = 0; i < encoded_options.length(); i++ )
-        encoded_options[ i ] = std::tolower( encoded_options[ i ] );
-      // Note, if the encoding parse fails (this should never ever happen), 
-      // we don't parse game client data either.
-      if ( ! proc::parse_special_effect_encoding( effect, item, encoded_options ) )
-        return false;
+      // Custom special effect initialization is deferred, and no parsing from
+      // spell data is done automatically.
+      if ( dbitem.custom_cb != 0 )
+      {
+        effect.type = SPECIAL_EFFECT_CUSTOM;
+        effect.custom_init = dbitem.custom_cb;
+      }
+
+      // Parse auxilary effect options before doing spell data based parsing
+      if ( dbitem.encoded_options != 0 )
+      {
+        std::string encoded_options = dbitem.encoded_options;
+        for ( size_t i = 0; i < encoded_options.length(); i++ )
+          encoded_options[ i ] = std::tolower( encoded_options[ i ] );
+        // Note, if the encoding parse fails (this should never ever happen),
+        // we don't parse game client data either.
+        if ( ! proc::parse_special_effect_encoding( effect, item, encoded_options ) )
+          return false;
+      }
     }
   }
 
@@ -1233,16 +1393,16 @@ bool unique_gear::initialize_special_effect( special_effect_t& effect,
   return ret;
 }
 
-const special_effect_db_item_t& unique_gear::find_special_effect_db_item( unsigned spell_id )
+const special_effect_db_item_t& unique_gear::find_special_effect_db_item( const special_effect_db_item_t* start, unsigned n, unsigned spell_id )
 {
-  for ( size_t i = 0, end = sizeof_array( __special_effect_db ); i < end; i++ )
+  for ( size_t i = 0; i < n; i++ )
   {
-    const special_effect_db_item_t& dbitem = __special_effect_db[ i ];
-    if ( dbitem.spell_id == spell_id )
-      return dbitem;
+    const special_effect_db_item_t* dbitem = start + i;
+    if ( dbitem -> spell_id == spell_id )
+      return *dbitem;
   }
 
-  return __special_effect_db[ sizeof_array( __special_effect_db ) - 1 ];
+  return *( start + ( n - 1 ) );
 }
 
 // ==========================================================================
@@ -1265,13 +1425,377 @@ void unique_gear::init( player_t* p )
 
       if ( effect.type == SPECIAL_EFFECT_CUSTOM )
       {
-        assert( effect.spell_id > 0 );
-        const special_effect_db_item_t& dbitem = find_special_effect_db_item( effect.spell_id );
-        assert( dbitem.custom_cb != 0 );
-        dbitem.custom_cb( effect, item, dbitem );
+        assert( effect.custom_init );
+        effect.custom_init( effect, item );
       }
       else if ( effect.type == SPECIAL_EFFECT_EQUIP )
         new dbc_proc_callback_t( item, effect );
     }
   }
 }
+
+/**
+ * Create "trinket" expressions, or anything relating to special effects.
+ *
+ * Note that this method returns zero (nullptr) when it cannot create an
+ * expression.  The callee (player_t::create_expression) will handle unknown
+ * expression processing.
+ *
+ * Trinket expressions are of the form:
+ * trinket[.12].(has_|)(stacking_|)proc.<stat>.<buff_expr> OR
+ * trinket[.12].(has_|)cooldown.<cooldown_expr>
+ */
+expr_t* unique_gear::create_expression( action_t* a, const std::string& name_str )
+{
+  enum proc_expr_e
+  {
+    PROC_EXISTS,
+    PROC_ENABLED
+  };
+
+  enum proc_type_e
+  {
+    PROC_STAT,
+    PROC_STACKING_STAT,
+    PROC_COOLDOWN,
+  };
+
+  bool trinket1 = false, trinket2 = false;
+  int ptype_idx = 1, stat_idx = 2, expr_idx = 3;
+  enum proc_expr_e pexprtype = PROC_ENABLED;
+  enum proc_type_e ptype = PROC_STAT;
+  stat_e stat = STAT_NONE;
+
+  std::vector<std::string> splits = util::string_split( name_str, "." );
+
+  if ( util::is_number( splits[ 1 ] ) )
+  {
+    if ( splits[ 1 ] == "1" )
+      trinket1 = true;
+    else if ( splits[ 1 ] == "2" )
+      trinket2 = true;
+    else
+      return 0;
+    ptype_idx++;
+
+    stat_idx++;
+    expr_idx++;
+  }
+
+  // No positional parameter given so check both trinkets
+  if ( ! trinket1 && ! trinket2 )
+    trinket1 = trinket2 = true;
+
+  if ( util::str_prefix_ci( splits[ ptype_idx ], "has_" ) )
+    pexprtype = PROC_EXISTS;
+
+  if ( util::str_in_str_ci( splits[ ptype_idx ], "cooldown" ) )
+  {
+    ptype = PROC_COOLDOWN;
+    // Cooldowns dont have stat type for now
+    expr_idx--;
+  }
+
+  if ( util::str_in_str_ci( splits[ ptype_idx ], "stacking_" ) )
+    ptype = PROC_STACKING_STAT;
+
+  if ( ptype != PROC_COOLDOWN )
+  {
+    stat = util::parse_stat_type( splits[ stat_idx ] );
+    if ( stat == STAT_NONE )
+      return 0;
+  }
+
+  if ( pexprtype == PROC_ENABLED && ptype != PROC_COOLDOWN && splits.size() >= 4 )
+  {
+    struct trinket_proc_expr_t : public expr_t
+    {
+      expr_t* bexpr1;
+      expr_t* bexpr2;
+
+      trinket_proc_expr_t( action_t* a, stat_e s, bool t1, bool t2, bool stacking, const std::string& expr ) :
+        expr_t( "trinket_proc" ), bexpr1( 0 ), bexpr2( 0 )
+      {
+        if ( t1 )
+        {
+          const special_effect_t& e = a -> player -> items[ SLOT_TRINKET_1 ].special_effect( SPECIAL_EFFECT_SOURCE_NONE, SPECIAL_EFFECT_EQUIP );
+          if ( e.stat_type() == s && ( ( ! stacking && e.max_stack() <= 1 ) || ( stacking && e.max_stack() > 1 ) ) )
+          {
+            buff_t* b1 = buff_t::find( a -> player, e.name() );
+            if ( b1 ) bexpr1 = buff_t::create_expression( b1 -> name(), a, expr, b1 );
+          }
+        }
+
+        if ( t2 )
+        {
+          const special_effect_t& e = a -> player -> items[ SLOT_TRINKET_2 ].special_effect( SPECIAL_EFFECT_SOURCE_NONE, SPECIAL_EFFECT_EQUIP );
+          if ( e.stat_type() == s && ( ( ! stacking && e.max_stack() <= 1 ) || ( stacking && e.max_stack() > 1 ) ) )
+          {
+            buff_t* b2 = buff_t::find( a -> player, e.name() );
+            if ( b2 ) bexpr2 = buff_t::create_expression( b2 -> name(), a, expr, b2 );
+          }
+        }
+      }
+
+      double evaluate()
+      {
+        double result = 0;
+
+        if ( bexpr1 )
+          result = bexpr1 -> eval();
+
+        if ( bexpr2 )
+        {
+          double b2result = bexpr2 -> eval();
+          if ( b2result > result )
+            result = b2result;
+        }
+
+        return result;
+      }
+
+      virtual ~trinket_proc_expr_t()
+      {
+        delete bexpr1;
+        delete bexpr2;
+      }
+    };
+
+    return new trinket_proc_expr_t( a, stat, trinket1, trinket2, ptype == PROC_STACKING_STAT, splits[ expr_idx ] );
+  }
+  else if ( pexprtype == PROC_ENABLED && ptype == PROC_COOLDOWN && splits.size() >= 3 )
+  {
+    // Note, checks both on-use trinkets (normal cooldown), and equip trinkets (icd)
+    struct trinket_cooldown_expr_t : public expr_t
+    {
+      expr_t* cexpr1;
+      expr_t* cexpr2;
+
+      trinket_cooldown_expr_t( action_t* a, bool t1, bool t2, const std::string& expr ) :
+        expr_t( "trinket_cooldown" ), cexpr1( 0 ), cexpr2( 0 )
+      {
+        if ( t1 )
+        {
+          const special_effect_t& equip = a -> player -> items[ SLOT_TRINKET_1 ].special_effect( SPECIAL_EFFECT_SOURCE_NONE, SPECIAL_EFFECT_EQUIP );
+          if ( equip.cooldown() != timespan_t::zero() )
+          {
+            cooldown_t* cd1 = a -> player -> get_cooldown( equip.cooldown_name() );
+            cexpr1 = cd1 -> create_expression( a, expr );
+          }
+
+          if ( ! cexpr1 )
+          {
+            const special_effect_t& use = a -> player -> items[ SLOT_TRINKET_1 ].special_effect( SPECIAL_EFFECT_SOURCE_NONE, SPECIAL_EFFECT_USE );
+            if ( use.cooldown() != timespan_t::zero() )
+            {
+              cooldown_t* cd1 = a -> player -> get_cooldown( use.cooldown_name() );
+              cexpr1 = cd1 -> create_expression( a, expr );
+            }
+          }
+        }
+
+        if ( t2 )
+        {
+          const special_effect_t& equip = a -> player -> items[ SLOT_TRINKET_2 ].special_effect( SPECIAL_EFFECT_SOURCE_NONE, SPECIAL_EFFECT_EQUIP );
+          if ( equip.cooldown() != timespan_t::zero() )
+          {
+            cooldown_t* cd2 = a -> player -> get_cooldown( equip.cooldown_name() );
+            cexpr2 = cd2 -> create_expression( a, expr );
+          }
+
+          if ( ! cexpr2 )
+          {
+            const special_effect_t& use = a -> player -> items[ SLOT_TRINKET_2 ].special_effect( SPECIAL_EFFECT_SOURCE_NONE, SPECIAL_EFFECT_USE );
+            if ( use.cooldown() != timespan_t::zero() )
+            {
+              cooldown_t* cd2 = a -> player -> get_cooldown( use.cooldown_name() );
+              cexpr2 = cd2 -> create_expression( a, expr );
+            }
+          }
+        }
+      }
+
+      double evaluate()
+      {
+        double result = 0;
+
+        if ( cexpr1 )
+          result = cexpr1 -> eval();
+
+        if ( cexpr2 )
+        {
+          double c2result = cexpr2 -> eval();
+          if ( c2result > result )
+            result = c2result;
+        }
+
+        return result;
+      }
+
+      virtual ~trinket_cooldown_expr_t()
+      {
+        delete cexpr1;
+        delete cexpr2;
+      }
+    };
+
+    return new trinket_cooldown_expr_t( a, trinket1, trinket2, splits[ expr_idx ] );
+  }
+  else if ( pexprtype == PROC_EXISTS )
+  {
+    if ( ptype != PROC_COOLDOWN )
+    {
+      struct trinket_proc_exists_expr_t : public expr_t
+      {
+        bool has_t1;
+        bool has_t2;
+
+        trinket_proc_exists_expr_t( player_t* p, stat_e s, bool t1, bool t2 ) :
+          expr_t( "trinket_proc_exists" ), has_t1( false ), has_t2( false )
+        {
+          if ( t1 )
+          {
+            const special_effect_t& e = p -> items[ SLOT_TRINKET_1 ].special_effect( SPECIAL_EFFECT_SOURCE_NONE, SPECIAL_EFFECT_EQUIP );
+            if ( e.stat_type() == s ) has_t1 = true;
+          }
+
+          if ( t2 )
+          {
+            const special_effect_t& e = p -> items[ SLOT_TRINKET_2 ].special_effect( SPECIAL_EFFECT_SOURCE_NONE, SPECIAL_EFFECT_EQUIP );
+            if ( e.stat_type() == s ) has_t2 = true;
+          }
+        }
+
+        double evaluate()
+        { return has_t1 || has_t2; }
+      };
+
+      return new trinket_proc_exists_expr_t( a -> player, stat, trinket1, trinket2 );
+    }
+    else
+    {
+      // Note, checks both on-use trinkets (normal cooldown), and equip trinkets (icd)
+      struct trinket_cooldown_exists_expr_t : public expr_t
+      {
+        bool has_t1;
+        bool has_t2;
+
+        trinket_cooldown_exists_expr_t( player_t* p, bool t1, bool t2 ) :
+          expr_t( "trinket_cooldown_exists" ), has_t1( false ), has_t2( false )
+        {
+          if ( t1 )
+          {
+            const special_effect_t& equip = p -> items[ SLOT_TRINKET_1 ].special_effect( SPECIAL_EFFECT_SOURCE_NONE, SPECIAL_EFFECT_EQUIP );
+            if ( equip.cooldown() != timespan_t::zero() )
+              has_t1 = true;
+
+            const special_effect_t& use = p -> items[ SLOT_TRINKET_1 ].special_effect( SPECIAL_EFFECT_SOURCE_NONE, SPECIAL_EFFECT_USE );
+            if ( use.cooldown() != timespan_t::zero() )
+              has_t1 = true;
+          }
+
+          if ( t2 )
+          {
+            const special_effect_t& e = p -> items[ SLOT_TRINKET_2 ].special_effect( SPECIAL_EFFECT_SOURCE_NONE, SPECIAL_EFFECT_EQUIP );
+            if ( e.cooldown() != timespan_t::zero() )
+              has_t2 = true;
+
+            const special_effect_t& use = p -> items[ SLOT_TRINKET_2 ].special_effect( SPECIAL_EFFECT_SOURCE_NONE, SPECIAL_EFFECT_USE );
+            if ( use.cooldown() != timespan_t::zero() )
+              has_t2 = true;
+          }
+        }
+
+        double evaluate()
+        { return has_t1 || has_t2; }
+      };
+
+      return new trinket_cooldown_exists_expr_t( a -> player, trinket1, trinket2 );
+    }
+  }
+
+  return 0;
+}
+
+static std::string::size_type match_prefix( const std::string& str, const char* prefixes[] )
+{
+  std::string::size_type offset = std::string::npos;
+
+  while ( *prefixes != 0 && offset == std::string::npos )
+  {
+    offset = str.find( *prefixes );
+    if ( offset != std::string::npos )
+      offset += strlen( *prefixes );
+
+    prefixes++;
+  }
+
+  return offset;
+}
+
+static std::string::size_type match_suffix( const std::string& str, const char* suffixes[] )
+{
+  std::string::size_type offset = std::string::npos;
+
+  while ( *suffixes != 0 && offset == std::string::npos )
+  {
+    offset = str.rfind( *suffixes );
+    suffixes++;
+  }
+
+  return offset;
+}
+
+// Find a consumable of a given subtype, see data_enum.hh for type values.
+// Returns 0 if not found.
+const item_data_t* unique_gear::find_consumable( const dbc_t& dbc,
+                                                 const std::string& name,
+                                                 item_subclass_consumable type )
+{
+  // Poor man's longest matching prefix!
+  static const char* potion_prefixes[] = { "potion_of_the_", "potion_of_", "potion_", 0 };
+  static const char* potion_suffixes[] = { "_potion", 0 };
+
+  const item_data_t* item = 0;
+  std::string consumable_name;
+
+  for ( item = dbc::items( maybe_ptr( dbc.ptr ) ); item -> id != 0; item++ )
+  {
+    if ( item -> item_class != 0 )
+      continue;
+
+    if ( item -> item_subclass != type )
+      continue;
+
+    consumable_name = item -> name;
+
+    util::tokenize( consumable_name );
+
+    if ( util::str_compare_ci( consumable_name, name ) )
+      break;
+
+    if ( type == ITEM_SUBCLASS_POTION )
+    {
+      std::string::size_type prefix_offset = match_prefix( consumable_name, potion_prefixes );
+      std::string::size_type suffix_offset = match_suffix( consumable_name, potion_suffixes );
+
+      if ( prefix_offset == std::string::npos )
+        prefix_offset = 0;
+
+      if ( suffix_offset == std::string::npos )
+        suffix_offset = consumable_name.size();
+      else if ( suffix_offset <= prefix_offset )
+        suffix_offset = consumable_name.size();
+
+      std::string parsed_name = consumable_name.substr( prefix_offset, suffix_offset );
+      if ( util::str_compare_ci( name, parsed_name ) )
+        break;
+    }
+  }
+
+  if ( item -> id != 0 )
+    return item;
+
+  return 0;
+}
+

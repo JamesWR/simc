@@ -492,8 +492,9 @@ class CombatRatingsDataGenerator(DataGenerator):
     _combat_ratings = [ 'Dodge',        'Parry',        'Block',       'Melee hit',  'Ranged hit', 
                         'Spell hit',    'Melee crit',   'Ranged crit', 'Spell crit', 'PvP Resilience',
                         'Melee haste',  'Ranged haste', 'Spell haste', 'Expertise',  'Mastery',
-                        'PvP Power',    'Multistrike',  'Readiness' ]
-    _combat_rating_ids = [ 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 17, 18, 19, 23, 25, 26, 11, 12 ] 
+                        'PvP Power',    'Multistrike',  'Readiness',
+                        'Damage Versatility', 'Healing Versatility', 'Mitigation Versatility' ]
+    _combat_rating_ids = [ 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 17, 18, 19, 23, 25, 26, 11, 12, 28, 29, 30 ]
     def __init__(self, options):
         # Hardcode these, as we need two different kinds of databases for output, using the same combat rating ids
         self._dbc = [ 'gtCombatRatings' ]
@@ -1231,10 +1232,11 @@ class SpellDataGenerator(DataGenerator):
          146137,                    # Cleave
          146071,                    # Multistrike
          120032, 142530,            # Dancing Steel
-         104993,                    # Jade Spirit
+         104993, 142535,            # Jade Spirit
          116631,                    # Colossus
          105617,                    # Alchemist's Flask
          137596,                    # Capacitance
+         104510, 104423,            # Windsong Mastery / Haste buffs
         ),
         
         # Warrior:
@@ -1243,9 +1245,7 @@ class SpellDataGenerator(DataGenerator):
             ( 118779, 0, False ),   # Victory Rush heal is not directly activatable
             ( 144500, 0 ),          # T16 tank 4pc proc
             ( 156321, 0 ),          # Shield Charge for Gladiator Stance
-            ( 58364, 0 ),           # Glyph of Hold the Line
-            ( 84619, 0 ),           # Buff for Glyph of Hold the Line
-            ( 58388, 0 )            # Glyph of Heavy Repercussions
+            ( 163558, 0 ),          # Execute off-hand
         ),
         
         # Paladin:
@@ -1292,6 +1292,14 @@ class SpellDataGenerator(DataGenerator):
             ( 127627, 3 ), ( 127628, 3 ), # Shadow Cascade
             ( 127626, 0, False ), # Devouring Plague heal (deactive)
             ( 129197, 3 ), # Mind Flay (Insanity)
+            ( 165628, 0 ), # Item - Priest T17 Shadow 2P Bonus
+            ( 165623, 0 ), # Item - Priest T17 Shadow 2P Bonus - dot spell
+            
+            ( 165621, 0 ), # Item - Priest T17 Holy 2P Bonus
+            ( 165614, 0 ), # Item - Priest T17 Discipline 2P Bonus
+            ( 167694, 0 ), # Item - Priest T17 Discipline 4P Bonus
+            ( 167684, 0 ), # Item - Priest T17 Holy 4P Bonus
+            ( 165629, 0 ), # Item - Priest T17 Shadow 4P Bonus
         ), 
         
         # Death Knight:
@@ -1320,11 +1328,13 @@ class SpellDataGenerator(DataGenerator):
           ( 114093, 0 ),                                # Ascendance: Stormblast, offhand melee swing,
           ( 114074, 0 ), ( 114738, 0 ),                 # Ascendance: Lava Beam, Lava Beam overload
           ( 120687, 0 ), ( 120588, 0 ),                 # Stormlash, Elemental Blast overload
-          ( 58859,  5 ),                                # Spirit Wolf: Spirit Bite
           ( 121617, 0 ),                                # Ancestral Swiftness 5% haste passive
           ( 25504, 0, False ), ( 33750, 0, False ),     # Windfury passives are not directly activatable
           ( 8034, 0, False ),                           # Frostbrand false positive for activatable
           ( 145002, 0, False ),                         # Lightning Elemental nuke
+          ( 157348, 5 ), ( 157331, 5 ),                 # Storm elemental spells
+          ( 168553, 0 ),                                # Electrical Charge
+          ( 168554, 0 ),                                # Rising Heat
         ),
         
         # Mage:
@@ -1360,6 +1370,8 @@ class SpellDataGenerator(DataGenerator):
             ( 115422, 2, True ), # void ray
             ( 104025, 2, True ), # immolation aura
             ( 104027, 2, True ), # meta soul fire
+            ( 124916, 2, True ), # meta chaos wave
+            ( 103964, 2, True ), # meta touch of chaos
             ( 104232, 3, True ), # destruction rain of fire
             ( 114790, 1 ), ( 87385, 1 ), # soulburn seed of corruption
             ( 131737, 0, False ), ( 131740, 0, False ), ( 132566, 0, False ), ( 131736, 0, False ), # Duplicated Warlock dots
@@ -1403,6 +1415,13 @@ class SpellDataGenerator(DataGenerator):
 	  ( 155580, 0 ),       # Lunar Inspiration
 	  ( 155627, 0 ),       # Lunar Inspiration
 	  ( 155625, 0 ),       # Lunar Inspiration Moonfire
+	  ( 145152, 0 ),       # Bloodtalons buff
+	  ( 135597, 0 ),       # Tooth and Claw absorb buff
+	  ( 155784, 0 ),       # Primal Tenacity buff
+	  ( 165431, 0 ),       # tier17_2pc_melee
+	  ( 165432, 0 ),       # tier17_4pc_melee
+	  ( 166638, 0 ),       # tier17_4pc_melee debuff
+	  ( 166639, 0 ),       # tier17_4pc_melee proc driver
         ), 
     ]
 
@@ -1661,15 +1680,15 @@ class SpellDataGenerator(DataGenerator):
             spell.add_power(spell_power_data)
         
         # For builds 15589+, map SpellMisc.dbc to spell ids
-        for spell_misc_id, spell_misc_data in self._spellmisc_db.iteritems():
-            if not spell_misc_data.id_spell:
-                continue
-            
-            spell = self._spell_db[spell_misc_data.id_spell]
-            if not spell.id:
-                continue
-            
-            spell.add_misc(spell_misc_data)
+        #for spell_misc_id, spell_misc_data in self._spellmisc_db.iteritems():
+        #    if not spell_misc_data.id_spell:
+        #        continue
+        #    
+        #    spell = self._spell_db[spell_misc_data.id_spell]
+        #    if not spell.id:
+        #        continue
+        #    
+        #    spell.add_misc(spell_misc_data)
 
         # For WoD, map ItemSetSpell.dbc to ItemSet.dbc
         for isb_id, data in self._itemsetspell_db.iteritems():
@@ -1686,7 +1705,6 @@ class SpellDataGenerator(DataGenerator):
                 continue
             
             item.spells.append(data)
-
         
         return True
     
@@ -1718,9 +1736,9 @@ class SpellDataGenerator(DataGenerator):
         
         return 0
     
-    def process_spell(self, spell_id, result_dict, mask_class = 0, mask_race = 0):
+    def process_spell(self, spell_id, result_dict, mask_class = 0, mask_race = 0, state = True):
         filter_list = { }
-        lst = self.generate_spell_filter_list(spell_id, mask_class, mask_race, filter_list)
+        lst = self.generate_spell_filter_list(spell_id, mask_class, mask_race, filter_list, state)
         if not lst:
             return
             
@@ -1778,14 +1796,14 @@ class SpellDataGenerator(DataGenerator):
 
         return True
     
-    def generate_spell_filter_list(self, spell_id, mask_class, mask_race, filter_list = { }):
+    def generate_spell_filter_list(self, spell_id, mask_class, mask_race, filter_list = { }, state = True):
         spell = self._spell_db[spell_id]
         enabled_effects = [ True ] * ( spell.max_effect_index + 1 )
 
         if not spell.id:
             return None
             
-        if not self.spell_state(spell, enabled_effects):
+        if state and not self.spell_state(spell, enabled_effects):
             return None
         
         filter_list[spell.id] = { 'mask_class': mask_class, 'mask_race': mask_race, 'effect_list': enabled_effects }
@@ -1852,7 +1870,7 @@ class SpellDataGenerator(DataGenerator):
             # These may now be pet talents
             if talent_data.class_id > 0:
                 mask_class = DataGenerator._class_masks[talent_data.class_id]
-                self.process_spell(getattr(talent_data, 'id_spell'), ids, mask_class, 0)
+                self.process_spell(getattr(talent_data, 'id_spell'), ids, mask_class, 0, False)
 
         # Get all perks
         for perk_id, perk_data in self._minortalent_db.iteritems():
@@ -1863,7 +1881,7 @@ class SpellDataGenerator(DataGenerator):
             if spec_data.id == 0:
                 continue
 
-            self.process_spell(perk_data.id_spell, ids, DataGenerator._class_masks[spec_data.class_id], 0)
+            self.process_spell(perk_data.id_spell, ids, DataGenerator._class_masks[spec_data.class_id], 0, False)
 
         # Get base skills from SkillLineAbility
         for ability_id, ability_data in self._skilllineability_db.iteritems():
@@ -1912,7 +1930,7 @@ class SpellDataGenerator(DataGenerator):
             else:
                 mask_class = DataGenerator._class_masks[3]
             
-            self.process_spell(spell.id, ids, mask_class, 0)
+            self.process_spell(spell.id, ids, mask_class, 0, False)
             if ids.has_key(spell.id):
                 ids[spell.id]['replace_spell_id'] = spec_spell_data.replace_spell_id
         
@@ -1922,7 +1940,7 @@ class SpellDataGenerator(DataGenerator):
                 continue
             
             if self._spellmisc_db[s.id_misc].flags_12694 & 0x20000000:
-                self.process_spell(s.id, ids, DataGenerator._class_masks[spec_data.class_id], 0)
+                self.process_spell(s.id, ids, DataGenerator._class_masks[spec_data.class_id], 0, False)
         
 
         # Get spells relating to item enchants, so we can populate a (nice?) list
@@ -2171,9 +2189,9 @@ class SpellDataGenerator(DataGenerator):
                 sys.stderr.write('Spell id %d not found\n') % id
                 continue
             
-            if len(spell._misc) > 1:
-                sys.stderr.write('Spell id %u (%s) has more than one SpellMisc.dbc entry\n' % ( spell.id, spell.name ) )
-                continue
+            #if len(spell._misc) > 1:
+            #    sys.stderr.write('Spell id %u (%s) has more than one SpellMisc.dbc entry\n' % ( spell.id, spell.name ) )
+            #    continue
 
             for power in spell._powers:
                 if power == None:
@@ -3112,6 +3130,42 @@ class ClassFlagGenerator(SpellDataGenerator):
                     s += '\n'
                 s += '\n'
             s += '\n'
+        
+        return s
+
+class GlyphPropertyGenerator(DataGenerator):
+    def __init__(self, options):
+        self._dbc = [ 'GlyphProperties.dbc', 'Spell.dbc' ]
+
+        DataGenerator.__init__(self, options)
+
+    def filter(self):
+        return None
+        
+    def generate(self, ids = None):
+        data_str = "%sglyph_property_data%s" % (
+            self._options.prefix and ('%s_' % self._options.prefix) or '',
+            self._options.suffix and ('_%s' % self._options.suffix) or '',
+        )
+
+        content_str = ''
+        properties = 0
+        for id, data in self._glyphproperties_db.iteritems():
+            if data.id_spell == 0:
+                continue
+
+            if self._spell_db[data.id_spell].id == 0:
+                continue
+
+            content_str += '  { %5u, %6u },\n' % (data.id, data.id_spell)
+            properties += 1
+
+
+        s = '// Glyph properties, wow build %d\n' % self._options.build
+        s += 'static glyph_property_data_t __%s[%d] = {\n' % (data_str, properties + 1)
+        s += content_str
+        s += '  { %5u, %6u }\n' % (0, 0)
+        s += '};\n'
         
         return s
 

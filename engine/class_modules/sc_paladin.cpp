@@ -16,7 +16,10 @@ namespace { // UNNAMED NAMESPACE
 struct paladin_t;
 struct hand_of_sacrifice_redirect_t;
 struct blessing_of_the_guardians_t;
-namespace buffs { struct avenging_wrath_buff_t; }
+namespace buffs { 
+                  struct avenging_wrath_buff_t; 
+                  struct ardent_defender_buff_t;
+                }
 
 enum seal_e
 {
@@ -88,7 +91,7 @@ public:
   struct buffs_t
   {
     buff_t* alabaster_shield;
-    buff_t* ardent_defender;
+    buffs::ardent_defender_buff_t* ardent_defender;
     buffs::avenging_wrath_buff_t* avenging_wrath;
     buff_t* bastion_of_glory;
     buff_t* bastion_of_power; // t16_4pc_tank
@@ -107,11 +110,19 @@ public:
     buff_t* glyph_of_word_of_glory;
     buff_t* hand_of_purity;
     buff_t* holy_avenger;
+    absorb_buff_t* holy_shield;
     buff_t* infusion_of_light;
+    buff_t* liadrins_righteousness;
+    buff_t* long_arm_of_the_law;
+    buff_t* maraads_truth;
     buff_t* sacred_shield;  // dummy buff for APL simplicity
     buff_t* selfless_healer;
+    buff_t* seraphim;
     buff_t* shield_of_glory; // t15_2pc_tank
     buff_t* shield_of_the_righteous;
+    buff_t* speed_of_light;
+    buff_t* turalyons_justice;
+    buff_t* uthers_insight;
     buff_t* warrior_of_the_light; // t16_2pc_melee
     buff_t* tier15_2pc_melee;
     buff_t* tier15_4pc_melee;
@@ -120,13 +131,18 @@ public:
   // Gains
   struct gains_t
   {
-    gain_t* divine_plea;
-    gain_t* extra_regen;
+    // Healing/absorbs
+    gain_t* holy_shield;
     gain_t* seal_of_insight;
     gain_t* glyph_divine_storm;
     gain_t* glyph_divine_shield;
 
+    // Mana
+    gain_t* divine_plea;
+    gain_t* extra_regen;
+
     // Holy Power
+    gain_t* hp_beacon_of_light;
     gain_t* hp_blessed_life;
     gain_t* hp_crusader_strike;
     gain_t* hp_exorcism;
@@ -135,13 +151,11 @@ public:
     gain_t* hp_hammer_of_wrath;
     gain_t* hp_holy_avenger;
     gain_t* hp_holy_shock;
-    gain_t* hp_judgments_of_the_bold;
     gain_t* hp_judgments_of_the_wise;
     gain_t* hp_pursuit_of_justice;
     gain_t* hp_sanctified_wrath;
     gain_t* hp_selfless_healer;
     gain_t* hp_templars_verdict_refund;
-    gain_t* hp_tower_of_radiance;
     gain_t* hp_judgment;
     gain_t* hp_t15_4pc_tank;
   } gains;
@@ -150,6 +164,7 @@ public:
   struct cooldowns_t
   {
     // these seem to be required to get Art of War and Grand Crusader procs working
+    cooldown_t* ardent_defender;
     cooldown_t* avengers_shield;
     cooldown_t* exorcism;
   } cooldowns;
@@ -160,23 +175,26 @@ public:
     const spell_data_t* boundless_conviction;
     const spell_data_t* daybreak;
     const spell_data_t* divine_bulwark;
+    const spell_data_t* exorcism; // for cooldown reset
     const spell_data_t* grand_crusader;
     const spell_data_t* guarded_by_the_light;
     const spell_data_t* hand_of_light;
     const spell_data_t* holy_insight;
     const spell_data_t* illuminated_healing;
     const spell_data_t* infusion_of_light;
-    const spell_data_t* judgments_of_the_bold;
     const spell_data_t* judgments_of_the_wise;
     const spell_data_t* plate_specialization;
+    const spell_data_t* resolve;
+    const spell_data_t* righteous_vengeance;
+    const spell_data_t* riposte;
+    const spell_data_t* sacred_duty;
+    const spell_data_t* sanctified_light;
     const spell_data_t* sanctity_of_battle;
     const spell_data_t* sanctuary;
-    const spell_data_t* shining_protector; // TODO: hook up to heals
+    const spell_data_t* shining_protector; 
     const spell_data_t* seal_of_insight;
     const spell_data_t* sword_of_light;
     const spell_data_t* sword_of_light_value;
-    const spell_data_t* the_art_of_war;
-    const spell_data_t* vengeance;
   } passives;
 
   // Perks
@@ -217,9 +235,8 @@ public:
     proc_t* divine_purpose;
     proc_t* divine_crusader;
     proc_t* eternal_glory;
-    proc_t* judgments_of_the_bold;
-    proc_t* the_art_of_war;
-    proc_t* wasted_art_of_war;
+    proc_t* exorcism_cd_reset;
+    proc_t* wasted_exorcism_cd_reset;
   } procs;
 
   // Spells
@@ -234,6 +251,9 @@ public:
   // Talents
   struct talents_t
   {
+    const spell_data_t* speed_of_light;
+    const spell_data_t* long_arm_of_the_law;
+    const spell_data_t* pursuit_of_justice;
     const spell_data_t* hand_of_purity;
     const spell_data_t* unbreakable_spirit;
     const spell_data_t* clemency;
@@ -259,12 +279,15 @@ public:
   struct glyphs_t
   {
     const spell_data_t* alabaster_shield;
+    const spell_data_t* ardent_defender;
+    const spell_data_t* avenging_wrath;
     const spell_data_t* battle_healer;
     const spell_data_t* blessed_life;
     const spell_data_t* devotion_aura;
     const spell_data_t* divine_protection;
     const spell_data_t* divine_shield;
     const spell_data_t* divine_storm;
+    const spell_data_t* divine_wrath;
     const spell_data_t* double_jeopardy;
     const spell_data_t* flash_of_light;
     const spell_data_t* final_wrath;
@@ -273,7 +296,9 @@ public:
     const spell_data_t* hand_of_sacrifice;
     const spell_data_t* harsh_words;
     const spell_data_t* immediate_truth;
+    const spell_data_t* judgment;
     const spell_data_t* mass_exorcism;
+    const spell_data_t* merciful_wrath;
     const spell_data_t* templars_verdict;
     const spell_data_t* word_of_glory;
   } glyphs;
@@ -323,6 +348,7 @@ public:
     bok_up                             = false;
     bom_up                             = false;
 
+    cooldowns.ardent_defender = get_cooldown( "ardent_defender" );
     cooldowns.avengers_shield = get_cooldown( "avengers_shield" );
     cooldowns.exorcism = get_cooldown( "exorcism" );
 
@@ -331,7 +357,6 @@ public:
     base.distance = 3;
   }
 
-  virtual void      init_defense();
   virtual void      init_base_stats();
   virtual void      init_gains();
   virtual void      init_procs();
@@ -340,25 +365,40 @@ public:
   virtual void      init_spells();
   virtual void      init_action_list();
   virtual void      reset();
+  virtual void      arise();
   virtual expr_t*   create_expression( action_t*, const std::string& name );
+  
+  // player stat functions
   virtual double    composite_attribute_multiplier( attribute_e attr ) const;
+  virtual double    composite_armor_multiplier() const;
+  virtual double    composite_rating_multiplier( rating_e rating ) const;
   virtual double    composite_attack_power_multiplier() const;
+  virtual double    composite_mastery() const;
+  virtual double    composite_multistrike() const;
+  virtual double    composite_bonus_armor() const;
   virtual double    composite_melee_attack_power() const;
   virtual double    composite_melee_crit() const;
   virtual double    composite_melee_expertise( weapon_t* weapon ) const;
   virtual double    composite_melee_haste() const;
+  virtual double    composite_melee_speed() const;
   virtual double    composite_spell_crit() const;
   virtual double    composite_spell_haste() const;
   virtual double    composite_player_multiplier( school_e school ) const;
-  virtual double    composite_player_heal_multiplier( school_e school ) const;
+  virtual double    composite_player_heal_multiplier( const action_state_t* s ) const;
   virtual double    composite_spell_power( school_e school ) const;
   virtual double    composite_spell_power_multiplier() const;
-  virtual double    composite_block() const;
   virtual double    composite_crit_avoidance() const;
   virtual double    composite_dodge() const;
+  virtual double    composite_parry() const;
+  virtual double    composite_block() const;
+  virtual double    temporary_movement_modifier() const;
+
+  // combat outcome functions
   virtual void      assess_damage( school_e, dmg_e, action_state_t* );
+  virtual void      assess_damage_imminent( school_e, dmg_e, action_state_t* );
   virtual void      assess_heal( school_e, dmg_e, action_state_t* );
   virtual void      target_mitigation( school_e, dmg_e, action_state_t* );
+
   virtual void      invalidate_cache( cache_e );
   virtual void      create_options();
   virtual double    matching_gear_multiplier( attribute_e attr ) const;
@@ -371,7 +411,6 @@ public:
   virtual void      combat_begin();
 
   int     holy_power_stacks() const;
-  double  get_divine_bulwark() const;
   double  get_hand_of_light();
   double  jotp_haste();
   void    trigger_grand_crusader();
@@ -407,6 +446,35 @@ public:
 
 namespace buffs {
 
+struct ardent_defender_buff_t : public buff_t
+{
+  bool oneup_triggered;
+
+  ardent_defender_buff_t( player_t* p ) :
+    buff_t( buff_creator_t( p, "ardent_defender", p -> find_specialization_spell( "Ardent Defender" ) ) ),
+    oneup_triggered( false )
+  {
+    
+  }
+
+  void use_oneup()
+  {
+    oneup_triggered = true;
+  }
+
+  virtual void expire_override()
+  {
+    buff_t::expire_override();
+
+    paladin_t* p = static_cast<paladin_t*>( player );
+    if ( ! oneup_triggered && p -> glyphs.ardent_defender -> ok() )
+    {
+      p -> cooldowns.ardent_defender -> start( timespan_t::from_seconds( p -> glyphs.ardent_defender -> effectN( 1 ).base_value() ) );
+    }
+  }
+
+};
+
 struct avenging_wrath_buff_t : public buff_t
 {
   avenging_wrath_buff_t( player_t* p ) :
@@ -416,6 +484,8 @@ struct avenging_wrath_buff_t : public buff_t
     crit_bonus( 0.0 ),
     haste_bonus( 0.0 )
   {
+    paladin_t* paladin = static_cast<paladin_t*>( player );
+
     // Map modifiers appropriately based on spec
     if ( p -> specialization() == PALADIN_RETRIBUTION )
     {
@@ -424,18 +494,21 @@ struct avenging_wrath_buff_t : public buff_t
     }
     else // we're Holy
     {
-      damage_modifier = data().effectN( 6 ).percent();
+      damage_modifier = data().effectN( 5 ).percent();
       healing_modifier = data().effectN( 3 ).percent();
       crit_bonus = data().effectN( 2 ).percent();
       haste_bonus = data().effectN( 1 ).percent();
+      // merciful wrath reduces the healing effect by 50%
+      healing_modifier += paladin -> glyphs.divine_wrath -> effectN( 1 ).percent();
+      // merciful wrath glyph reduces all effects by 50%
+      damage_modifier  *= 1.0 + paladin -> glyphs.merciful_wrath -> effectN( 1 ).percent();
+      healing_modifier *= 1.0 + paladin -> glyphs.merciful_wrath -> effectN( 2 ).percent();
+      crit_bonus       *= 1.0 + paladin -> glyphs.merciful_wrath -> effectN( 3 ).percent();
+      haste_bonus      *= 1.0 + paladin -> glyphs.merciful_wrath -> effectN( 4 ).percent();
 
-      // not sure which ones we actually need to invalidate, so let's just nuke them all
+      // invalidate crit and haste
       add_invalidate( CACHE_CRIT );
-      add_invalidate( CACHE_SPELL_CRIT );
-      add_invalidate( CACHE_ATTACK_CRIT );
       add_invalidate( CACHE_HASTE );
-      add_invalidate( CACHE_ATTACK_HASTE );
-      add_invalidate( CACHE_SPELL_HASTE );
     }
 
     // Lengthen duration if Sanctified Wrath is taken
@@ -545,7 +618,12 @@ public:
       return std::max( ab::base_costs[ RESOURCE_HOLY_POWER ], std::min( 3.0, p() -> resources.current[ RESOURCE_HOLY_POWER ] ) );
     }
 
-    return ab::cost();
+    double c = ab::cost();
+
+    if ( p() -> glyphs.divine_wrath -> ok() && p() -> buffs.avenging_wrath -> check() )
+      c *= 1.0 + p() -> glyphs.divine_wrath -> effectN( 2 ).percent();
+
+    return c;
   }
 
   // hand of light handling
@@ -623,7 +701,6 @@ public:
   }
 };
 
-
 // paladin "Spell" Base for paladin_spell_t, paladin_heal_t and paladin_absorb_t
 
 template <class Base>
@@ -673,7 +750,9 @@ struct paladin_spell_t : public paladin_spell_base_t<spell_t>
   paladin_spell_t( const std::string& n, paladin_t* p,
                    const spell_data_t* s = spell_data_t::nil() ) :
     base_t( n, p, s )
-  {
+  {    
+    // Holy Insight - Holy passive
+    base_multiplier *= 1.0 + p -> passives.holy_insight -> effectN( 6 ).percent();
   }
 };
 
@@ -698,9 +777,6 @@ struct paladin_heal_t : public paladin_spell_base_t<heal_t>
 
     if ( p() -> active_seal == SEAL_OF_INSIGHT && benefits_from_seal_of_insight )
       am *= 1.0 + p() -> passives.seal_of_insight -> effectN( 2 ).percent();
-    
-    // Holy Insight - Holy passive
-    am *= 1.0 + p() -> passives.holy_insight -> effectN( 6 ).percent();
 
     return am;
   }
@@ -797,7 +873,7 @@ struct paladin_heal_t : public paladin_spell_base_t<heal_t>
 
     // FIXME: This should stack when the buff is present already
 
-    double bubble_value = p() -> cache.mastery_value()
+    double bubble_value = p() -> cache.mastery_value() // Illuminated Healing is in effect 1
                           * s -> result_amount;
 
     p() -> active_illuminated_healing -> base_dd_min = p() -> active_illuminated_healing -> base_dd_max = bubble_value;
@@ -825,6 +901,10 @@ struct ardent_defender_t : public paladin_spell_t
     harmful = false;
     use_off_gcd = true;
     trigger_gcd = timespan_t::zero();
+
+    // required for glyph of ardent defender
+    cooldown = p -> cooldowns.ardent_defender;
+    // T14 set bonus reduces cooldown as well
     if (  p -> sets.has_set_bonus( SET_T14_2PC_TANK ) )
       cooldown -> duration = data().cooldown() + p -> sets.set( SET_T14_2PC_TANK ) -> effectN( 1 ).time_value();
   }
@@ -859,6 +939,10 @@ struct avengers_shield_t : public paladin_spell_t
     // link needed for trigger_grand_crusader
     cooldown = p -> cooldowns.avengers_shield;
     cooldown -> duration = data().cooldown();
+
+    // Focused Shield gives another multiplicative factor of 1.3 (tested 5/26/2013, multiplicative with HA)
+    if ( p -> glyphs.focused_shield -> ok() )
+      base_multiplier *= 1.0 + p -> glyphs.focused_shield -> effectN( 2 ).percent();
   }
 
   // Multiplicative damage effects
@@ -868,15 +952,7 @@ struct avengers_shield_t : public paladin_spell_t
 
     // Holy Avenger buffs damage if Grand Crusader is active
     if ( p() -> buffs.holy_avenger -> check() && p() -> buffs.grand_crusader -> check() )
-    {
       am *= 1.0 + p() -> buffs.holy_avenger -> data().effectN( 4 ).percent();
-    }
-
-    // Focused Shield gives another multiplicative factor of 1.3 (tested 5/26/2013, multiplicative with HA)
-    if ( p() -> glyphs.focused_shield -> ok() )
-    {
-      am *= 1.0 + p() -> glyphs.focused_shield -> effectN( 2 ).percent();
-    }
 
     return am;
   }
@@ -885,9 +961,7 @@ struct avengers_shield_t : public paladin_spell_t
   virtual void update_ready( timespan_t cd_duration )
   {
     if ( p() -> passives.sanctity_of_battle -> ok() )
-    {
       cd_duration = cooldown -> duration * p() -> cache.attack_haste();
-    }
 
     paladin_spell_t::update_ready( cd_duration );
   }
@@ -924,14 +998,16 @@ struct avengers_shield_t : public paladin_spell_t
 // Thus, we need to use some ugly hacks to get it to work seamlessly for both specs within the same spell.
 // Most of them can be found in buffs::avenging_wrath_buff_t, this spell just triggers the buff
 
-struct avenging_wrath_t : public paladin_spell_t
+struct avenging_wrath_t : public paladin_heal_t
 {
   avenging_wrath_t( paladin_t* p, const std::string& options_str )
-    : paladin_spell_t( "avenging_wrath", p, p -> specialization() == PALADIN_RETRIBUTION ? p -> find_spell( 31884 ) : p -> find_spell( 31842 ) )
+    : paladin_heal_t( "avenging_wrath", p, p -> specialization() == PALADIN_RETRIBUTION ? p -> find_spell( 31884 ) : p -> find_spell( 31842 ) )
   {
     parse_options( NULL, options_str );
 
     cooldown -> duration += p -> passives.sword_of_light -> effectN( 7 ).time_value();
+
+    cooldown -> duration *= ( 1.0 + p -> glyphs.merciful_wrath -> effectN( 5 ).percent() );
 
     // disable for protection
     if ( p -> specialization() == PALADIN_PROTECTION )
@@ -940,11 +1016,35 @@ struct avenging_wrath_t : public paladin_spell_t
     harmful = false;
     use_off_gcd = true;    
     trigger_gcd = timespan_t::zero();
+
+    // hack in Glyph of Avenging Wrath behavior
+    if ( p -> glyphs.avenging_wrath -> ok() )
+    {
+      parse_effect_data( p -> find_spell( 115547 ) -> effectN( 1 ) );
+      // this info is very poorly encoded in the spell data; simpler just to hardcode
+      base_tick_time = timespan_t::from_seconds( 3.0 );
+      dot_duration = p -> buffs.avenging_wrath -> buff_duration;
+      hasted_ticks = false;
+      tick_may_crit = false;
+      may_multistrike = false;
+      target = p;
+    }
+  }
+
+  virtual void tick( dot_t* d )
+  {
+    // override for this just in case Avenging Wrath were to get canceled or removed
+    // early, or if there's a duration mismatch (unlikely, but...)
+    if ( p() -> buffs.avenging_wrath -> up() )
+    {
+      // call tick()
+      heal_t::tick( d );
+    }
   }
 
   virtual void execute()
   {
-    paladin_spell_t::execute();
+    paladin_heal_t::execute();
 
     p() -> buffs.avenging_wrath -> trigger();
   }
@@ -967,7 +1067,7 @@ struct beacon_of_light_t : public paladin_heal_t
     }
 
     // Remove the 'dot'
-    num_ticks = 0;
+    dot_duration = timespan_t::zero();
   }
 
   virtual void execute()
@@ -1080,7 +1180,8 @@ struct blessing_of_the_guardians_t : public paladin_heal_t
     
     // spell info not yet returning proper details, should heal for X every 1 sec for 10 sec.
     base_tick_time = timespan_t::from_seconds( 1 );
-    num_ticks = 10;
+
+    dot_duration = timespan_t::from_seconds( 10.0 );
 
     // initialize accumulator
     accumulated_damage = 0.0;
@@ -1100,7 +1201,7 @@ struct blessing_of_the_guardians_t : public paladin_heal_t
 
   virtual void execute()
   {
-    base_td = healing_multiplier * accumulated_damage / num_ticks;
+    base_td = healing_multiplier * accumulated_damage * dot_duration / base_tick_time;
 
     paladin_heal_t::execute();
 
@@ -1131,11 +1232,12 @@ struct censure_t : public paladin_spell_t
     background       = true;
     proc             = true;
     tick_may_crit    = true;
+    hasted_ticks     = true; // unnecessary, as spell_base_t does this automatically; here in case we ever transition it back to a melee attack
 
-    //Undocumented: 80% weaker for protection
-    if ( p -> specialization() == PALADIN_PROTECTION )
+    //5x stronger for Ret/Holy (see tooltip)
+    if ( p -> specialization() != PALADIN_PROTECTION )
     {
-      spell_power_mod.tick /= 5;
+      spell_power_mod.tick *= 5;
     }
 
     // Glyph of Immediate Truth reduces DoT damage
@@ -1144,14 +1246,7 @@ struct censure_t : public paladin_spell_t
       base_multiplier *= 1.0 + p -> glyphs.immediate_truth -> effectN( 2 ).percent();
     }
   }
-
-  virtual void init()
-  {
-    paladin_spell_t::init();
-    // snapshot haste when we apply the debuff, this modifies the tick interval dynamically on every refresh
-    snapshot_flags |= STATE_HASTE;
-  }
-
+  
   virtual void impact( action_state_t* s )
   {
     if ( result_is_hit( s -> result ) )
@@ -1249,9 +1344,12 @@ struct daybreak_t : public paladin_heal_t
   {
     background = true;
     aoe = -1;
-    split_aoe_damage = true;
+    split_aoe_damage = false;
     may_crit = false;
     may_multistrike = false; // guess, TODO: Test
+
+    base_multiplier  = p -> passives.daybreak -> effectN( 1 ).percent();
+    base_multiplier *= 1.0 + p -> perk.improved_daybreak -> effectN( 1 ).percent();
   }
 
   virtual void init()
@@ -1282,11 +1380,8 @@ struct daybreak_t : public paladin_heal_t
 
   virtual double action_multiplier() const
   {
-    double am = p() -> passives.daybreak -> effectN( 1 ).percent();
-
-    am *= 1.0 + p() -> perk.improved_daybreak -> effectN( 1 ).percent();
-
-    return am;
+    // override action_multiplier(), as this amount is set by the triggering Holy Shock
+    return base_multiplier;
   }
   
 };
@@ -1381,9 +1476,28 @@ struct divine_protection_t : public paladin_spell_t
 };
 
 // Divine Shield ============================================================
+struct glyph_of_divine_shield_t : public paladin_heal_t
+{
+  glyph_of_divine_shield_t( paladin_t* p )
+    : paladin_heal_t( "glyph_of_divine_shield", p, p -> find_glyph_spell( "Glyph of Divine Shield" ) )
+  {
+    pct_heal = 0.0;
+    background = true;
+    target = p;
+  }
+
+  void set_num_destroyed( int n )
+  {
+    pct_heal = std::min( data().effectN( 1 ).percent() * n,
+                         data().effectN( 1 ).percent() * data().effectN( 2 ).base_value() );
+  }
+
+};
 
 struct divine_shield_t : public paladin_spell_t
 {
+  glyph_of_divine_shield_t* glyph_heal; 
+
   divine_shield_t( paladin_t* p, const std::string& options_str ) :
     paladin_spell_t( "divine_shield", p, p -> find_class_spell( "Divine Shield" ) )
   {
@@ -1394,7 +1508,10 @@ struct divine_shield_t : public paladin_spell_t
     // unbreakable spirit reduces cooldown
     if ( p -> talents.unbreakable_spirit -> ok() )
       cooldown -> duration = data().cooldown() * ( 1 + p -> talents.unbreakable_spirit -> effectN( 1 ).percent() );
-
+    
+    // glyph of divine shield heals
+    if ( p -> glyphs.divine_shield -> ok() )
+      glyph_heal = new glyph_of_divine_shield_t( p );
   }
 
   virtual void execute()
@@ -1407,28 +1524,25 @@ struct divine_shield_t : public paladin_spell_t
 
     // in this sim, the only debuffs we care about are enemy DoTs.
     // Check for them and remove them when cast, and apply Glyph of Divine Shield appropriately
+    int num_destroyed = 0;
     for ( size_t i = 0, size = p() -> dot_list.size(); i < size; i++ )
     {
       dot_t* d = p() -> dot_list[ i ];
-      int num_destroyed = 0;
 
-      if ( d -> source != p() )
+      if ( d -> source != p() && d -> source -> is_enemy() && d -> is_ticking() )
       {
         d -> cancel();
         num_destroyed++;
       }
-
-      // glyph of divine shield heals
-      if ( p() -> glyphs.divine_shield -> ok() )
-      {
-        double amount = std::min( num_destroyed * p() -> glyphs.divine_shield -> effectN( 1 ).percent(),
-                                  p() -> glyphs.divine_shield -> effectN( 1 ).percent() * p() -> glyphs.divine_shield -> effectN( 2 ).base_value() );
-
-        amount *= p() -> resources.max[ RESOURCE_HEALTH ];
-
-        p() -> resource_gain( RESOURCE_HEALTH, amount, p() -> gains.glyph_divine_shield, this );
-      }
     }
+
+    // glyph of divine shield heals
+    if ( p() -> glyphs.divine_shield -> ok() )
+    {
+      glyph_heal -> set_num_destroyed( num_destroyed );
+      glyph_heal -> schedule_execute();
+    }
+
     // trigger forbearance
     p() -> debuffs.forbearance -> trigger();
   }
@@ -1448,6 +1562,7 @@ struct divine_shield_t : public paladin_spell_t
 struct eternal_flame_hot_t : public paladin_heal_t
 {
   double hopo;
+  double base_num_ticks;
 
   eternal_flame_hot_t( paladin_t* p ) :
     paladin_heal_t( "eternal_flame_tick", p, p -> find_spell( 156322 ) )
@@ -1460,7 +1575,8 @@ struct eternal_flame_hot_t : public paladin_heal_t
   {
     paladin_heal_t::impact( s );
 
-    td( s -> target ) -> buffs.eternal_flame -> trigger( 1, buff_t::DEFAULT_VALUE(), -1, s -> action -> hasted_num_ticks( s -> haste ) * s -> action -> tick_time( s -> haste ) + timespan_t::from_millis( 1 ) );
+    td( s -> target ) -> buffs.eternal_flame -> trigger( 1, buff_t::DEFAULT_VALUE(), -1, composite_dot_duration( s ) );
+
   }
   
   virtual void last_tick( dot_t* d )
@@ -1475,8 +1591,8 @@ struct eternal_flame_hot_t : public paladin_heal_t
     // this scales just the ticks
     double am = paladin_heal_t::action_ta_multiplier();
 
-    // Scale based on HP used
-    am *= hopo;
+    // Scale based on HP used - removed in 6/13 patch notes
+    // am *= hopo;
 
     if ( target == player )
     {
@@ -1490,6 +1606,19 @@ struct eternal_flame_hot_t : public paladin_heal_t
     am *= 1.0 + p() -> passives.holy_insight -> effectN( 9 ).percent();
 
     return am;
+  }
+
+  virtual timespan_t composite_dot_duration( const action_state_t* ) const override
+  {
+    // Scale dot duration base on hp here!
+    // scale duration based on holy power spent
+    return dot_duration * hopo;
+  }
+
+  virtual void execute()
+  {
+
+    paladin_heal_t::execute();
   }
 
 };
@@ -1517,9 +1646,22 @@ struct eternal_flame_t : public paladin_heal_t
     {
       base_execute_time *= 1 + p -> passives.sword_of_light -> effectN( 9 ).percent();
     }
-
+    // redirect to self if not specified
+    if ( target -> is_enemy() || ( target -> type == HEALING_ENEMY && p -> specialization() == PALADIN_PROTECTION ) )
+      target = p;
     // attach HoT as child object - doesn't seem to work?
     add_child( hot );
+        
+    // Improved Word of Glory perk
+    base_multiplier *= 1.0 + p -> perk.improved_word_of_glory -> effectN( 1 ).percent();
+       
+    // Holy Insight buffs all healing by 25% & WoG/EF/LoD by 50%.
+    // The 25% buff is already in paladin_heal_t, so we need to divide by that first & then apply 50%
+    base_multiplier /= 1.0 + p -> passives.holy_insight -> effectN( 6 ).percent();
+    base_multiplier *= 1.0 + p -> passives.holy_insight -> effectN( 9 ).percent();
+    
+    // Sword of light
+    base_multiplier *= 1.0 + p -> passives.sword_of_light -> effectN( 3 ).percent();
   }
 
   virtual void update_ready( timespan_t cd_duration )
@@ -1567,17 +1709,13 @@ struct eternal_flame_t : public paladin_heal_t
 
     if ( target == player )
     {      
-      // grant 10% extra healing per stack of BoG; can't expire() BoG here because it's needed in execute()
-      am *= ( 1.0 + p() -> buffs.bastion_of_glory -> stack() * ( p() -> buffs.bastion_of_glory -> data().effectN( 1 ).percent() + p() -> get_divine_bulwark() ) );
-    }
+      // grant extra healing per stack of BoG; can't expire() BoG here because it's needed in execute()
+      double bog_m = p() -> buffs.bastion_of_glory -> data().effectN( 1 ).percent(); // base multiplier is in effect 1 of BoG buff
+      bog_m += p() -> cache.mastery() * p() -> passives.divine_bulwark -> effectN( 3 ).mastery_value(); // add mastery contribution
+      bog_m *= p() -> buffs.bastion_of_glory -> stack(); // multiply by stack size
 
-    // Improved Word of Glory perk
-    am *= 1.0 + p() -> perk.improved_word_of_glory -> effectN( 1 ).percent();
-    
-    // Holy Insight buffs all healing by 25% & WoG/EF/LoD by 50%.
-    // The 25% buff is already in paladin_heal_t, so we need to divide by that first & then apply 50%
-    am /= 1.0 + p() -> passives.holy_insight -> effectN( 6 ).percent();
-    am *= 1.0 + p() -> passives.holy_insight -> effectN( 9 ).percent();
+      am *= ( 1.0 + bog_m );
+    }
 
     return am;
   }
@@ -1646,7 +1784,6 @@ struct stay_of_execution_t : public paladin_heal_t
       spell_power_mod.tick = p -> find_spell( 114916 ) -> effectN( 2 ).base_value() / 1000.0 * 0.0374151195;
     }
 
-    assert( as<unsigned>( num_ticks ) < sizeof_array( soe_tick_multiplier ) );
     // this is reversed from Execution Sentence's tick order
     soe_tick_multiplier[ 10 ] = 1.0;
     for ( int i = 9; i > 0 ; --i )
@@ -1659,6 +1796,8 @@ struct stay_of_execution_t : public paladin_heal_t
   {
     double m = paladin_heal_t::composite_target_multiplier( target );
 
+    // Workaround for some clang insanity. soe_tick_multiplier.at( ... ) does not compile ..
+    assert( static_cast<size_t>( td( target ) -> dots.stay_of_execution -> current_tick ) < soe_tick_multiplier.size() && "Stay of Execution current tick > tick multiplier array" );
     m *= soe_tick_multiplier[ td( target ) -> dots.stay_of_execution -> current_tick ];
 
     return m;
@@ -1691,13 +1830,12 @@ struct execution_sentence_t : public paladin_spell_t
     {
       parse_effect_data( ( p -> find_spell( 114916 ) -> effectN( 1 ) ) );
       spell_power_mod.tick = p -> find_spell( 114916 ) -> effectN( 2 ).base_value() / 1000.0 * 0.0374151195;
-    }
 
-    assert( as<unsigned>( num_ticks ) < sizeof_array( tick_multiplier ) );
-    tick_multiplier[ 0 ] = 1.0;
-    for ( int i = 1; i < num_ticks; ++i )
-      tick_multiplier[ i ] = tick_multiplier[ i - 1 ] * 1.1;
-    tick_multiplier[ 10 ] = tick_multiplier[ 9 ] * 5;
+      tick_multiplier[ 0 ] = 1.0;
+      for ( int i = 1; i < dot_duration / base_tick_time; ++i )
+        tick_multiplier[ i ] = tick_multiplier[ i - 1 ] * 1.1;
+      tick_multiplier[ 10 ] = tick_multiplier[ 9 ] * 5;
+    }
 
     stay_of_execution = new stay_of_execution_t( p, options_str );
     add_child( stay_of_execution );
@@ -1711,6 +1849,8 @@ struct execution_sentence_t : public paladin_spell_t
   {
     double m = paladin_spell_t::composite_target_multiplier( target );
 
+    // Workaround for some clang insanity. tick_multiplier.at( ... ) does not compile ..
+    assert( static_cast<size_t>( td( target ) -> dots.execution_sentence -> current_tick ) < tick_multiplier.size() && "Execution Sentence current tick > tick multiplier array" );
     m *= tick_multiplier[ td( target ) -> dots.execution_sentence -> current_tick ];
 
     return m;
@@ -1745,6 +1885,8 @@ struct exorcism_t : public paladin_spell_t
       aoe = -1;
       base_aoe_multiplier = 0.25;
     }
+    // Improved Exorcism perk
+    base_multiplier *= 1.0 + p -> perk.improved_exorcism -> effectN( 1 ).percent(); 
 
     cooldown = p -> cooldowns.exorcism;
     cooldown -> duration = data().cooldown();
@@ -1753,10 +1895,7 @@ struct exorcism_t : public paladin_spell_t
   virtual double action_multiplier() const
   {
     double am = paladin_spell_t::action_multiplier();
-
-    // Improved Exorcism perk
-    am *= 1.0 + p() -> perk.improved_exorcism -> effectN( 1 ).percent(); 
-
+    
     // Holy Avenger
     if ( p() -> buffs.holy_avenger -> check() )
     {
@@ -1808,6 +1947,12 @@ struct flash_of_light_t : public paladin_heal_t
     paladin_heal_t( "flash_of_light", p, p -> find_class_spell( "Flash of Light" ) )
   {
     parse_options( NULL, options_str );
+    
+    // Improved Flash of Light perk
+    base_multiplier *= 1.0 + p -> perk.improved_flash_of_light -> effectN( 1 ).percent();
+
+    // Sword of light
+    base_multiplier *= 1.0 + p -> passives.sword_of_light -> effectN( 6 ).percent();
   }
 
   virtual double cost() const
@@ -1829,10 +1974,7 @@ struct flash_of_light_t : public paladin_heal_t
   virtual double action_multiplier() const
   {
     double am = paladin_heal_t::action_multiplier();
-
-    // Improved Flash of Light perk
-    am *= 1.0 + p() -> perk.improved_flash_of_light -> effectN( 1 ).percent();
-
+    
     // Selfless healer has two effects
     if ( p() -> talents.selfless_healer -> ok() )
     {
@@ -1881,6 +2023,10 @@ struct flash_of_light_t : public paladin_heal_t
       if ( sim -> debug )
         sim -> out_debug.printf("=================== Flash of Light applies GoFoL buff ====================");      
     }
+        
+    // Grant Holy Power if healing the beacon target
+    if ( s -> target == p() -> beacon_target )
+      p() -> resource_gain( RESOURCE_HOLY_POWER, 1, p() -> gains.hp_beacon_of_light );
   }
 };
 
@@ -2017,6 +2163,9 @@ struct holy_light_t : public paladin_heal_t
     paladin_heal_t( "holy_light", p, p -> find_class_spell( "Holy Light" ) )
   {
     parse_options( NULL, options_str );
+
+    // Improved Holy Light perk
+    base_multiplier *= 1.0 + p -> perk.improved_holy_light -> effectN( 1 ).percent();
   }
 
   virtual void execute()
@@ -2046,17 +2195,18 @@ struct holy_light_t : public paladin_heal_t
     p() -> buffs.infusion_of_light -> up(); // Buff uptime tracking
   }
 
-  virtual double action_multiplier() const
+  virtual void impact( action_state_t* s )
   {
-    double am = paladin_heal_t::action_multiplier();
+    paladin_heal_t::impact( s );
     
-    am *= 1.0 + p() -> perk.improved_holy_light -> effectN( 1 ).percent();
-
-    return am;
+    // Grant Holy Power if healing the beacon target
+    if ( s -> target == p() -> beacon_target )
+      p() -> resource_gain( RESOURCE_HOLY_POWER, 1, p() -> gains.hp_beacon_of_light );
   }
+
 };
 
-// Holy Shield proc ===========================================================
+// Holy Shield damage proc ====================================================
 
 struct holy_shield_proc_t : public paladin_spell_t
 {
@@ -2115,7 +2265,7 @@ struct holy_prism_damage_t : public paladin_spell_t
     // this updates the spell coefficients appropriately for single-target damage
     parse_effect_data( p -> find_spell( 114852 ) -> effectN( 1 ) );
 
-    // todo: code AoE heal, insert as proc on HPr damage.
+    // on impact, trigger a holy_prism_aoe_heal cast
     impact_action = new holy_prism_aoe_heal_t( p );
   }
 };
@@ -2252,9 +2402,10 @@ struct holy_radiance_t : public paladin_heal_t
 
 struct holy_shock_damage_t : public paladin_spell_t
 {
+  double crit_chance_multiplier;
   double crit_increase;
 
-  holy_shock_damage_t( paladin_t* p, const std::string& options_str )
+  holy_shock_damage_t( paladin_t* p )
     : paladin_spell_t( "holy_shock_damage", p, p -> find_spell( 25912 ) ),
       crit_increase( 0.0 )
   {
@@ -2263,7 +2414,10 @@ struct holy_shock_damage_t : public paladin_spell_t
     trigger_gcd = timespan_t::zero();
 
     // this grabs the 25% base crit bonus from 20473
-    base_crit += p -> find_class_spell( "Holy Shock" ) -> effectN( 1 ).percent();
+    crit_chance_multiplier = p -> find_class_spell( "Holy Shock" ) -> effectN( 1 ).base_value() / 10.0;
+
+    // Empowered Holy Shock
+    base_multiplier *= 1.0 + p -> perk.empowered_holy_shock -> effectN( 1 ).percent();
 
   }
 
@@ -2275,6 +2429,9 @@ struct holy_shock_damage_t : public paladin_spell_t
     {
       cc += crit_increase;
     }
+
+    // effect 1 doubles crit chance
+    cc *= crit_chance_multiplier;
 
     return cc;
   }
@@ -2295,34 +2452,26 @@ struct holy_shock_damage_t : public paladin_spell_t
       }
     }
   }
-
-  virtual double action_multiplier() const
-  {
-    double am = paladin_spell_t::action_multiplier();
-
-    am *= 1.0 + p() -> perk.empowered_holy_shock -> effectN( 1 ).percent();
-
-    return am;
-  }
-
+  
 };
 
 // Holy Shock Heal Spell ====================================================
 
 struct holy_shock_heal_t : public paladin_heal_t
 {
+  double crit_chance_multiplier;
   double crit_increase;
   daybreak_t* daybreak;
 
-  holy_shock_heal_t( paladin_t* p, const std::string& options_str ) :
+  holy_shock_heal_t( paladin_t* p ) :
     paladin_heal_t( "holy_shock_heal", p, p -> find_spell( 25914 ) ),
     crit_increase( 0.0 )
   {
     background = true;
     trigger_gcd = timespan_t::zero();
         
-    // this grabs the 25% base crit bonus from 20473
-    base_crit += p -> find_class_spell( "Holy Shock" ) -> effectN( 1 ).percent();
+    // this grabs the crit multiplier bonus from 20473
+    crit_chance_multiplier = p -> find_class_spell( "Holy Shock" ) -> effectN( 1 ).base_value() / 10.0;
 
     // Daybreak gives this a 75% splash heal
     daybreak = new daybreak_t( p );
@@ -2337,6 +2486,9 @@ struct holy_shock_heal_t : public paladin_heal_t
     {
       cc += crit_increase;
     }
+
+    // effect 1 doubles crit chance
+    cc *= crit_chance_multiplier;
 
     return cc;
   }
@@ -2371,7 +2523,7 @@ struct holy_shock_heal_t : public paladin_heal_t
       daybreak -> schedule_execute();
       
       // expire the buff
-      p() -> buffs.daybreak -> expire();
+      p() -> buffs.daybreak -> decrement();
     }
   }
 
@@ -2403,10 +2555,10 @@ struct holy_shock_t : public paladin_heal_t
     }
 
     // create the damage and healing spell effects, designate them as children for reporting
-    damage = new holy_shock_damage_t( p, options_str );
+    damage = new holy_shock_damage_t( p );
     damage ->crit_increase = crit_increase;
     add_child( damage );
-    heal = new holy_shock_heal_t( p, options_str );
+    heal = new holy_shock_heal_t( p );
     heal ->crit_increase = crit_increase;
     add_child( heal );
 
@@ -2466,9 +2618,8 @@ struct holy_wrath_t : public paladin_spell_t
     split_aoe_damage = true;
 
     //Holy Wrath is an oddball - spell database entry doesn't properly contain damage details
-    //Tooltip formula is wrong as well.  We're gong to hardcode it here based on empirical testing
-    //see http://maintankadin.failsafedesign.com/forum/viewtopic.php?p=743800#p743800
-    attack_power_mod.direct =  0.91;         // 0.91 AP scaling
+    //Tooltip formula is suspect (has been wrong before) TODO: test
+    spell_power_mod.direct = 2.686;      
 
   }
 
@@ -2522,11 +2673,8 @@ struct lay_on_hands_t : public paladin_heal_t
 
     use_off_gcd = true;
     trigger_gcd = timespan_t::zero();
-  }
 
-  virtual double calculate_direct_amount( action_state_t* )
-  {
-    return p() -> resources.max[ RESOURCE_HEALTH ];
+    pct_heal = 1.0;
   }
 
   virtual void execute()
@@ -2599,7 +2747,7 @@ struct lights_hammer_t : public paladin_spell_t
     school = SCHOOL_HOLY; // Setting this allows the tick_action to benefit from Inquistion
 
     base_tick_time = p -> find_spell( 114918 ) -> effectN( 1 ).period();
-    num_ticks      = ( int ) ( ( p -> find_spell( 122773 ) -> duration() - travel_time_ ) / base_tick_time );
+    dot_duration      = p -> find_spell( 122773 ) -> duration() - travel_time_;
     cooldown -> duration = p -> find_spell( 114158 ) -> cooldown();
     hasted_ticks   = false;
 
@@ -2636,6 +2784,11 @@ struct light_of_dawn_t : public paladin_heal_t
     parse_options( NULL, options_str );
 
     aoe = 6;
+
+    // Holy Insight buffs all healing by 25% & WoG/EF/LoD by 50%.
+    // The 25% buff is already in paladin_heal_t, so we need to divide by that first & then apply 50%
+    base_multiplier /= 1.0 + p -> passives.holy_insight -> effectN( 6 ).percent();
+    base_multiplier *= 1.0 + p -> passives.holy_insight -> effectN( 9 ).percent();
   }
 
   virtual double action_multiplier() const
@@ -2644,16 +2797,36 @@ struct light_of_dawn_t : public paladin_heal_t
 
     am *= p() -> holy_power_stacks();
 
-    // Holy Insight buffs all healing by 25% & WoG/EF/LoD by 50%.
-    // The 25% buff is already in paladin_heal_t, so we need to divide by that first & then apply 50%
-    am /= 1.0 + p() -> passives.holy_insight -> effectN( 6 ).percent();
-    am *= 1.0 + p() -> passives.holy_insight -> effectN( 9 ).percent();
-
     return am;
   }
 };
 
 // Sacred Shield ============================================================
+// The sacred_shield_t action is the driver, which should act like a HoT that doesn't do any healing.
+// Instead it has a sacred_shield_tick_t tick_action, which is the absorb bubble.
+
+struct sacred_shield_tick_t : public absorb_t 
+{
+  sacred_shield_tick_t( paladin_t* p ) :
+    absorb_t( "sacred_shield_tick", p, p -> find_spell( 65148 ) )
+  {
+    may_crit = true;
+    may_multistrike = true;
+    background = true;
+
+    // unfortunately, this spell info is split between effects and tooltip 
+    base_dd_min = base_dd_max = data().effectN( 1 ).average( p ); 
+    spell_power_mod.direct = 1.3059044; // tooltip wrong, hardcoding based on testing (7/7/2014 http://maintankadin.failsafedesign.com/forum/viewtopic.php?p=783749#p783749)
+    
+
+    // Spell data reflects protection values; Ret and Holy are 30% larger (tested 7/7/2014)
+    if ( ( p -> specialization() == PALADIN_RETRIBUTION || p -> specialization() == PALADIN_HOLY ) )
+    {
+      spell_power_mod.direct /= 0.7;
+    }
+  }
+
+};
 
 struct sacred_shield_t : public paladin_heal_t
 {
@@ -2661,29 +2834,25 @@ struct sacred_shield_t : public paladin_heal_t
     paladin_heal_t( "sacred_shield", p, p -> find_talent_spell( "Sacred Shield" ) ) // todo: find_talent_spell -> find_specialization_spell
   {
     parse_options( NULL, options_str );
-    may_crit = tick_may_crit = false;
-    benefits_from_seal_of_insight = false;
-    harmful = false;
 
     // treat this as a HoT that spawns an absorb bubble on each tick() call rather than healing
-    // unfortunately, this spell info is split between effects and tooltip 
-    base_td = data().effectN( 1 ).average( p ); 
-    spell_power_mod.tick = 0.819; // in tooltip, hardcoding
-
+    tick_action = new sacred_shield_tick_t( p );
+    hasted_ticks = true;
+    may_multistrike = false;
+        
+    // most of this is irrelevant now, I think?
+    may_crit = false;
+    tick_may_crit = false;
+    benefits_from_seal_of_insight = false;
+    harmful = false;
+    
     // redirect HoT to self if not specified
-    if ( target -> is_enemy() || target -> type == HEALING_ENEMY )
+    if ( target -> is_enemy() || ( target -> type == HEALING_ENEMY && p -> specialization() == PALADIN_PROTECTION ) )
       target = p;
 
     // disable if not talented
     if ( ! ( p -> talents.sacred_shield -> ok() ) )
       background = true;
-
-    // Spell data reflects protection values; Ret and Holy are 30% larger
-    if ( ( p -> specialization() == PALADIN_RETRIBUTION || p -> specialization() == PALADIN_HOLY ) )
-    {
-      base_td /= 0.7;
-      spell_power_mod.tick /= 0.7;
-    }
 
     // Holy gets other special stuff - no cooldown, no target limit, 3 charges, 10-second recharge time, extra (zero) tick
     if ( p -> specialization() == PALADIN_HOLY )
@@ -2692,24 +2861,9 @@ struct sacred_shield_t : public paladin_heal_t
       cooldown -> charges = 3;
       cooldown -> duration += timespan_t::from_seconds( 4 );
       // extra tick immediately upon cast
-      tick_zero = true;      
+      tick_zero = true; // TODO: retest
     }
 
-  }
-
-  virtual void tick( dot_t* d )
-  {
-    // Kludge to swap the heal for an absorb
-    // calculate the tick amount
-    double ss_tick_amount = calculate_tick_amount( d -> state );
-
-    // if an existing absorb bubble is still hanging around, kill it
-    td( d -> state -> target ) -> buffs.sacred_shield_tick -> expire();
-
-    // trigger a new 6-second absorb bubble with the absorb amount we stored earlier
-    td( d -> state -> target ) -> buffs.sacred_shield_tick -> trigger( 1, ss_tick_amount );
-
-    // note that we don't call paladin_heal_t::tick( d ) so that the heal doesn't happen
   }
 
   virtual void last_tick( dot_t* d )
@@ -2720,32 +2874,15 @@ struct sacred_shield_t : public paladin_heal_t
 
   virtual void execute()
   {
-    // if cast precombat, we need to kludge some things
-    if ( ! p() -> in_combat )
-    {
-      // in theory, we need to tweak the number of ticks and force a new one precombat
-      // in practice, it's ticking immediately when cast precombat for some reason, so we can skip all of that
-      // keeping this code here just in case that behavior changes
+    paladin_heal_t::execute();
 
-      //int orig_ticks = num_ticks;
-      //num_ticks -= 1;
+    p()->buffs.sacred_shield -> trigger();
+  }
 
-      paladin_heal_t::execute();
-
-      //num_ticks = orig_ticks;
-
-      p() -> buffs.sacred_shield -> trigger();
-
-      // force tick
-      //tick( get_dot( p() ) );
-
-    }
-    else
-    {
-      paladin_heal_t::execute();
-
-      p() -> buffs.sacred_shield -> trigger();
-    }
+  virtual timespan_t calculate_dot_refresh_duration( const dot_t* dot, timespan_t triggered_duration ) const override
+  {
+    // Old MoP Dot Behavior
+    return dot -> time_to_next_tick() + triggered_duration;
   }
 };
 
@@ -2766,10 +2903,9 @@ struct seal_of_insight_proc_t : public paladin_heal_t
     trigger_gcd = timespan_t::zero();
     may_crit = false; //cannot crit
 
-
     // spell database info is in tooltip
-    attack_power_mod.direct = 0.15;
-    spell_power_mod.direct  = 0.15;
+    attack_power_mod.direct = 0.236;
+    spell_power_mod.direct  = 0.236;
 
     // Battle Healer glyph
     if ( p -> glyphs.battle_healer -> ok() ) {
@@ -2781,8 +2917,8 @@ struct seal_of_insight_proc_t : public paladin_heal_t
     weapon = &( p -> main_hand_weapon );
     weapon_multiplier = 0.0;
     
-    // proc chance is now 20 PPM, spell database info still says 15.
-    // Best guess is that the 4th effect describes the additional 5 PPM.
+    // proc chance is now 20 PPM, spell database info still says 15.  //TODO: was this nerfed to 10 PPM? both effects are now 5
+    // Best guess is that the 2nd effect describes the additional 5 PPM.
     proc_chance = ppm_proc_chance( data().effectN( 1 ).base_value() + data().effectN( 2 ).base_value() );
 
     target = player;
@@ -2811,6 +2947,46 @@ struct seal_of_insight_proc_t : public paladin_heal_t
   }
 };
 
+// Seraphim =================================================================
+
+struct seraphim_t : public paladin_spell_t 
+{
+  seraphim_t( paladin_t* p, const std::string& options_str  ) 
+    : paladin_spell_t( "seraphim", p, p -> find_talent_spell( "Seraphim" ) )
+  {
+    parse_options( NULL, options_str );
+
+    may_miss = false;
+    may_multistrike = false; //necessary?
+  }
+
+  virtual void execute()
+  {
+    paladin_spell_t::execute();
+
+    p() -> buffs.seraphim -> trigger();
+
+  }
+};
+
+// Speed of Light ===========================================================
+
+struct speed_of_light_t: public paladin_spell_t
+{
+  speed_of_light_t( paladin_t* p, const std::string& options_str )
+    : paladin_spell_t( "speed_of_light", p, p -> talents.speed_of_light )
+  {
+    parse_options( NULL, options_str );
+  }
+
+  virtual void execute()
+  {
+    paladin_spell_t::execute();
+
+    p() -> buffs.speed_of_light -> trigger();
+  }
+};
+
 // Shining Protector ========================================================
 // This is a protection-specific multistrike effect
 
@@ -2825,23 +3001,27 @@ struct shining_protector_t : public paladin_heal_t
     background = true;
     proc = true;
     target = player;
-    may_multistrike = false; // guess, almost certain
-    may_crit = false;        // guess, but pretty likely
+    may_multistrike = false; 
+    may_crit = false;        
   }
 
+  // Need to disable multipliers in init() so that it doesn't double-dip on anything  
   virtual void init()
   {
     paladin_heal_t::init();
-    // add snapshot flags to allow for action_multiplier() to be called
-    snapshot_flags |= STATE_MUL_DA | STATE_TGT_MUL_DA;
+    // disable the snapshot_flags for all multipliers, but specifically allow 
+    // action_multiplier() to be called so we can override.
+    snapshot_flags &= STATE_NO_MULTIPLIER;
+    snapshot_flags |= STATE_MUL_DA;
   }
 
-  virtual double action_da_multiplier() const
+  virtual double action_multiplier() const
   {
     double am = p() -> passives.shining_protector -> effectN( 1 ).percent();
 
     return am;
   }
+  
 
   virtual void execute()
   {
@@ -2849,7 +3029,41 @@ struct shining_protector_t : public paladin_heal_t
 
     paladin_heal_t::execute();
   }
+  
+};
 
+// Uther's Insight ==========================================================
+// This is the healing buff from Empowered Seals
+
+struct uthers_insight_t : public paladin_heal_t
+{
+  uthers_insight_t( paladin_t* p )
+    : paladin_heal_t( "uthers_insight", p, p -> find_spell( 156988 ) )
+  {
+    background = true;
+    proc = true;
+    target = player;
+    may_crit = tick_may_crit = false; // tested, see CtA thread
+    may_multistrike = true; // tested, see CtA thread
+
+    // spell info isn't parsing out of the effect well
+    base_tick_time = timespan_t::from_millis( data().effectN( 1 )._amplitude );
+    dot_duration = data().duration();
+    // pick up the % heal amount from effect #1
+    parse_effect_data( data().effectN( 1 ) );
+  }
+
+  virtual void execute()
+  {
+    p() -> buffs.uthers_insight -> trigger();
+
+    paladin_heal_t::execute(); // TODO: is there a direct heal? does this matter?
+  }
+  
+  virtual void tick( dot_t* d )
+  {
+    paladin_heal_t::tick( d );
+  }  
 };
 
 // Word of Glory  ===========================================================
@@ -2879,6 +3093,22 @@ struct word_of_glory_t : public paladin_heal_t
     {
       base_execute_time *= 1 + p -> passives.sword_of_light -> effectN( 9 ).percent();
     }
+    // redirect to self if not specified
+    if ( target -> is_enemy() || ( target -> type == HEALING_ENEMY && p -> specialization() == PALADIN_PROTECTION ) )
+      target = p;
+
+    // passive effects that affect action_multiplier()
+
+    // Improved Word of Glory perk
+    base_multiplier *= 1.0 + p -> perk.improved_word_of_glory -> effectN( 1 ).percent();
+
+    // Holy Insight buffs all healing by 25% & WoG/EF/LoD by 50%.
+    // The 25% buff is already in paladin_heal_t, so we need to divide by that first & then apply 50%
+    base_multiplier /= 1.0 + p -> passives.holy_insight -> effectN( 6 ).percent();
+    base_multiplier *= 1.0 + p -> passives.holy_insight -> effectN( 9 ).percent();
+
+    // Sword of light
+    base_multiplier *= 1.0 + p -> passives.sword_of_light -> effectN( 3 ).percent();
   }
 
   virtual void update_ready( timespan_t cd_duration )
@@ -2928,17 +3158,13 @@ struct word_of_glory_t : public paladin_heal_t
 
     if ( p() -> buffs.bastion_of_glory -> up() )
     {
-      // grant 10% extra healing per stack of BoG; can't expire() BoG here because it's needed in execute()
-      am *= ( 1.0 + p() -> buffs.bastion_of_glory -> stack() * ( p() -> buffs.bastion_of_glory -> data().effectN( 1 ).percent() + p() -> get_divine_bulwark() ) );
+      // grant extra healing per stack of BoG; can't expire() BoG here because it's needed in execute()
+      double bog_m = p() -> buffs.bastion_of_glory -> data().effectN( 1 ).percent(); // base multiplier is in effect 1 of BoG buff
+      bog_m += p() -> cache.mastery() * p() -> passives.divine_bulwark -> effectN( 3 ).mastery_value(); // add mastery contribution
+      bog_m *= p() -> buffs.bastion_of_glory -> stack(); // multiply by stack size
+
+      am *= ( 1.0 + bog_m );
     }
-
-    // Improved Word of Glory perk
-    am *= 1.0 + p() -> perk.improved_word_of_glory -> effectN( 1 ).percent();
-
-    // Holy Insight buffs all healing by 25% & WoG/EF/LoD by 50%.
-    // The 25% buff is already in paladin_heal_t, so we need to divide by that first & then apply 50%
-    am /= 1.0 + p() -> passives.holy_insight -> effectN( 6 ).percent();
-    am *= 1.0 + p() -> passives.holy_insight -> effectN( 9 ).percent();
 
     return am;
   }
@@ -3000,6 +3226,9 @@ struct harsh_word_t : public paladin_spell_t
       base_execute_time *= 1 + p -> passives.sword_of_light -> effectN( 9 ).percent();
     }
 
+    // Improved Word of Glory perk - sure, why not (TODO: test)
+    base_multiplier *= 1.0 + p -> perk.improved_word_of_glory -> effectN( 1 ).percent();
+
   }
 
   virtual void update_ready( timespan_t cd_duration )
@@ -3020,10 +3249,7 @@ struct harsh_word_t : public paladin_spell_t
 
     // scale the am by holy power spent, can't be more than 3 and Divine Purpose counts as 3
     am *= ( ( p() -> holy_power_stacks() <= 3  && c > 0.0 ) ? p() -> holy_power_stacks() : 3 );
-
-    // Improved Word of Glory perk - sure, why not (TODO: test)
-    am *= 1.0 + p() -> perk.improved_word_of_glory -> effectN( 1 ).percent();
-
+    
     return am;
   }
 
@@ -3078,6 +3304,13 @@ struct paladin_melee_attack_t : public paladin_action_t< melee_attack_t >
     may_crit = true;
     special = true;
     weapon = &( p -> main_hand_weapon );
+    
+    // Sword of Light boosts action_multiplier
+    if ( use2hspec && ( p -> passives.sword_of_light -> ok() ) && ( p -> main_hand_weapon.group() == WEAPON_2H ) )
+    {
+      base_multiplier *= 1.0 + p -> passives.sword_of_light_value -> effectN( 1 ).percent();
+    }
+
   }
 
   virtual timespan_t gcd() const
@@ -3128,18 +3361,6 @@ struct paladin_melee_attack_t : public paladin_action_t< melee_attack_t >
       }
     }
   }
-
-  virtual double action_multiplier() const
-  {
-    double am = base_t::action_multiplier();
-
-    if ( use2hspec && ( p() -> passives.sword_of_light -> ok() ) && ( p() -> main_hand_weapon.group() == WEAPON_2H ) )
-    {
-      am *= 1.0 + p() -> passives.sword_of_light_value -> effectN( 1 ).percent();
-    }
-
-    return am;
-  }
 };
 
 // Melee Attack =============================================================
@@ -3170,16 +3391,16 @@ struct melee_t : public paladin_melee_attack_t
     if ( result_is_hit( execute_state -> result ) )
     {
       // Check for Art of War procs
-      if ( p() -> passives.the_art_of_war -> ok() && rng().roll( p() -> passives.the_art_of_war -> proc_chance() ) )
+      if ( p() -> passives.exorcism -> ok() && rng().roll( p() -> passives.exorcism -> proc_chance() ) )
       {
         // if Exorcism was already off-cooldown, count the proc as wasted
         if ( p() -> cooldowns.exorcism -> remains() <= timespan_t::zero() )
         {
-          p() -> procs.wasted_art_of_war -> occur();
+          p() -> procs.wasted_exorcism_cd_reset -> occur();
         }
 
         // trigger proc, reset Exorcism cooldown
-        p() -> procs.the_art_of_war -> occur();
+        p() -> procs.exorcism_cd_reset -> occur();
         p() -> cooldowns.exorcism -> reset( true );
 
         // activate T16 2-piece bonus
@@ -3244,6 +3465,9 @@ struct crusader_strike_t : public paladin_melee_attack_t
     base_costs[ RESOURCE_MANA ] *= 1.0 +  p -> passives.guarded_by_the_light -> effectN( 7 ).percent()
                                        +  p -> passives.sword_of_light -> effectN( 4 ).percent();
     base_costs[ RESOURCE_MANA ] = floor( base_costs[ RESOURCE_MANA ] + 0.5 );
+
+    // Improved Crusader Strike perk
+    base_multiplier *= 1.0 + p -> perk.improved_crusader_strike -> effectN( 1 ).percent();
   }
 
   virtual double action_multiplier() const
@@ -3255,9 +3479,6 @@ struct crusader_strike_t : public paladin_melee_attack_t
     {
       am *= 1.0 + p() -> buffs.holy_avenger -> data().effectN( 4 ).percent();
     }
-
-    // Improved Crusader Strike perk
-    am *= 1.0 + p() -> perk.improved_crusader_strike -> effectN( 1 ).percent();
 
     return am;
   }
@@ -3281,7 +3502,7 @@ struct crusader_strike_t : public paladin_melee_attack_t
     if ( result_is_hit( s -> result ) )
     {
       // Holy Power gains, only relevant if CS connects
-      int g = 1; // default is a gain of 1 Holy Power
+      int g = data().effectN( 3 ).base_value(); // default is a gain of 1 Holy Power
       p() -> resource_gain( RESOURCE_HOLY_POWER, g, p() -> gains.hp_crusader_strike ); // apply gain, record as due to CS
 
       // If Holy Avenger active, grant 2 more
@@ -3303,13 +3524,25 @@ struct crusader_strike_t : public paladin_melee_attack_t
 };
 
 // Divine Storm =============================================================
+struct glyph_of_divine_storm_t : public paladin_heal_t
+{
+  glyph_of_divine_storm_t( paladin_t* p )
+    : paladin_heal_t( "glyph_of_divine_storm", p, p -> find_glyph_spell( "Glyph of Divine Storm" ) )
+  {     
+    // heal amount is stored in spell 115515 for whatever reason
+    parse_effect_data( p -> find_spell( 115515 ) -> effectN( 1 ) );
+    background = true;
+    target = p;
+  }
+
+};
 
 struct divine_storm_t : public paladin_melee_attack_t
 {
-  double heal_percentage;
+  glyph_of_divine_storm_t* glyph_heal;
 
   divine_storm_t( paladin_t* p, const std::string& options_str )
-    : paladin_melee_attack_t( "divine_storm", p, p -> find_class_spell( "Divine Storm" ) ), heal_percentage( 0.0 )
+    : paladin_melee_attack_t( "divine_storm", p, p -> find_class_spell( "Divine Storm" ) )
   {
     parse_options( NULL, options_str );
 
@@ -3322,7 +3555,7 @@ struct divine_storm_t : public paladin_melee_attack_t
 
     if ( p -> glyphs.divine_storm -> ok() )
     {
-      heal_percentage = p -> find_spell( 115515 ) -> effectN( 1 ).percent();
+      glyph_heal = new glyph_of_divine_storm_t( p );
     }
   }
 
@@ -3370,7 +3603,7 @@ struct divine_storm_t : public paladin_melee_attack_t
       trigger_hand_of_light( s );
       if ( p() -> glyphs.divine_storm -> ok() )
       {
-        p() -> resource_gain( RESOURCE_HEALTH, heal_percentage * p() -> resources.max[ RESOURCE_HEALTH ], p() -> gains.glyph_divine_storm, this );
+        glyph_heal -> schedule_execute();
       }
     }
   }
@@ -3413,13 +3646,13 @@ struct hammer_of_the_righteous_aoe_t : public paladin_melee_attack_t
     background = true;
     aoe       = -1;
     trigger_gcd = timespan_t::zero(); // doesn't incur GCD (HotR does that already)
+
+    // Improved HotR perk
+    base_multiplier *= 1.0 + p -> perk.improved_hammer_of_the_righteous -> effectN( 1 ).percent();
   }
   virtual double action_multiplier() const
   {
     double am = paladin_melee_attack_t::action_multiplier();
-
-    // Improved HotR perk
-    am *= 1.0 + p() -> perk.improved_hammer_of_the_righteous -> effectN( 1 ).percent();
 
     // Holy Avenger buffs HotR damage by 30% while active
     if ( p() -> buffs.holy_avenger -> check() )
@@ -3457,6 +3690,8 @@ struct hammer_of_the_righteous_aoe_t : public paladin_melee_attack_t
 
 struct hammer_of_the_righteous_t : public paladin_melee_attack_t
 {
+  hammer_of_the_righteous_aoe_t* hotr_aoe;
+
   hammer_of_the_righteous_t( paladin_t* p, const std::string& options_str )
     : paladin_melee_attack_t( "hammer_of_the_righteous", p, p -> find_class_spell( "Hammer of the Righteous" ), true ) 
   {
@@ -3472,9 +3707,13 @@ struct hammer_of_the_righteous_t : public paladin_melee_attack_t
     // HotR triggers all seals
     trigger_seal = true;
 
-    // Implement AoE proc
-    impact_action = new hammer_of_the_righteous_aoe_t( p );
-    add_child( impact_action );
+    hotr_aoe = new hammer_of_the_righteous_aoe_t( p );
+
+    // Improved HotR perk
+    base_multiplier *= 1.0 + p -> perk.improved_hammer_of_the_righteous -> effectN( 1 ).percent();
+
+    // Attach AoE proc as a child
+    add_child( hotr_aoe );
   }
 
   virtual void update_ready( timespan_t cd_duration )
@@ -3490,9 +3729,6 @@ struct hammer_of_the_righteous_t : public paladin_melee_attack_t
   virtual double action_multiplier() const
   {
     double am = paladin_melee_attack_t::action_multiplier();
-
-    // Improved HotR perk
-    am *= 1.0 + p() -> perk.improved_hammer_of_the_righteous -> effectN( 1 ).percent();
 
     // Holy Avenger buffs HotR damage by 30% while active
     if ( p() -> buffs.holy_avenger -> check() )
@@ -3511,7 +3747,7 @@ struct hammer_of_the_righteous_t : public paladin_melee_attack_t
     if ( result_is_hit( s -> result ) )
     {
       // Holy Power gains, only relevant if CS connects
-      int g = 1; // default is a gain of 1 Holy Power
+      int g = data().effectN( 3 ).base_value(); // default is a gain of 1 Holy Power
       p() -> resource_gain( RESOURCE_HOLY_POWER, g, p() -> gains.hp_hammer_of_the_righteous ); // apply gain, record as due to CS
 
       // If Holy Avenger active, grant 2 more
@@ -3523,6 +3759,10 @@ struct hammer_of_the_righteous_t : public paladin_melee_attack_t
 
       // Trigger Hand of Light procs
       trigger_hand_of_light( s );
+
+      // trigger the AoE if there are any other targets to hit
+      if ( available_targets( target_list() ) > 1 )
+        hotr_aoe -> schedule_execute();
     }
   }
 };
@@ -3644,29 +3884,45 @@ struct hand_of_light_proc_t : public paladin_melee_attack_t
     may_dodge   = false;
     may_parry   = false;
     may_glance  = false;
+    may_multistrike = true;
     proc        = true;
     background  = true;
     trigger_gcd = timespan_t::zero();
     id          = 96172;
 
-    // no weapon multiplier - needs to be done by setting weapon = NULL
-    // setting weapon_multiplier=0.0 prevents STATE_MUL_DA from being added to snapshot_flags because 
-    // both base_dd_min && base_dd_max are zero
-    weapon = NULL;
+    // No weapon multiplier
+    weapon_multiplier = 0.0;
+    // Note that setting weapon_multiplier=0.0 prevents STATE_MUL_DA from being added 
+    // to snapshot_flags because both base_dd_min && base_dd_max are zero, so we need
+    // to do it specifically in init(). 
+    // Alternate solution is to set weapon = NULL, but we have to use init() to disable
+    // other multipliers (Versatility) anyway.
+  }
+
+  // Disable multipliers in init() so that it doesn't double-dip on anything  
+  virtual void init()
+  {
+    paladin_melee_attack_t::init();
+    // Disable the snapshot_flags for all multipliers, but specifically allow factors in
+    // action_state_t::composite_da_multiplier() to be called. This lets us use
+    // action_multiplier() to apply the HoL factor, but we need to divide by the other 
+    // factors in composite_da_multiplier() to make sure we don't double-dip.
+    snapshot_flags &= STATE_NO_MULTIPLIER;
+    snapshot_flags |= STATE_MUL_DA;
+
+    // Note: I've turned off ALL other multipliers here now that CoE is gone. If we need to enable
+    // specific ones later, we'll have to remove the STATE_NO_MULTIPLIER flag and disable 
+    // STATE_VERSATILITY (and any other relevant flags) individually.
   }
 
   virtual double action_multiplier() const
   {
-    //am = melee_attack_t::action_multiplier();
-    // not *= since we don't want to double dip, just calling base to initialize variables
     double am = static_cast<paladin_t*>( player ) -> get_hand_of_light();
     
-    //was double dipping on avenging wrath - hand of light is not affected by avenging wrath so that it does not double dip
-    //easier to remove it here than try to add an exception at the global avenging wrath buff level
-    if ( p() -> buffs.avenging_wrath -> check() )
-    {
-      am /= 1.0 + p() -> buffs.avenging_wrath -> get_damage_mod();
-    }
+    // HoL doesn't double dip on anything in composite_player_multiplier(): avenging wrath, GoWoG, Divine Shield, etc.
+    // Remove it here by dividing by the resulting multiplier.
+    am /= p() -> composite_player_multiplier( SCHOOL_HOLY );
+
     return am;
   }
 };
@@ -3675,6 +3931,7 @@ struct hand_of_light_proc_t : public paladin_melee_attack_t
 
 struct judgment_t : public paladin_melee_attack_t
 {
+  uthers_insight_t* uthers_insight;
   double cooldown_mult; // used to handle Sanctified Wrath cooldown reduction
 
   judgment_t( paladin_t* p, const std::string& options_str )
@@ -3686,6 +3943,8 @@ struct judgment_t : public paladin_melee_attack_t
     // Sanctity of Battle reduces melee GCD
     sanctity_of_battle = p -> passives.sanctity_of_battle -> ok();
 
+    // Glyph of Judgment increases range
+    range += p -> glyphs.judgment -> effectN( 1 ).base_value();
 
     // no weapon multiplier
     weapon_multiplier = 0.0;
@@ -3708,6 +3967,12 @@ struct judgment_t : public paladin_melee_attack_t
 
     // damage multiplier from T14 Retribution 4-piece bonus
     base_multiplier *= 1.0 + p -> sets.set( SET_T14_4PC_MELEE ) -> effectN( 1 ).percent();
+
+    // Improved Judgment perk
+    base_multiplier *= 1.0 + p -> perk.improved_judgment -> effectN( 1 ).percent();
+
+    if ( p -> talents.empowered_seals -> ok() )
+      uthers_insight = new uthers_insight_t( p );
   }
 
   virtual void execute()
@@ -3718,12 +3983,13 @@ struct judgment_t : public paladin_melee_attack_t
     if ( result_is_hit( execute_state -> result ) )
     {
       // +1 Holy Power for Ret
-      if ( p() -> passives.judgments_of_the_bold -> ok() )
+      if ( p() -> specialization() == PALADIN_RETRIBUTION )
       {
-        // apply gain, attribute gain to Judgments of the Bold
-        p() -> resource_gain( RESOURCE_HOLY_POWER, 1, p() -> gains.hp_judgments_of_the_bold );
-
+        // apply gain, attribute gain to Judgment
+        p() -> resource_gain( RESOURCE_HOLY_POWER, 1, p() -> gains.hp_judgment );
       }
+      if ( p() -> talents.long_arm_of_the_law -> ok() )
+        p() -> buffs.long_arm_of_the_law -> trigger();
       // +1 Holy Power for Prot
       else if ( p() -> passives.judgments_of_the_wise -> ok() )
       {
@@ -3734,14 +4000,6 @@ struct judgment_t : public paladin_melee_attack_t
         if ( p() -> talents.sanctified_wrath -> ok() && p() -> buffs.avenging_wrath -> check() )
           p() -> resource_gain( RESOURCE_HOLY_POWER, 1, p() -> gains.hp_sanctified_wrath );
       }
-      // +1 Holy Power for Holy with Selfless Healer talent
-      else if ( p() -> talents.selfless_healer -> ok() && p() -> specialization() == PALADIN_HOLY )
-      {
-        // apply gain, attribute gain to selfless healer
-        p() -> resource_gain( RESOURCE_HOLY_POWER, 1, p() -> gains.hp_selfless_healer );
-
-      }
-
       // Holy Avenger adds 2 more Holy Power if active
       if ( p() -> buffs.holy_avenger -> check() )
       {
@@ -3770,21 +4028,27 @@ struct judgment_t : public paladin_melee_attack_t
     }
     // end Double Jeopardy ==================================================
 
-    // Physical Vulnerability debuff
-    if ( ! sim -> overrides.physical_vulnerability && p() -> passives.judgments_of_the_bold -> ok() )
-      s -> target -> debuffs.physical_vulnerability -> trigger();
-
     // Selfless Healer talent
     if ( p() -> talents.selfless_healer -> ok() )
       p() -> buffs.selfless_healer -> trigger();
+
+    // Empowered Seals
+    if ( p() -> talents.empowered_seals -> ok() )
+    {
+      switch ( p() -> active_seal )
+      {
+        case SEAL_OF_JUSTICE:        p() -> buffs.turalyons_justice -> trigger(); break; // this one is sort of pointless?
+        case SEAL_OF_RIGHTEOUSNESS:  p() -> buffs.liadrins_righteousness -> trigger(); break;
+        case SEAL_OF_TRUTH:          p() -> buffs.maraads_truth -> trigger(); break;
+        case SEAL_OF_INSIGHT:        uthers_insight -> schedule_execute(); break;
+        default: break;
+      }
+    }
   }
 
   virtual double action_multiplier() const
   {
     double am = paladin_melee_attack_t::action_multiplier();
-
-    // Improved Judgment perk
-    am *= 1.0 + p() -> perk.improved_judgment -> effectN( 1 ).percent();
 
     // Holy Avenger buffs J damage by 30% while active
     if ( p() -> buffs.holy_avenger -> check() )
@@ -3792,7 +4056,7 @@ struct judgment_t : public paladin_melee_attack_t
       am *= 1.0 + p() -> buffs.holy_avenger -> data().effectN( 4 ).percent();
     }
 
-    // Double Jeopardy damage boost, only if we hit a different target with it
+    // Double Jeopardy damage boost only if we hit a different target with it
     // this gets called before impact(), so last_judgment_target won't be updated until after this resolves
     if (  p() -> glyphs.double_jeopardy -> ok()              // glyph equipped
           && target != p() -> last_judgement_target      // current target is different than last_j_target
@@ -3962,25 +4226,19 @@ struct seal_of_truth_proc_t : public paladin_melee_attack_t
           weapon_multiplier /= 5;
         }
       }
-    }
-  }
-
-  virtual double action_multiplier() const
-  {
-    double am = paladin_melee_attack_t::action_multiplier();
+    }    
 
     // Improved SoT perk
-    am *= 1.0 + p() -> perk.empowered_seal_of_truth -> effectN( 1 ).percent();
+    base_multiplier *= 1.0 + p -> perk.empowered_seal_of_truth -> effectN( 1 ).percent();
 
     // Glyph of Immediate Truth increases direct damage
-    if ( p() -> glyphs.immediate_truth -> ok() )
-      am *= 1.0 + p() -> glyphs.immediate_truth -> effectN( 1 ).percent();
+    if ( p -> glyphs.immediate_truth -> ok() )
+      base_multiplier *= 1.0 + p -> glyphs.immediate_truth -> effectN( 1 ).percent();
     
     // Retribution T14 4-piece boosts seal damage
-    am *= 1.0 + p() -> sets.set( SET_T14_4PC_MELEE ) -> effectN( 1 ).percent();
-
-    return am;
+    base_multiplier *= 1.0 + p -> sets.set( SET_T14_4PC_MELEE ) -> effectN( 1 ).percent();
   }
+
 };
 
 // Shield of the Righteous ==================================================
@@ -4069,6 +4327,12 @@ struct templars_verdict_t : public paladin_melee_attack_t
     parse_options( NULL, options_str );
     sanctity_of_battle = true;
     trigger_seal       = true;
+
+    // Tier 13 Retribution 4-piece boosts damage
+    base_multiplier *= 1.0 + p -> sets.set( SET_T13_4PC_MELEE ) -> effectN( 1 ).percent();
+
+    // Tier 14 Retribution 2-piece boosts damage
+    base_multiplier *= 1.0 + p -> sets.set( SET_T14_2PC_MELEE ) -> effectN( 1 ).percent();
   }
 
   virtual school_e get_school() const
@@ -4106,19 +4370,6 @@ struct templars_verdict_t : public paladin_melee_attack_t
       // Remove T15 Retribution 4-piece effect
       p() -> buffs.tier15_4pc_melee -> expire();
     }
-  }
-
-  virtual double action_multiplier() const
-  {
-    double am = paladin_melee_attack_t::action_multiplier();
-
-    // Tier 13 Retribution 4-piece boosts damage
-    am *= 1.0 + p() -> sets.set( SET_T13_4PC_MELEE ) -> effectN( 1 ).percent();
-
-    // Tier 14 Retribution 2-piece boosts damage
-    am *= 1.0 + p() -> sets.set( SET_T14_2PC_MELEE ) -> effectN( 1 ).percent();
-
-    return am;
   }
 };
 
@@ -4287,13 +4538,13 @@ action_t* paladin_t::create_action( const std::string& name, const std::string& 
   if ( name == "holy_avenger"              ) return new holy_avenger_t             ( this, options_str );
   if ( name == "holy_radiance"             ) return new holy_radiance_t            ( this, options_str );
   if ( name == "holy_shock"                ) return new holy_shock_t               ( this, options_str );
-  if ( name == "holy_shock_heal"           ) return new holy_shock_heal_t          ( this, options_str );
   if ( name == "holy_wrath"                ) return new holy_wrath_t               ( this, options_str );
   if ( name == "guardian_of_ancient_kings" ) return new guardian_of_ancient_kings_t( this, options_str );
   if ( name == "judgment"                  ) return new judgment_t                 ( this, options_str );
   if ( name == "light_of_dawn"             ) return new light_of_dawn_t            ( this, options_str );
   if ( name == "lights_hammer"             ) return new lights_hammer_t            ( this, options_str );
   if ( name == "rebuke"                    ) return new rebuke_t                   ( this, options_str );
+  if ( name == "seraphim"                  ) return new seraphim_t                 ( this, options_str );
   if ( name == "shield_of_the_righteous"   ) return new shield_of_the_righteous_t  ( this, options_str );
   if ( name == "templars_verdict"          ) return new templars_verdict_t         ( this, options_str );
   if ( name == "holy_prism"                ) return new holy_prism_t               ( this, options_str );
@@ -4309,6 +4560,7 @@ action_t* paladin_t::create_action( const std::string& name, const std::string& 
                                                active_seal_of_truth_proc         = new seal_of_truth_proc_t         ( this );
                                                active_censure                    = new censure_t                    ( this ); return a; }
 
+  if ( name == "speed_of_light"            ) return new speed_of_light_t           ( this, options_str );
   if ( name == "eternal_flame"             ) return new eternal_flame_t            ( this, options_str );
   if ( name == "word_of_glory"             ) return new word_of_glory_t            ( this, options_str );
   if ( name == "sacred_shield"             ) return new sacred_shield_t            ( this, options_str );
@@ -4358,46 +4610,32 @@ void paladin_t::trigger_holy_shield()
     active_holy_shield_proc -> schedule_execute();
 }
 
-// paladin_t::init_defense ==================================================
-
-void paladin_t::init_defense()
-{
-  gear.armor *= 1.0 + passives.sanctuary -> effectN( 2 ).percent();
-
-  player_t::init_defense();
-
-}
-
 // paladin_t::init_base =====================================================
 
 void paladin_t::init_base_stats()
 {
   player_t::init_base_stats();
 
+  base.attack_power_per_agility = 0.0;
   base.attack_power_per_strength = 1.0;
   base.spell_power_per_intellect = 1.0;
-
-  //base.stats.attack_power = level * 3; Gone in WoD, double check later.
 
   // Boundless Conviction raises max holy power to 5
   resources.base[ RESOURCE_HOLY_POWER ] = 3 + passives.boundless_conviction -> effectN( 1 ).base_value();
 
-  // Avoidance diminishing Returns constants/conversions
-  base.miss    = 0.030;
-  base.dodge   = 0.030;  //90
-  base.parry   = 0.030;  //90
+  // Avoidance diminishing Returns constants/conversions now handled in player_t::init_base_stats()
+  // base miss & dodge are set to 3% and block & parry set to 0% in player_t::init_base_stats()
+  // just need to adjust block and block_reduction and add spec-based sources of dodge/parry
   base.block   = 0.030;  //90
-  base.block_reduction = 0.3;
-
-  // based on http://sacredduty.net/2012/09/14/avoidance-diminishing-returns-in-mop-followup/
-  diminished_kfactor    = 0.886;
-  diminished_parry_cap = 2.37186;
-  diminished_block_cap = 1.5037594692967;
-  diminished_dodge_cap = 0.6656744;
+  base.block_reduction = 0.3 + perk.improved_block -> effectN( 1 ).percent();
+  // add Sanctuary dodge
+  base.dodge += passives.sanctuary -> effectN( 3 ).percent();
+  // add Sanctuary expertise
+  base.expertise += passives.sanctuary -> effectN( 4 ).percent();
   
   // note that these conversions are level-specific; these are L90 values
-  base.dodge_per_agility = 1 / 10000.0 / 100.0; // empirically tested
-  base.parry_per_strength = 1 / 95115.8596; // exact value given by Blizzard
+  base.dodge_per_agility = 1 / 10000.0 / 100.0; // empirically tested, TODO: update for 100
+  base.parry_per_strength = 1 / 95115.8596; // exact value given by Blizzard, TODO: update for 100
 
   // Holy Insight grants mana regen from spirit during combat
   base.mana_regen_from_spirit_multiplier = passives.holy_insight -> effectN( 3 ).percent();
@@ -4444,11 +4682,15 @@ void paladin_t::init_gains()
   // Mana
   gains.divine_plea                 = get_gain( "divine_plea"            );
   gains.extra_regen                 = get_gain( ( specialization() == PALADIN_RETRIBUTION ) ? "sword_of_light" : "guarded_by_the_light" );
-  gains.seal_of_insight             = get_gain( "seal_of_insight"        );
-  gains.glyph_divine_storm          = get_gain( "glyph_of_divine_storm"  );
+
+  // Health
+  gains.holy_shield                 = get_gain( "holy_shield" );
+  gains.seal_of_insight             = get_gain( "seal_of_insight"  );
+  gains.glyph_divine_storm          = get_gain( "glyph_of_divine_storm" );
   gains.glyph_divine_shield         = get_gain( "glyph_of_divine_shield" );
 
   // Holy Power
+  gains.hp_beacon_of_light          = get_gain( "beacon_of_light" );
   gains.hp_blessed_life             = get_gain( "blessed_life" );
   gains.hp_crusader_strike          = get_gain( "crusader_strike" );
   gains.hp_exorcism                 = get_gain( "exorcism" );
@@ -4457,13 +4699,11 @@ void paladin_t::init_gains()
   gains.hp_hammer_of_wrath          = get_gain( "hammer_of_wrath" );
   gains.hp_holy_avenger             = get_gain( "holy_avenger" );
   gains.hp_holy_shock               = get_gain( "holy_shock" );
-  gains.hp_judgments_of_the_bold    = get_gain( "judgments_of_the_bold" );
   gains.hp_judgments_of_the_wise    = get_gain( "judgments_of_the_wise" );
   gains.hp_pursuit_of_justice       = get_gain( "pursuit_of_justice" );
   gains.hp_sanctified_wrath         = get_gain( "sanctified_wrath" );
   gains.hp_selfless_healer          = get_gain( "selfless_healer" );
   gains.hp_templars_verdict_refund  = get_gain( "templars_verdict_refund" );
-  gains.hp_tower_of_radiance        = get_gain( "tower_of_radiance" );
   gains.hp_judgment                 = get_gain( "judgment" );
   gains.hp_t15_4pc_tank             = get_gain( "t15_4pc_tank" );
 }
@@ -4477,9 +4717,8 @@ void paladin_t::init_procs()
   procs.divine_purpose           = get_proc( "divine_purpose"                 );
   procs.divine_crusader          = get_proc( "divine_crusader"                );
   procs.eternal_glory            = get_proc( "eternal_glory"                  );
-  procs.judgments_of_the_bold    = get_proc( "judgments_of_the_bold"          );
-  procs.the_art_of_war           = get_proc( "the_art_of_war"                 );
-  procs.wasted_art_of_war        = get_proc( "wasted_art_of_war"              );
+  procs.exorcism_cd_reset        = get_proc( "exorcism_cd_reset"              );
+  procs.wasted_exorcism_cd_reset = get_proc( "wasted_exorcism_cd_reset"       );
 }
 
 // paladin_t::init_scaling ==================================================
@@ -4651,9 +4890,25 @@ void paladin_t::create_buffs()
   buffs.divine_purpose         = buff_creator_t( this, "divine_purpose", find_talent_spell( "Divine Purpose" ) )
                                  .duration( find_spell( find_talent_spell( "Divine Purpose" ) -> effectN( 1 ).trigger_spell_id() ) -> duration() );
   buffs.holy_avenger           = buff_creator_t( this, "holy_avenger", find_talent_spell( "Holy Avenger" ) ).cd( timespan_t::zero() ); // Let the ability handle the CD
+  buffs.holy_shield            = absorb_buff_creator_t( this, "holy_shield", find_spell( 157121 ) )
+                                 .school( SCHOOL_MAGIC )
+                                 .source( get_stats( "holy_shield" ) )
+                                 .gain( get_gain( "holy_shield" ) );
+  buffs.long_arm_of_the_law    = buff_creator_t( this, "long_arm_of_the_law", talents.long_arm_of_the_law )
+                                 .default_value( talents.long_arm_of_the_law -> effectN( 1 ).percent() );
+  buffs.speed_of_light         = buff_creator_t( this, "speed_of_light", talents.speed_of_light )
+                                 .default_value( talents.speed_of_light -> effectN( 1 ).percent() );
   buffs.sacred_shield          = buff_creator_t( this, "sacred_shield", find_talent_spell( "Sacred Shield" ) )
-                                 .duration( timespan_t::from_seconds( 60 ) ); // arbitrarily high since this is just a placeholder, we expire() on last_tick()
+                                 .duration( timespan_t::from_seconds( 30 ) ) // arbitrarily high since this is just a placeholder, we expire() on last_tick()
+                                 .cd( timespan_t::zero() ) // let ability handle CD
+                                 .period( timespan_t::zero() );
   buffs.selfless_healer        = buff_creator_t( this, "selfless_healer", find_spell( 114250 ) );
+  buffs.liadrins_righteousness = buff_creator_t( this, "liadrins_righteousness", find_spell( 156989 ) )
+                                 .add_invalidate( CACHE_ATTACK_SPEED );
+  buffs.maraads_truth          = buff_creator_t( this, "maraads_truth", find_spell( 156990 ) )
+                                 .add_invalidate( CACHE_ATTACK_POWER );
+  buffs.turalyons_justice      = buff_creator_t( this, "turalyons_justice", find_spell( 156987 ) );
+  buffs.uthers_insight         = buff_creator_t( this, "uthers_insight", find_spell( 156988 ) );
 
   // General
   buffs.avenging_wrath         = new buffs::avenging_wrath_buff_t( this );
@@ -4673,8 +4928,13 @@ void paladin_t::create_buffs()
   buffs.guardian_of_ancient_kings      = buff_creator_t( this, "guardian_of_ancient_kings", find_specialization_spell( "Guardian of Ancient Kings" ) )
                                           .cd( timespan_t::zero() ); // let the ability handle the CD
   buffs.grand_crusader                 = buff_creator_t( this, "grand_crusader" ).spell( passives.grand_crusader -> effectN( 1 ).trigger() ).chance( passives.grand_crusader -> proc_chance() );
+  buffs.seraphim                       = buff_creator_t( this, "seraphim", find_talent_spell( "Seraphim" ) )
+                                         .cd( timespan_t::zero() ) // Let the ability handle the CD
+                                         .add_invalidate( CACHE_HASTE ).add_invalidate( CACHE_CRIT )
+                                         .add_invalidate( CACHE_MASTERY ).add_invalidate( CACHE_MULTISTRIKE )
+                                         .add_invalidate( CACHE_READINESS ).add_invalidate( CACHE_BONUS_ARMOR ); // WOD-TODO: replace Readiness with versatility
   buffs.shield_of_the_righteous        = buff_creator_t( this, "shield_of_the_righteous" ).spell( find_spell( 132403 ) );
-  buffs.ardent_defender                = buff_creator_t( this, "ardent_defender" ).spell( find_specialization_spell( "Ardent Defender" ) );
+  buffs.ardent_defender                = new buffs::ardent_defender_buff_t( this );
   buffs.shield_of_glory                = buff_creator_t( this, "shield_of_glory" ).spell( find_spell( 138242 ) );
 
   // Ret
@@ -4727,7 +4987,7 @@ void paladin_t::generate_action_prio_list_prot()
   // Pre-potting (disabled for now)
   /*
   if (sim -> allow_potions && level >= 80 )
-    precombat -> add_action( ( level > 85 ) ? "mogu_power_potion" : "golemblood_potion" );
+    precombat -> add_action( ( level > 85 ) ? "potion,name=_potion" : "potion,name=golemblood_potion" );
 
   */
 
@@ -4738,9 +4998,10 @@ void paladin_t::generate_action_prio_list_prot()
   action_priority_list_t* def = get_action_priority_list( "default" );
 
   // potion placeholder; need to think about realistic conditions
-  // def -> add_action( "potion_of_the_mountains,if=!in_combat|buff.bloodlust.react|target.time_to_die<=60" );
+  // def -> add_action( "potion,name=potion_of_the_mountains,if=!in_combat|buff.bloodlust.react|target.time_to_die<=60" );
 
   def -> add_action( "/auto_attack" );
+  def -> add_talent( this, "Speed of Light", "if=movement.remains>1" );
 
   int num_items = ( int ) items.size();
   for ( int i = 0; i < num_items; i++ )
@@ -4822,7 +5083,7 @@ void paladin_t::generate_action_prio_list_ret()
 
   // Pre-potting
   if ( sim -> allow_potions && level >= 80 )
-    precombat -> add_action( ( level > 85 ) ? "mogu_power_potion" : "golemblood_potion" );
+    precombat -> add_action( ( level > 85 ) ? "potion,name=mogu_power" : "potion,name=golemblood" );
 
   ///////////////////////
   // Action Priority List
@@ -4836,18 +5097,14 @@ void paladin_t::generate_action_prio_list_ret()
   if ( sim -> allow_potions )
   {
     if ( level > 85 )
-      def -> add_action( "mogu_power_potion,if=(buff.bloodlust.react|buff.avenging_wrath.up|target.time_to_die<=40)" );
+      def -> add_action( "potion,name=mogu_power,if=(buff.bloodlust.react|buff.avenging_wrath.up|target.time_to_die<=40)" );
     else if ( level >= 80 )
-      def -> add_action( "golemblood_potion,if=buff.bloodlust.react|buff.avenging_wrath.up|target.time_to_die<=40" );
+      def -> add_action( "potion,name=golemblood,if=buff.bloodlust.react|buff.avenging_wrath.up|target.time_to_die<=40" );
   }
 
   // This should<tm> get Censure up before the auto attack lands
   def -> add_action( "auto_attack" );
-
-  /*if ( find_class_spell( "Judgment" ) -> ok() && find_specialization_spell( "Judgments of the Bold" ) -> ok() )
-  {
-  def -> add_action ( this, "Judgment", "if=!target.debuff.physical_vulnerability.up|target.debuff.physical_vulnerability.remains<6" );
-  }*/
+  def -> add_talent( this, "Speed of Light", "if=movement.remains>1" );
 
   // Avenging Wrath
   def -> add_action( this, "Avenging Wrath" );
@@ -4964,7 +5221,7 @@ void paladin_t::generate_action_prio_list_holy()
   // Pre-potting (disabled for now)
   /*
   if (sim -> allow_potions && level >= 80 )
-    precombat -> add_action( ( level > 85 ) ? "jade_serpent_potion" : "volcanic_potion" );
+    precombat -> add_action( ( level > 85 ) ? "potion,name=jade_serpent_potion" : "potion,name=volcanic_potion" );
 
   */
 
@@ -4973,9 +5230,10 @@ void paladin_t::generate_action_prio_list_holy()
 
   // Potions
   if ( sim -> allow_potions )
-    def -> add_action( "mana_potion,if=mana.pct<=75" );
+    def -> add_action( "potion,name=mana_potion,if=mana.pct<=75" );
 
   def -> add_action( "/auto_attack" );
+  def -> add_talent( this, "Speed of Light", "if=movement.remains>1" );
 
   int num_items = ( int ) items.size();
   for ( int i = 0; i < num_items; i++ )
@@ -5100,7 +5358,7 @@ void paladin_t::init_action_list()
         if ( level > 80 )
         {
           action_list_str = "flask,type=draconic_mind/food,type=severed_sagefish_head";
-          action_list_str += "/volcanic_potion,if=!in_combat|buff.bloodlust.react|target.time_to_die<=60";
+          action_list_str += "/potion,name=volcanic_potion,if=!in_combat|buff.bloodlust.react|target.time_to_die<=60";
         }
         action_list_str += "/snapshot_stats";
         action_list_str += "/auto_attack";
@@ -5128,6 +5386,9 @@ void paladin_t::init_spells()
   player_t::init_spells();
 
   // Talents
+  talents.long_arm_of_the_law     = find_talent_spell( "Long Arm of the Law" );
+  talents.speed_of_light          = find_talent_spell( "Speed of Light" );
+  talents.pursuit_of_justice      = find_talent_spell( "Pursuit of Justice" );
   talents.hand_of_purity          = find_talent_spell( "Hand of Purity" );
   talents.unbreakable_spirit      = find_talent_spell( "Unbreakable Spirit" );
   talents.clemency                = find_talent_spell( "Clemency" );
@@ -5169,20 +5430,23 @@ void paladin_t::init_spells()
   passives.daybreak               = find_specialization_spell( "Daybreak" );
   passives.holy_insight           = find_specialization_spell( "Holy Insight" );
   passives.infusion_of_light      = find_specialization_spell( "Infusion of Light" );
+  passives.sanctified_light       = find_specialization_spell( "Sanctified Light" );
 
   // Prot Passives
-  passives.judgments_of_the_wise  = find_specialization_spell( "Judgments of the Wise" );
+  passives.grand_crusader         = find_specialization_spell( "Grand Crusader" );
   passives.guarded_by_the_light   = find_specialization_spell( "Guarded by the Light" );
-  passives.vengeance              = find_specialization_spell( "Vengeance" );
+  passives.judgments_of_the_wise  = find_specialization_spell( "Judgments of the Wise" );
   passives.sanctuary              = find_specialization_spell( "Sanctuary" );
   passives.shining_protector      = find_specialization_spell( "Shining Protector" );
-  passives.grand_crusader         = find_specialization_spell( "Grand Crusader" );
+  passives.resolve                = find_specialization_spell( "Resolve" );
+  passives.riposte                = find_specialization_spell( "Riposte" );
+  passives.sacred_duty            = find_specialization_spell( "Sacred Duty" );
 
   // Ret Passives
-  passives.judgments_of_the_bold  = find_specialization_spell( "Judgments of the Bold" );
   passives.sword_of_light         = find_specialization_spell( "Sword of Light" );
   passives.sword_of_light_value   = find_spell( passives.sword_of_light -> ok() ? 20113 : 0 );
-  passives.the_art_of_war         = find_specialization_spell( "The Art of War" );
+  passives.exorcism               = find_spell( passives.sword_of_light -> ok() ? 87138 : 0 );
+  passives.righteous_vengeance    = find_specialization_spell( "Righteous Vengeance" );
 
   // Perks
   // Multiple
@@ -5215,12 +5479,15 @@ void paladin_t::init_spells()
   
   // Glyphs
   glyphs.alabaster_shield         = find_glyph_spell( "Glyph of the Alabaster Shield" );
+  glyphs.ardent_defender          = find_glyph_spell( "Glyph of Ardent Defender" );
+  glyphs.avenging_wrath           = find_glyph_spell( "Glyph of Avenging Wrath" );
   glyphs.battle_healer            = find_glyph_spell( "Glyph of the Battle Healer" );
   glyphs.blessed_life             = find_glyph_spell( "Glyph of Blessed Life" );
   glyphs.devotion_aura            = find_glyph_spell( "Glyph of Devotion Aura" );
   glyphs.divine_shield            = find_glyph_spell( "Glyph of Divine Shield" );
   glyphs.divine_protection        = find_glyph_spell( "Glyph of Divine Protection" );
   glyphs.divine_storm             = find_glyph_spell( "Glyph of Divine Storm" );
+  glyphs.divine_wrath             = find_glyph_spell( "Glyph of Divine Wrath" );
   glyphs.double_jeopardy          = find_glyph_spell( "Glyph of Double Jeopardy" );
   glyphs.flash_of_light           = find_glyph_spell( "Glyph of Flash of Light" );
   glyphs.final_wrath              = find_glyph_spell( "Glyph of Final Wrath" );
@@ -5229,7 +5496,9 @@ void paladin_t::init_spells()
   glyphs.hand_of_sacrifice        = find_glyph_spell( "Glyph of Hand of Sacrifice" );
   glyphs.harsh_words              = find_glyph_spell( "Glyph of Harsh Words" );
   glyphs.immediate_truth          = find_glyph_spell( "Glyph of Immediate Truth" );
+  glyphs.judgment                 = find_glyph_spell( "Glyph of Judgment" );
   glyphs.mass_exorcism            = find_glyph_spell( "Glyph of Mass Exorcism" );
+  glyphs.merciful_wrath           = find_glyph_spell( "Glyph of Merciful Wrath" );
   glyphs.templars_verdict         = find_glyph_spell( "Glyph of Templar's Verdict" );
   glyphs.word_of_glory            = find_glyph_spell( "Glyph of Word of Glory"   );
   
@@ -5257,7 +5526,7 @@ void paladin_t::init_spells()
 
   if ( passives.shining_protector -> ok() )
     active_shining_protector_proc = new shining_protector_t( this );
-
+  
   if ( talents.holy_shield -> ok() )
     active_holy_shield_proc = new holy_shield_proc_t( this );
 
@@ -5300,36 +5569,60 @@ role_e paladin_t::primary_role() const
 }
 
 // paladin_t::convert_hybrid_stat ===========================================
+
 stat_e paladin_t::convert_hybrid_stat( stat_e s ) const
 {
   // this converts hybrid stats that either morph based on spec or only work
-  // for certain specs into the appropriate "basic" stats
+  // for certain specs into the appropriate "basic" stats.
+  stat_e converted_stat = s;
+
   switch ( s )
   {
-  // Guess at how AGI/INT mail or leather will be handled for plate - probably INT?
-  case STAT_AGI_INT: 
-    return STAT_INTELLECT;
-  // This is a guess at how AGI/STR gear will work for Holy, TODO: confirm  
-  case STAT_STR_AGI:
-    return STAT_STRENGTH;
-  case STAT_STR_INT:
-    if ( specialization() == PALADIN_HOLY )
-      return STAT_INTELLECT;
-    else
-      return STAT_STRENGTH;
-  case STAT_SPIRIT:
-    if ( specialization() == PALADIN_HOLY )
-      return s;
-    else
-      return STAT_NONE;
-  case STAT_BONUS_ARMOR:
-    if ( specialization() == PALADIN_PROTECTION )
-      return s;
-    else
-      return STAT_NONE;
-  default:
-    return s; 
+    // Guess at how AGI/INT mail or leather will be handled for plate - probably INT?
+    case STAT_AGI_INT:
+      converted_stat = STAT_INTELLECT;
+      break;
+    // This is a guess at how AGI/STR gear will work for Holy, TODO: confirm  
+    case STAT_STR_AGI:
+      converted_stat = STAT_STRENGTH;
+      break;
+    case STAT_STR_INT:
+      if ( specialization() == PALADIN_HOLY )
+        converted_stat = STAT_INTELLECT;
+      else
+        converted_stat = STAT_STRENGTH;
+      break;
+    default:
+      break;
   }
+  
+  // Now disable stats that aren't applicable to a given spec.
+  switch ( converted_stat )
+  {
+    case STAT_STRENGTH:
+      if ( specialization() == PALADIN_HOLY )
+        converted_stat = STAT_NONE;  // STR disabled for Holy
+      break;
+    case STAT_INTELLECT:
+      if ( specialization() != PALADIN_HOLY )
+        converted_stat = STAT_NONE; // INT disabled for Ret/Prot
+      break;
+    case STAT_AGILITY:
+      converted_stat = STAT_NONE; // AGI disabled for all paladins
+      break;
+    case STAT_SPIRIT:
+      if ( specialization() != PALADIN_HOLY )
+        converted_stat = STAT_NONE;
+      break;
+    case STAT_BONUS_ARMOR:
+      if ( specialization() != PALADIN_PROTECTION )
+        converted_stat = STAT_NONE;
+      break;
+    default:
+      break;
+  }
+
+  return converted_stat;
 }
 
 // paladin_t::composite_attribute_multiplier ================================
@@ -5347,6 +5640,67 @@ double paladin_t::composite_attribute_multiplier( attribute_e attr ) const
   return m;
 }
 
+// paladin_t::composite_armor_multiplier ===================================
+
+double paladin_t::composite_armor_multiplier() const
+{
+  double a = player_t::composite_armor_multiplier();
+  
+  a *= 1.0 + passives.sanctuary -> effectN( 2 ).percent();
+
+  return a;
+}
+
+// paladin_t::composite_rating_multiplier ==================================
+
+double paladin_t::composite_rating_multiplier( rating_e r ) const
+{
+  double m = player_t::composite_rating_multiplier( r );
+
+  switch ( r )
+  {
+    case RATING_MELEE_HASTE:
+    case RATING_RANGED_HASTE:
+    case RATING_SPELL_HASTE:
+      m *= 1.0 + passives.sacred_duty -> effectN( 1 ).percent(); 
+      // Seraphim adds 30% haste. Multiplicative w/ attunement (tested)
+      if ( buffs.seraphim -> check() )
+        m *= 1.0 + buffs.seraphim -> data().effectN( 1 ).percent();
+      break;
+    case RATING_MASTERY:
+      m *= 1.0 + passives.righteous_vengeance -> effectN( 1 ).percent();
+      // Seraphim adds 30% mastery, multiplicative w/ attunement
+      if ( buffs.seraphim -> check() )
+        m *= 1.0 + buffs.seraphim -> data().effectN( 1 ).percent();
+      break;
+    case RATING_MELEE_CRIT:
+    case RATING_SPELL_CRIT:
+    case RATING_RANGED_CRIT:
+      m *= 1.0 + passives.sanctified_light -> effectN( 1 ).percent();
+      // Seraphim adds 30% crit, multiplicative w/ attunement
+      if ( buffs.seraphim -> check() )
+        m *= 1.0 + buffs.seraphim -> data().effectN( 1 ).percent();
+      break;
+    case RATING_MULTISTRIKE:
+      // Seraphim adds 30% multistrike
+      if ( buffs.seraphim -> check() )
+        m *= 1.0 + buffs.seraphim -> data().effectN( 1 ).percent();
+      break;
+    case RATING_DAMAGE_VERSATILITY:
+    case RATING_HEAL_VERSATILITY:
+    case RATING_MITIGATION_VERSATILITY:
+      // Seraphim adds 30% versatility
+      if ( buffs.seraphim -> check() )
+        m *= 1.0 + buffs.seraphim -> data().effectN( 1 ).percent();
+      break;
+    default:
+      break;
+  }
+
+  return m;
+
+};
+
 // paladin_t::composite_melee_crit =========================================
 
 double paladin_t::composite_melee_crit() const
@@ -5356,7 +5710,7 @@ double paladin_t::composite_melee_crit() const
   // This should only give a nonzero boost for Holy
   if ( buffs.avenging_wrath -> check() )
     m += buffs.avenging_wrath -> get_crit_bonus();
-
+  
   return m;
 }
 
@@ -5365,9 +5719,6 @@ double paladin_t::composite_melee_crit() const
 double paladin_t::composite_melee_expertise( weapon_t* w ) const
 {
   double expertise = player_t::composite_melee_expertise( w );
-
-  if ( passives.sanctuary -> ok() )
-    expertise += passives.sanctuary -> effectN( 4 ).percent();
 
   return expertise;
 }
@@ -5386,6 +5737,20 @@ double paladin_t::composite_melee_haste() const
   h /= 1.0 + passives.infusion_of_light -> effectN( 2 ).percent();
 
   return h;
+}
+
+// paladin_t::composite_melee_speed =========================================
+
+double paladin_t::composite_melee_speed() const
+{
+  double h = player_t::composite_melee_speed();
+
+  // Empowered Seals
+  if ( buffs.liadrins_righteousness -> check() )
+    h /= 1.0 + buffs.liadrins_righteousness -> data().effectN( 1 ).percent(); // TODO: check that it's multiplicative
+
+  return h;
+
 }
 
 // paladin_t::composite_spell_crit ==========================================
@@ -5413,8 +5778,39 @@ double paladin_t::composite_spell_haste() const
 
   // Infusion of Light (Holy) adds 10% haste
   h /= 1.0 + passives.infusion_of_light -> effectN( 2 ).percent();
-  
+
   return h;
+}
+
+// paladin_t::composite_mastery =============================================
+
+double paladin_t::composite_mastery() const
+{
+  double m = player_t::composite_mastery();
+
+  return m;
+}
+
+// paladin_t::composite_multistrike =========================================
+
+double paladin_t::composite_multistrike() const
+{
+  double m = player_t::composite_multistrike();
+
+  return m;
+}
+
+// paladin_t::composite_bonus_armor =========================================
+
+double paladin_t::composite_bonus_armor() const
+{
+  double ba = player_t::composite_bonus_armor();
+  
+  // Seraphim adds 30% bonus armor. TODO: Make sure there are no sources of bonus armor not affected by this.
+  if ( buffs.seraphim -> check() )
+    ba *= 1.0 + buffs.seraphim -> data().effectN( 1 ).percent();
+
+  return ba;
 }
 
 // paladin_t::composite_player_multiplier ===================================
@@ -5435,7 +5831,7 @@ double paladin_t::composite_player_multiplier( school_e school ) const
   }
 
   // Divine Shield reduces everything
-  if ( buffs.divine_shield -> up() )
+  if ( buffs.divine_shield -> check() )
     m *= 1.0 + buffs.divine_shield -> data().effectN( 1 ).percent();
 
   // Glyph of Word of Glory buffs everything
@@ -5443,7 +5839,7 @@ double paladin_t::composite_player_multiplier( school_e school ) const
     m *= 1.0 + buffs.glyph_of_word_of_glory -> value();
 
   // T16_2pc_melee buffs everything
-  if ( sets.has_set_bonus( SET_T16_2PC_MELEE ) && buffs.warrior_of_the_light -> up() )
+  if ( buffs.warrior_of_the_light -> check() )
     m *= 1.0 + buffs.warrior_of_the_light -> data().effectN( 1 ).percent();
 
   return m;
@@ -5451,7 +5847,7 @@ double paladin_t::composite_player_multiplier( school_e school ) const
 
 // paladin_t::composite_player_heal_multiplier ==============================
 
-double paladin_t::composite_player_heal_multiplier( school_e s ) const
+double paladin_t::composite_player_heal_multiplier( const action_state_t* s ) const
 {
   double m = player_t::composite_player_heal_multiplier( s );
 
@@ -5489,6 +5885,7 @@ double paladin_t::composite_melee_attack_power() const
 {
   double ap = player_t::composite_melee_attack_power();
 
+  // can skip the conditional here, buffs.bladed_armor is a spell_not_found for holy/ret
   ap += buffs.bladed_armor -> data().effectN( 1 ).percent() * current.stats.get_stat( STAT_BONUS_ARMOR );
 
   return ap;
@@ -5498,10 +5895,14 @@ double paladin_t::composite_melee_attack_power() const
 
 double paladin_t::composite_attack_power_multiplier() const
 {
-  double ap = player_t::composite_spell_power_multiplier();
+  double ap = player_t::composite_attack_power_multiplier();
 
-  if ( passives.divine_bulwark -> ok () )
-    ap += get_divine_bulwark(); // TODO: check if additive or multiplicative
+  // Mastery bonus is multiplicative with other effects (raid buff, Maraad's Truth)
+  ap *= 1.0 + cache.mastery() * passives.divine_bulwark -> effectN( 5 ).mastery_value();
+  
+  // Maraad's Truth is multiplicative with other effects (raid buff, mastery)
+  if ( buffs.maraads_truth -> check() )
+    ap *= 1.0 + buffs.maraads_truth -> data().effectN( 1 ).percent(); 
 
   return ap;
 }
@@ -5516,31 +5917,16 @@ double paladin_t::composite_spell_power_multiplier() const
   return player_t::composite_spell_power_multiplier();
 }
 
-// paladin_t::composite_tank_block ==========================================
+// paladin_t::composite_block ==========================================
 
 double paladin_t::composite_block() const
 {
-  // need to reproduce most of player_t::composite_block() because mastery -> block conversion is affected by DR
-  // could modify player_t::composite_block() to take one argument if willing to change references in all other files
-  double block_by_rating = current.stats.block_rating / current_rating().block;
+  // this handles base block and and all block subject to diminishing returns
+  double block_subject_to_dr = cache.mastery() * passives.divine_bulwark -> effectN( 1 ).mastery_value();
+  double b = player_t::composite_block_dr( block_subject_to_dr );
 
-  // add block from Divine Bulwark
-  block_by_rating += get_divine_bulwark();
-
-  double b = current.block;
-
-  // calculate diminishing returns and add to b
-  if ( block_by_rating > 0 )
-  {
-    //the block by rating gets rounded because that's how blizzard rolls...
-    b += 1 / ( 1 / diminished_block_cap + diminished_kfactor / ( util::round( 12800 * block_by_rating ) / 12800 ) );
-  }
-
-  // Guarded by the Light block not affected by diminishing returns
+ // Guarded by the Light block not affected by diminishing returns
   b += passives.guarded_by_the_light -> effectN( 6 ).percent();
-
-  // Improved Block perk (assuming for now that it's not affected by DR
-  b += perk.improved_block -> effectN( 1 ).percent();
 
   // Holy Shield (assuming for now that it's not affected by DR)
   b += talents.holy_shield -> effectN( 1 ).percent();
@@ -5562,10 +5948,38 @@ double paladin_t::composite_dodge() const
 {
   double d = player_t::composite_dodge();
 
-  // add Sanctuary dodge
-  d += passives.sanctuary -> effectN( 3 ).percent();
-
   return d;
+}
+
+double paladin_t::composite_parry() const
+{
+  double p = player_t::composite_parry();
+
+  // add Riposte
+  if ( passives.riposte -> ok() )
+    p += composite_melee_crit_rating() / current_rating().attack_crit;
+
+  return p;
+}
+
+// paladin_t::temporary_movement_modifier ================================
+
+double paladin_t::temporary_movement_modifier() const
+{
+  double temporary = player_t::temporary_movement_modifier();
+  
+  if ( buffs.speed_of_light -> up() )
+    temporary = std::max( buffs.speed_of_light -> default_value, temporary );
+  if ( buffs.long_arm_of_the_law -> up() )
+    temporary = std::max( buffs.long_arm_of_the_law -> default_value, temporary );
+  if ( buffs.turalyons_justice -> check() )
+    temporary = std::max( buffs.turalyons_justice-> data().effectN( 1 ).percent(), temporary );
+  if ( talents.pursuit_of_justice -> ok() )
+    temporary = std::max( ( talents.pursuit_of_justice -> effectN( 1 ).percent() +
+                std::min( resources.current[RESOURCE_HOLY_POWER] * talents.pursuit_of_justice -> effectN( 8 ).percent(), 0.15 ) ), 
+                temporary );
+
+  return temporary;
 }
 
 // paladin_t::target_mitigation =============================================
@@ -5635,20 +6049,26 @@ void paladin_t::target_mitigation( school_e school,
   // Shield of the Righteous
   if ( buffs.shield_of_the_righteous -> check() && school == SCHOOL_PHYSICAL )
   {
-    s -> result_amount *= 1.0 + ( buffs.shield_of_the_righteous -> data().effectN( 1 ).percent() - get_divine_bulwark() ) * ( 1.0 + sets.set( SET_T14_4PC_TANK ) -> effectN( 2 ).percent() );
+    // split his out to make it more readable / easier to debug
+    double sotr_mitigation = buffs.shield_of_the_righteous -> data().effectN( 1 ).percent() + cache.mastery() * passives.divine_bulwark -> effectN( 4 ).mastery_value();
+    sotr_mitigation *= 1.0 + sets.set( SET_T14_4PC_TANK ) -> effectN( 2 ).percent();
+
+    s -> result_amount *= 1.0 + sotr_mitigation; 
 
     if ( sim -> debug && s -> action && ! s -> target -> is_enemy() && ! s -> target -> is_add() )
       sim -> out_debug.printf( "Damage to %s after SotR mitigation is %f", s -> target -> name(), s -> result_amount );
   }
-
+  
   // Ardent Defender
   if ( buffs.ardent_defender -> check() )
   {
-    s -> result_amount *= 1.0 - buffs.ardent_defender -> data().effectN( 1 ).percent();
+    // glyph of ardent defender removes damage mitigation
+    if ( ! glyphs.ardent_defender -> ok() )
+      s -> result_amount *= 1.0 - buffs.ardent_defender -> data().effectN( 1 ).percent();
 
     if ( s -> result_amount > 0 && s -> result_amount >= resources.current[ RESOURCE_HEALTH ] )
     {
-      // Ardent defender is a little odd - it doesn't heal you *for* 15%, it heals you *to* 15%.
+      // Ardent defender is a little odd - it doesn't heal you *for* 12%, it heals you *to* 12%.
       // It does this by either absorbing all damage and healing you for the difference between 15% and your current health (if current < 15%)
       // or absorbing any damage that would take you below 15% (if current > 15%).
       // To avoid complications with absorb modeling, we're just going to kludge it by adjusting the amount gained or lost accordingly.
@@ -5668,6 +6088,7 @@ void paladin_t::target_mitigation( school_e school,
                        nullptr,
                        s -> action );
       }
+      buffs.ardent_defender -> use_oneup();
       buffs.ardent_defender -> expire();
     }
 
@@ -5682,15 +6103,22 @@ void paladin_t::invalidate_cache( cache_e c )
 {
   player_t::invalidate_cache( c );
 
-  if ( ( passives.sword_of_light -> ok() || passives.guarded_by_the_light -> ok() )
+  if ( ( passives.sword_of_light -> ok() || passives.guarded_by_the_light -> ok() || passives.divine_bulwark -> ok() )
        && ( c == CACHE_STRENGTH || c == CACHE_ATTACK_POWER )
      )
   {
     player_t::invalidate_cache( CACHE_SPELL_POWER );
   }
 
+  if ( c == CACHE_ATTACK_CRIT && specialization() == PALADIN_PROTECTION )
+    player_t::invalidate_cache( CACHE_PARRY );
+
   if ( c == CACHE_MASTERY && passives.divine_bulwark -> ok() )
+  {
     player_t::invalidate_cache( CACHE_BLOCK );
+    player_t::invalidate_cache( CACHE_ATTACK_POWER );
+    player_t::invalidate_cache( CACHE_SPELL_POWER );
+  }
 }
 
 // paladin_t::matching_gear_multiplier ======================================
@@ -5762,8 +6190,8 @@ void paladin_t::assess_damage( school_e school,
     trigger_holy_shield();
   }
 
-  // Also trigger Grand Crusader on an avoidance event
-  if ( s -> result == RESULT_DODGE || s -> result == RESULT_PARRY )
+  // Also trigger Grand Crusader on an avoidance event (TODO: test if it triggers on misses)
+  if ( s -> result == RESULT_DODGE || s -> result == RESULT_PARRY || s -> result == RESULT_MISS )
   {
     trigger_grand_crusader();
   }
@@ -5784,6 +6212,54 @@ void paladin_t::assess_damage( school_e school,
   if ( sets.has_set_bonus( SET_T16_2PC_TANK ) && buffs.divine_protection -> check() )
   {
     active.blessing_of_the_guardians -> increment_damage( s -> result_mitigated ); // uses post-mitigation, pre-absorb value
+  }
+}
+
+// paladin_t::assess_damage_imminent ========================================
+
+void paladin_t::assess_damage_imminent( school_e school, dmg_e, action_state_t* s )
+{
+  // Holy Shield happens here, after all absorbs are accounted for (see player_t::assess_damage())
+  if ( talents.holy_shield -> ok() && s -> result_amount > 0.0 && school != SCHOOL_PHYSICAL )
+  {
+    // Block code mimics attack_t::block_chance()
+    // cache.block() contains our block chance 
+    double block = cache.block();
+    // add or subtract 1.5% per level difference
+    block += ( level - s -> action -> player -> level ) * 0.015;
+
+    
+    if ( block > 0 )
+    {
+      // Roll for "block"
+      if ( rng().roll( block ) )
+      {
+        double block_amount = s -> result_amount * composite_block_reduction();
+
+        if ( sim->debug )
+          sim -> out_debug.printf( "%s Holy Shield absorbs %f", name(), block_amount );
+
+        // update the relevant counters
+        iteration_absorb_taken += block_amount;
+        s -> result_amount -= block_amount;
+        s -> result_absorbed = s -> result_amount;
+        
+        // hack to register this on the abilities table
+        buffs.holy_shield -> trigger( 1, block_amount );
+        buffs.holy_shield -> consume( block_amount );
+
+        // Trigger the damage event
+        trigger_holy_shield();
+      }
+      else
+      {        
+        if ( sim->debug )
+          sim -> out_debug.printf( "%s Holy Shield fails to activate", name() );
+      }
+    }
+
+    if ( sim->debug )
+      sim -> out_debug.printf( "Damage to %s after Holy Shield mitigation is %f", name(), s -> result_amount );
   }
 }
 
@@ -5826,8 +6302,8 @@ void paladin_t::combat_begin()
 
   resources.current[ RESOURCE_HOLY_POWER ] = 0;
 
-  if ( passives.vengeance -> ok() )
-    vengeance_start();
+  if ( passives.resolve -> ok() )
+    resolve_manager.start();
 
   if ( find_specialization_spell( "Bladed Armor" ) )
     buffs.bladed_armor -> trigger();
@@ -5844,23 +6320,13 @@ int paladin_t::holy_power_stacks() const
   return ( int ) resources.current[ RESOURCE_HOLY_POWER ];
 }
 
-// paladin_t::get_divine_bulwark ============================================
-double paladin_t::get_divine_bulwark() const
-{
-  if ( ! passives.divine_bulwark -> ok() )
-    return 0.0;
-
-  // block rating, 1% per point of mastery
-  return cache.mastery_value();
-}
-
 // paladin_t::get_hand_of_light =============================================
 
 double paladin_t::get_hand_of_light()
 {
   if ( specialization() != PALADIN_RETRIBUTION ) return 0.0;
 
-  return cache.mastery_value();
+  return cache.mastery_value(); // HoL is in effect 1
 }
 
 // player_t::create_expression ==============================================
@@ -5912,6 +6378,16 @@ expr_t* paladin_t::create_expression( action_t* a,
   return player_t::create_expression( a, name_str );
 }
 
+void paladin_t::arise()
+{
+  player_t::arise();
+
+  // Trigger Sanctity Aura
+  if ( specialization() == PALADIN_RETRIBUTION && ! sim -> overrides.versatility ) 
+    sim -> auras.versatility -> trigger();
+
+}
+
 /* Report Extension Class
  * Here you can define class specific report extensions/overrides
  */
@@ -5926,6 +6402,7 @@ public:
 
   virtual void html_customsection( report::sc_html_stream& /* os*/ ) override
   {
+    (void) p;
     /*// Custom Class Section
     os << "\t\t\t\t<div class=\"player-section custom_section\">\n"
         << "\t\t\t\t\t<h3 class=\"toggle open\">Custom Section</h3>\n"

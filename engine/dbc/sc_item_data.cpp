@@ -42,7 +42,7 @@ stat_pair_t item_database::item_enchantment_effect_stats( player_t* player,
   }
 
   if ( stat != STAT_NONE && value != 0 )
-    return stat_pair_t( stat, value );
+    return stat_pair_t( stat, (int)value );
 
   return stat_pair_t();
 }
@@ -86,11 +86,11 @@ int item_database::scaled_stat( const item_data_t& item, const dbc_t& dbc, size_
   if ( idx >= sizeof_array( item.stat_val ) - 1 )
     return -1;
 
-  if ( item.level == 0 || new_ilevel == 0 || item.stat_val[ idx ] <= 0 )
+  if ( item.level == 0 || item.stat_val[ idx ] <= 0 )
     return item.stat_val[ idx ];
 
-  if ( item.level == ( int ) new_ilevel )
-    return item.stat_val[ idx ];
+  //if ( item.level == ( int ) new_ilevel )
+  //  return item.stat_val[ idx ];
 
   int slot_type = random_suffix_type( &item );
   double item_budget = 0/*, orig_budget = 0*/;
@@ -122,7 +122,9 @@ int item_database::scaled_stat( const item_data_t& item, const dbc_t& dbc, size_
   if ( item.stat_alloc[ idx ] > 0 /* && orig_budget > 0 */ && item_budget > 0 )
   {
     double v_raw = util::round( item.stat_alloc[ idx ] * item_budget / 10000.0 );
-    double v_socket_penalty = util::round( item.stat_socket_mul[ idx ] * dbc.item_socket_cost( new_ilevel ) );
+    // Socket penalty is supposedly gone in Warlords of Draenor, but it really does not seem so in the latest alpha.
+    // NOTENOTENOTENOTE: Item socket cost penalty multiplier _seems_ to be based on _BASE_ itemlevel, not the upgraded one
+    double v_socket_penalty = util::round( item.stat_socket_mul[ idx ] * dbc.item_socket_cost( item.level ) );
     return static_cast<int>( v_raw - v_socket_penalty );
   }
   // TODO(?): Should we warn the user that we are using an approximation of

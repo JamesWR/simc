@@ -24,13 +24,14 @@ actions.precombat+=/seal_of_truth,if=active_enemies<4
 actions.precombat+=/seal_of_righteousness,if=active_enemies>=4
 # Snapshot raid buffed stats before combat begins and pre-potting is done.
 actions.precombat+=/snapshot_stats
-actions.precombat+=/mogu_power_potion
+actions.precombat+=/potion,name=mogu_power
 
 # Executed every time the actor is available.
 
 actions=rebuke
-actions+=/mogu_power_potion,if=(buff.bloodlust.react|buff.avenging_wrath.up|target.time_to_die<=40)
+actions+=/potion,name=mogu_power,if=(buff.bloodlust.react|buff.avenging_wrath.up|target.time_to_die<=40)
 actions+=/auto_attack
+actions+=/speed_of_light,if=talent.speed_of_light.enabled&movement.remains>1
 actions+=/avenging_wrath
 actions+=/holy_avenger,if=talent.holy_avenger.enabled&holy_power<=2
 actions+=/blood_fury
@@ -79,15 +80,12 @@ main_hand=britomarts_jagged_pike,id=105610,upgrade=2,gems=16haste_3str,enchant=d
 
 # Gear Summary
 # gear_strength=1059
-# gear_agility=4
 # gear_stamina=1539
-# gear_intellect=8
 # gear_hit_rating=9
 # gear_crit_rating=333
 # gear_haste_rating=841
 # gear_mastery_rating=412
 # gear_armor=1191
-# gear_readiness_rating=99
 # meta_gem=capacitive_primal
 # tier16_2pc_melee=1
 # tier16_4pc_melee=1

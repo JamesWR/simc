@@ -178,6 +178,7 @@ void special_effect_t::reset()
 
   execute_action = 0;
   custom_buff = 0;
+  custom_init = 0;
 }
 
 // special_effect_t::driver =================================================
@@ -235,6 +236,44 @@ bool special_effect_t::is_stat_buff() const
 
   return false;
 }
+
+// special_effect_t::stat ===================================================
+
+stat_e special_effect_t::stat_type() const
+{
+  if ( stat != STAT_NONE )
+    return stat;
+
+  for ( size_t i = 1, end = trigger() -> effect_count(); i <= end; i++ )
+  {
+    const spelleffect_data_t& effect = trigger() -> effectN( i );
+    if ( effect.id() == 0 )
+      continue;
+
+    stat_e type = stat_buff_type( effect );
+    if ( type != STAT_NONE )
+      return type;
+  }
+
+  return STAT_NONE;
+}
+
+// special_effect_t::max_stack ==============================================
+
+int special_effect_t::max_stack() const
+{
+  if ( max_stacks != -1 )
+    return max_stacks;
+
+  if ( trigger() -> max_stacks() > 0 )
+    return trigger() -> max_stacks();
+
+  if ( driver() -> max_stacks() > 0 )
+    return driver() -> max_stacks();
+
+  return -1;
+}
+
 
 // special_effect_t::initialize_stat_buff ===================================
 
@@ -359,6 +398,8 @@ struct proc_spell_t : public spell_t
     spell_t( token, p, s )
   {
     background = true;
+    // Periodic procs shouldnt ever haste ticks, probably
+    hasted_ticks = false;
   }
 };
 
@@ -369,6 +410,8 @@ struct proc_heal_t : public heal_t
     heal_t( token, p, s )
   {
     background = true;
+    // Periodic procs shouldnt ever haste ticks, probably
+    hasted_ticks = false;
   }
 };
 
@@ -621,7 +664,7 @@ timespan_t special_effect_t::tick_time() const
     return tick;
 
   // Search trigger for now, it's not likely that the driver is ticking
-  for ( int i = 1, end = trigger() -> effect_count(); i <= end; i++ )
+  for ( size_t i = 1, end = trigger() -> effect_count(); i <= end; i++ )
   {
     if ( trigger() -> effectN( i ).period() > timespan_t::zero() )
       return trigger() -> effectN( i ).period();
@@ -1257,7 +1300,7 @@ void dbc_proc_callback_t::initialize()
   // Initialize cooldown, if applicable
   if ( effect.cooldown() > timespan_t::zero() )
   {
-    cooldown = listener -> get_cooldown( cooldown_name() );
+    cooldown = listener -> get_cooldown( effect.cooldown_name() );
     cooldown -> duration = effect.cooldown();
   }
 
@@ -1284,21 +1327,21 @@ void dbc_proc_callback_t::initialize()
  * up use the driver's name, or override it with the special_effect_t name_str
  * if it's defined.
  */
-std::string dbc_proc_callback_t::cooldown_name() const
+std::string special_effect_t::cooldown_name() const
 {
-  if ( ! effect.name_str.empty() )
+  if ( ! name_str.empty() )
   {
-    assert( effect.name_str.size() );
-    return effect.name_str;
+    assert( name_str.size() );
+    return name_str;
   }
 
-  std::string n = effect.driver() -> name_cstr();
+  std::string n = driver() -> name_cstr();
   assert( ! n.empty() );
   util::tokenize( n );
   // Append the spell ID of the driver to the cooldown name. In some cases, the
   // drivers of different trinket procs are actually named identically, causing
   // issues when the trinkets are worn.
-  n += "_" + util::to_string( effect.driver() -> id() );
+  n += "_" + util::to_string( driver() -> id() );
 
   return n;
 }

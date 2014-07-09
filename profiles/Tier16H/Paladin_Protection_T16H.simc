@@ -20,6 +20,7 @@ actions.precombat=flask,type=earth
 actions.precombat+=/food,type=chun_tian_spring_rolls
 actions.precombat+=/blessing_of_kings,if=(!aura.str_agi_int.up)&(aura.mastery.up)
 actions.precombat+=/blessing_of_might,if=!aura.mastery.up
+actions.precombat+=/seal_of_insight
 actions.precombat+=/sacred_shield,if=talent.sacred_shield.enabled
 # Snapshot raid buffed stats before combat begins and pre-potting is done.
 actions.precombat+=/snapshot_stats
@@ -27,6 +28,7 @@ actions.precombat+=/snapshot_stats
 # Executed every time the actor is available.
 
 actions=/auto_attack
+actions+=/speed_of_light,if=talent.speed_of_light.enabled&movement.remains>1
 actions+=/blood_fury
 actions+=/berserking
 actions+=/arcane_torrent
@@ -78,7 +80,6 @@ off_hand=bulwark_of_the_fallen_general,id=105556,upgrade=2,gems=16haste,enchant=
 # gear_bonus_armor=35
 # gear_dodge_rating=13
 # gear_parry_rating=9
-# gear_readiness_rating=99
 # meta_gem=indomitable_primal
 # tier16_2pc_tank=1
 # tier16_4pc_tank=1

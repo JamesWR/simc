@@ -104,6 +104,33 @@ _DIFF_DATA = {
             ( 'id_display', _REMOVE_FIELD )
         ]
     },
+    18297: {
+        'Item.db2': [
+            ( 'id_display', _REMOVE_FIELD )
+        ]
+    },
+    18322: {
+        'SpellMisc.dbc': [
+            ( 'unk_18322', _ADD_FIELD, 'prj_speed' )
+        ]
+    },
+    18379: {
+        'SpellMisc.dbc': [
+            ( 'id_spell', _REMOVE_FIELD ),
+            ( 'unk_1', _REMOVE_FIELD ),
+            ( 'unk_18322', _REMOVE_FIELD ),
+            ( 'unk_18379', _ADD_FIELD, 'mask_school' )
+        ]
+    },
+    18505: {
+        'ChrSpecialization.dbc': [
+            ( 'unk_wod_1', _REMOVE_FIELD ),
+            ( 'unk_wod_2', _REMOVE_FIELD )
+        ],
+        'SpellPower.dbc': [
+            ( 'unk_18505', _ADD_FIELD, 'unk_1' )
+        ]
+    },
 }
 
 # Base DBC/DB2 fields, works for WoW build 17898 (Mists of Pandaria/5.4.7)
@@ -119,7 +146,13 @@ _DBC_FIELDS = {
         'id', 'id_spec', 'id_spell', 'index'
     ],
     'ItemBonus.db2': [
-        'id', 'f1', 'f2', ( 'f3', '%d' ), 'f4', 'f5'
+        'id', 'f1', 'type', ( 'val1', '%d' ), ( 'val2', '%d' ), 'f5'
+    ],
+    'ItemXBonusTree.db2': [
+        'id', 'id_item', 'id_tree'
+    ],
+    'ItemBonusTreeNode.db2': [
+        'id', 'v1', 'v2', 'v3', 'v4'
     ],
     'ArmorLocation.dbc': [
         ( 'id', '%3u' ), ( 'v_1', '%11.6f' ), ( 'v_2', '%11.6f' ), ( 'v_3', '%11.6f' ), ( 'v_4', '%11.6f' ), ( 'v_5', '%11.6f')
@@ -394,7 +427,7 @@ _DBC_FIELDS = {
         ( 'base_value', '%7d' ),     ( 'coefficient', '%13.10f' ),     ( 'dmg_multiplier', '%f' ),   'chain_target',                  ( 'die_sides', '%2d' ),
           'item_type',                   'mechanic',                     ( 'misc_value', '%7d' ),    ( 'misc_value_2', '%7d' ),         ( 'points_per_combo_points', '%5.1f' ), 
           'id_radius',                   'id_radius_max',                ( 'real_ppl', '%5.3f' ),    ( 'class_mask_1', '%#.8x' ),    ( 'class_mask_2', '%#.8x' ),
-        ( 'class_mask_3', '%#.8x' ),   ( 'class_mask_4', '%#.8x' ),  ( 'trigger_spell', '%5d' ),     ( 'unk_15589_2', '%f' ), 'implicit_target_1',              'implicit_target_2',     
+        ( 'class_mask_3', '%#.8x' ),   ( 'class_mask_4', '%#.8x' ),  ( 'trigger_spell', '%5d' ),     ( 'unk_15589_2', '%f' ), 'implicit_target_1',              'implicit_target_2',
     ( 'id_spell', '%6u' ),             ( 'index', '%2u' ),           'unk_14040'
     ],
     # New in MoP
@@ -424,7 +457,7 @@ _DBC_FIELDS = {
     ],
     'SpellPower.dbc' : [
           ( 'id', '%6u' ), 'id_spell', 'unk_15589_1', ( 'type_power', '%2d' ),( 'cost', '%6d' ),     'unk_1',     ( 'cost_per_second', '%3d' ), 'unk_2',
-          'id_display', ( 'cost_2', '%5.2f' ),     ( 'cost_per_second2', '%5.2f' ),   ( 'aura_id', '%6u' ), 'unk_15589_2'
+          'id_display', ( 'cost_2', '%5.2f' ),     ( 'cost_per_second2', '%5.2f' ),   ( 'aura_id', '%6u' ), ( 'unk_15589_2', '%f' )
     ],
     'SpellProcsPerMinute.dbc' : [
          'id', ( 'ppm', '%5.3f' ), 'unk_1'

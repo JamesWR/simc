@@ -748,6 +748,7 @@ const char* util::resource_type_string( resource_e resource_type )
     case RESOURCE_HOLY_POWER:    return "holy_power";
     case RESOURCE_CHI:           return "chi";
     case RESOURCE_SHADOW_ORB:    return "shadow_orb";
+    case RESOURCE_COMBO_POINT:   return "combo_points";
     default:                     return "unknown";
   }
 }
@@ -967,23 +968,40 @@ const char* util::flask_type_string( flask_e flask )
 {
   switch ( flask )
   {
-    case FLASK_NONE:               return "none";
+    case FLASK_NONE:                                    return "none";
       // cataclysm
-    case FLASK_DRACONIC_MIND:       return "draconic_mind";
-    case FLASK_FLOWING_WATER:       return "flowing_water";
-    case FLASK_STEELSKIN:           return "steelskin";
-    case FLASK_TITANIC_STRENGTH:    return "titanic_strength";
-    case FLASK_WINDS:               return "winds";
+    case FLASK_DRACONIC_MIND:                           return "draconic_mind";
+    case FLASK_FLOWING_WATER:                           return "flowing_water";
+    case FLASK_STEELSKIN:                               return "steelskin";
+    case FLASK_TITANIC_STRENGTH:                        return "titanic_strength";
+    case FLASK_WINDS:                                   return "winds";
       // mop
-    case FLASK_WARM_SUN:            return "warm_sun";
-    case FLASK_FALLING_LEAVES:      return "falling_leaves";
-    case FLASK_EARTH:               return "earth";
-    case FLASK_WINTERS_BITE:        return "winters_bite";
-    case FLASK_SPRING_BLOSSOMS:     return "spring_blossoms";
-    case FLASK_CRYSTAL_OF_INSANITY: return "crystal_of_insanity";
+    case FLASK_WARM_SUN:                                return "warm_sun";
+    case FLASK_FALLING_LEAVES:                          return "falling_leaves";
+    case FLASK_EARTH:                                   return "earth";
+    case FLASK_WINTERS_BITE:                            return "winters_bite";
+    case FLASK_SPRING_BLOSSOMS:                         return "spring_blossoms";
+    case FLASK_CRYSTAL_OF_INSANITY:                     return "crystal_of_insanity";
+      // wod
+    case FLASK_DRAENOR_ARMOR_FLASK:                     return "draenor_armor_flask";
+    case FLASK_DRAENOR_CRITICAL_STRIKE_FLASK:           return "draenor_critical_strike_flask";
+    case FLASK_DRAENOR_HASTE_FLASK:                     return "draenor_haste_flask";
+    case FLASK_DRAENOR_MASTERY_FLASK:                   return "draenor_mastery_flask";
+    case FLASK_DRAENOR_MULTISTRIKE_FLASK:               return "draenor_multistrike_flask";
+    case FLASK_DRAENOR_SPIRIT_FLASK:                    return "draenor_spirit_flask";
+    case FLASK_DRAENOR_STAMINA_FLASK:                   return "draenor_stamina_flask";
+    case FLASK_DRAENOR_VERSATILITY_FLASK:               return "draenor_versatility_flask";
+    case FLASK_GREATER_DRAENOR_ARMOR_FLASK:             return "greater_draenor_armor_flask";
+    case FLASK_GREATER_DRAENOR_CRITICAL_STRIKE_FLASK:   return "greater_draenor_critical_strike_flask";
+    case FLASK_GREATER_DRAENOR_HASTE_FLASK:             return "greater_draenor_haste_flask";
+    case FLASK_GREATER_DRAENOR_MASTERY_FLASK:           return "greater_draenor_mastery_flask";
+    case FLASK_GREATER_DRAENOR_MULTISTRIKE_FLASK:       return "greater_draenor_multistrike_flask";
+    case FLASK_GREATER_DRAENOR_SPIRIT_FLASK:            return "greater_draenor_spirit_flask";
+    case FLASK_GREATER_DRAENOR_STAMINA_FLASK:           return "greater_draenor_stamina_flask";
+    case FLASK_GREATER_DRAENOR_VERSATILITY_FLASK:       return "greater_draenor_versatility_flask";
       // alchemist's
-    case FLASK_ALCHEMISTS:        return "alchemists";
-    default:                      return "unknown";
+    case FLASK_ALCHEMISTS:                              return "alchemists";
+    default:                                            return "unknown";
   }
 }
 
@@ -1000,69 +1018,107 @@ const char* util::food_type_string( food_e food )
 {
   switch ( food )
   {
-    case FOOD_NONE:                         return "none";
-    case FOOD_BAKED_ROCKFISH:               return "baked_rockfish";
-    case FOOD_BANQUET_OF_THE_BREW:          return "banquet_of_the_brew";
-    case FOOD_BANQUET_OF_THE_GRILL:         return "banquet_of_the_grill";
-    case FOOD_BANQUET_OF_THE_OVEN:          return "banquet_of_the_oven";
-    case FOOD_BANQUET_OF_THE_POT:           return "banquet_of_the_pot";
-    case FOOD_BANQUET_OF_THE_STEAMER:       return "banquet_of_the_steamer";
-    case FOOD_BANQUET_OF_THE_WOK:           return "banquet_of_the_wok";
-    case FOOD_BASILISK_LIVERDOG:            return "basilisk_liverdog";
-    case FOOD_BEER_BASTED_CROCOLISK:        return "beer_basted_crocolisk";
-    case FOOD_BLACK_PEPPER_RIBS_AND_SHRIMP: return "black_pepper_ribs_and_shrimp";
-    case FOOD_BLACKBELLY_SUSHI:             return "blackbelly_sushi";
-    case FOOD_BLANCHED_NEEDLE_MUSHROOMS:    return "blanched_needle_mushrooms";
-    case FOOD_BOILED_SILKWORM_PUPA:         return "boiled_silkworm_pupa";
-    case FOOD_BRAISED_TURTLE:               return "braised_turtle";
-    case FOOD_CHARBROILED_TIGER_STEAK:      return "charbroiled_tiger_steak";
-    case FOOD_CHUN_TIAN_SPRING_ROLLS:       return "chun_tian_spring_rolls";
-    case FOOD_CROCOLISK_AU_GRATIN:          return "crocolisk_au_gratin";
-    case FOOD_DELICIOUS_SAGEFISH_TAIL:      return "delicious_sagefish_tail";
-    case FOOD_DRIED_NEEDLE_MUSHROOMS:       return "dried_needle_mushrooms";
-    case FOOD_DRIED_PEACHES:                return "dried_peaches";
-    case FOOD_ETERNAL_BLOSSOM_FISH:         return "eternal_blossom_fish";
-    case FOOD_FIRE_SPIRIT_SALMON:           return "fire_spirit_salmon";
-    case FOOD_FISH_FEAST:                   return "fish_feast";
-    case FOOD_FORTUNE_COOKIE:               return "fortune_cookie";
-    case FOOD_GREAT_BANQUET_OF_THE_BREW:    return "great_banquet_of_the_brew";
-    case FOOD_GREAT_BANQUET_OF_THE_GRILL:   return "great_banquet_of_the_grill";
-    case FOOD_GREAT_BANQUET_OF_THE_OVEN:    return "great_banquet_of_the_oven";
-    case FOOD_GREAT_BANQUET_OF_THE_POT:     return "great_banquet_of_the_pot";
-    case FOOD_GREAT_BANQUET_OF_THE_STEAMER: return "great_banquet_of_the_steamer";
-    case FOOD_GREAT_BANQUET_OF_THE_WOK:     return "great_banquet_of_the_wok";
-    case FOOD_GREAT_PANDAREN_BANQUET:       return "great_pandaren_banquet";
-    case FOOD_GREEN_CURRY_FISH:             return "green_curry_fish";
-    case FOOD_GRILLED_DRAGON:               return "grilled_dragon";
-    case FOOD_LAVASCALE_FILLET:             return "lavascale_fillet";
-    case FOOD_MOGU_FISH_STEW:               return "mogu_fish_stew";
-    case FOOD_MUSHROOM_SAUCE_MUDFISH:       return "mushroom_sauce_mudfish";
-    case FOOD_PANDAREN_BANQUET:             return "pandaren_banquet";
-    case FOOD_PEACH_PIE:                    return "peach_pie";
-    case FOOD_PEARL_MILK_TEA:               return "pearl_milk_tea";
-    case FOOD_POUNDED_RICE_CAKE:            return "pounded_rice_cake";
-    case FOOD_RED_BEAN_BUN:                 return "red_bean_bun";
-    case FOOD_RICE_PUDDING:                 return "rice_pudding";
-    case FOOD_ROASTED_BARLEY_TEA:           return "roasted_barley_tea";
-    case FOOD_SAUTEED_CARROTS:              return "sauteed_carrots";
-    case FOOD_SEA_MIST_RICE_NOODLES:        return "sea_mist_rice_noodles";
-    case FOOD_SEAFOOD_MAGNIFIQUE_FEAST:     return "seafood_magnifique_feast";
-    case FOOD_SEVERED_SAGEFISH_HEAD:        return "severed_sagefish_head";
-    case FOOD_SHRIMP_DUMPLINGS:             return "shrimp_dumplings";
-    case FOOD_SKEWERED_EEL:                 return "skewered_eel";
-    case FOOD_SKEWERED_PEANUT_CHICKEN:      return "skewered_peanut_chicken";
-    case FOOD_SPICY_SALMON:                 return "spicy_salmon";
-    case FOOD_SPICY_VEGETABLE_BOWL:         return "spciy_vegetable_bowl";
-    case FOOD_STEAMED_CRAB_SURPRISE:        return "steamed_crab_surprise";
-    case FOOD_SWIRLING_MIST_SOUP:           return "swirling_mist_soup";
-    case FOOD_TANGY_YOGURT:                 return "tangy_yogurt";
-    case FOOD_TOASTED_FISH_JERKY:           return "toasted_fish_jerky";
-    case FOOD_TWIN_FISH_PLATTER:            return "twin_fish_platter";
-    case FOOD_VALLEY_STIR_FRY:              return "valley_stir_fry";
-    case FOOD_WILDFOWL_GINSENG_SOUP:        return "wildfowl_ginseng_soup";
-    case FOOD_WILDFOWL_ROAST:               return "wildfowl_roast";
-    case FOOD_YAK_CHEESE_CURDS:             return "yak_cheese_curds";
-    default:                                return "unknown";
+    case FOOD_NONE:                             return "none";
+    case FOOD_BAKED_ROCKFISH:                   return "baked_rockfish";
+    case FOOD_BANQUET_OF_THE_BREW:              return "banquet_of_the_brew";
+    case FOOD_BANQUET_OF_THE_GRILL:             return "banquet_of_the_grill";
+    case FOOD_BANQUET_OF_THE_OVEN:              return "banquet_of_the_oven";
+    case FOOD_BANQUET_OF_THE_POT:               return "banquet_of_the_pot";
+    case FOOD_BANQUET_OF_THE_STEAMER:           return "banquet_of_the_steamer";
+    case FOOD_BANQUET_OF_THE_WOK:               return "banquet_of_the_wok";
+    case FOOD_BASILISK_LIVERDOG:                return "basilisk_liverdog";
+    case FOOD_BEER_BASTED_CROCOLISK:            return "beer_basted_crocolisk";
+    case FOOD_BLACK_PEPPER_RIBS_AND_SHRIMP:     return "black_pepper_ribs_and_shrimp";
+    case FOOD_BLACKBELLY_SUSHI:                 return "blackbelly_sushi";
+    case FOOD_BLANCHED_NEEDLE_MUSHROOMS:        return "blanched_needle_mushrooms";
+    case FOOD_BOILED_SILKWORM_PUPA:             return "boiled_silkworm_pupa";
+    case FOOD_BRAISED_TURTLE:                   return "braised_turtle";
+    case FOOD_CHARBROILED_TIGER_STEAK:          return "charbroiled_tiger_steak";
+    case FOOD_CHUN_TIAN_SPRING_ROLLS:           return "chun_tian_spring_rolls";
+    case FOOD_CRAZY_SNAKE_NOODLES:              return "crazy_snake_noodles";
+    case FOOD_CROCOLISK_AU_GRATIN:              return "crocolisk_au_gratin";
+    case FOOD_DELICIOUS_SAGEFISH_TAIL:          return "delicious_sagefish_tail";
+    case FOOD_DELUX_NOODLE_SOUP:                return "delux_noodle_soup";
+    case FOOD_DRIED_NEEDLE_MUSHROOMS:           return "dried_needle_mushrooms";
+    case FOOD_DRIED_PEACHES:                    return "dried_peaches";
+    case FOOD_ETERNAL_BLOSSOM_FISH:             return "eternal_blossom_fish";
+    case FOOD_FIRE_SPIRIT_SALMON:               return "fire_spirit_salmon";
+    case FOOD_FISH_FEAST:                       return "fish_feast";
+    case FOOD_FORTUNE_COOKIE:                   return "fortune_cookie";
+    case FOOD_GOLDEN_DRAGON_NOODLES:            return "golden_dragon_noodles";
+    case FOOD_GREAT_BANQUET_OF_THE_BREW:        return "great_banquet_of_the_brew";
+    case FOOD_GREAT_BANQUET_OF_THE_GRILL:       return "great_banquet_of_the_grill";
+    case FOOD_GREAT_BANQUET_OF_THE_OVEN:        return "great_banquet_of_the_oven";
+    case FOOD_GREAT_BANQUET_OF_THE_POT:         return "great_banquet_of_the_pot";
+    case FOOD_GREAT_BANQUET_OF_THE_STEAMER:     return "great_banquet_of_the_steamer";
+    case FOOD_GREAT_BANQUET_OF_THE_WOK:         return "great_banquet_of_the_wok";
+    case FOOD_GREAT_PANDAREN_BANQUET:           return "great_pandaren_banquet";
+    case FOOD_GREEN_CURRY_FISH:                 return "green_curry_fish";
+    case FOOD_GRILLED_DRAGON:                   return "grilled_dragon";
+    case FOOD_HARMONIOUS_RIVER_NOODLES:         return "harmonious_river_noodles";
+    case FOOD_LAVASCALE_FILLET:                 return "lavascale_fillet";
+    case FOOD_LUCKY_MUSHROOM_NOODLES:           return "lucky_mushroom_noodles";
+    case FOOD_MANGO_ICE:                        return "mango_ice";
+    case FOOD_MOGU_FISH_STEW:                   return "mogu_fish_stew";
+    case FOOD_MUSHROOM_SAUCE_MUDFISH:           return "mushroom_sauce_mudfish";
+    case FOOD_NOODLE_SOUP:                      return "noodle_soup";
+    case FOOD_PANDAREN_BANQUET:                 return "pandaren_banquet";
+    case FOOD_PANDAREN_TREASURE_NOODLE_SOUP:    return "pandaren_treasure_noodle_soup";
+    case FOOD_PEACH_PIE:                        return "peach_pie";
+    case FOOD_PEARL_MILK_TEA:                   return "pearl_milk_tea";
+    case FOOD_PERFECTLY_COOKED_INSTANT_NOODLES: return "perfectly_cooked_instant_noodles";
+    case FOOD_POUNDED_RICE_CAKE:                return "pounded_rice_cake";
+    case FOOD_RED_BEAN_BUN:                     return "red_bean_bun";
+    case FOOD_RICE_PUDDING:                     return "rice_pudding";
+    case FOOD_ROASTED_BARLEY_TEA:               return "roasted_barley_tea";
+    case FOOD_SAUTEED_CARROTS:                  return "sauteed_carrots";
+    case FOOD_SEA_MIST_RICE_NOODLES:            return "sea_mist_rice_noodles";
+    case FOOD_SEAFOOD_MAGNIFIQUE_FEAST:         return "seafood_magnifique_feast";
+    case FOOD_SEVERED_SAGEFISH_HEAD:            return "severed_sagefish_head";
+    case FOOD_SHRIMP_DUMPLINGS:                 return "shrimp_dumplings";
+    case FOOD_SKEWERED_EEL:                     return "skewered_eel";
+    case FOOD_SKEWERED_PEANUT_CHICKEN:          return "skewered_peanut_chicken";
+    case FOOD_SPICY_MUSHAN_NOODLES:             return "spicy_mushan_noodles";
+    case FOOD_SPICY_SALMON:                     return "spicy_salmon";
+    case FOOD_SPICY_VEGETABLE_CHIPS:            return "spciy_vegetable_chips";
+    case FOOD_STEAMED_CRAB_SURPRISE:            return "steamed_crab_surprise";
+    case FOOD_STEAMING_GOAT_NOODLES:            return "steaming_goat_noodles";
+    case FOOD_SWIRLING_MIST_SOUP:               return "swirling_mist_soup";
+    case FOOD_TANGY_YOGURT:                     return "tangy_yogurt";
+    case FOOD_TOASTED_FISH_JERKY:               return "toasted_fish_jerky";
+    case FOOD_TWIN_FISH_PLATTER:                return "twin_fish_platter";
+    case FOOD_VALLEY_STIR_FRY:                  return "valley_stir_fry";
+    case FOOD_WILDFOWL_GINSENG_SOUP:            return "wildfowl_ginseng_soup";
+    case FOOD_WILDFOWL_ROAST:                   return "wildfowl_roast";
+    case FOOD_YAK_CHEESE_CURDS:                 return "yak_cheese_curds";
+      // wod
+    case FOOD_BLACKROCK_BARBECUE:               return "blackrock_barbecue";
+    case FOOD_BLACKROCK_HAM:                    return "blackrock_ham";
+    case FOOD_BRAISED_BASILISK:                 return "braised_basilisk";
+    case FOOD_CALAMARI_CREPES:                  return "calamari_crepes";
+    case FOOD_CLEFTHOOF_POT_ROAST:              return "clefthoof_pot_roast";
+    case FOOD_CLEFTHOOF_SAUSAGES:               return "clefthoof_sausages";
+    case FOOD_CRISPY_FRIED_SCORPION:            return "crispy_fried_scorpion";
+    case FOOD_DEEP_FRIED_BASILISK:              return "deep_fried_basilisk";
+    case FOOD_FAT_SLEEPER_CAKES:                return "fat_sleeper_cakes";
+    case FOOD_FEAST_OF_BLOOD:                   return "feast_of_blood";
+    case FOOD_FEAST_OF_THE_WATERS:              return "feast_of_the_waters";
+    case FOOD_FIERY_CALAMARI:                   return "fiery_calamari";
+    case FOOD_FROSTY_STEW:                      return "frosty_stew";
+    case FOOD_GORGROND_CHOWDER:                 return "gorgrond_chowder";
+    case FOOD_GRILLED_GULPER:                   return "grilled_gulper";
+    case FOOD_HEARTY_ELEKK_STEAK:               return "hearty_elekk_steak";
+    case FOOD_NAGRAND_TEMPURA:                  return "nagrant_tempura";
+    case FOOD_PAN_SEARED_TALBUK:                return "pan_seared_talbuk";
+    case FOOD_RYLAK_CREPES:                     return "rylak_crepes";
+    case FOOD_SALTED_SKULKER:                   return "salted_skulker";
+    case FOOD_SLEEPER_SURPRISE:                 return "sleeper_surprise";
+    case FOOD_STARFLOWER_SANDWICH:              return "starflower_sandwich";
+    case FOOD_STEAMED_SCORPION:                 return "steamed_scorpion";
+    case FOOD_STURGEON_STEW:                    return "sturgeon_stew";
+    case FOOD_TALADOR_SURF_AND_TURF:            return "talador_surf_and_turf";
+    case FOOD_WHIPTAIL_CHOWDER:                 return "whiptail_chowder";
+    default:                                    return "unknown";
   }
 }
 
@@ -1317,6 +1373,10 @@ const char* util::cache_type_string( cache_e c )
     case CACHE_ARMOR:        return "armor";
     case CACHE_MULTISTRIKE:  return "multistrike";
     case CACHE_READINESS:    return "readiness";
+    case CACHE_VERSATILITY:  return "versatility";
+    case CACHE_DAMAGE_VERSATILITY:  return "damage_versatility";
+    case CACHE_HEAL_VERSATILITY:  return "heal_versatility";
+    case CACHE_MITIGATION_VERSATILITY:  return "mitigation_versatility";
 
     default: return "unknown";
   }
@@ -1461,6 +1521,7 @@ const char* util::stat_type_string( stat_e stat )
     case STAT_PVP_POWER: return "pvp_power";
     case STAT_MULTISTRIKE_RATING: return "multistrike_rating";
     case STAT_READINESS_RATING: return "readiness_rating";
+    case STAT_VERSATILITY_RATING: return "versatility_rating";
 
     case STAT_ALL: return "all";
 
@@ -1527,6 +1588,7 @@ const char* util::stat_type_abbrev( stat_e stat )
     case STAT_PVP_POWER: return "PvPP";
 
     case STAT_MULTISTRIKE_RATING: return "Mult";
+    case STAT_VERSATILITY_RATING: return "Vers";
 
     case STAT_READINESS_RATING: return "Readiness";
 
@@ -1548,9 +1610,8 @@ const char* util::stat_type_wowhead( stat_e stat )
     case STAT_INTELLECT: return "int";
     case STAT_SPIRIT:    return "spr";
 
-    // WOD-TODO: Complete guess, must check on wowhead once available
     case STAT_AGI_INT:   return "agiint";
-    case STAT_STR_AGI:   return "stragi";
+    case STAT_STR_AGI:   return "agistr";
     case STAT_STR_INT:   return "strint";
 
     case STAT_HEALTH: return "health";
@@ -1582,6 +1643,7 @@ const char* util::stat_type_wowhead( stat_e stat )
 
     case STAT_MULTISTRIKE_RATING: return "multistrike";
     case STAT_READINESS_RATING:   return "readiness";
+    case STAT_VERSATILITY_RATING: return "versatility"; // TODO-WOD: Verify
 
     case STAT_MAX: return "__all";
     default: return "unknown";
@@ -1938,7 +2000,9 @@ stat_e util::translate_item_mod( int item_mod )
     case ITEM_MOD_AGILITY_INTELLECT:   return STAT_AGI_INT;
     case ITEM_MOD_STRENGTH_AGILITY:    return STAT_STR_AGI;
     case ITEM_MOD_STRENGTH_INTELLECT:  return STAT_STR_INT;
+    case ITEM_MOD_VERSATILITY_RATING:  return STAT_VERSATILITY_RATING;
     default:                           return STAT_NONE;
+    // TODO-wOD: Versatility rating
   }
 }
 
@@ -1970,6 +2034,8 @@ int util::translate_stat( stat_e stat )
     case STAT_STR_AGI:            return ITEM_MOD_STRENGTH_AGILITY;
     case STAT_STR_INT:            return ITEM_MOD_STRENGTH_INTELLECT;
     default:                      return ITEM_MOD_NONE;
+
+    // TODO-wOD: Versatility rating
   }
 }
 
@@ -1989,13 +2055,18 @@ stat_e util::translate_rating_mod( unsigned ratings )
     return STAT_RESILIENCE_RATING;
   else if ( ratings & ( RATING_MOD_HASTE_MELEE | RATING_MOD_HASTE_RANGED | RATING_MOD_HASTE_SPELL ) )
     return STAT_HASTE_RATING;
+  else if ( ratings & ( RATING_MOD_VERS_DAMAGE | RATING_MOD_VERS_HEAL | RATING_MOD_VERS_MITIG ) )
+    return STAT_VERSATILITY_RATING;
   else if ( ratings & RATING_MOD_EXPERTISE )
     return STAT_EXPERTISE_RATING;
   else if ( ratings & RATING_MOD_MASTERY )
     return STAT_MASTERY_RATING;
   else if ( ratings & RATING_MOD_PVP_POWER )
     return STAT_PVP_POWER;
-  // TODO: WOW-MULTISTRIKE and READINESS.
+  else if ( ratings & RATING_MOD_MULTISTRIKE )
+    return STAT_MULTISTRIKE_RATING;
+  else if ( ratings & RATING_MOD_READINESS )
+    return STAT_READINESS_RATING;
 
   return STAT_NONE;
 }
@@ -3036,6 +3107,7 @@ double stat_itemization_weight( stat_e s )
     case STAT_MASTERY_RATING:
     case STAT_MULTISTRIKE_RATING:
     case STAT_READINESS_RATING:
+    case STAT_VERSATILITY_RATING:
     case STAT_SPIRIT:
       return 2;
     default:

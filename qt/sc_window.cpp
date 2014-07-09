@@ -6,6 +6,7 @@
 #include "simulationcraft.hpp"
 #include "simulationcraftqt.hpp"
 #include "SC_OptionsTab.hpp"
+#include "util/sc_mainwindowcommandline.hpp"
 #ifdef SC_PAPERDOLL
 #include "simcpaperdoll.hpp"
 #endif
@@ -594,7 +595,11 @@ void SC_MainWindow::createBestInSlotTab()
   for ( int i = 0; i < tnumProfiles; i++ )
   {
 #if ! defined( Q_WS_MAC ) && ! defined( Q_OS_MAC )
+  #if defined( SC_LINUX_PACKAGING )
+    QDir dir( SC_LINUX_PACKAGING "/profiles/" + tprofileList[ i ] );
+  #else
     QDir dir = QString( "profiles/" + tprofileList[ i ] );
+  #endif
 #else
     CFURLRef fileRef = CFBundleCopyResourceURL( CFBundleGetMainBundle(),
                        CFStringCreateWithCString( NULL,
@@ -1823,7 +1828,7 @@ void SimulateThread::run()
     // sim -> setup() opens the output_file_str so there is no detailed information to user about this failure
     sim -> errorf( "Failed to parse text" );
   }
-  if ( sim -> challenge_mode ) sim -> scale_to_itemlevel = 463;
+  if ( sim -> challenge_mode ) sim -> scale_to_itemlevel = 620; //Check
 
   if ( success )
   {

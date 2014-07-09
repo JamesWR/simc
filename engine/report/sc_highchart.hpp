@@ -5,9 +5,9 @@
 #ifndef SC_HIGHCHART_HPP
 #define SC_HIGHCHART_HPP
 
-#include "rapidjson/document.h"
-#include "rapidjson/stringbuffer.h"
-#include "rapidjson/prettywriter.h"
+#include "util/rapidjson/document.h"
+#include "util/rapidjson/stringbuffer.h"
+#include "util/rapidjson/prettywriter.h"
 
 namespace highchart
 {

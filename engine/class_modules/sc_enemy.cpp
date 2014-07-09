@@ -322,7 +322,7 @@ struct spell_dot_t : public spell_t
   {
     school = SCHOOL_FIRE;
     base_tick_time = timespan_t::from_seconds( 1.0 );
-    num_ticks = 10;
+    dot_duration = timespan_t::from_seconds( 10.0 );
     base_td = 5000;
 
     cooldown = player -> get_cooldown( name_str + "_" + target -> name() );
@@ -332,7 +332,7 @@ struct spell_dot_t : public spell_t
     {
       opt_float( "damage", base_td ),
       opt_timespan( "tick_time", base_tick_time ),
-      opt_int( "num_ticks", num_ticks ),
+      opt_timespan( "dot_duration", dot_duration ),
       opt_timespan( "cooldown",     cooldown -> duration ),
       opt_bool( "aoe_tanks", aoe_tanks ),
       opt_null()
@@ -736,11 +736,10 @@ void enemy_t::init_base_stats()
     initial_health_percentage = 100.0;
   }
 
-  // TODO-WOD: Base block?
-//  base.miss  = 0.030; //90, level differential handled in miss_chance()
-//  base.dodge = 0.030; //90, level differential handled in dodge_chance()
-//  base.parry = 0.030; //90, level differential handled in parry_chance()
-  base.block = 0.030; //90, level differential handled in block_chance()
+  // Override base block. Note that these are only the base values, the level 
+  // differentials are handled in action_t::miss_chance(), dodge_chance(), parry_chance(), block_chance()
+  // base miss, dodge, parry all set to 3% in player_t::init_base_stats()
+  base.block = 0.030; 
   base.block_reduction = 0.3;
 }
 
@@ -752,28 +751,29 @@ void enemy_t::init_defense()
   {
     double& a = initial.stats.armor;
 
-    switch ( level )
-    {
-      case 90: a = 1047; break; // From DBC Data. Reia will likely replace this with automation magic at some point.
-      case 91: a = 1185; break;
-      case 92: a = 1342; break;
-//      case 93: a = 1518; break;
-      case 93: a = 5234; break; // WOD-TODO: Dummy value to not mess up level 90 sims in the interim period of WoD alpha/beta.
-      case 94: a = 1718; break;
-      case 95: a = 1945; break;
-      case 96: a = 2201; break;
-      case 97: a = 2419; break;
-      case 98: a = 2819; break;
-      case 99: a = 3190; break;
-      case 100: a = 3610; break;
-      case 101: a = 4086; break;
-      case 102: a = 4624; break;
-      case 103: a = 5234; break;
-      default: if ( level < 90 )
-          a = ( int ) floor ( ( level * 10 ) + 147 );
-        break;
-    }
+    // a wild equation appears. It's super effective.
+    if ( level < 100 )
+      a = std::floor( 0.006464588162215 * std::exp( 0.123782410252464 * level ) + 0.5 );
+    else
+      a = 134*level-11864;
   }
+    
+  // for future reference, the equations above fit the given values 
+  // in the first colum table below. These numbers are magically accurate.
+  // Level  P/W/R   Mage
+  //   90     445    403
+  //   91     504    457
+  //   92     571    517
+  //   93     646    585
+  //   94     731    662
+  //   95     827    749
+  //   96     936    847
+  //   97    1059    959
+  //   98    1199   1086
+  //   99    1357   1129
+  //   100   1536   1336
+  //   101   1670   1443
+  //   102   1804   1550
 }
 
 // enemy_t::init_buffs ======================================================
@@ -847,7 +847,7 @@ void enemy_t::init_action_list()
         {
           case TMI_NONE:
             action_list_str += "/auto_attack,damage=" + util::to_string( 15000 * level_mult ) + ",attack_speed=2,aoe_tanks=1";
-            action_list_str += "/spell_dot,damage=" + util::to_string( 6000 * level_mult ) + ",tick_time=2,num_ticks=10,cooldown=40,aoe_tanks=1,if=!ticking";
+            action_list_str += "/spell_dot,damage=" + util::to_string( 6000 * level_mult ) + ",tick_time=2,dot_duration=20,cooldown=40,aoe_tanks=1,if=!ticking";
             action_list_str += "/spell_nuke,damage=" + util::to_string( 10000 * level_mult ) + ",cooldown=35,attack_speed=3,aoe_tanks=1";
             action_list_str += "/melee_nuke,damage=" + util::to_string( 16000 * level_mult ) + ",cooldown=27,attack_speed=3,aoe_tanks=1";
             break;
@@ -856,7 +856,7 @@ void enemy_t::init_action_list()
             int aa_damage [ 9 ] =  { 0, 5500, 7500, 9000, 12500, 15000, 25000, 45000, 100000 };
             int dot_damage [ 9 ] = { 0,  2700,  3750,  4500,   6250,   10000,   15000,  35000,  60000 };
             action_list_str += "/auto_attack,damage=" + util::to_string( aa_damage[ tmi_boss_enum ] ) + ",attack_speed=1.5";
-            action_list_str += "/spell_dot,damage=" + util::to_string( dot_damage[ tmi_boss_enum ] ) + ",tick_time=2,num_ticks=15,aoe_tanks=1,if=!ticking";
+            action_list_str += "/spell_dot,damage=" + util::to_string( dot_damage[ tmi_boss_enum ] ) + ",tick_time=2,dot_duration=30,aoe_tanks=1,if=!ticking";
         }
       }
       else if ( sim -> heal_target && this != sim -> heal_target )

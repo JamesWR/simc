@@ -181,69 +181,10 @@ dbc_index_t<item_enchantment_data_t, id_member_policy> item_enchantment_data_ind
 std::vector< std::vector< const spell_data_t* > > class_family_index;
 std::vector< std::vector< const spell_data_t* > > ptr_class_family_index;
 
-/* Create a map linking the tokenized name with a pointer to data with that name
- */
-template <typename T, typename KeyPolicy = id_function_policy>
-class tokenized_map_t
-{
-private:
-  typedef std::unordered_map<std::string, T*> index_t;
-// array of size 1 or 2, depending on whether we have PTR data
-#if SC_USE_PTR == 0
-  index_t idx[ 1 ];
-#else
-  index_t idx[ 2 ];
-#endif
-
-  void populate( index_t& idx, T* list )
-  {
-    assert( list );
-    for ( ; KeyPolicy::id( *list ); ++list )
-    {
-      std::string n = list -> name_cstr();
-      util::tokenize( n );
-      idx[ n ] = list;
-    }
-  }
-public:
-  // Initialize map from given list
-  void init( T* list, bool ptr )
-  {
-    assert( ! initialized( maybe_ptr( ptr ) ) );
-    populate( idx[ maybe_ptr( ptr ) ], list );
-  }
-
-  // Initialize map under the assumption that 'T::list( bool ptr )' returns a list of data
-  void init()
-  {
-    init( T::list( false ), false );
-    if ( SC_USE_PTR )
-      init( T::list( true ), true );
-  }
-
-  bool initialized( bool ptr = false ) const
-  { return ! idx[ maybe_ptr( ptr ) ].empty(); }
-
-  // Return the item with the given id, or NULL.
-  // Always returns non-NULL.
-  T* get( bool ptr, std::string n ) const
-  {
-    assert( initialized( maybe_ptr( ptr ) ) );
-    typename index_t::const_iterator it = idx[ maybe_ptr( ptr ) ].find( n );
-    if ( it != idx[ maybe_ptr( ptr ) ].end() )
-      return ( *it ).second;
-    else
-      return NULL;
-  }
-};
-
-// we need a quick way to access talent data from a tokenized name in the action expressions
-tokenized_map_t<talent_data_t> tokenized_talent_map;
-
 } // ANONYMOUS namespace ====================================================
 
 int dbc::build_level( bool ptr )
-{ return maybe_ptr( ptr ) ? 17345 : 18179; }
+{ return maybe_ptr( ptr ) ? 17345 : 18505; }
 
 const char* dbc::wow_version( bool ptr )
 { return maybe_ptr( ptr ) ? "5.4.0" : "6.0.1"; }
@@ -366,17 +307,7 @@ void dbc::apply_hotfixes()
 
   // Priest
 
-  // Hack to get proper tooltip text in reports
-  s = spell_data_t::find( 64904, false ); // Hymn of Hope (buff)
-  s -> _desc = "$@spelldesc64901";
-  if ( SC_USE_PTR )
-  {
-    s = spell_data_t::find( 64904, true ); // Hymn of Hope (buff)
-    s -> _desc = "$@spelldesc64901";
-  }
-
   // Rogue
-
 
   // Shaman
 
@@ -385,6 +316,14 @@ void dbc::apply_hotfixes()
   // Warrior
 
   // Druid
+  s = spell_data_t::find( 50288, false ); // Starfall probably doesn't take 30 seconds to hit the target.
+  assert( s -> _prj_speed == 0.8 && "Check the speed on Starfall" );
+  s -> _prj_speed = 20;
+  if ( SC_USE_PTR )
+  {
+    s = spell_data_t::find( 50288, true );
+    s -> _prj_speed = 20;
+  }
 
   // Death Knight
 
@@ -427,8 +366,6 @@ void dbc::init()
   talent_data_index.init();
   item_data_index.init( __item_data, false );
   item_enchantment_data_index.init( __spell_item_ench_data, false );
-
-  tokenized_talent_map.init();
 
 #if SC_USE_PTR
   item_data_index.init( __ptr_item_data, true );
@@ -814,9 +751,9 @@ std::string dbc::specialization_string( specialization_e spec )
     case DRUID_FERAL: return "feral";
     case DRUID_GUARDIAN: return "guardian";
     case DRUID_RESTORATION: return "restoration";
-    case PET_FEROCIOUS_VERSATILITY: return "ferocity";
-    case PET_TENACIOUS_VERSATILITY: return "tenacity";
-    case PET_CUNNING_VERSATILITY: return "cunning";
+    case PET_FEROCITY: return "ferocity";
+    case PET_TENACITY: return "tenacity";
+    case PET_CUNNING: return "cunning";
     default: return "unknown";
   }
 }
@@ -1091,6 +1028,84 @@ stat_data_t& dbc_t::race_base( pet_e /* r */ ) const
   return race_base( RACE_NONE );
 }
 
+double dbc_t::dodge_factor( player_e t ) const
+{
+  uint32_t class_id = util::class_id( t );
+
+  assert( class_id < dbc_t::class_max_size() );
+#if SC_USE_PTR
+  return ptr ? __ptr_gt_DodgeFactor[ class_id ]
+             : __gt_DodgeFactor[ class_id ];
+#else
+  return __gt_DodgeFactor[ class_id ];
+#endif
+}
+
+double dbc_t::parry_factor( player_e t ) const
+{
+  uint32_t class_id = util::class_id( t );
+
+  assert( class_id < dbc_t::class_max_size() );
+#if SC_USE_PTR
+  return ptr ? __ptr_gt_ParryFactor[ class_id ]
+             : __gt_ParryFactor[ class_id ];
+#else
+  return __gt_ParryFactor[ class_id ];
+#endif
+}
+
+double dbc_t::miss_factor( player_e t ) const
+{
+  uint32_t class_id = util::class_id( t );
+
+  assert( class_id < dbc_t::class_max_size() );
+#if SC_USE_PTR
+  return ptr ? __ptr_gt_MissFactor[ class_id ]
+             : __gt_MissFactor[ class_id ];
+#else
+  return __gt_MissFactor[ class_id ];
+#endif
+}
+
+double dbc_t::block_factor( player_e t ) const
+{
+  uint32_t class_id = util::class_id( t );
+
+  assert( class_id < dbc_t::class_max_size() );
+#if SC_USE_PTR
+  return ptr ? __ptr_gt_BlockFactor[ class_id ]
+             : __gt_BlockFactor[ class_id ];
+#else
+  return __gt_BlockFactor[ class_id ];
+#endif
+}
+
+double dbc_t::vertical_stretch( player_e t ) const
+{
+  uint32_t class_id = util::class_id( t );
+
+  assert( class_id < dbc_t::class_max_size() );
+#if SC_USE_PTR
+  return ptr ? __ptr_gt_VerticalStretch[ class_id ]
+             : __gt_VerticalStretch[ class_id ];
+#else
+  return __gt_VerticalStretch[ class_id ];
+#endif
+}
+
+double dbc_t::horizontal_shift( player_e t ) const
+{
+  uint32_t class_id = util::class_id( t );
+
+  assert( class_id < dbc_t::class_max_size() );
+#if SC_USE_PTR
+  return ptr ? __ptr_gt_HorizontalShift[ class_id ]
+             : __gt_HorizontalShift[ class_id ];
+#else
+  return __gt_HorizontalShift[ class_id ];
+#endif
+}
+
 double dbc_t::spell_scaling( player_e t, unsigned level ) const
 {
   uint32_t class_id = util::class_id( t );
@@ -1156,6 +1171,12 @@ double dbc_t::regen_base( player_e t, unsigned level ) const
 double dbc_t::regen_base( pet_e t, unsigned level ) const
 {
   return regen_base( util::pet_class_type( t ), level );
+}
+
+int dbc_t::resolve_item_scaling( unsigned level ) const
+{
+  assert( level > 0 && level <= MAX_LEVEL );
+  return __gt_item_scaling[ level - 1 ];
 }
 
 double dbc_t::health_base( player_e t, unsigned level ) const
@@ -1600,7 +1621,7 @@ const item_armor_type_data_t& dbc_t::item_armor_total( unsigned ilevel ) const
 #endif
 }
 
-double dbc_t::enemy_armor_mitigation( unsigned level ) const
+double dbc_t::armor_mitigation_constant( unsigned level ) const
 {
   assert( level > 0 && level <= ( MAX_LEVEL + 3 ) );
 #if SC_USE_PTR
@@ -2023,9 +2044,17 @@ talent_data_t* talent_data_t::find( const char* name_cstr, specialization_e spec
   return 0;
 }
 
-talent_data_t* talent_data_t::find_tokenized( const char* name, bool ptr )
+talent_data_t* talent_data_t::find_tokenized( const char* name, specialization_e spec, bool ptr )
 {
-  return tokenized_talent_map.get( ptr, name );
+  for ( talent_data_t* p = talent_data_t::list( ptr ); p -> name_cstr(); ++p )
+  {
+    std::string tokenized_name = p -> name_cstr();
+    util::tokenize( tokenized_name );
+    if ( util::str_compare_ci( name, tokenized_name ) && p -> specialization() == spec )
+      return p;
+  }
+
+  return 0;
 }
 
 void spell_data_t::link( bool /* ptr */ )
@@ -2276,7 +2305,11 @@ unsigned dbc_t::talent_ability_id( player_e c, specialization_e spec, const char
 
   talent_data_t* t;
   if ( name_tokenized )
-    t = talent_data_t::find_tokenized( spell_name, ptr );
+  {
+    t = talent_data_t::find_tokenized( spell_name, spec, ptr );
+    if ( ! t )
+      t = talent_data_t::find_tokenized( spell_name, SPEC_NONE, ptr );
+  }
   else
   {
     t = talent_data_t::find( spell_name, spec, ptr ); // first try finding with the given spec
@@ -2321,29 +2354,6 @@ unsigned dbc_t::class_ability_id( player_e c, specialization_e spec_id, const ch
     else
     {
       spec_index++;
-    }
-
-    // Test general spells
-    for ( unsigned n = 0; n < class_ability_size(); n++ )
-    {
-      if ( ! ( spell_id = class_ability( cid, 0, n ) ) )
-        break;
-
-      if ( ! spell( spell_id ) -> id() )
-        continue;
-
-      if ( util::str_compare_ci( spell( spell_id ) -> name_cstr(), spell_name ) )
-      {
-        // Spell has been replaced by another, so don't return id
-        if ( ! replaced_id( spell_id ) )
-        {
-          return spell_id;
-        }
-        else
-        {
-          return 0;
-        }
-      }
     }
 
     // Now test spec based class abilities.
@@ -2606,6 +2616,24 @@ unsigned dbc_t::perk_ability_id( specialization_e spec_id, const char* spell_nam
   return 0;
 }
 
+unsigned dbc_t::glyph_spell_id( unsigned property_id ) const
+{
+#if SC_USE_PTR
+  const glyph_property_data_t* table = ptr ? &__ptr_glyph_property_data[0] : &__glyph_property_data[0];
+#else
+  const glyph_property_data_t* table = &__glyph_property_data[0];
+#endif
+
+  while ( table -> id != 0 )
+  {
+    if ( table -> id == property_id )
+      return table -> spell_id;
+    table++;
+  }
+
+  return 0;
+}
+
 unsigned dbc_t::glyph_spell_id( player_e c, const char* spell_name ) const
 {
   unsigned cid = util::class_id( c );
@@ -2846,3 +2874,46 @@ double dbc_t::rppm_coefficient( specialization_e spec, unsigned spell_id ) const
 
 // DBC
 
+bool spell_data_t::affected_by( const spell_data_t* spell ) const
+{
+  if ( class_family() != spell -> class_family() )
+    return false;
+
+  for ( size_t flag_idx = 0; flag_idx < NUM_CLASS_FAMILY_FLAGS; flag_idx++ )
+  {
+    if ( ! class_flags( (int)flag_idx ) )
+      continue;
+
+    for ( size_t effect_idx = 1, end = spell -> effect_count(); effect_idx <= end; effect_idx++ )
+    {
+      const spelleffect_data_t& effect = spell -> effectN( effect_idx );
+      if ( ! effect.id() )
+        continue;
+
+      if ( class_flags( (int)flag_idx ) & effect.class_flags( (int)flag_idx ) )
+        return true;
+    }
+  }
+
+  return false;
+};
+
+bool spell_data_t::affected_by( const spelleffect_data_t* effect ) const
+{
+  if ( class_family() != effect -> spell() -> class_family() )
+    return false;
+
+  for ( size_t flag_idx = 0; flag_idx < NUM_CLASS_FAMILY_FLAGS; flag_idx++ )
+  {
+    if ( ! class_flags( (int)flag_idx ) )
+      continue;
+
+    if ( class_flags( (int)flag_idx ) & effect -> class_flags( (int)flag_idx ) )
+      return true;
+  }
+
+  return false;
+}
+
+bool spell_data_t::affected_by( const spelleffect_data_t& effect ) const
+{ return affected_by( &effect ); }

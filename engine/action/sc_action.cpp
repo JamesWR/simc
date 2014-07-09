@@ -304,6 +304,7 @@ action_t::action_t( action_e       ty,
   spell_power_mod(),
   base_execute_time( timespan_t::zero() ),
   base_tick_time( timespan_t::zero() ),
+  dot_duration( timespan_t::zero() ),
   time_to_execute( timespan_t::zero() ),
   time_to_travel( timespan_t::zero() ),
   target_specific_dot( false ),
@@ -331,7 +332,6 @@ action_t::action_t( action_e       ty,
   crit_bonus_multiplier          = 1.0;
   base_dd_adder                  = 0.0;
   base_ta_adder                  = 0.0;
-  num_ticks                      = 0;
   weapon                         = NULL;
   weapon_multiplier              = 1.0;
   base_add_multiplier            = 1.0;
@@ -497,7 +497,7 @@ void action_t::parse_effect_data( const spelleffect_data_t& spelleffect_data )
     case E_HEAL:
     case E_SCHOOL_DAMAGE:
     case E_HEALTH_LEECH:
-      spell_power_mod.direct = spelleffect_data.coeff();
+      spell_power_mod.direct = spelleffect_data.sp_coeff();
       attack_power_mod.direct = spelleffect_data.ap_coeff(); // change to ap_coeff
       base_dd_min      = player -> dbc.effect_min( spelleffect_data.id(), player -> level );
       base_dd_max      = player -> dbc.effect_max( spelleffect_data.id(), player -> level );
@@ -524,7 +524,7 @@ void action_t::parse_effect_data( const spelleffect_data_t& spelleffect_data )
         case A_PERIODIC_DAMAGE:
         case A_PERIODIC_LEECH:
         case A_PERIODIC_HEAL:
-          spell_power_mod.tick = spelleffect_data.coeff();
+          spell_power_mod.tick = spelleffect_data.sp_coeff();
           attack_power_mod.tick = spelleffect_data.ap_coeff(); // change to ap_coeff
           base_td          = player -> dbc.effect_average( spelleffect_data.id(), player -> level );
         case A_PERIODIC_ENERGIZE:
@@ -537,11 +537,11 @@ void action_t::parse_effect_data( const spelleffect_data_t& spelleffect_data )
           if ( spelleffect_data.period() > timespan_t::zero() )
           {
             base_tick_time   = spelleffect_data.period();
-            num_ticks        = ( int ) ( spelleffect_data.spell() -> duration() / base_tick_time );
+            dot_duration = spelleffect_data.spell() -> duration();
           }
           break;
         case A_SCHOOL_ABSORB:
-          spell_power_mod.direct = spelleffect_data.coeff();
+          spell_power_mod.direct = spelleffect_data.sp_coeff();
           attack_power_mod.direct = spelleffect_data.ap_coeff(); // change to ap_coeff
           base_dd_min      = player -> dbc.effect_min( spelleffect_data.id(), player -> level );
           base_dd_max      = player -> dbc.effect_max( spelleffect_data.id(), player -> level );
@@ -702,18 +702,6 @@ timespan_t action_t::travel_time() const
   return timespan_t::from_seconds( t );
 }
 
-// action_t::crit_chance ====================================================
-
-double action_t::crit_chance( double crit, int /* delta_level */ ) const
-{
-  double chance = crit;
-
-  if ( chance < 0.0 )
-    chance = 0.0;
-
-  return chance;
-}
-
 // action_t::total_crit_bonus ===============================================
 
 double action_t::total_crit_bonus() const
@@ -750,8 +738,8 @@ double action_t::calculate_weapon_damage( double attack_power )
 
   if ( sim -> debug )
   {
-    sim -> out_debug.printf( "%s weapon damage for %s: td=%.3f wd=%.3f bd=%.3f ws=%.3f pd=%.3f ap=%.3f",
-                   player -> name(), name(), total_dmg, dmg, weapon -> bonus_dmg, weapon_speed.total_seconds(), power_damage, attack_power );
+    sim -> out_debug.printf( "%s weapon damage for %s: base=%.0f-%.0f td=%.3f wd=%.3f bd=%.3f ws=%.3f pd=%.3f ap=%.3f",
+                   player -> name(), name(), weapon -> min_dmg, weapon -> max_dmg, total_dmg, dmg, weapon -> bonus_dmg, weapon_speed.total_seconds(), power_damage, attack_power );
   }
 
   return total_dmg;
@@ -759,7 +747,7 @@ double action_t::calculate_weapon_damage( double attack_power )
 
 // action_t::calculate_tick_amount ==========================================
 
-double action_t::calculate_tick_amount( action_state_t* state )
+double action_t::calculate_tick_amount( action_state_t* state, double dot_multiplier )
 {
   double amount = 0;
 
@@ -782,21 +770,24 @@ double action_t::calculate_tick_amount( action_state_t* state )
   if ( state -> result == RESULT_CRIT )
     amount *= 1.0 + total_crit_bonus();
   else if ( state -> result == RESULT_MULTISTRIKE )
-    amount *= 0.3;
+    amount *= composite_multistrike_multiplier( state );
   else if ( state -> result == RESULT_MULTISTRIKE_CRIT )
-    amount *= 0.3 * ( 1.0 + total_crit_bonus() );
+    amount *= composite_multistrike_multiplier( state ) * ( 1.0 + total_crit_bonus() );
+
+  amount *= dot_multiplier;
 
   // Record total amount to state
   state -> result_total = amount;
 
   if ( sim -> debug )
   {
-    sim -> out_debug.printf( "%s amount for %s on %s: ta=%.0f i_ta=%.0f b_ta=%.0f bonus_ta=%.0f s_mod=%.2f s_power=%.0f a_mod=%.2f a_power=%.0f mult=%.2f",
+    sim -> out_debug.printf( "%s amount for %s on %s: ta=%.0f i_ta=%.0f b_ta=%.0f bonus_ta=%.0f s_mod=%.2f s_power=%.0f a_mod=%.2f a_power=%.0f mult=%.2f, tick_mult=%.2f",
                    player -> name(), name(), target -> name(), amount,
                    init_tick_amount, base_ta( state ), bonus_ta( state ),
                    spell_tick_power_coefficient( state ), state -> composite_spell_power(),
                    attack_tick_power_coefficient( state ), state -> composite_attack_power(),
-                   state -> composite_ta_multiplier() );
+                   state -> composite_ta_multiplier(),
+                   dot_multiplier );
   }
 
   return amount;
@@ -884,11 +875,11 @@ double action_t::calculate_direct_amount( action_state_t* state )
   }
   else if ( state -> result == RESULT_MULTISTRIKE )
   {
-    amount *= 0.3;
+    amount *= composite_multistrike_multiplier( state );
   }
   else if ( state -> result == RESULT_MULTISTRIKE_CRIT )
   {
-    amount *= 0.3 * ( 1.0 + total_crit_bonus() );
+    amount *= composite_multistrike_multiplier( state ) * ( 1.0 + total_crit_bonus() );
   }
 
   if ( ! sim -> average_range ) amount = floor( amount + rng().real() );
@@ -1002,6 +993,41 @@ player_t* action_t::find_target_by_number( int number ) const
   return 0;
 }
 
+// action_t::calculate_block_result =========================================
+// moved here now that we found out that spells can be blocked (Holy Shield)
+// block_chance() and crit_block_chance() govern whether any given attack can
+// be blocked or not (zero return if not)
+
+block_result_e action_t::calculate_block_result( action_state_t* s )
+{
+  block_result_e block_result = BLOCK_RESULT_UNBLOCKED;
+
+  // Blocks also get a their own roll, and glances/crits can be blocked.
+  if ( result_is_hit( s -> result ) && may_block && ( player -> position() == POSITION_FRONT ) && ! ( s -> result == RESULT_NONE ) )
+  {
+    double block_total = block_chance( s );
+
+    if ( block_total > 0 )
+    {
+      double crit_block = crit_block_chance( s );
+
+      // Roll once for block, then again for crit block if the block succeeds
+      if ( rng().roll( block_total ) )
+      {
+        if ( rng().roll( crit_block ) )
+          block_result = BLOCK_RESULT_CRIT_BLOCKED;
+        else
+          block_result = BLOCK_RESULT_BLOCKED;
+      }
+    }
+  }
+
+  if ( sim -> debug )
+    sim -> out_debug.printf( "%s result for %s is %s", player -> name(), name(), util::block_result_type_string( block_result ) );
+
+  return block_result;
+}
+
 // action_t::execute ========================================================
 
 void action_t::execute()
@@ -1037,11 +1063,11 @@ void action_t::execute()
     player -> in_combat = true;
   }
 
+  size_t num_targets;
   if ( is_aoe() ) // aoe
   {
     std::vector< player_t* >& tl = target_list();
-
-    size_t num_targets = ( n_targets() < 0 ) ? tl.size() : n_targets();
+    num_targets = ( n_targets() < 0 ) ? tl.size() : n_targets();
     for ( size_t t = 0, max_targets = tl.size(); t < num_targets && t < max_targets; t++ )
     {
       action_state_t* s = get_state( pre_execute_state );
@@ -1060,11 +1086,13 @@ void action_t::execute()
 
       schedule_travel( s );
 
-      multistrike( execute_state, type == ACTION_HEAL ? HEAL_DIRECT : DMG_DIRECT );
+      schedule_multistrike( execute_state, type == ACTION_HEAL ? HEAL_DIRECT : DMG_DIRECT );
     }
   }
   else // single target
   {
+    num_targets = 1;
+
     action_state_t* s = get_state( pre_execute_state );
     s -> target = target;
     s -> n_targets = 1;
@@ -1080,22 +1108,7 @@ void action_t::execute()
 
     schedule_travel( s );
 
-    multistrike( execute_state, type == ACTION_HEAL ? HEAL_DIRECT : DMG_DIRECT );
-  }
-
-  if ( composite_teleport_distance( execute_state ) > 0 )
-    do_teleport( execute_state );
-
-  /* Miss reaction handling for dot executes */
-  if ( num_ticks > 0 && result_is_miss( execute_state -> result ) )
-  {
-    dot_t* dot = get_dot( execute_state -> target );
-    last_reaction_time = player -> total_reaction_time();
-    if ( sim -> debug )
-      sim -> out_debug.printf( "%s pushes out re-cast (%.2f) on miss for %s (%s)",
-                      player -> name(), last_reaction_time.total_seconds(), name(), dot -> name() );
-
-    dot -> miss_time = sim -> current_time + time_to_travel;
+    schedule_multistrike( execute_state, type == ACTION_HEAL ? HEAL_DIRECT : DMG_DIRECT );
   }
 
   consume_resource();
@@ -1105,32 +1118,36 @@ void action_t::execute()
   if ( ! dual ) stats -> add_execute( time_to_execute, target );
 
   if ( pre_execute_state )
-  {
     action_state_t::release( pre_execute_state );
-  }
 
-  if ( execute_action && result_is_hit( execute_state -> result ) )
+  // The rest of the execution depends on actually executing on target
+  if ( num_targets > 0 )
   {
-    assert( ! execute_action -> pre_execute_state );
-    execute_action -> schedule_execute( execute_action -> get_state( execute_state ) );
-  }
+    if ( composite_teleport_distance( execute_state ) > 0 )
+      do_teleport( execute_state );
 
-  // New callback system; proc abilities on execute. 
-  // TODO: Not used for now.
-  // Note: direct_tick_callbacks should not be used with the new system, 
-  // override action_t::proc_type() instead
-  if ( callbacks )
-  {
-    proc_types pt = execute_state -> proc_type();
-    proc_types2 pt2 = execute_state -> execute_proc_type2();
+    if ( execute_action && result_is_hit( execute_state -> result ) )
+    {
+      assert( ! execute_action -> pre_execute_state );
+      execute_action -> schedule_execute( execute_action -> get_state( execute_state ) );
+    }
 
-    // "On spell cast"
-    if ( ! background && pt != PROC1_INVALID )
-      action_callback_t::trigger( player -> callbacks.procs[ pt ][ PROC2_CAST ], this, execute_state );
+    // New callback system; proc abilities on execute. 
+    // Note: direct_tick_callbacks should not be used with the new system, 
+    // override action_t::proc_type() instead
+    if ( callbacks )
+    {
+      proc_types pt = execute_state -> proc_type();
+      proc_types2 pt2 = execute_state -> execute_proc_type2();
 
-    // "On an execute result"
-    if ( pt != PROC1_INVALID && pt2 != PROC2_INVALID )
-      action_callback_t::trigger( player -> callbacks.procs[ pt ][ pt2 ], this, execute_state );
+      // "On spell cast"
+      if ( ! background && pt != PROC1_INVALID )
+        action_callback_t::trigger( player -> callbacks.procs[ pt ][ PROC2_CAST ], this, execute_state );
+
+      // "On an execute result"
+      if ( pt != PROC1_INVALID && pt2 != PROC2_INVALID )
+        action_callback_t::trigger( player -> callbacks.procs[ pt ][ pt2 ], this, execute_state );
+    }
   }
 
   if ( repeating && ! proc ) schedule_execute();
@@ -1142,85 +1159,79 @@ result_e action_t::calculate_multistrike_result( action_state_t* s )
 {
   if ( ! s -> target ) return RESULT_NONE;
   if ( ! may_multistrike ) return RESULT_NONE;
-  if ( ! harmful ) return RESULT_NONE;
+  //if ( ! harmful ) return RESULT_NONE; See if this screws anything up. 
 
   result_e r = RESULT_NONE;
-  if ( rng().roll( composite_multistrike() / 2.0 ) )
+  if ( rng().roll( composite_multistrike() ) )
   {
     r = RESULT_MULTISTRIKE;
 
-    int delta_level = s -> target -> level - player -> level;
-    double crit = crit_chance( s -> composite_crit(), delta_level );
-    if ( rng().roll( crit ) )
+    if ( rng().roll( std::max( s -> composite_crit(), 0.0 ) ) )
       r = RESULT_MULTISTRIKE_CRIT;
   }
 
   return r;
 }
 
-// action_t::multistrike ====================================================
+// action_t::schedule_multistrike ===========================================
 
-void action_t::multistrike( action_state_t* state, dmg_e type )
+// Schedule multistrikes off of an ability execute; return the number of
+// multistrikes generated by the execution (per target). The multistrike state
+// will be based off of the passed state, with independent result, and damage
+// resolution.
+int action_t::schedule_multistrike( action_state_t* state, dmg_e type, double tick_multiplier )
 {
   if ( ! may_multistrike )
-    return;
+    return 0;
 
   if ( state -> result_amount <= 0 )
-    return;
+    return 0;
 
   if ( ! result_is_hit( state -> result ) )
-    return;
+    return 0;
 
-  result_e r = calculate_multistrike_result( state );
-  if ( result_is_multistrike( r ) )
+  // multistrike can proc twice
+  int n_strikes = 0;
+  for ( int i = 0; i < 2; i++ )
   {
+    result_e r = calculate_multistrike_result( state );
+    if ( ! result_is_multistrike( r ) )
+      continue;
+
     action_state_t* ms_state = get_state( state );
     ms_state -> target = state -> target;
     ms_state -> n_targets = 1;
     ms_state -> chain_target = 0;
     ms_state -> result = r;
+
     if ( type == DMG_DIRECT || type == HEAL_DIRECT )
-    {
-      ms_state -> result_amount = calculate_direct_amount( ms_state );
-      schedule_multistrike_travel( ms_state );
-    }
+      multistrike_direct( state, ms_state );
     else if ( type == DMG_OVER_TIME || type == HEAL_OVER_TIME )
-    {
-      ms_state -> result_amount = calculate_tick_amount( ms_state );
-      assess_damage( ms_state -> result_type, ms_state );
-      action_state_t::release( ms_state );
-    }
+      multistrike_tick( state, ms_state, tick_multiplier );
+
+    // Schedule multistrike "execute"; in reality it calls either impact, or
+    // assess_damage (for ticks).
+    new ( *sim ) multistrike_execute_event_t( ms_state );
+
+    n_strikes++;
   }
 
-  r = calculate_multistrike_result( state );
-  if ( result_is_multistrike( r ) )
-  {
-    action_state_t* ms_state = get_state( state );
-    ms_state -> target = state -> target;
-    ms_state -> n_targets = 1;
-    ms_state -> chain_target = 0;
-    ms_state -> result = r;
-    if ( type == DMG_DIRECT || type == HEAL_DIRECT )
-    {
-      ms_state -> result_amount = calculate_direct_amount( ms_state );
-      schedule_multistrike_travel( ms_state );
-    }
-    else if ( type == DMG_OVER_TIME || type == HEAL_OVER_TIME )
-    {
-      ms_state -> result_amount = calculate_tick_amount( ms_state );
-      assess_damage( ms_state -> result_type, ms_state );
-      action_state_t::release( ms_state );
-    }
-  }
+  return n_strikes;
+}
+
+// action_t::multistrike_direct =============================================
+
+// Generate a direct damage multistrike. Note that the multistrike damage will
+// travel like normal damage events, based off of the ability travel time.
+void action_t::multistrike_direct( const action_state_t*, action_state_t* ms_state )
+{
+  ms_state -> result_amount = calculate_direct_amount( ms_state );
 }
 
 // action_t::tick ===========================================================
 
 void action_t::tick( dot_t* d )
 {
-  if ( sim -> debug )
-    sim -> out_debug.printf( "%s ticks (%d of %d)", name(), d -> current_tick, d -> num_ticks );
-
   if ( tick_action )
   {
     if ( tick_action -> pre_execute_state )
@@ -1241,17 +1252,17 @@ void action_t::tick( dot_t* d )
     d -> state -> result = RESULT_HIT;
     update_state( d -> state, type == ACTION_HEAL ? HEAL_OVER_TIME : DMG_OVER_TIME );
 
-    if ( tick_may_crit && rng().roll( crit_chance( d -> state -> composite_crit(), d -> state -> target -> level - player -> level ) ) )
+    if ( tick_may_crit && rng().roll( d -> state -> composite_crit() ) )
       d -> state -> result = RESULT_CRIT;
 
-    d -> state -> result_amount = calculate_tick_amount( d -> state );
+    d -> state -> result_amount = calculate_tick_amount( d -> state, d -> get_last_tick_factor() );
 
     assess_damage( type == ACTION_HEAL ? HEAL_OVER_TIME : DMG_OVER_TIME, d -> state );
 
     if ( sim -> debug )
       d -> state -> debug();
 
-    multistrike( d -> state, type == ACTION_HEAL ? HEAL_OVER_TIME : DMG_OVER_TIME );
+    schedule_multistrike( d -> state, type == ACTION_HEAL ? HEAL_OVER_TIME : DMG_OVER_TIME );
   }
 
   if ( harmful && callbacks && type != ACTION_HEAL )
@@ -1260,6 +1271,14 @@ void action_t::tick( dot_t* d )
   if ( ! periodic_hit ) stats -> add_tick( d -> time_to_tick, d -> state -> target );
 
   player -> trigger_ready();
+}
+
+// action_t::multistrike_tick ===============================================
+
+// Generate a periodic multistrike
+void action_t::multistrike_tick( const action_state_t*, action_state_t* ms_state, double tick_multiplier )
+{
+  ms_state -> result_amount = calculate_tick_amount( ms_state, tick_multiplier );
 }
 
 // action_t::last_tick ======================================================
@@ -1274,84 +1293,59 @@ void action_t::last_tick( dot_t* d )
   }
 }
 
-// action_t::update_vengeance ===============================================
+// action_t::update_resolve ======================================================
 
-void action_t::update_vengeance( dmg_e type,
+void action_t::update_resolve( dmg_e type,
                                  action_state_t* s )
 {
-  // Vengenace damage->pct modifier
-  double veng_pct = ( ! sim -> challenge_mode ) ? 0.015 : 0.018;  // the new value (0.015) is in spellid 84839, effect#1.  CM value is not.
+  // pointers to make life easy
+  player_t* source = s -> action -> player;
+  player_t* target = s -> target;
 
-  // check that the target has vengeance, damage type, and that the executing player is an enemy
-  if ( s -> target -> vengeance_is_started() && ( type == DMG_DIRECT || type == DMG_OVER_TIME ) && s-> action -> player -> is_enemy() )
+  // check that the target has Resolve, check for damage type, and check that the source player is an enemy
+  if ( target -> resolve_manager.is_started() && ( type == DMG_DIRECT || type == DMG_OVER_TIME ) && source -> is_enemy() )
   {
+    assert( source -> actor_spawn_index >= 0 && "Trying to register resolve damage event from a unspawned player! Something is seriously broken in player_t::arise/demise." );
+
     // bool for auto attack, to make code easier to read
     bool is_auto_attack = ( player -> main_hand_attack && s -> action == player -> main_hand_attack ) || ( player -> off_hand_attack && s -> action == player -> off_hand_attack );
 
-    // On spell/special attacks that miss, we just extend the duration of Vengeance.  This includes all RESULT_MISS events and
-    // dodged/parried attacks that are not auto-attacks; Auto-attack dodges/parries still grant Vengeance normally based on raw damage
-    if ( ( s -> result == RESULT_MISS && ! sim -> challenge_mode ) || // 5.4: misses do not generate Vengeance except in CM
-         ( result_is_miss( s -> result ) && ! is_auto_attack ) )      // Any avoided non-auto-attack
+    // Resolve is only updated on damage taken events. The one exception is auto-attacks, which grant Resolve even on a dodge/parry.
+    // If this is a miss that isn't an auto-attack, we can bail out early (and not recalculate)
+    if ( result_is_miss( s -> result ) && ! is_auto_attack )
+      return;
+
+    // Store raw damage of attack result
+    double raw_resolve_amount = s -> result_raw;
+    
+    // If the attack does zero damage, it's irrelevant for the purposes
+    // Skip updating the Resolve tables if the damage is zero to limit unnecessary events
+    if ( raw_resolve_amount > 0.0 )
     {
-      //extend duration, but do not add any vengeance
-      s -> target -> buffs.vengeance -> trigger( 1,
-                                                 s -> target -> buffs.vengeance -> value(),
-                                                 1.0 ,
-                                                 timespan_t::from_seconds( 20.0 ) );
+      // modify according to damage type; spell damage gives 2.5x as much Resolve
+      raw_resolve_amount *= ( get_school() == SCHOOL_PHYSICAL ? 1.0 : 2.5 );
+
+      // normalize by player's current health, ignoring any temporary health buffs
+      raw_resolve_amount /= ( target -> resources.max[ RESOURCE_HEALTH ] - target -> temporary.resource[ RESOURCE_HEALTH ] );
+
+      // update the player's resolve diminishing return list first!
+      target -> resolve_manager.add_diminishing_return_entry( source, source -> get_raw_dps( s ), sim -> current_time );
+
+      assert( source -> actor_spawn_index >= 0 && "Trying to register resolve damage event from a unspawned player!" );
+
+      // get diminishing returns - done at the time of the event, never recalculated
+      // see http://us.battle.net/wow/en/forum/topic/13087818929?page=6#105
+      int rank = target -> resolve_manager.get_diminsihing_return_rank( source -> actor_spawn_index );
+
+      // update the player's resolve damage table 
+      target -> resolve_manager.add_damage_event( raw_resolve_amount / rank, sim -> current_time );
+    
+      // cycle through the resolve damage table and add the appropriate amount of Resolve from each event
+      target -> resolve_manager.update();
     }
-    else // vengeance from auto attack or successful spell
-    {
-      // update the player's vengeance_actor_list
-      if ( ! sim -> challenge_mode )
-        s -> target -> vengeance_list.add( player, player -> get_raw_dps( s ), sim -> current_time );
 
-      double raw_damage = s -> result_raw;
 
-      // Take swing time for auto_attacks, take 60 for special attacks (this is how blizzard does it)
-      double attack_frequency = 0.0;
-      if ( ( player -> main_hand_attack && s -> action == player -> main_hand_attack ) || ( player -> off_hand_attack && s -> action == player -> off_hand_attack ) )
-        attack_frequency = 1.0 / s -> action -> execute_time().total_seconds();
-      else
-        attack_frequency = 1.0 / 60.0;
-
-      // Create new vengeance value
-      double new_amount = veng_pct * raw_damage; // new vengeance from hit
-
-      // modify according to damage type; spell damage gives 2.5x as much Vengeance
-      new_amount *= ( get_school() == SCHOOL_PHYSICAL ? 1.0 : 2.5 );
-
-      // apply diminishing returns according to position on actor list
-      if ( ! sim -> challenge_mode  )
-        new_amount /= s -> target -> vengeance_list.get_actor_rank( player );
-
-      // Perform 20-second decaying average
-      new_amount += s -> target -> buffs.vengeance -> value() *
-                    s -> target -> buffs.vengeance -> remains().total_seconds() / 20.0; // old diminished vengeance
-
-      // calculate vengeance equilibrium and engage 50% ramp-up mechanism if appropriate
-      double vengeance_equil = veng_pct * raw_damage * attack_frequency * 20;
-      if ( vengeance_equil / 2.0 > new_amount )
-      {
-        if ( sim -> debug )
-        {
-          sim -> out_debug.printf( "%s triggered vengeance ramp-up mechanism due to %s from %s because new amount=%.2f and equilibrium=%.2f.",
-                         s -> target -> name(), s -> action -> name(), s -> action -> player -> name(), new_amount, vengeance_equil );
-        }
-        new_amount = vengeance_equil / 2.0;
-      }
-
-      // clamp at max health
-      if ( new_amount > s -> target -> resources.max[ RESOURCE_HEALTH ] ) new_amount = s -> target -> resources.max[ RESOURCE_HEALTH ];
-
-      if ( sim -> debug )
-      {
-        sim -> out_debug.printf( "%s updated vengeance due to %s from %s. New vengeance.value=%.2f vengeance.damage=%.2f.",
-                       s -> target -> name(), s -> action -> name(), s -> action -> player -> name() , new_amount, raw_damage );
-      }
-
-      s -> target -> buffs.vengeance -> trigger( 1, new_amount, 1, timespan_t::from_seconds( 20.0 ) );
-    }
-  } // END Vengeance
+  } // END Resolve
 }
 
 // action_t::assess_damage ==================================================
@@ -1359,8 +1353,8 @@ void action_t::update_vengeance( dmg_e type,
 void action_t::assess_damage( dmg_e    type,
                               action_state_t* s )
 {
-  // hook up vengeance here, before armor mitigation, avoidance, and dmg reduction effects, etc.
-  update_vengeance( type, s );
+  // hook up resolve here, before armor mitigation, avoidance, and dmg reduction effects, etc.
+  update_resolve( type, s );
 
   s -> target -> assess_damage( get_school(), type, s );
 
@@ -1695,37 +1689,65 @@ void action_t::init()
 
   if ( quiet ) stats -> quiet = true;
 
-  // TODO: WOD-MULTISTRIKE
   if ( may_multistrike == -1 )
     may_multistrike = may_crit || tick_may_crit;
 
   if ( may_crit || tick_may_crit )
     snapshot_flags |= STATE_CRIT | STATE_TGT_CRIT;
 
-  if ( spell_power_mod.tick > 0 || num_ticks > 0 )
-    snapshot_flags |= STATE_MUL_TA | STATE_TGT_MUL_TA;
+  if ( ( spell_power_mod.tick > 0 || attack_power_mod.tick > 0 ) && dot_duration > timespan_t::zero() )
+    snapshot_flags |= STATE_MUL_TA | STATE_TGT_MUL_TA | STATE_MUL_PERSISTENT | STATE_VERSATILITY;
 
   if ( ( spell_power_mod.direct > 0 || attack_power_mod.direct > 0 ) || weapon_multiplier > 0 )
-    snapshot_flags |= STATE_MUL_DA | STATE_TGT_MUL_DA;
+    snapshot_flags |= STATE_MUL_DA | STATE_TGT_MUL_DA | STATE_MUL_PERSISTENT | STATE_VERSATILITY;
 
   if ( ( spell_power_mod.direct > 0 || spell_power_mod.tick > 0 ) )
+  {
     snapshot_flags |= STATE_SP;
+    if ( player -> role == ROLE_TANK )
+      snapshot_flags |= STATE_RESOLVE;
+  }
 
   if ( ( weapon_power_mod > 0 || attack_power_mod.direct > 0 || attack_power_mod.tick > 0 ) )
+  {
     snapshot_flags |= STATE_AP;
+    if ( player -> role == ROLE_TANK )
+      snapshot_flags |= STATE_RESOLVE;
+  }
 
-  if ( num_ticks > 0 && ( hasted_ticks || channeled ) )
+  if ( dot_duration > timespan_t::zero() && ( hasted_ticks || channeled ) )
     snapshot_flags |= STATE_HASTE;
 
   // WOD: Dot Snapshoting is gone
   update_flags |= snapshot_flags;
-  update_flags &= ~STATE_MUL_DA;
-  update_flags &= ~STATE_MUL_TA;
 
-  if ( pre_combat || action_list == "precombat" )
+  // WOD: Yank out persistent multiplier from update flags, so they get
+  // snapshot once at the application of the spell
+  update_flags &= ~STATE_MUL_PERSISTENT;
+
+  // Channeled dots get haste snapshoted
+  if ( channeled )
+  {
+    update_flags &= ~STATE_HASTE;
+  }
+
+  if ( ! ( background || sequence ) && ( pre_combat || action_list == "precombat" ) )
   {
     if ( harmful )
-      sim -> errorf( "Player %s attempted to add harmful action %s to precombat action list", player -> name(), name() );
+    {
+      if ( player -> first_cast == true )
+      {
+        if ( this -> travel_speed > 0 || this -> base_execute_time > timespan_t::zero() )
+        {
+          player -> first_cast = false;
+          player -> precombat_action_list.push_back( this );
+        }
+        else
+          sim -> errorf( "Player %s attempted to add harmful action %s to precombat action list. Only one spell with travel time/cast time may be cast here.", player -> name(), name() );
+      }
+      else
+        sim -> errorf( "Player %s attempted to add harmful action %s to precombat action list. A maximum of one harmful spell may be cast here.", player -> name(), name() );
+    }
     else
       player -> precombat_action_list.push_back( this );
   }
@@ -1752,9 +1774,6 @@ void action_t::reset()
   }
   cooldown -> reset( false );
   line_cooldown.reset( false );
-  // FIXME! Is this really necessary? All DOTs get reset during player_t::reset()
-  dot_t* dot = find_dot( target );
-  if ( dot ) dot -> reset();
   execute_event = 0;
   travel_events.clear();
 }
@@ -1768,7 +1787,7 @@ void action_t::cancel()
 
   if ( channeled )
   {
-    if ( dot_t* d = get_dot( target ) )
+    if ( dot_t* d = find_dot( target ) )
       d -> cancel();
   }
 
@@ -1812,9 +1831,8 @@ void action_t::interrupt_action()
   if ( player -> channeling == this )
   {
     dot_t* dot = get_dot();
-    if ( dot -> ticking ) last_tick( dot );
-    player -> channeling = nullptr;
-    dot -> reset();
+    assert( dot -> is_ticking() );
+    dot -> cancel();
   }
 
   core_event_t::cancel( execute_event );
@@ -1881,7 +1899,7 @@ expr_t* action_t::create_expression( const std::string& name_str )
       action.snapshot_state( state, amount_type );
       state -> target = action.target;
       if ( amount_type == DMG_OVER_TIME || amount_type == HEAL_OVER_TIME )
-        return action.calculate_tick_amount( state );
+        return action.calculate_tick_amount( state, 1.0 /* Assumes full tick damage calculation */ );
       else
       {
         state -> result_amount = action.calculate_direct_amount( state );
@@ -1895,32 +1913,7 @@ expr_t* action_t::create_expression( const std::string& name_str )
     { delete state; }
   };
 
-  if ( name_str == "n_ticks" )
-  {
-    struct n_ticks_expr_t : public action_expr_t
-    {
-      n_ticks_expr_t( action_t& a ) : action_expr_t( "n_ticks", a ) {}
-      virtual double evaluate()
-      {
-        dot_t* dot = action.get_dot();
-        int n_ticks = action.hasted_num_ticks( action.player -> cache.spell_speed() );
-        if ( action.dot_behavior == DOT_EXTEND && dot -> ticking )
-          n_ticks += std::min( ( int ) ( n_ticks / 2 ), dot -> num_ticks - dot -> current_tick );
-        return n_ticks;
-      }
-    };
-    return new n_ticks_expr_t( *this );
-  }
-  else if ( name_str == "add_ticks" )
-  {
-    struct add_ticks_expr_t : public action_expr_t
-    {
-      add_ticks_expr_t( action_t& a ) : action_expr_t( "add_ticks", a ) {}
-      virtual double evaluate() { return action.hasted_num_ticks( action.player -> cache.spell_speed() ); }
-    };
-    return new add_ticks_expr_t( *this );
-  }
-  else if ( name_str == "cast_time" )
+  if ( name_str == "cast_time" )
     return make_mem_fn_expr( name_str, *this, &action_t::execute_time );
   else if ( name_str == "execute_time" )
   {
@@ -1945,7 +1938,7 @@ expr_t* action_t::create_expression( const std::string& name_str )
       virtual double evaluate()
       {
         dot_t* dot = action.get_dot();
-        if ( dot -> ticking )
+        if ( dot -> is_ticking() )
           return action.tick_time( action.composite_haste() ).total_seconds();
         else
           return 0;
@@ -2030,9 +2023,82 @@ expr_t* action_t::create_expression( const std::string& name_str )
     return new cast_delay_expr_t( *this );
   }
   else if ( name_str == "tick_multiplier" )
-    return make_mem_fn_expr( "tick_multiplier", *this, &action_t::composite_ta_multiplier );
+  {
+    struct tick_multiplier_expr_t : public expr_t
+    {
+      action_t* action;
+      action_state_t* state;
+
+      tick_multiplier_expr_t( action_t* a ) : 
+        expr_t( "tick_multiplier" ), action( a ), state( a -> get_state() )
+      {
+        state -> n_targets    = 1;
+        state -> chain_target = 0;
+      }
+
+      virtual double evaluate()
+      {
+        action -> snapshot_state( state, RESULT_TYPE_NONE );
+        state -> target = action -> target;
+
+        return action -> composite_ta_multiplier( state );
+      }
+
+      virtual ~tick_multiplier_expr_t()
+      { delete state; }
+    };
+
+    return new tick_multiplier_expr_t( this );
+  }
+  else if ( name_str == "persistent_multiplier" )
+  {
+    struct persistent_multiplier_expr_t : public expr_t
+    {
+      action_t* action;
+      action_state_t* state;
+
+      persistent_multiplier_expr_t( action_t* a ) : 
+        expr_t( "persistent_multiplier" ), action( a ), state( a -> get_state() )
+      {
+        state -> n_targets    = 1;
+        state -> chain_target = 0;
+      }
+
+      virtual double evaluate()
+      {
+        action -> snapshot_state( state, RESULT_TYPE_NONE );
+        state -> target = action -> target;
+
+        return action -> composite_persistent_multiplier( state );
+      }
+
+      virtual ~persistent_multiplier_expr_t()
+      { delete state; }
+    };
+
+    return new persistent_multiplier_expr_t( this );
+  }
   else if ( name_str == "charges" )
     return make_ref_expr( name_str, cooldown -> current_charge );
+  else if ( name_str == "charges_fractional" )
+  {
+    struct charges_fractional_expr_t : public expr_t
+    {
+      action_t* action;
+      charges_fractional_expr_t( action_t* a ) :
+        expr_t( "charges_fractional" ), action( a )
+      {}
+      virtual double evaluate()
+      {
+        cooldown_t* c = action -> cooldown;
+        double charges = c -> current_charge;
+        if ( action -> cooldown -> recharge_event )
+          charges += 1 - ( c -> recharge_event -> remains() / c -> duration );
+        return charges;
+      }
+    };
+    return new charges_fractional_expr_t( this );
+  }
   else if ( name_str == "max_charges" )
     return make_ref_expr( name_str, cooldown -> charges );
   else if ( name_str == "recharge_time" )
@@ -2072,11 +2138,24 @@ expr_t* action_t::create_expression( const std::string& name_str )
     struct crit_pct_current_expr_t : public expr_t
     {
       action_t* action;
-      crit_pct_current_expr_t( action_t* a ) : expr_t( "crit_pct_current" ), action( a ) {}
+      action_state_t* state;
+
+      crit_pct_current_expr_t( action_t* a ) :
+        expr_t( "crit_pct_current" ), action( a ), state( a -> get_state() )
+      {
+        state -> n_targets = 1;
+        state -> chain_target = 0;
+      }
       virtual double evaluate()
       {
-        return action -> composite_crit() * 100.0;
+        state -> target = action -> target;
+        action -> snapshot_state( state, RESULT_TYPE_NONE );
+
+        return std::min( 100.0, state -> composite_crit() * 100.0 );
       }
+
+      virtual ~crit_pct_current_expr_t()
+      { delete state; }
     };
     return new crit_pct_current_expr_t( this );
   }
@@ -2254,43 +2333,6 @@ timespan_t action_t::tick_time( double haste ) const
   return t;
 }
 
-// action_t::hasted_num_ticks ===============================================
-
-int action_t::hasted_num_ticks( double haste, timespan_t d ) const
-{
-  if ( ! hasted_ticks )
-  {
-    if ( d < timespan_t::zero() )
-      return num_ticks;
-    else
-      return static_cast<int>( d / base_tick_time );
-  }
-
-#ifndef NDEBUG
-  if ( haste <= 0.0 )
-  {
-    sim -> errorf( "%s action_t::hasted_num_ticks, action %s haste <= 0.0", player -> name(), name() );
-    assert( false );
-  }
-#endif
-
-  // For the purposes of calculating the number of ticks, the tick time is rounded to the 3rd decimal place.
-  // It's important that we're accurate here so that we model haste breakpoints correctly.
-
-  if ( d < timespan_t::zero() )
-    d = num_ticks * base_tick_time;
-
-  timespan_t t = timespan_t::from_millis( ( int ) ( ( base_tick_time.total_millis() * haste ) + 0.5 ) );
-
-  double n = d / t;
-
-  // banker's rounding
-  if ( n - 0.5 == ( double ) ( int ) n && ( ( int ) n ) % 2 == 0 )
-    return ( int ) ceil ( n - 0.5 );
-
-  return ( int ) floor( n + 0.5 );
-}
-
 // action_t::snapshot_internal ==============================================
 
 void action_t::snapshot_internal( action_state_t* state, uint32_t flags, dmg_e rt )
@@ -2311,11 +2353,17 @@ void action_t::snapshot_internal( action_state_t* state, uint32_t flags, dmg_e r
   if ( flags & STATE_SP )
     state -> spell_power = int( composite_spell_power() * player -> composite_spell_power_multiplier() );
 
+  if ( flags & STATE_VERSATILITY )
+    state -> versatility = composite_versatility( state );
+
   if ( flags & STATE_MUL_DA )
-    state -> da_multiplier = composite_da_multiplier();
+    state -> da_multiplier = composite_da_multiplier( state );
 
   if ( flags & STATE_MUL_TA )
-    state -> ta_multiplier = composite_ta_multiplier();
+    state -> ta_multiplier = composite_ta_multiplier( state );
+
+  if ( flags & STATE_MUL_PERSISTENT )
+    state -> persistent_multiplier = composite_persistent_multiplier( state );
 
   if ( flags & STATE_TGT_MUL_DA )
     state -> target_da_multiplier = composite_target_da_multiplier( state -> target );
@@ -2331,6 +2379,9 @@ void action_t::snapshot_internal( action_state_t* state, uint32_t flags, dmg_e r
 
   if ( flags & STATE_TGT_MITG_TA )
     state -> target_mitigation_ta_multiplier = composite_target_mitigation( state -> target, get_school() );
+
+  if ( flags & STATE_RESOLVE )
+    state -> resolve = composite_resolve( state );
 }
 
 void action_t::consolidate_snapshot_flags()
@@ -2343,18 +2394,19 @@ void action_t::consolidate_snapshot_flags()
   if ( impact_action  ) snapshot_flags |= impact_action  -> snapshot_flags;
 }
 
-double action_t::composite_target_crit( player_t* target ) const
+timespan_t action_t::composite_dot_duration( const action_state_t* s ) const
 {
-  double c = 0.0;
-
-  // "Crit chances of players against mobs that are higher level than you are reduced by 1% per level difference, in Mists."
-  // Ghostcrawler on 20/6/2012 at http://us.battle.net/wow/en/forum/topic/5889309137?page=5#97
-  if ( ( target -> is_enemy() || target -> is_add() ) && ( target -> level > player -> level ) )
+  if ( channeled )
   {
-    c -= 0.01 * ( target -> level - player -> level );
+    return dot_duration * ( tick_time( s -> haste ) / base_tick_time );
   }
 
-  return c;
+  return dot_duration;
+}
+
+double action_t::composite_target_crit( player_t* target ) const
+{
+  return std::min( player -> level - target -> level, 0 ) / 100.0;
 }
 
 core_event_t* action_t::start_action_execute_event( timespan_t t, action_state_t* execute_event )
@@ -2391,13 +2443,6 @@ void action_t::schedule_travel( action_state_t* s )
   do_schedule_travel( s, time_to_travel );
 }
 
-void action_t::schedule_multistrike_travel( action_state_t* s )
-{
-  timespan_t ttt = travel_time() + timespan_t::from_seconds( 0.05 );
-
-  do_schedule_travel( s, ttt );
-}
-
 void action_t::impact( action_state_t* s )
 {
   assess_damage( type == ACTION_HEAL ? HEAL_DIRECT : DMG_DIRECT, s );
@@ -2432,45 +2477,27 @@ void action_t::impact( action_state_t* s )
 
 void action_t::trigger_dot( action_state_t* s )
 {
-  if ( num_ticks <= 0 && ! tick_zero )
+  timespan_t duration = composite_dot_duration( s );
+  if ( duration <= timespan_t::zero() && ! tick_zero )
     return;
+
+  // To simulate precasting HoTs, remove one tick worth of duration if precombat.
+  // We also add a fake zero_tick in dot_t::check_tick_zero().
+  if ( ! harmful && ! player -> in_combat && ! tick_zero )
+    duration -= tick_time( s -> haste );
 
   dot_t* dot = get_dot( s -> target );
 
-  int remaining_ticks = dot -> num_ticks - dot -> current_tick;
   if ( dot_behavior == DOT_CLIP ) dot -> cancel();
 
   dot -> current_action = this;
-  dot -> current_tick = 0;
-  dot -> added_ticks = 0;
-  dot -> added_seconds = timespan_t::zero();
 
   if ( ! dot -> state ) dot -> state = get_state();
   dot -> state -> copy_state( s );
-  dot -> num_ticks = hasted_num_ticks( dot -> state -> haste );
 
-  if ( dot -> ticking )
+  if ( !dot -> is_ticking() )
   {
-    assert( dot -> tick_event );
-
-    if ( dot_behavior == DOT_EXTEND ) dot -> num_ticks += std::min( ( int ) ( dot -> num_ticks / 2 ), remaining_ticks );
-
-    // Recasting a dot while it's still ticking gives it an extra tick in total
-    dot -> num_ticks++;
-
-    // tick_zero dots tick again when reapplied
-    if ( tick_zero )
-    {
-      // this is hacky, but otherwise uptime gets messed up
-      timespan_t saved_tick_time = dot -> time_to_tick;
-      dot -> time_to_tick = timespan_t::zero();
-      tick( dot );
-      dot -> time_to_tick = saved_tick_time;
-    }
-  }
-  else
-  {
-    if ( get_school() == SCHOOL_PHYSICAL )
+    if ( get_school() == SCHOOL_PHYSICAL && harmful )
     {
       buff_t* b = s -> target -> debuffs.bleeding;
       if ( b -> current_value > 0 )
@@ -2479,14 +2506,9 @@ void action_t::trigger_dot( action_state_t* s )
       }
       else b -> start( 1, 1.0 );
     }
-
-    dot -> schedule_tick();
   }
-  dot -> recalculate_ready();
 
-  if ( sim -> debug )
-    sim -> out_debug.printf( "%s extends dot-ready to %.2f for %s (%s)",
-                   player -> name(), dot -> ready.total_seconds(), name(), dot -> name() );
+  dot -> trigger( duration );
 }
 
 bool action_t::has_travel_events_for( const player_t* target ) const
@@ -2510,4 +2532,15 @@ void action_t::remove_travel_event( travel_event_t* e )
 void action_t::do_teleport( action_state_t* state )
 {
   player -> teleport( composite_teleport_distance( state ) );
+}
+
+/* Calculates the new dot length after a refresh
+ * Necessary because we have both pandemic behaviour ( last 30% of the dot are preserved )
+ * and old Cata/MoP behavior ( only time to the next tick is preserved )
+ */
+timespan_t action_t::calculate_dot_refresh_duration( const dot_t* dot, timespan_t triggered_duration ) const
+{
+  // WoD Pandemic
+  return std::min( triggered_duration * 0.3, dot -> remains() ) + triggered_duration; // New WoD Formula: Get no malus during the last 30% of the dot.
+
 }

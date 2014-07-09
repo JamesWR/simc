@@ -71,9 +71,6 @@ timespan_t spell_base_t::execute_time() const
 
 timespan_t spell_base_t::tick_time( double haste ) const
 {
-  if ( ! harmful && ! player -> in_combat )
-    return timespan_t::zero();
-
   return action_t::tick_time( haste );
 }
 
@@ -82,9 +79,6 @@ result_e spell_base_t::calculate_result( action_state_t* s )
   result_e result = RESULT_NONE;
 
   if ( ! s -> target ) return RESULT_NONE;
-
-  int delta_level = s -> target -> level - player -> level;
-  double crit = crit_chance( s -> composite_crit(), delta_level );
 
   if ( ! harmful || ! may_hit ) return RESULT_NONE;
 
@@ -102,7 +96,7 @@ result_e spell_base_t::calculate_result( action_state_t* s )
 
     if ( may_crit )
     {
-      if ( rng().roll( crit ) )
+      if ( rng().roll( std::max( s -> composite_crit(), 0.0 ) ) )
         result = RESULT_CRIT;
     }
   }
@@ -173,19 +167,21 @@ spell_t::spell_t( const std::string&  token,
   spell_base_t( ACTION_SPELL, token, p, s )
 {
   may_miss = true;
+  may_block = false;
 }
 
 double spell_t::miss_chance( double hit, player_t* t ) const
-{
-  // base spell miss chance is 6% - treat this as base.miss + 3%
+{  
+  // base spell miss is double base melee miss
   double miss = t -> cache.miss();
+  miss *= 2;
 
-  // TODO-WOD: Miss chance increase per 4+ level delta?
-  if ( t -> level - player -> level > 3 )
-  {
-  }
+  // 11% level-dependent miss for level+4
+  miss += 0.03 * ( t -> level - player -> level );
+    
+  miss += 0.08 * std::max( t -> level - player -> level - 3, 0 );
 
-  // subtract player's hit
+  // subtract the player's hit and expertise
   miss -= hit;
 
   return miss;
@@ -258,6 +254,7 @@ heal_t::heal_t( const std::string&  token,
   spell_base_t( ACTION_HEAL, token, p, s ),
   group_only(),
   pct_heal(),
+  tick_pct_heal(),
   heal_gain( p -> get_gain( name() ) )
 {
   if ( sim -> heal_target && target == sim -> target )
@@ -287,8 +284,10 @@ void heal_t::parse_effect_data( const spelleffect_data_t& e )
   {
     if ( e.type() == E_HEAL_PCT )
     {
-      pct_heal = e.average( player );
+      pct_heal = e.percent();
     }
+    else if ( e.subtype() == A_OBS_MOD_HEALTH )
+      tick_pct_heal = e.percent();
   }
 }
 
@@ -307,6 +306,16 @@ double heal_t::calculate_direct_amount( action_state_t* state )
     {
       amount *= 1.0 + total_crit_bonus();
     }
+    else if ( state -> result == RESULT_MULTISTRIKE )
+    {
+      amount *= composite_multistrike_multiplier( state );
+    }
+    else if ( state -> result == RESULT_MULTISTRIKE_CRIT )
+    {
+      amount *= composite_multistrike_multiplier( state ) * ( 1.0 + total_crit_bonus() );
+    }
+
+    amount *= state -> composite_da_multiplier();
 
     // Record total amount to state
     state -> result_total = amount;
@@ -316,6 +325,54 @@ double heal_t::calculate_direct_amount( action_state_t* state )
 
   return base_t::calculate_direct_amount( state );
 }
+
+// heal_t::calculate_tick_amount ============================================
+
+double heal_t::calculate_tick_amount( action_state_t* state, double dmg_multiplier )
+{
+  if ( tick_pct_heal )
+  {
+    double amount = state -> target -> resources.max[ RESOURCE_HEALTH ] * tick_pct_heal;
+
+    // Record initial amount to state
+    state -> result_raw = amount;
+
+    if ( state -> result == RESULT_CRIT )
+    {
+      amount *= 1.0 + total_crit_bonus();
+    }
+    else if ( state -> result == RESULT_MULTISTRIKE )
+    {
+      amount *= composite_multistrike_multiplier( state );
+    }
+    else if ( state -> result == RESULT_MULTISTRIKE_CRIT )
+    {
+      amount *= composite_multistrike_multiplier( state ) * ( 1.0 + total_crit_bonus() );
+    }
+
+    amount *= state -> composite_ta_multiplier();
+    amount *= dmg_multiplier; // dot tick multiplier
+
+    // Record total amount to state
+    state -> result_total = amount;
+
+    // replicate debug output of calculate_tick_amount
+    if ( sim -> debug )
+    {
+      sim -> out_debug.printf( "%s amount for %s on %s: ta=%.0f pct=%.3f b_ta=%.0f bonus_ta=%.0f s_mod=%.2f s_power=%.0f a_mod=%.2f a_power=%.0f mult=%.2f",
+        player -> name(), name(), target -> name(), amount,
+        tick_pct_heal, base_ta( state ), bonus_ta( state ),
+        spell_tick_power_coefficient( state ), state -> composite_spell_power(),
+        attack_tick_power_coefficient( state ), state -> composite_attack_power(),
+        state -> composite_ta_multiplier() );
+    }
+
+    return amount;
+  }
+
+  return base_t::calculate_tick_amount( state, dmg_multiplier );
+}
+
 // heal_t::execute ==========================================================
 
 void heal_t::execute()
@@ -550,7 +607,9 @@ expr_t* heal_t::create_expression( const std::string& name )
 absorb_t::absorb_t( const std::string&  token,
                     player_t*           p,
                     const spell_data_t* s ) :
-  spell_base_t( ACTION_ABSORB, token, p, s )
+  spell_base_t( ACTION_ABSORB, token, p, s ),
+  target_specific( false ),
+  creator_( target, token, s )
 {
   if ( sim -> heal_target && target == sim -> target )
     target = sim -> heal_target;
@@ -558,7 +617,7 @@ absorb_t::absorb_t( const std::string&  token,
     target = p;
 
   may_crit = false;
-  may_multistrike = true;
+  may_multistrike = false;
 
   stats -> type = STATS_ABSORB;
 }
@@ -592,10 +651,7 @@ void absorb_t::execute()
 
 void absorb_t::impact( action_state_t* s )
 {
-  if ( s -> result_amount > 0 )
-  {
-    assess_damage( ABSORB, s );
-  }
+  assess_damage( type == ACTION_HEAL ? HEAL_DIRECT : DMG_DIRECT, s );
 }
 
 // absorb_t::assess_damage ==================================================
@@ -603,15 +659,60 @@ void absorb_t::impact( action_state_t* s )
 void absorb_t::assess_damage( dmg_e    heal_type,
                               action_state_t* s )
 {
-  s -> result_amount = s -> target -> resource_gain( RESOURCE_HEALTH, s -> result_amount, 0, this );
+  //s -> result_amount = s -> target -> resource_gain( RESOURCE_HEALTH, s -> result_amount, 0, this );
 
-  if ( sim -> log )
-    sim -> out_log.printf( "%s %s heals %s for %.0f (%.0f) (%s)",
-                   player -> name(), name(),
-                   s -> target -> name(), s -> result_amount, s -> result_total,
-                   util::result_type_string( s -> result ) );
+
+  if ( target_specific[ s -> target ] == 0 )
+  {
+    std::string stats_obj_name = name_str + "_" + player -> name_str;
+    //stats_t* target_stats = s -> target -> get_stats( stats_obj_name, this );
+    //stats -> add_child( target_stats );
+    creator_.actors( s -> target );
+    //creator_.source( target_stats );
+
+    target_specific[ s -> target ] = creator_;
+  }
+
+  if ( result_is_hit( s -> result ) )
+  {
+    target_specific[ s -> target ] -> trigger( 1, s -> result_amount );
+    if ( sim -> log )
+      sim -> out_log.printf( "%s %s applies absorb on %s for %.0f (%.0f) (%s)",
+                     player -> name(), name(),
+                     s -> target -> name(), s -> result_amount, s -> result_total,
+                     util::result_type_string( s -> result ) );
+  }
+  else if ( result_is_multistrike( s -> result ) )
+  {
+    target_specific[ s -> target ] -> current_value += s -> result_amount;
+    if ( sim -> log )
+      sim -> out_log.printf( "%s %s multistrike adds to absorb on %s for %.0f (%.0f) (%s)",
+                     player -> name(), name(),
+                     s -> target -> name(), s -> result_amount, s -> result_total,
+                     util::result_type_string( s -> result ) );
+  }
 
   stats -> add_result( s -> result_amount, s -> result_total, heal_type, s -> result, s -> block_result, s -> target );
+}
+
+void absorb_t::multistrike_direct( const action_state_t* source_state, action_state_t* ms_state )
+{
+  if ( source_state -> result == RESULT_CRIT )
+    ms_state -> result = RESULT_MULTISTRIKE_CRIT;
+  else if ( source_state -> result == RESULT_HIT )
+    ms_state -> result = RESULT_MULTISTRIKE;
+
+  ms_state -> result_amount = calculate_direct_amount( ms_state );
+}
+
+void absorb_t::multistrike_tick( const action_state_t* source_state, action_state_t* ms_state, double last_tick_multiplier )
+{
+  if ( source_state -> result == RESULT_CRIT )
+    ms_state -> result = RESULT_MULTISTRIKE_CRIT;
+  else if ( source_state -> result == RESULT_HIT )
+    ms_state -> result = RESULT_MULTISTRIKE;
+
+  ms_state -> result_amount = calculate_tick_amount( ms_state, last_tick_multiplier );
 }
 
 // absorb_t::available_targets ==============================================

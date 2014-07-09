@@ -5,9 +5,9 @@
 
 #include "simulationcraft.hpp"
 
-#include "rapidjson/document.h"
-#include "rapidjson/stringbuffer.h"
-#include "rapidjson/prettywriter.h"
+#include "util/rapidjson/document.h"
+#include "util/rapidjson/stringbuffer.h"
+#include "util/rapidjson/prettywriter.h"
 
 // ==========================================================================
 // Blizzard Community Platform API
@@ -68,7 +68,7 @@ void parse_profession( std::string&               professions_str,
 
 // parse_talents ============================================================
 
-static const rapidjson::Value* choose_talent_spec( const rapidjson::Value& talents,
+const rapidjson::Value* choose_talent_spec( const rapidjson::Value& talents,
                                                    const std::string& specifier )
 {
   const rapidjson::Value& spec_1 = talents[ 0u ];
@@ -503,7 +503,7 @@ bool download_item_data( item_t& item, cache::behavior_e caching )
     {
       const rapidjson::Value& sockets = js[ "socketInfo" ][ "sockets" ];
 
-      for ( rapidjson::SizeType i = 0, n = std::min( static_cast< size_t >( sockets.Size() ), sizeof_array( item.parsed.data.socket_color ) ); i < n; ++i )
+	  for (rapidjson::SizeType i = 0, n = as<rapidjson::SizeType>( std::min(static_cast< size_t >(sockets.Size()), sizeof_array(item.parsed.data.socket_color))); i < n; ++i)
       {
         if ( ! sockets[ i ].HasMember( "type" ) )
           continue;

@@ -63,7 +63,7 @@ namespace std {using namespace tr1; }
 
 #include "dbc/data_enums.hh"
 #include "dbc/data_definitions.hh"
-#include "utf8.h"
+#include "util/utf8.h"
 
 #define SC_STAT_CACHE
 
@@ -136,13 +136,13 @@ struct debuff_t;
 struct dot_t;
 struct core_event_t;
 struct core_sim_t;
-class  expr_t;
+struct expr_t;
 struct gain_t;
 struct haste_buff_t;
 struct heal_t;
 struct item_t;
 struct module_t;
-class option_t;
+struct option_t;
 struct pet_t;
 struct player_t;
 struct plot_t;
@@ -318,6 +318,8 @@ enum stats_e { STATS_DMG, STATS_HEAL, STATS_ABSORB, STATS_NEUTRAL };
 
 enum dot_behavior_e { DOT_CLIP, DOT_REFRESH, DOT_EXTEND };
 
+enum dot_copy_e { DOT_COPY_START, DOT_COPY_CLONE };
+
 enum attribute_e { ATTRIBUTE_NONE = 0, ATTR_STRENGTH, ATTR_AGILITY, ATTR_STAMINA, ATTR_INTELLECT, ATTR_SPIRIT, ATTR_AGI_INT, ATTR_STR_AGI, ATTR_STR_INT, ATTRIBUTE_MAX };
 
 enum resource_e
@@ -343,6 +345,7 @@ enum resource_e
   RESOURCE_RUNE_BLOOD,
   RESOURCE_RUNE_UNHOLY,
   RESOURCE_RUNE_FROST,
+  RESOURCE_COMBO_POINT,
   RESOURCE_MAX
 };
 
@@ -687,7 +690,7 @@ enum stat_e
   STAT_WEAPON_OFFHAND_DPS, STAT_WEAPON_OFFHAND_SPEED,
   STAT_ARMOR, STAT_BONUS_ARMOR, STAT_RESILIENCE_RATING, STAT_DODGE_RATING, STAT_PARRY_RATING,
   STAT_BLOCK_RATING, STAT_PVP_POWER,
-  STAT_MULTISTRIKE_RATING, STAT_READINESS_RATING,
+  STAT_MULTISTRIKE_RATING, STAT_READINESS_RATING, STAT_VERSATILITY_RATING,
   STAT_ALL,
   STAT_MAX
 };
@@ -720,6 +723,7 @@ enum cache_e
   CACHE_CRIT,  CACHE_ATTACK_CRIT,  CACHE_SPELL_CRIT,
   CACHE_HASTE, CACHE_ATTACK_HASTE, CACHE_SPELL_HASTE,
   CACHE_SPEED, CACHE_ATTACK_SPEED, CACHE_SPELL_SPEED,
+  CACHE_VERSATILITY, CACHE_DAMAGE_VERSATILITY, CACHE_HEAL_VERSATILITY, CACHE_MITIGATION_VERSATILITY,
   CACHE_MASTERY,
   CACHE_DODGE, CACHE_PARRY, CACHE_BLOCK, CACHE_CRIT_BLOCK, CACHE_ARMOR, CACHE_BONUS_ARMOR,
   CACHE_CRIT_AVOIDANCE, CACHE_MISS,
@@ -761,6 +765,7 @@ inline cache_e cache_from_stat( stat_e st )
     case STAT_BONUS_ARMOR: return CACHE_BONUS_ARMOR;
     case STAT_MULTISTRIKE_RATING: return CACHE_MULTISTRIKE;
     case STAT_READINESS_RATING: return CACHE_READINESS;
+    case STAT_VERSATILITY_RATING: return CACHE_VERSATILITY;
     default: break;
   }
   return CACHE_NONE;
@@ -782,6 +787,23 @@ enum flask_e
   FLASK_WINTERS_BITE,
   FLASK_SPRING_BLOSSOMS,
   FLASK_CRYSTAL_OF_INSANITY,
+  // wod
+  FLASK_DRAENOR_ARMOR_FLASK,
+  FLASK_DRAENOR_CRITICAL_STRIKE_FLASK,
+  FLASK_DRAENOR_HASTE_FLASK,
+  FLASK_DRAENOR_MASTERY_FLASK,
+  FLASK_DRAENOR_MULTISTRIKE_FLASK,
+  FLASK_DRAENOR_SPIRIT_FLASK,
+  FLASK_DRAENOR_STAMINA_FLASK,
+  FLASK_DRAENOR_VERSATILITY_FLASK,
+  FLASK_GREATER_DRAENOR_ARMOR_FLASK,
+  FLASK_GREATER_DRAENOR_CRITICAL_STRIKE_FLASK,
+  FLASK_GREATER_DRAENOR_HASTE_FLASK,
+  FLASK_GREATER_DRAENOR_MASTERY_FLASK,
+  FLASK_GREATER_DRAENOR_MULTISTRIKE_FLASK,
+  FLASK_GREATER_DRAENOR_SPIRIT_FLASK,
+  FLASK_GREATER_DRAENOR_STAMINA_FLASK,
+  FLASK_GREATER_DRAENOR_VERSATILITY_FLASK,
   // alchemist's flask
   FLASK_ALCHEMISTS,
   FLASK_MAX
@@ -806,14 +828,17 @@ enum food_e
   FOOD_BLANCHED_NEEDLE_MUSHROOMS,
   FOOD_CHARBROILED_TIGER_STEAK,
   FOOD_CHUN_TIAN_SPRING_ROLLS,
+  FOOD_CRAZY_SNAKE_NOODLES,
   FOOD_CROCOLISK_AU_GRATIN,
   FOOD_DELICIOUS_SAGEFISH_TAIL,
+  FOOD_DELUX_NOODLE_SOUP,
   FOOD_DRIED_NEEDLE_MUSHROOMS,
   FOOD_DRIED_PEACHES,
   FOOD_ETERNAL_BLOSSOM_FISH,
   FOOD_FIRE_SPIRIT_SALMON,
   FOOD_FISH_FEAST,
   FOOD_FORTUNE_COOKIE,
+  FOOD_GOLDEN_DRAGON_NOODLES,
   FOOD_GREAT_BANQUET_OF_THE_BREW,
   FOOD_GREAT_BANQUET_OF_THE_GRILL,
   FOOD_GREAT_BANQUET_OF_THE_OVEN,
@@ -823,12 +848,18 @@ enum food_e
   FOOD_GREAT_PANDAREN_BANQUET,
   FOOD_GREEN_CURRY_FISH,
   FOOD_GRILLED_DRAGON,
+  FOOD_HARMONIOUS_RIVER_NOODLES,
   FOOD_LAVASCALE_FILLET,
+  FOOD_LUCKY_MUSHROOM_NOODLES,
+  FOOD_MANGO_ICE,
   FOOD_MOGU_FISH_STEW,
   FOOD_MUSHROOM_SAUCE_MUDFISH,
+  FOOD_NOODLE_SOUP,
   FOOD_PANDAREN_BANQUET,
+  FOOD_PANDAREN_TREASURE_NOODLE_SOUP,
   FOOD_PEACH_PIE,
   FOOD_PEARL_MILK_TEA,
+  FOOD_PERFECTLY_COOKED_INSTANT_NOODLES,
   FOOD_POUNDED_RICE_CAKE,
   FOOD_RED_BEAN_BUN,
   FOOD_RICE_PUDDING,
@@ -840,9 +871,11 @@ enum food_e
   FOOD_SHRIMP_DUMPLINGS,
   FOOD_SKEWERED_EEL,
   FOOD_SKEWERED_PEANUT_CHICKEN,
+  FOOD_SPICY_MUSHAN_NOODLES,
   FOOD_SPICY_SALMON,
-  FOOD_SPICY_VEGETABLE_BOWL,
+  FOOD_SPICY_VEGETABLE_CHIPS,
   FOOD_STEAMED_CRAB_SURPRISE,
+  FOOD_STEAMING_GOAT_NOODLES,
   FOOD_SWIRLING_MIST_SOUP,
   FOOD_TANGY_YOGURT,
   FOOD_TOASTED_FISH_JERKY,
@@ -851,6 +884,34 @@ enum food_e
   FOOD_WILDFOWL_GINSENG_SOUP,
   FOOD_WILDFOWL_ROAST,
   FOOD_YAK_CHEESE_CURDS,
+    // wod
+  FOOD_BLACKROCK_BARBECUE,
+  FOOD_BLACKROCK_HAM,
+  FOOD_BRAISED_BASILISK,
+  FOOD_CALAMARI_CREPES,
+  FOOD_CLEFTHOOF_POT_ROAST,
+  FOOD_CLEFTHOOF_SAUSAGES,
+  FOOD_CRISPY_FRIED_SCORPION,
+  FOOD_DEEP_FRIED_BASILISK,
+  FOOD_FAT_SLEEPER_CAKES,
+  FOOD_FEAST_OF_BLOOD,
+  FOOD_FEAST_OF_THE_WATERS,
+  FOOD_FIERY_CALAMARI,
+  FOOD_FROSTY_STEW,
+  FOOD_GORGROND_CHOWDER,
+  FOOD_GRILLED_GULPER,
+  FOOD_HEARTY_ELEKK_STEAK,
+  FOOD_NAGRAND_TEMPURA,
+  FOOD_PAN_SEARED_TALBUK,
+  FOOD_RYLAK_CREPES,
+  FOOD_SALTED_SKULKER,
+  FOOD_SLEEPER_SURPRISE,
+  FOOD_STARFLOWER_SANDWICH,
+  FOOD_STEAMED_SCORPION,
+  FOOD_STURGEON_STEW,
+  FOOD_TALADOR_SURF_AND_TURF,
+  FOOD_WHIPTAIL_CHOWDER,
+
   FOOD_MAX
 };
 
@@ -913,24 +974,35 @@ enum power_e
 // New stuff
 enum snapshot_state_e
 {
-  STATE_HASTE         = 0x000001,
-  STATE_CRIT          = 0x000002,
-  STATE_AP            = 0x000004,
-  STATE_SP            = 0x000008,
+  STATE_HASTE          = 0x000001,
+  STATE_CRIT           = 0x000002,
+  STATE_AP             = 0x000004,
+  STATE_SP             = 0x000008,
 
-  STATE_MUL_DA        = 0x000010,
-  STATE_MUL_TA        = 0x000020,
-  STATE_TGT_CRIT      = 0x000100,
-  STATE_TGT_MUL_DA    = 0x000200,
-  STATE_TGT_MUL_TA    = 0x000400,
+  STATE_MUL_DA         = 0x000010,
+  STATE_MUL_TA         = 0x000020,
+  STATE_VERSATILITY    = 0x000040,
+  STATE_MUL_PERSISTENT = 0x000080, // Persistent modifier for the few abilities that snapshot
 
-  STATE_USER_1        = 0x000800,
-  STATE_USER_2        = 0x001000,
-  STATE_USER_3        = 0x002000,
-  STATE_USER_4        = 0x004000,
+  STATE_TGT_CRIT       = 0x000100,
+  STATE_TGT_MUL_DA     = 0x000200,
+  STATE_TGT_MUL_TA     = 0x000400,
+  STATE_RESOLVE        = 0x000800,
 
-  STATE_TGT_MITG_DA   = 0x008000,
-  STATE_TGT_MITG_TA   = 0x010000,
+  STATE_USER_1         = 0x001000,
+  STATE_USER_2         = 0x002000,
+  STATE_USER_3         = 0x004000,
+  STATE_USER_4         = 0x008000,
+
+  STATE_TGT_MITG_DA    = 0x010000,
+  STATE_TGT_MITG_TA    = 0x020000,
+
+  // No multiplier herlper, use in action_t::init() (after parent init) by
+  // issuing snapshot_flags &= STATE_NO_MULTIPLIER (and/or update_flags &=
+  // STATE_NO_MULTIPLIER if a dot). This disables all multipliers, including
+  // versatility, resolve, and any/all persistent multipliers the action would
+  // use.
+  STATE_NO_MULTIPLIER  = ~( STATE_MUL_DA | STATE_MUL_TA | STATE_VERSATILITY | STATE_MUL_PERSISTENT | STATE_TGT_MUL_DA | STATE_TGT_MUL_TA | STATE_RESOLVE )
 };
 
 enum ready_e
@@ -946,67 +1018,7 @@ enum rppm_scale_e
 };
 
 // Cache Control ============================================================
-
-namespace cache {
-
-typedef int era_t;
-static const era_t INVALID_ERA = -1;
-static const era_t IN_THE_BEGINNING = 0;  // A time before any other possible era;
-// used to mark persistent caches at load.
-
-enum behavior_e
-{
-  ANY,      // * Use any version present in the cache, retrieve if not present.
-  CURRENT,  // * Use only current info from the cache; validate old versions as needed.
-  ONLY,     // * Use any version present in the cache, fail if not present.
-};
-
-class cache_control_t
-{
-private:
-  era_t current_era;
-  behavior_e player_cache_behavior;
-  behavior_e item_cache_behavior;
-
-public:
-  cache_control_t() :
-    current_era( IN_THE_BEGINNING ),
-    player_cache_behavior( CURRENT ),
-    item_cache_behavior( ANY )
-  {}
-
-  era_t era() const { return current_era; }
-  void advance_era() { ++current_era; }
-
-  behavior_e cache_players() const { return player_cache_behavior; }
-  void cache_players( behavior_e b ) { player_cache_behavior = b; }
-
-  behavior_e cache_items() const { return item_cache_behavior; }
-  void cache_items( behavior_e b ) { item_cache_behavior = b; }
-
-  static cache_control_t singleton;
-};
-
-// Caching system's global notion of the current time.
-inline era_t era()
-{ return cache_control_t::singleton.era(); }
-
-// Time marches on.
-inline void advance_era()
-{ cache_control_t::singleton.advance_era(); }
-
-// Get/Set default cache behaviors.
-inline behavior_e players()
-{ return cache_control_t::singleton.cache_players(); }
-inline void players( behavior_e b )
-{ cache_control_t::singleton.cache_players( b ); }
-
-inline behavior_e items()
-{ return cache_control_t::singleton.cache_items(); }
-inline void items( behavior_e b )
-{ cache_control_t::singleton.cache_items( b ); }
-
-} // cache
+#include "util/cache.hpp"
 
 struct stat_data_t
 {
@@ -1019,7 +1031,7 @@ struct stat_data_t
 
 // Options ==================================================================
 
-class option_t
+struct option_t
 {
 public:
   typedef bool function_t( sim_t* sim, const std::string& name, const std::string& value );
@@ -1369,6 +1381,39 @@ std::ostringstream& effect_to_str( const dbc_t& dbc, const spell_data_t* spell, 
 void                effect_to_xml( const dbc_t& dbc, const spell_data_t* spell, const spelleffect_data_t* effect, xml_node_t*    parent, int level = MAX_LEVEL );
 }
 
+/* Luxurious sample data container with automatic merge/analyze,
+ * intended to be used in class modules for custom reporting.
+ * Iteration based sampling
+ */
+struct luxurious_sample_data_t : public extended_sample_data_t, public noncopyable
+{
+  luxurious_sample_data_t( player_t& p, std::string n );
+
+  void add( double x )
+  { buffer_value += x; }
+
+  void datacollection_begin()
+  {
+    reset_buffer();
+  }
+  void datacollection_end()
+  {
+    write_buffer_as_sample();
+  }
+  player_t& player;
+private:
+  double buffer_value;
+  void write_buffer_as_sample()
+  {
+    extended_sample_data_t::add( buffer_value );
+    reset_buffer();
+  }
+  void reset_buffer()
+  {
+    buffer_value = 0.0;
+  }
+};
+
 // Raid Event
 
 struct raid_event_t
@@ -1451,6 +1496,7 @@ struct gear_stats_t
   double pvp_power;
   double multistrike_rating;
   double readiness_rating;
+  double versatility_rating;
 
   gear_stats_t() :
     attribute(), resource(),
@@ -1458,7 +1504,7 @@ struct gear_stats_t
     hit_rating( 0.0 ), hit_rating2( 0.0 ), crit_rating( 0.0 ), haste_rating( 0.0 ), weapon_dps( 0.0 ), weapon_speed( 0.0 ),
     weapon_offhand_dps( 0.0 ), weapon_offhand_speed( 0.0 ), armor( 0.0 ), bonus_armor( 0.0 ), dodge_rating( 0.0 ),
     parry_rating( 0.0 ), block_rating( 0.0 ), mastery_rating( 0.0 ), resilience_rating( 0.0 ), pvp_power( 0.0 ),
-    multistrike_rating( 0.0 ), readiness_rating( 0.0 )
+    multistrike_rating( 0.0 ), readiness_rating( 0.0 ), versatility_rating( 0.0 )
   { }
 
   friend gear_stats_t operator+( const gear_stats_t& left, const gear_stats_t& right )
@@ -1492,6 +1538,7 @@ struct gear_stats_t
     pvp_power += right.pvp_power;
     multistrike_rating += right.multistrike_rating;
     readiness_rating += right.readiness_rating;
+    versatility_rating += right.versatility_rating;
     range::transform ( attribute, right.attribute, attribute.begin(), std::plus<int>() );
     range::transform ( resource, right.resource, resource.begin(), std::plus<int>() );
     return *this;
@@ -1627,6 +1674,8 @@ public:
   buff_creator_helper_t( sim_t* sim, const std::string& name, const spell_data_t* s = spell_data_t::nil(), const item_t* item = 0 ) :
     buff_creator_basics_t( sim, name, s, item ) {}
 
+  bufftype& actors( actor_pair_t q )
+  { _player = q; return *( static_cast<bufftype*>( this ) ); }
   bufftype& duration( timespan_t d )
   { _duration = d; return *( static_cast<bufftype*>( this ) ); }
   bufftype& period( timespan_t d )
@@ -2027,16 +2076,8 @@ struct expression_t
 
 // Action expression types ==================================================
 
-class expr_t
+struct expr_t
 {
-  std::string name_;
-
-protected:
-  template <typename T> static double coerce( T t ) { return static_cast<double>( t ); }
-  static double coerce( timespan_t t ) { return t.total_seconds(); }
-
-  virtual double evaluate() = 0;
-
 public:
   expr_t( const std::string& name ) : name_( name ) {}
   virtual ~expr_t() {}
@@ -2047,18 +2088,28 @@ public:
   bool success() { return eval() != 0; }
 
   static expr_t* parse( action_t*, const std::string& expr_str );
+protected:
+  template <typename T> static double coerce( T t ) { return static_cast<double>( t ); }
+  static double coerce( timespan_t t ) { return t.total_seconds(); }
+
+  virtual double evaluate() = 0;
+private:
+  std::string name_;
 };
 
 // Reference Expression - ref_expr_t
 // Class Template to create a expression with a reference ( ref ) of arbitrary type T, and evaluate that reference
 template <typename T>
-class ref_expr_t : public expr_t
+struct ref_expr_t : public expr_t
 {
+public:
+  ref_expr_t( const std::string& name, const T& t_ ) :
+    expr_t( name ), t( t_ )
+  {}
+private:
   const T& t;
   virtual double evaluate() { return coerce( t ); }
 
-public:
-  ref_expr_t( const std::string& name, const T& t_ ) : expr_t( name ), t( t_ ) {}
 };
 
 // Template to return a reference expression
@@ -2069,15 +2120,16 @@ inline expr_t* make_ref_expr( const std::string& name, const T& t )
 // Function Expression - fn_expr_t
 // Class Template to create a function ( fn ) expression with arbitrary functor f, which gets evaluated
 template <typename F>
-class fn_expr_t : public expr_t
+struct fn_expr_t : public expr_t
 {
+public:
+  fn_expr_t( const std::string& name, F f_ ) :
+    expr_t( name ), f( f_ ) {}
+private:
   F f;
 
   virtual double evaluate() { return coerce( f() ); }
 
-public:
-  fn_expr_t( const std::string& name, F f_ ) :
-    expr_t( name ), f( f_ ) {}
 };
 
 // Template to return a function expression
@@ -2435,6 +2487,7 @@ struct sim_t : public core_sim_t, private sc_thread_t
   player_t*   active_player;
   int         num_players;
   int         num_enemies;
+  int global_spawn_index;
   int         max_player_level;
   timespan_t  queue_lag, queue_lag_stddev;
   timespan_t  gcd_lag, gcd_lag_stddev;
@@ -2479,7 +2532,7 @@ struct sim_t : public core_sim_t, private sc_thread_t
   // Default stat enchants
   gear_stats_t enchant;
 
-  bool challenge_mode; // if active, players will get scaled down to 463 and set bonusses are deactivated
+  bool challenge_mode; // if active, players will get scaled down to 620 and set bonusses are deactivated
   int scale_to_itemlevel; //itemlevel to scale to. if -1, we don't scale down
 
   // Actor tracking
@@ -2516,14 +2569,14 @@ public:
     int critical_strike;
     int mastery;
     int haste;
+    int multistrike;
     int spell_power_multiplier;
     int stamina;
     int str_agi_int;
+    int versatility;
 
     // Debuff overrides
-    int magic_vulnerability;
     int mortal_wounds;
-    int physical_vulnerability;
     int bleeding;
 
     // Misc stuff needs resolving
@@ -2539,9 +2592,11 @@ public:
     aura_t* critical_strike;
     aura_t* mastery;
     aura_t* haste;
+    aura_t* multistrike;
     aura_t* spell_power_multiplier;
     aura_t* stamina;
     aura_t* str_agi_int;
+    aura_t* versatility;
   } auras;
 
   // Auras and De-Buffs
@@ -2588,7 +2643,6 @@ public:
   int report_rng;
   int hosted_html;
   int print_styles;
-  int report_overheal;
   int save_raid_summary;
   int save_gear_comments;
   int statistics_level;
@@ -2601,6 +2655,7 @@ public:
   int allow_flasks;
   int solo_raid;
   int global_item_upgrade_level;
+  bool maximize_reporting;
 
   sim_report_information_t report_information;
 
@@ -2934,6 +2989,9 @@ enum rating_e
   RATING_PVP_POWER,
   RATING_MULTISTRIKE,
   RATING_READINESS,
+  RATING_DAMAGE_VERSATILITY,
+  RATING_HEAL_VERSATILITY,
+  RATING_MITIGATION_VERSATILITY,
   RATING_MAX
 };
 
@@ -2959,6 +3017,9 @@ inline cache_e cache_from_rating( rating_e r )
     case RATING_PVP_RESILIENCE: return CACHE_NONE;
     case RATING_MULTISTRIKE: return CACHE_MULTISTRIKE;
     case RATING_READINESS: return CACHE_READINESS;
+    case RATING_DAMAGE_VERSATILITY: return CACHE_DAMAGE_VERSATILITY;
+    case RATING_HEAL_VERSATILITY: return CACHE_HEAL_VERSATILITY;
+    case RATING_MITIGATION_VERSATILITY: return CACHE_MITIGATION_VERSATILITY;
     default: break;
   }
   assert( false ); return CACHE_NONE;
@@ -2975,6 +3036,7 @@ struct rating_t
   double pvp_resilience, pvp_power;
   double multistrike;
   double readiness;
+  double damage_versatility, heal_versatility, mitigation_versatility;
 
   double& get( rating_e r )
   {
@@ -2998,6 +3060,9 @@ struct rating_t
       case RATING_PVP_RESILIENCE: return pvp_resilience;
       case RATING_MULTISTRIKE: return multistrike;
       case RATING_READINESS: return readiness;
+      case RATING_DAMAGE_VERSATILITY: return damage_versatility;
+      case RATING_HEAL_VERSATILITY: return heal_versatility;
+      case RATING_MITIGATION_VERSATILITY: return mitigation_versatility;
       default: break;
     }
     assert( false ); return mastery;
@@ -3143,6 +3208,8 @@ struct special_effect_t
   unsigned spell_id, trigger_spell_id;
   action_t* execute_action; // Allows custom action to be executed on use
   buff_t* custom_buff; // Allows custom action
+  void (*custom_init)(special_effect_t&, const item_t& );
+
 
   special_effect_t( player_t* p ) :
     item( nullptr ), player( p ),
@@ -3159,12 +3226,15 @@ struct special_effect_t
   const spell_data_t* driver() const;
   const spell_data_t* trigger() const;
   std::string name() const;
+  std::string cooldown_name() const;
 
   // Buff related functionality
   buff_t* create_buff() const;
   special_effect_buff_e buff_type() const;
+  int max_stack() const;
 
   bool is_stat_buff() const;
+  stat_e stat_type() const;
   stat_buff_t* initialize_stat_buff() const;
 
   bool is_absorb_buff() const;
@@ -3464,6 +3534,67 @@ private:
 
 };
 
+namespace new_set_bonus {
+
+static const int PVP_OFFSET = 3;
+enum set_tier_e {
+  SET_MIN = -3 + PVP_OFFSET,
+  PVP_2 = -2 + PVP_OFFSET,
+  PVP_1 = -1 + PVP_OFFSET,
+  TIER_NONE = 0 + PVP_OFFSET,
+  TIER_1 = 1 + PVP_OFFSET,
+  TIER_2 = 2 + PVP_OFFSET,
+  TIER_3 = 3 + PVP_OFFSET,
+  TIER_4 = 4 + PVP_OFFSET,
+  TIER_5 = 5 + PVP_OFFSET,
+  TIER_6 = 6 + PVP_OFFSET,
+  TIER_7 = 7 + PVP_OFFSET,
+  TIER_8 = 8 + PVP_OFFSET,
+  TIER_9 = 9 + PVP_OFFSET,
+  TIER_10 = 10 + PVP_OFFSET,
+  TIER_11 = 11 + PVP_OFFSET,
+  TIER_12 = 12 + PVP_OFFSET,
+  TIER_13 = 13 + PVP_OFFSET,
+  TIER_14 = 14 + PVP_OFFSET,
+  TIER_15 = 15 + PVP_OFFSET,
+  TIER_16 = 16 + PVP_OFFSET,
+  TIER_17 = 17 + PVP_OFFSET,
+  SET_MAX = 18 + PVP_OFFSET,
+};
+static_assert( SET_MIN == 0, "PVP_OFFSET is wrong!" );
+
+
+struct set_bonus_t
+{
+public:
+  set_bonus_t( const player_t* p );
+
+  bool has_set_bonus( set_tier_e, unsigned pieces, specialization_e ) const;
+  const spell_data_t* set( set_tier_e, unsigned pieces, specialization_e ) const;
+
+  void init();
+  void copy_from( const set_bonus_t& );
+private:
+  typedef std::array<std::vector<std::vector<const spell_data_t*> >,SET_MAX> spell_data_map_t;
+  const spell_data_t* default_value;
+  spell_data_map_t set_bonuses; // [TIERX][SPEC_IDX][PIECES]
+  std::array<std::vector<unsigned>, SET_MAX> count; // [TIERX][SPEC_IDX] and unsigned var indicates the number of pieces the player is wearing
+  const player_t* p;
+
+
+  bool has_set_bonus( set_tier_e, unsigned pieces, unsigned spec_idx ) const;
+  void decode();
+  static set_tier_e translate_from_old_set_bonus( ::set_e  old_set );
+  const spell_data_t* create_set_bonus( uint32_t spell_id );
+  set_e decode( const player_t&, const item_t& item ) const;
+  uint32_t get_spec_idx( specialization_e ) const;
+  void debug_spell_data_lists( const spell_data_map_t&, std::string type );
+  void build_filtered_spell_data_list( const spell_data_map_t& );
+  bool initialized, spelldata_registered; // help avoid initialization order problems
+
+};
+
+}
 struct action_sequence_data_t
 {
   action_t* action;
@@ -3526,6 +3657,7 @@ struct cooldown_t
 
   void set_recharge_multiplier( double );
 
+  expr_t* create_expression( action_t* a, const std::string& name_str );
 private:
   static timespan_t ready_init()
   { return timespan_t::from_seconds( -60 * 60 ); }
@@ -3635,8 +3767,9 @@ private:
   mutable double _attack_haste, _spell_haste;
   mutable double _attack_speed, _spell_speed;
   mutable double _dodge, _parry, _block, _crit_block, _armor, _bonus_armor;
-  mutable double _mastery_value, _crit_avoidance, _miss, _multistrike, _readiness;
+  mutable double _mastery, _mastery_value, _crit_avoidance, _miss, _multistrike, _readiness;
   mutable double _player_mult[SCHOOL_MAX + 1], _player_heal_mult[SCHOOL_MAX + 1];
+  mutable double _damage_versatility, _heal_versatility, _mitigation_versatility;
 public:
   bool active; // runtime active-flag
   void invalidate_all();
@@ -3668,73 +3801,49 @@ public:
   double crit_avoidance() const;
   double miss() const;
   double armor() const;
+  double mastery() const;
   double mastery_value() const;
   double multistrike() const;
   double readiness() const;
   double bonus_armor() const;
   double player_multiplier( school_e ) const;
-  double player_heal_multiplier( school_e ) const;
+  double player_heal_multiplier( const action_state_t* ) const;
+  double damage_versatility() const;
+  double heal_versatility() const;
+  double mitigation_versatility() const;
 #else
   // Passthrough cache stat functions for inactive cache
-  double strength() const  { return player -> strength();  }
-  double agility() const   { return player -> agility();   }
-  double stamina() const   { return player -> stamina();   }
-  double intellect() const { return player -> intellect(); }
-  double spirit() const    { return player -> spirit();    }
-  double spell_power( school_e s ) const { return player -> composite_spell_power( s ); }
-  double attack_power() const            { return player -> composite_melee_attack_power();   }
-  double attack_expertise() const { return player -> composite_melee_expertise(); }
-  double attack_hit() const       { return player -> composite_melee_hit();       }
-  double attack_crit() const      { return player -> composite_melee_crit();      }
-  double attack_haste() const     { return player -> composite_melee_haste();     }
-  double attack_speed() const     { return player -> composite_melee_speed();     }
-  double spell_hit() const        { return player -> composite_spell_hit();       }
-  double spell_crit() const       { return player -> composite_spell_crit();      }
-  double spell_haste() const      { return player -> composite_spell_haste();     }
-  double spell_speed() const      { return player -> composite_spell_speed();     }
-  double dodge() const            { return player -> composite_dodge();      }
-  double parry() const            { return player -> composite_parry();      }
-  double block() const            { return player -> composite_block();      }
-  double crit_block() const       { return player -> composite_crit_block(); }
-  double crit_avoidance() const   { return player -> composite_crit_avoidance();       }
-  double miss() const             { return player -> composite_miss();       }
-  double armor() const            { return player -> composite_armor();           }
-  double mastery_value() const    { return player -> composite_mastery_value();   }
-  double multistrike() const      { return player -> composite_multistrike(); }
-  double readiness() const        { return player -> composite_readiness(); }
+  double strength() const  { return _player -> strength();  }
+  double agility() const   { return _player -> agility();   }
+  double stamina() const   { return _player -> stamina();   }
+  double intellect() const { return _player -> intellect(); }
+  double spirit() const    { return _player -> spirit();    }
+  double spell_power( school_e s ) const { return _player -> composite_spell_power( s ); }
+  double attack_power() const            { return _player -> composite_melee_attack_power();   }
+  double attack_expertise() const { return _player -> composite_melee_expertise(); }
+  double attack_hit() const       { return _player -> composite_melee_hit();       }
+  double attack_crit() const      { return _player -> composite_melee_crit();      }
+  double attack_haste() const     { return _player -> composite_melee_haste();     }
+  double attack_speed() const     { return _player -> composite_melee_speed();     }
+  double spell_hit() const        { return _player -> composite_spell_hit();       }
+  double spell_crit() const       { return _player -> composite_spell_crit();      }
+  double spell_haste() const      { return _player -> composite_spell_haste();     }
+  double spell_speed() const      { return _player -> composite_spell_speed();     }
+  double dodge() const            { return _player -> composite_dodge();      }
+  double parry() const            { return _player -> composite_parry();      }
+  double block() const            { return _player -> composite_block();      }
+  double crit_block() const       { return _player -> composite_crit_block(); }
+  double crit_avoidance() const   { return _player -> composite_crit_avoidance();       }
+  double miss() const             { return _player -> composite_miss();       }
+  double armor() const            { return _player -> composite_armor();           }
+  double mastery() const          { return _player -> composite_mastery();   }
+  double mastery_value() const    { return _player -> composite_mastery_value();   }
+  double multistrike() const      { return _player -> composite_multistrike(); }
+  double readiness() const        { return _player -> composite_readiness(); }
+  double damage_versatility() const { return _player -> composite_damage_versatility(); }
+  double heal_versatility() const { return _player -> composite_heal_versatility(); }
+  double mitigation_versatility() const { return _player -> composite_mitigation_versatility(); }
 #endif
-};
-
-// Player Vengeance
-
-struct player_vengeance_timeline_t
-{
-private:
-  sc_timeline_t& timeline_; // reference to collected_data.vengeance_timeline
-  core_event_t* event; // pointer to collection event so we can cancel it at the end of combat.
-
-public:
-  player_vengeance_timeline_t( sc_timeline_t& vengeance_tl ) :
-    timeline_( vengeance_tl ), event( nullptr ) {}
-
-  void start( player_t& p );
-  void stop();
-
-  bool is_initialized() const
-  { return ! timeline_.data().empty(); }
-  bool is_started() const
-  { return event != 0; }
-
-  void adjust( const std::vector<int>& divisor_timeline )
-  {
-    if ( timeline_.data().size() > 0 )
-      timeline_.adjust( divisor_timeline );
-  }
-
-  void merge( const player_vengeance_timeline_t& other )
-  { timeline_.merge( other.timeline_ ); }
-
-  const sc_timeline_t& timeline() const { return timeline_; }
 };
 
 struct player_processed_report_information_t
@@ -3793,7 +3902,7 @@ struct player_collected_data_t
   extended_sample_data_t theck_meloree_index;
   extended_sample_data_t effective_theck_meloree_index;
   extended_sample_data_t max_spike_amount;
-  sc_timeline_t vengeance_timeline;
+  sc_timeline_t resolve_timeline;
 
   std::array<simple_sample_data_t,RESOURCE_MAX> resource_lost, resource_gained;
   struct resource_timeline_t
@@ -3874,6 +3983,7 @@ struct player_collected_data_t
     double armor, miss, crit, dodge, parry, block, bonus_armor;
     double spell_haste, spell_speed, attack_haste, attack_speed;
     double mastery_value, multistrike, readiness;
+    double damage_versatility, heal_versatility, mitigation_versatility;
   } buffed_stats_snapshot;
 
   player_collected_data_t( const std::string& player_name, sim_t& );
@@ -3963,116 +4073,39 @@ struct actor_t : public noncopyable
   { return name_str.c_str(); }
 };
 
-// Vengeance Actor List =====================================================
-
-struct vengeance_actor_list_t
+namespace resolve {
+/* Encapsulations of Resolve interface so we can keep most things out of player_t (bloated enough)
+ */
+struct manager_t
 {
-  vengeance_actor_list_t( const player_t* p ) : myself( p )
-  { }
-
-  // called after each iteration in player_t::vengeance_stop()
-  void reset()
-  { actor_list.clear(); }
-
-  // this returns the integer corresponding to the applied diminishing returns
-  // i.e. it returns N for the Nth-strongest attacker
-  int get_actor_rank( const player_t* t )
-  {
-    // pre-condition: actor_list sorted by raw dps
-    std::vector<actor_entry_t>::iterator found = find_actor( t );
-    assert( found != actor_list.end() && "Vengeance attacker not found in vengeance list!" );
-    return as<int>(std::distance( actor_list.begin(), found ) + 1);
-  }
-
-  // this is the method that we use to interact with the structure
-  void add( const player_t* actor, double raw_dps, timespan_t current_time )
-  {
-    if ( actor == myself )
-      return;
-
-    std::vector<actor_entry_t>::iterator found = find_actor( actor );
-
-    if ( found != actor_list.end() )
-    {
-      // We already have the actor in the list, update:
-      update_actor_entry( *found, raw_dps, current_time );
-    }
-    else
-    {
-      // We do not have the actor in the list, create new entry:
-      actor_entry_t a;
-      a.player = actor;
-      a.raw_dps = raw_dps;
-      a.last_attack = current_time;
-
-      actor_list.push_back( a );
-    }
-
-    // purge any actors that haven't hit you in 5 seconds or more
-    purge_actor_list( current_time );
-
-    // sort the list
-    sort_list();
-  }
+  manager_t( player_t& );
+  void start();
+  void stop();
+  void update();
+  bool is_started() const
+  { return _started; }
+  void add_diminishing_return_entry( const player_t* actor, double raw_dps, timespan_t current_time );
+  int get_diminsihing_return_rank( int actor_spawn_index );
+  void add_damage_event( double amount, timespan_t current_time );
 private:
-  // structure that contains the relevant information for each actor entry in the list
-  struct actor_entry_t {
-    const player_t* player;
-    double raw_dps;
-    timespan_t last_attack;
-  };
-  std::vector<actor_entry_t> actor_list; // vector of actor entries
-  const player_t* myself; // not sure this is strictly necessary, intended to nullify self-veng, but an is_enemy(actor) call might be better
-
-  // comparator function for sorting the list
-  static bool compare_DPS( const actor_entry_t &a, const actor_entry_t &b )
-  { return a.raw_dps > b.raw_dps; }
-
-  // comparator functor for purging inactive players
-  struct was_inactive {
-    was_inactive( const timespan_t& current_time ) :
-      current_time( current_time )
-    {}
-    bool operator()( const actor_entry_t& a ) const
-    { return a.last_attack + timespan_t::from_seconds( 5.0 ) < current_time; }
-    const timespan_t& current_time;
-  };
-
-  // method to sort the list according to raw DPS
-  void sort_list() { std::sort( actor_list.begin(), actor_list.end(), compare_DPS ); }
-
-  // method to purge the actor list of any enemy that hasn't participated in the last 5 seconds
-  void purge_actor_list( timespan_t current_time )
-  {
-    // Erase-remove idiom
-    actor_list.erase( std::remove_if( actor_list.begin(), actor_list.end(), was_inactive( current_time ) ), actor_list.end() );
-  }
-
-  std::vector<actor_entry_t>::iterator find_actor( const player_t* p )
-  {
-    std::vector<actor_entry_t>::iterator iter = actor_list.begin();
-    for ( ; iter != actor_list.end(); iter++ )
-    {
-      if ( ( *iter ).player == p )
-        return iter;
-    }
-    return iter;
-  }
-
-  // update_actor_entry
-  void update_actor_entry( actor_entry_t& a, double raw_dps, timespan_t last_attack )
-  {
-      a.raw_dps = raw_dps;
-      a.last_attack = last_attack;
-  }
+  struct update_event_t;
+  struct diminishing_returns_list_t;
+  struct damage_event_list_t;
+  player_t& _player;
+  core_event_t* _update_event;
+  bool _started;
+  std::shared_ptr<diminishing_returns_list_t> _diminishing_return_list;
+  std::shared_ptr<damage_event_list_t >_damage_list;
 };
+
+} // resolve
 
 /* Player Report Extension
  * Allows class modules to write extension to the report sections
  * based on the dynamic class of the player
  */
 
-class player_report_extension_t
+struct player_report_extension_t
 {
 public:
   virtual ~player_report_extension_t()
@@ -4087,6 +4120,32 @@ public:
 
 // Player ===================================================================
 
+enum action_var_e
+{
+  OPERATION_NONE = -1,
+  OPERATION_SET,
+  OPERATION_PRINT,
+  OPERATION_RESET,
+  OPERATION_ADD,
+  OPERATION_SUB
+};
+
+struct action_variable_t
+{
+  std::string name_;
+  double current_value_, default_;
+
+  action_variable_t( const std::string& name, double def = 0 ) :
+    name_( name ), default_( def )
+  { }
+
+  double value() const
+  { return current_value_; }
+
+  void reset()
+  { current_value_ = default_; }
+};
+
 struct player_t : public actor_t
 {
   static const int default_level = 90;
@@ -4095,6 +4154,7 @@ struct player_t : public actor_t
   player_e type;
   int index;
   size_t actor_index;
+  int actor_spawn_index; // a unique identifier for each arise() of the actor
   // (static) attributes - things which should not change during combat
   race_e       race;
   role_e       role;
@@ -4114,12 +4174,13 @@ struct player_t : public actor_t
 
   std::string talents_str, glyphs_str, id_str, target_str;
   std::string region_str, server_str, origin_str;
-  std::string race_str, professions_str, position_str, nightelf;
+  std::string race_str, professions_str, position_str;
+  enum timeofday_e { NIGHT_TIME, DAY_TIME, } timeofday; // Specify InGame time of day to determine Night Elf racial
   timespan_t  gcd_ready, base_gcd, started_waiting;
   std::vector<pet_t*> pet_list;
   std::vector<pet_t*> active_pets;
   std::vector<absorb_buff_t*> absorb_buff_list;
-  vengeance_actor_list_t vengeance_list;
+  resolve::manager_t resolve_manager;
 
   int         invert_scaling;
 
@@ -4164,6 +4225,7 @@ struct player_t : public actor_t
     double mana_regen_per_spirit, mana_regen_from_spirit_multiplier, health_per_stamina;
     std::array<double, SCHOOL_MAX> resource_reduction;
     double miss, dodge, parry, block;
+    double hit, expertise;
     double spell_crit, attack_crit, block_reduction, mastery;
     double skill, distance;
     double distance_to_move;
@@ -4195,7 +4257,21 @@ struct player_t : public actor_t
   timespan_t last_cast;
 
   // Defense Mechanics
-  double diminished_dodge_cap, diminished_parry_cap, diminished_block_cap, diminished_kfactor;
+  struct diminishing_returns_constants_t
+  {
+    double horizontal_shift;
+    double vertical_stretch;
+    double dodge_factor;
+    double parry_factor;
+    double miss_factor;
+    double block_factor;
+
+    diminishing_returns_constants_t()
+    {
+      horizontal_shift = vertical_stretch = 0.0;
+      dodge_factor = parry_factor = miss_factor = block_factor = 1.0;
+    }
+  } def_dr;
 
   // Weapons
   weapon_t main_hand_weapon;
@@ -4241,10 +4317,12 @@ struct player_t : public actor_t
   // Events
   action_t* executing;
   action_t* channeling;
-  core_event_t*  readying;
-  core_event_t*  off_gcd;
-  bool      in_combat;
-  bool      action_queued;
+  action_t* strict_sequence; // Strict sequence of actions currently being executed
+  core_event_t* readying;
+  core_event_t* off_gcd;
+  bool in_combat;
+  bool action_queued;
+  bool first_cast;
   action_t* last_foreground_action;
 
   // Delay time used by "cast_delay" expression to determine when an action
@@ -4255,6 +4333,7 @@ struct player_t : public actor_t
   // Callbacks
   player_callbacks_t callbacks;
   std::vector<special_effect_t> special_effects;
+  std::vector<std::function<void(void)> > callbacks_on_demise;
 
   // Action Priority List
   auto_dispose< std::vector<action_t*> > action_list;
@@ -4278,9 +4357,9 @@ struct player_t : public actor_t
   std::shared_ptr<player_report_extension_t> report_extension;
   timespan_t iteration_fight_length, arise_time;
   timespan_t iteration_waiting_time;
-  int       iteration_executed_foreground_actions;
+  int iteration_executed_foreground_actions;
   std::array< double, RESOURCE_MAX > iteration_resource_lost, iteration_resource_gained;
-  double    rps_gain, rps_loss;
+  double rps_gain, rps_loss;
   std::string tmi_debug_file_str;
   double tmi_window;
 
@@ -4293,25 +4372,13 @@ struct player_t : public actor_t
   auto_dispose< std::vector<cooldown_t*> > cooldown_list;
   std::array< std::vector<plot_data_t>, STAT_MAX > dps_plot_data;
   std::vector<std::vector<plot_data_t> > reforge_plot_data;
+  auto_dispose< std::vector<luxurious_sample_data_t*> > sample_data_list;
 
   // All Data collected during / end of combat
   player_collected_data_t collected_data;
 
-private:
-  player_vengeance_timeline_t vengeance;
-public:
-  void vengeance_start() 
-  { 
-    vengeance.start( *this ); 
-    vengeance_list.reset();
-  }
-  void vengeance_stop() 
-  { 
-    vengeance.stop(); 
-    vengeance_list.reset();
-  }
-  bool vengeance_is_started() const { return vengeance.is_started(); }
-  const sc_timeline_t& vengeance_timeline() const { return vengeance.timeline(); }
+
+  sc_timeline_t resolve_timeline;
 
   // Damage
   double iteration_dmg, iteration_dmg_taken; // temporary accumulators
@@ -4335,6 +4402,7 @@ public:
   gear_stats_t gear, enchant, temporary;
   gear_stats_t total_gear; // composite of gear, enchant and for non-pets sim -> enchant
   set_bonus_t sets;
+  new_set_bonus::set_bonus_t new_sets;
   meta_gem_e meta_gem;
   bool matching_gear;
   cooldown_t item_cooldown;
@@ -4346,7 +4414,7 @@ public:
   gear_stats_t scaling_error;
   gear_stats_t scaling_delta_dps;
   gear_stats_t scaling_compare_error;
-  double       scaling_lag, scaling_lag_error;
+  double scaling_lag, scaling_lag_error;
   std::array<bool, STAT_MAX> scales_with;
   std::array<double, STAT_MAX> over_cap;
   std::vector<stat_e> scaling_stats; // sorting vector
@@ -4370,25 +4438,22 @@ public:
     buff_t* guardian_spirit;
     buff_t* hand_of_sacrifice;
     buff_t* illuminated_healing;
-    buff_t* innervate;
     buff_t* mongoose_mh;
     buff_t* mongoose_oh;
     buff_t* nitro_boosts;
     buff_t* pain_supression;
     buff_t* raid_movement;
     buff_t* self_movement;
-    buff_t* stampeding_shout;
     buff_t* stampeding_roar;
     buff_t* shadowmeld;
     buff_t* stoneform;
     buff_t* stunned;
     buff_t* tricks_of_the_trade;
     buff_t* weakened_soul;
-    buff_t* vengeance;
+    buff_t* resolve;
 
     haste_buff_t* berserking;
     haste_buff_t* bloodlust;
-    haste_buff_t* unholy_frenzy;
 
     // Legendary meta stuff
     buff_t* courageous_primal_diamond_lucidity;
@@ -4412,6 +4477,12 @@ public:
     stat_buff_t* mogu_power;
     stat_buff_t* jade_serpent;
     stat_buff_t* mountains;
+
+    // WoD
+    stat_buff_t* draenor_agility;
+    stat_buff_t* draenor_armor;
+    stat_buff_t* draenor_intellect;
+    stat_buff_t* draenor_strength;
   } potion_buffs;
 
   struct debuffs_t
@@ -4425,10 +4496,7 @@ public:
     debuff_t* dazed;
 
     // MoP debuffs
-    debuff_t* magic_vulnerability;
     debuff_t* mortal_wounds;
-    debuff_t* physical_damage;
-    debuff_t* physical_vulnerability;
   } debuffs;
 
   struct gains_t
@@ -4440,9 +4508,7 @@ public:
     gain_t* energy_regen;
     gain_t* essence_of_the_red;
     gain_t* focus_regen;
-    gain_t* glyph_of_innervate;
     gain_t* health;
-    gain_t* innervate;
     gain_t* mana_potion;
     gain_t* mana_spring_totem;
     gain_t* mp5_regen;
@@ -4530,6 +4596,8 @@ public:
   virtual void init_rng();
   virtual void init_stats();
   virtual void register_callbacks();
+  // Class specific hook for first-phase initializing special effects. Returns true if the class-specific hook initialized something, false otherwise.
+  virtual bool init_special_effect( special_effect_t& /* effect */, const item_t& /* item */, unsigned /* spell_id */ ) { return false; }
 
   bool init_actions();
 
@@ -4565,12 +4633,17 @@ public:
   virtual double composite_readiness() const;
   virtual double composite_bonus_armor() const;
 
+  virtual double composite_damage_versatility() const;
+  virtual double composite_heal_versatility() const;
+  virtual double composite_mitigation_versatility() const;
+
   virtual double composite_armor() const;
   virtual double composite_armor_multiplier() const;
   virtual double composite_miss() const;
   virtual double composite_dodge() const;
   virtual double composite_parry() const;
   virtual double composite_block() const;
+          double composite_block_dr( double extra_block ) const;
   virtual double composite_block_reduction() const;
   virtual double composite_crit_block() const;
   virtual double composite_crit_avoidance() const;
@@ -4583,12 +4656,15 @@ public:
   virtual double composite_player_multiplier   ( school_e ) const;
   virtual double composite_player_dd_multiplier( school_e,  const action_t* /* a */ = NULL ) const { return 1; }
   virtual double composite_player_td_multiplier( school_e,  const action_t* a = NULL ) const;
+  // Persistent multipliers that are snapshot at the beginning of the spell application/execution
+  virtual double composite_persistent_multiplier( school_e ) const
+  { return 1.0; }
 
-  virtual double composite_player_heal_multiplier( school_e school ) const;
+  virtual double composite_player_heal_multiplier( const action_state_t* s ) const;
   virtual double composite_player_dh_multiplier( school_e /* school */ ) const { return 1; }
   virtual double composite_player_th_multiplier( school_e school ) const;
 
-  virtual double composite_player_absorb_multiplier( school_e school ) const;
+  virtual double composite_player_absorb_multiplier( const action_state_t* s ) const;
 
   virtual double composite_player_critical_damage_multiplier() const;
   virtual double composite_player_critical_healing_multiplier() const;
@@ -4644,8 +4720,15 @@ public:
   double composite_readiness_rating() const
   { return composite_rating( RATING_READINESS ); }
 
+  double composite_damage_versatility_rating() const
+  { return composite_rating( RATING_DAMAGE_VERSATILITY ); }
+  double composite_heal_versatility_rating() const
+  { return composite_rating( RATING_HEAL_VERSATILITY ); }
+  double composite_mitigation_versatility_rating() const
+  { return composite_rating( RATING_MITIGATION_VERSATILITY ); }
+
   double get_attribute( attribute_e a ) const
-  { return util::round( composite_attribute( a ) * composite_attribute_multiplier( a ) ); }
+  { return util::floor( composite_attribute( a ) * composite_attribute_multiplier( a ) ); }
 
   double strength() const  { return get_attribute( ATTR_STRENGTH ); }
   double agility() const   { return get_attribute( ATTR_AGILITY ); }
@@ -4791,6 +4874,7 @@ public:
   proc_t*     find_proc    ( const std::string& name ) const;
   benefit_t*  find_benefit ( const std::string& name ) const;
   uptime_t*   find_uptime  ( const std::string& name ) const;
+  luxurious_sample_data_t* find_sample_data( const std::string& name ) const;
 
   cooldown_t* get_cooldown( const std::string& name );
   dot_t*      get_dot     ( const std::string& name, player_t* source );
@@ -4799,6 +4883,7 @@ public:
   stats_t*    get_stats   ( const std::string& name, action_t* action = 0 );
   benefit_t*  get_benefit ( const std::string& name );
   uptime_t*   get_uptime  ( const std::string& name );
+  luxurious_sample_data_t* get_sample_data( const std::string& name );
   double      get_player_distance( player_t& );
   double      get_position_distance( double m = 0, double v = 0 );
   action_priority_list_t* get_action_priority_list( const std::string& name, const std::string& comment = std::string() );
@@ -4837,7 +4922,7 @@ public:
 
   rng_t& rng() { return sim -> rng(); }
   rng_t& rng() const { return sim -> rng(); }
-
+  std::vector<action_variable_t> variables;
   // Add 1ms of time to ensure that we finish this run. This is necessary due 
   // to the millisecond accuracy in our timing system.
   virtual timespan_t time_to_move() const
@@ -5052,6 +5137,15 @@ public:
   virtual double composite_bonus_armor() const
   { return owner -> cache.bonus_armor(); }
 
+  virtual double composite_damage_versatility() const
+  { return owner -> cache.damage_versatility(); }
+
+  virtual double composite_heal_versatility() const
+  { return owner -> cache.heal_versatility(); }
+
+  virtual double composite_mitigation_versatility() const
+  { return owner -> cache.mitigation_versatility(); }
+
   virtual double composite_melee_attack_power() const;
 
   virtual double composite_spell_power( school_e school ) const;
@@ -5192,6 +5286,111 @@ public:
   bool has_tick_amount_results() const;
 };
 
+struct action_state_t : public noncopyable
+{
+  // Source action, target actor
+  action_t*       action;
+  player_t*       target;
+  // Execution attributes
+  size_t          n_targets;            // Total number of targets the execution hits.
+  int             chain_target;         // The chain target number, 0 == no chain, 1 == first target, etc.
+  // Execution results
+  dmg_e           result_type;
+  result_e        result;
+  block_result_e  block_result;
+  double          result_raw;           // Base result value, without crit/glance etc.
+  double          result_total;         // Total unmitigated result, including crit bonus, glance penalty, etc.
+  double          result_mitigated;     // Result after mitigation / resist. *NOTENOTENOTE* Only filled after action_t::impact() call
+  double          result_absorbed;      // Result after absorption. *NOTENOTENOTE* Only filled after action_t::impact() call
+  double          result_amount;        // Final (actual) result
+  double          blocked_amount;        // The exact amount of how much damage was reduced via block or critical block
+  double          self_absorb_amount;    // The exqact amount of how much damaga was reduced via personal absorbs such as shield_barrier
+  // Snapshotted stats during execution
+  double          haste;
+  double          crit;
+  double          target_crit;
+  double          attack_power;
+  double          spell_power;
+  double          multistrike;
+  // Snapshotted multipliers
+  double          resolve;
+  double          versatility;
+  double          da_multiplier;
+  double          ta_multiplier;
+  double          persistent_multiplier;
+  double          target_da_multiplier;
+  double          target_ta_multiplier;
+  // Target mitigation multipliers
+  double          target_mitigation_da_multiplier;
+  double          target_mitigation_ta_multiplier;
+
+  static void release( action_state_t*& s );
+
+  action_state_t( action_t*, player_t* );
+  virtual ~action_state_t() {}
+
+  virtual void copy_state( const action_state_t* );
+  virtual void initialize();
+
+  virtual std::ostringstream& debug_str( std::ostringstream& debug_str );
+  virtual void debug();
+
+  virtual double composite_crit() const
+  { return crit + target_crit; }
+
+  virtual double composite_attack_power() const
+  { return attack_power; }
+
+  virtual double composite_spell_power() const
+  { return spell_power; }
+
+  virtual double composite_versatility() const
+  { return versatility; }
+
+  virtual double composite_da_multiplier() const
+  { return da_multiplier * persistent_multiplier * target_da_multiplier * versatility * resolve; }
+
+  virtual double composite_ta_multiplier() const
+  { return ta_multiplier * persistent_multiplier * target_ta_multiplier * versatility * resolve; }
+
+  virtual double composite_target_mitigation_da_multiplier() const
+  { return target_mitigation_da_multiplier; }
+
+  virtual double composite_target_mitigation_ta_multiplier() const
+  { return target_mitigation_ta_multiplier; }
+
+  // Inlined
+  virtual proc_types proc_type() const;
+  virtual proc_types2 execute_proc_type2() const;
+
+  // Secondary proc type of the impact event (i.e., assess_damage()). Only
+  // triggers the "amount" procs
+  virtual proc_types2 impact_proc_type2() const
+  {
+    // Don't allow impact procs that do not do damage or heal anyone; they 
+    // should all be handled by execute_proc_type2(). Note that this is based
+    // on the _total_ amount done. This is so that fully overhealed heals are
+    // still alowed to proc things.
+    if ( result_total <= 0 )
+      return PROC2_INVALID;
+
+    if ( result == RESULT_HIT )
+      return PROC2_HIT;
+    else if ( result == RESULT_CRIT )
+      return PROC2_CRIT;
+    else if ( result == RESULT_GLANCE )
+      return PROC2_GLANCE;
+    // Multistrike can only generate procs on impact, though this could be 
+    // moved to execute_proc_type2() too.
+    else if ( result == RESULT_MULTISTRIKE )
+      return PROC2_MULTISTRIKE;
+    else if ( result == RESULT_MULTISTRIKE_CRIT )
+      return PROC2_MULTISTRIKE_CRIT;
+
+    return PROC2_INVALID;
+  }
+};
+
 // Action ===================================================================
 
 struct action_t : public noncopyable
@@ -5238,6 +5437,7 @@ struct action_t : public noncopyable
   } attack_power_mod, spell_power_mod;
   timespan_t base_execute_time;
   timespan_t base_tick_time;
+  timespan_t dot_duration;
   std::array< double, RESOURCE_MAX > base_costs;
   std::array< int, RESOURCE_MAX > costs_per_second;
   double base_dd_min, base_dd_max, base_td;
@@ -5247,7 +5447,6 @@ struct action_t : public noncopyable
   double crit_multiplier, crit_bonus_multiplier, crit_bonus;
   double base_dd_adder;
   double base_ta_adder;
-  int num_ticks;
   weapon_t* weapon;
   double weapon_multiplier;
   double base_add_multiplier;
@@ -5303,13 +5502,12 @@ struct action_t : public noncopyable
   virtual timespan_t gcd() const;
   virtual timespan_t execute_time() const { return base_execute_time; }
   virtual timespan_t tick_time( double haste ) const;
-  virtual int    hasted_num_ticks( double haste, timespan_t d = timespan_t::min() ) const;
   virtual timespan_t travel_time() const;
   virtual result_e calculate_result( action_state_t* /* state */ ) { assert( false ); return RESULT_UNKNOWN; }
   virtual result_e calculate_multistrike_result( action_state_t* /* state */ );
-  virtual block_result_e calculate_block_result( action_state_t* /* state */ ) { assert ( false ); return BLOCK_RESULT_UNKNOWN; }
+  virtual block_result_e calculate_block_result( action_state_t* s );
   virtual double calculate_direct_amount( action_state_t* state );
-  virtual double calculate_tick_amount( action_state_t* state );
+  virtual double calculate_tick_amount( action_state_t* state, double multiplier );
 
   virtual double calculate_weapon_damage( double attack_power );
   virtual double target_armor( player_t* t ) const
@@ -5319,11 +5517,13 @@ struct action_t : public noncopyable
   virtual int n_targets() const { return aoe; }
   bool is_aoe() const { return n_targets() == -1 || n_targets() > 0; }
   virtual void   execute();
-  virtual void   multistrike( action_state_t* state, dmg_e type );
   virtual void   tick( dot_t* d );
+  virtual void   multistrike_tick( const action_state_t* source_state, action_state_t* ms_state, double dmg_multiplier = 1.0 );
+  virtual void   multistrike_direct( const action_state_t* state, action_state_t* ms_state );
   virtual void   last_tick( dot_t* d );
-  virtual void   update_vengeance( dmg_e, action_state_t* assess_state );
+  virtual void   update_resolve( dmg_e, action_state_t* assess_state );
   virtual void   assess_damage( dmg_e, action_state_t* assess_state );
+  virtual int    schedule_multistrike( action_state_t* state, dmg_e type, double dmg_multiplier = 1.0 );
   virtual void   schedule_execute( action_state_t* execute_state = 0 );
   virtual void   reschedule_execute( timespan_t time );
   virtual void   update_ready( timespan_t cd_duration = timespan_t::min() );
@@ -5364,12 +5564,12 @@ struct action_t : public noncopyable
     return( r == BLOCK_RESULT_BLOCKED || r == BLOCK_RESULT_CRIT_BLOCKED );
   }
 
-  virtual double   miss_chance( double /* hit */, player_t* /* target */ ) const { return 0; }
-  virtual double  dodge_chance( double /* expertise */, player_t* /* target */ ) const { return 0; }
-  virtual double  parry_chance( double /* expertise */, player_t* /* target */ ) const { return 0; }
-  virtual double glance_chance( int /* delta_level */ ) const { return 0; }
-  virtual double  block_chance( player_t* /* target */ ) const { return 0; }
-  virtual double   crit_chance( double /* crit */, int /* delta_level */ ) const;
+  virtual double       miss_chance( double /* hit */, player_t* /* target */ ) const { return 0; }
+  virtual double      dodge_chance( double /* expertise */, player_t* /* target */ ) const { return 0; }
+  virtual double      parry_chance( double /* expertise */, player_t* /* target */ ) const { return 0; }
+  virtual double     glance_chance( int /* delta_level */ ) const { return 0; }
+  virtual double      block_chance( action_state_t* /* state */ ) const { return 0; }  
+  virtual double crit_block_chance( action_state_t* /* state */  ) const { return 0; }
 
   virtual double total_crit_bonus() const; // Check if we want to move this into the stateless system.
 
@@ -5416,7 +5616,6 @@ private:
 public:
   virtual void do_schedule_travel( action_state_t*, const timespan_t& );
   virtual void schedule_travel( action_state_t* );
-  virtual void schedule_multistrike_travel( action_state_t* );
   virtual void impact( action_state_t* );
   virtual void trigger_dot( action_state_t* );
 
@@ -5427,6 +5626,9 @@ public:
   { snapshot_internal( s, update_flags, rt ); }
   virtual void consolidate_snapshot_flags();
 
+  virtual double composite_multistrike_multiplier( const action_state_t* ) const
+  { return 0.3; }
+  virtual timespan_t composite_dot_duration( const action_state_t* ) const;
   virtual double attack_direct_power_coefficient( const action_state_t* ) const
   { return attack_power_mod.direct; }
   virtual double attack_tick_power_coefficient( const action_state_t* ) const
@@ -5461,6 +5663,8 @@ public:
   virtual double composite_target_multiplier( player_t* target ) const { return target -> composite_player_vulnerability( get_school() ); }
   virtual double composite_multistrike() const { return player -> cache.multistrike(); }
   virtual double composite_readiness() const { return player -> cache.readiness(); }
+  virtual double composite_versatility( const action_state_t* ) const { return 1.0; }
+  virtual double composite_resolve( const action_state_t* ) const { return 1.0; }
 
   // the direct amount multiplier due to debuffs on the target
   virtual double composite_target_da_multiplier( player_t* target ) const { return composite_target_multiplier( target ); }
@@ -5468,19 +5672,24 @@ public:
   // the tick amount multiplier due to debuffs on the target
   virtual double composite_target_ta_multiplier( player_t* target ) const { return composite_target_multiplier( target ); }
 
-  virtual double composite_da_multiplier() const
+  virtual double composite_da_multiplier( const action_state_t* s ) const
   {
     return action_multiplier() * action_da_multiplier() *
-           player -> cache.player_multiplier( get_school() ) *
-           player -> composite_player_dd_multiplier( get_school() , this );
-  }
-  virtual double composite_ta_multiplier() const
-  {
-    return action_multiplier() * action_ta_multiplier() *
-           player -> cache.player_multiplier( get_school() ) *
-           player -> composite_player_td_multiplier( get_school() , this );
+           player -> cache.player_multiplier( s -> action -> get_school() ) *
+           player -> composite_player_dd_multiplier( s -> action -> get_school() , this );
   }
 
+  // Normal ticking modifiers that are updated every tick
+  virtual double composite_ta_multiplier( const action_state_t* s ) const
+  {
+    return action_multiplier() * action_ta_multiplier() *
+           player -> cache.player_multiplier( s -> action -> get_school() ) *
+           player -> composite_player_td_multiplier( s -> action -> get_school() , this );
+  }
+
+  // Persistent modifiers that are snapshot at the start of the spell cast
+  virtual double composite_persistent_multiplier( const action_state_t* ) const
+  { return player -> composite_persistent_multiplier( get_school() ); }
 
   virtual double composite_target_mitigation( player_t* t, school_e s ) const
   { return t -> composite_mitigation_multiplier( s ); }
@@ -5507,6 +5716,8 @@ public:
   void remove_travel_event( travel_event_t* e );
   bool has_travel_events() const { return ! travel_events.empty(); }
   bool has_travel_events_for( const player_t* target ) const;
+  const std::vector<travel_event_t*>& current_travel_events() const
+  { return travel_events; }
 
   rng_t& rng() { return sim -> rng(); }
   rng_t& rng() const { return sim -> rng(); }
@@ -5532,131 +5743,8 @@ public:
   { return base_teleport_distance; }
 
   virtual void do_teleport( action_state_t* );
-};
 
-struct action_state_t : public noncopyable
-{
-  // Source action, target actor
-  action_t*       action;
-  player_t*       target;
-  // Execution attributes
-  size_t          n_targets;            // Total number of targets the execution hits.
-  int             chain_target;         // The chain target number, 0 == no chain, 1 == first target, etc.
-  // Execution results
-  dmg_e           result_type;
-  result_e        result;
-  block_result_e  block_result;
-  double          result_raw;           // Base result value, without crit/glance etc.
-  double          result_total;         // Total unmitigated result, including crit bonus, glance penalty, etc.
-  double          result_mitigated;     // Result after mitigation / resist. *NOTENOTENOTE* Only filled after action_t::impact() call
-  double          result_absorbed;      // Result after absorption. *NOTENOTENOTE* Only filled after action_t::impact() call
-  double          result_amount;        // Final (actual) result
-  double          blocked_amount;        // The exact amount of how much damage was reduced via block or critical block
-  double          self_absorb_amount;    // The exqact amount of how much damaga was reduced via personal absorbs such as shield_barrier
-  // Snapshotted stats during execution
-  double          haste;
-  double          crit;
-  double          target_crit;
-  double          attack_power;
-  double          spell_power;
-  // Snapshotted multipliers
-  double          da_multiplier;
-  double          ta_multiplier;
-  double          target_da_multiplier;
-  double          target_ta_multiplier;
-  // Target mitigation multipliers
-  double          target_mitigation_da_multiplier;
-  double          target_mitigation_ta_multiplier;
-
-  static void release( action_state_t*& s ) { s -> action -> release_state( s ); s = 0; }
-
-  action_state_t( action_t*, player_t* );
-  virtual ~action_state_t() {}
-
-  virtual void copy_state( const action_state_t* );
-  virtual void initialize();
-
-  virtual std::ostringstream& debug_str( std::ostringstream& debug_str );
-  virtual void debug();
-
-  virtual double composite_crit() const
-  { return crit + target_crit; }
-
-  virtual double composite_attack_power() const
-  { return attack_power; }
-
-  virtual double composite_spell_power() const
-  { return spell_power; }
-
-  virtual double composite_da_multiplier() const
-  { return da_multiplier * target_da_multiplier; }
-
-  virtual double composite_ta_multiplier() const
-  { return ta_multiplier * target_ta_multiplier; }
-
-  virtual double composite_target_mitigation_da_multiplier() const
-  { return target_mitigation_da_multiplier; }
-
-  virtual double composite_target_mitigation_ta_multiplier() const
-  { return target_mitigation_ta_multiplier; }
-
-  // Primary proc type of the result (direct (aoe) damage/heal, periodic
-  // damage/heal)
-  virtual proc_types proc_type() const
-  {
-    if ( result_type == DMG_DIRECT || result_type == HEAL_DIRECT )
-      return action -> proc_type();
-    else if ( result_type == DMG_OVER_TIME )
-      return PROC1_PERIODIC;
-    else if ( result_type == HEAL_OVER_TIME )
-      return PROC1_PERIODIC_HEAL;
-
-    return PROC1_INVALID;
-  }
-
-  // Secondary proc type of the "finished casting" (i.e., execute()). Only
-  // triggers the "landing", dodge, parry, and miss procs
-  virtual proc_types2 execute_proc_type2() const
-  {
-    // Bunch up all non-damaging harmful attacks that land into "hit"
-    if ( action -> harmful && action -> result_is_hit( result ) )
-      return PROC2_LANDED;
-    else if ( result == RESULT_DODGE )
-      return PROC2_DODGE;
-    else if ( result == RESULT_PARRY )
-      return PROC2_PARRY;
-    else if ( result == RESULT_MISS )
-      return PROC2_MISS;
-
-    return PROC2_INVALID;
-  }
-
-  // Secondary proc type of the impact event (i.e., assess_damage()). Only
-  // triggers the "amount" procs
-  virtual proc_types2 impact_proc_type2() const
-  {
-    // Don't allow impact procs that do not do damage or heal anyone; they 
-    // should all be handled by execute_proc_type2(). Note that this is based
-    // on the _total_ amount done. This is so that fully overhealed heals are
-    // still alowed to proc things.
-    if ( result_total <= 0 )
-      return PROC2_INVALID;
-
-    if ( result == RESULT_HIT )
-      return PROC2_HIT;
-    else if ( result == RESULT_CRIT )
-      return PROC2_CRIT;
-    else if ( result == RESULT_GLANCE )
-      return PROC2_GLANCE;
-    // Multistrike can only generate procs on impact, though this could be 
-    // moved to execute_proc_type2() too.
-    else if ( result == RESULT_MULTISTRIKE )
-      return PROC2_MULTISTRIKE;
-    else if ( result == RESULT_MULTISTRIKE_CRIT )
-      return PROC2_MULTISTRIKE_CRIT;
-
-    return PROC2_INVALID;
-  }
+  virtual timespan_t calculate_dot_refresh_duration( const dot_t*, timespan_t triggered_duration ) const;
 };
 
 // Attack ===================================================================
@@ -5672,12 +5760,12 @@ struct attack_t : public action_t
   virtual timespan_t execute_time() const;
   virtual void execute();
   virtual result_e calculate_result( action_state_t* );
-  virtual block_result_e calculate_block_result( action_state_t* );
   virtual void   init();
 
   virtual double  miss_chance( double hit, player_t* t ) const;
-  virtual double  block_chance( player_t* t ) const;
-  virtual double  crit_block_chance( player_t* t ) const;
+  virtual double  dodge_chance( double /* expertise */, player_t* t ) const;
+  virtual double  block_chance( action_state_t* s ) const;
+  virtual double  crit_block_chance( action_state_t* s ) const;
 
   virtual double composite_hit() const
   { return action_t::composite_hit() + player -> cache.attack_hit(); }
@@ -5693,6 +5781,9 @@ struct attack_t : public action_t
 
   virtual double composite_expertise() const
   { return base_attack_expertise + player -> cache.attack_expertise(); }
+
+  virtual double composite_versatility( const action_state_t* state ) const
+  { return action_t::composite_versatility( state ) + player -> cache.damage_versatility(); }
 
   virtual void reschedule_auto_attack( double old_swing_haste );
 
@@ -5718,7 +5809,6 @@ struct melee_attack_t : public attack_t
 
   // Melee Attack Overrides
   virtual void init();
-  virtual double  dodge_chance( double /* expertise */, player_t* t ) const;
   virtual double  parry_chance( double /* expertise */, player_t* t ) const;
   virtual double glance_chance( int delta_level ) const;
 
@@ -5732,9 +5822,6 @@ struct ranged_attack_t : public attack_t
   ranged_attack_t( const std::string& token, player_t* p, const spell_data_t* s = spell_data_t::nil() );
 
   // Ranged Attack Overrides
-  virtual double  dodge_chance( double /* expertise */, player_t* t ) const;
-  virtual double  parry_chance( double /* expertise */, player_t* t ) const;
-  virtual double glance_chance( int delta_level ) const;
   virtual double composite_target_multiplier( player_t* ) const;
   virtual void schedule_execute( action_state_t* execute_state = 0 );
 
@@ -5755,7 +5842,6 @@ struct spell_base_t : public action_t
   virtual timespan_t execute_time() const;
   virtual timespan_t tick_time( double haste ) const;
   virtual result_e   calculate_result( action_state_t* );
-  virtual block_result_e calculate_block_result( action_state_t* ) { return BLOCK_RESULT_UNBLOCKED; }
   virtual void   execute();
   virtual void   schedule_execute( action_state_t* execute_state = 0 );
 
@@ -5785,6 +5871,8 @@ public:
   virtual void   init();
   virtual double composite_hit() const
   { return action_t::composite_hit() + player -> cache.spell_hit(); }
+  virtual double composite_versatility( const action_state_t* state ) const
+  { return spell_base_t::composite_versatility( state ) + player -> cache.damage_versatility(); }
 };
 
 // Heal =====================================================================
@@ -5795,6 +5883,7 @@ public:
   typedef spell_base_t base_t;
   bool group_only;
   double pct_heal;
+  double tick_pct_heal;
   gain_t* heal_gain;
 
   heal_t( const std::string& name, player_t* p, const spell_data_t* s = spell_data_t::nil() );
@@ -5803,6 +5892,7 @@ public:
   virtual size_t available_targets( std::vector< player_t* >& ) const;
   virtual void init_target_cache();
   virtual double calculate_direct_amount( action_state_t* state );
+  virtual double calculate_tick_amount( action_state_t* state, double dmg_multiplier );
   virtual void execute();
   player_t* find_greatest_difference_player();
   player_t* find_lowest_player();
@@ -5810,21 +5900,39 @@ public:
   virtual int num_targets();
   virtual void   parse_effect_data( const spelleffect_data_t& );
 
-  virtual double composite_da_multiplier() const
+  virtual double composite_da_multiplier( const action_state_t* s ) const
   {
-    return action_multiplier() * action_da_multiplier() *
-           player -> cache.player_heal_multiplier( get_school() ) *
+    double m = action_multiplier() * action_da_multiplier() *
+           player -> cache.player_heal_multiplier( s ) *
            player -> composite_player_dh_multiplier( get_school() );
+
+    return m;
   }
-  virtual double composite_ta_multiplier() const
+
+  virtual double composite_ta_multiplier( const action_state_t* s ) const
   {
-    return action_multiplier() * action_ta_multiplier() *
-           player -> cache.player_heal_multiplier( get_school() ) *
+    double m = action_multiplier() * action_ta_multiplier() *
+           player -> cache.player_heal_multiplier( s ) *
            player -> composite_player_th_multiplier( get_school() );
+
+    return m;
   }
 
   virtual double composite_player_critical_multiplier() const
   { return player -> composite_player_critical_healing_multiplier(); }
+
+  virtual double composite_versatility( const action_state_t* state ) const
+  { return spell_base_t::composite_versatility( state ) + player -> cache.heal_versatility(); }
+
+  virtual double composite_resolve( const action_state_t* state ) const
+  {
+    double m = 1.0;
+
+    if ( player -> resolve_manager.is_started() && state -> target == player )
+      m += player -> buffs.resolve -> current_value / 100.0;
+
+    return m;
+  }
 
   virtual expr_t* create_expression( const std::string& name );
 };
@@ -5833,7 +5941,13 @@ public:
 
 struct absorb_t : public spell_base_t
 {
+  target_specific_t<absorb_buff_t*> target_specific;
+  absorb_buff_creator_t creator_;
+
   absorb_t( const std::string& name, player_t* p, const spell_data_t* s = spell_data_t::nil() );
+
+  virtual absorb_buff_creator_t& creator()
+  { return creator_; }
 
   virtual void execute();
   virtual void assess_damage( dmg_e, action_state_t* );
@@ -5841,17 +5955,36 @@ struct absorb_t : public spell_base_t
   virtual void init_target_cache();
   virtual size_t available_targets( std::vector< player_t* >& ) const;
   virtual int num_targets();
+  virtual void multistrike_direct( const action_state_t*, action_state_t* ms_state );
+  virtual void multistrike_tick( const action_state_t*, action_state_t* ms_state, double tick_multiplier );
 
-  virtual double composite_da_multiplier() const
+  virtual double composite_da_multiplier( const action_state_t* s ) const
   {
-    return action_multiplier() * action_da_multiplier() *
-           player -> composite_player_absorb_multiplier( get_school() );
+    double m = action_multiplier() * action_da_multiplier() *
+           player -> composite_player_absorb_multiplier( s );
+
+    return m;
   }
-  virtual double composite_ta_multiplier() const
+  virtual double composite_ta_multiplier( const action_state_t* s ) const
   {
-    return action_multiplier() * action_ta_multiplier() *
-           player -> composite_player_absorb_multiplier( get_school() );
+    double m = action_multiplier() * action_ta_multiplier() *
+           player -> composite_player_absorb_multiplier( s );
+
+    return m;
   }
+  virtual double composite_versatility( const action_state_t* state ) const
+  { return spell_base_t::composite_versatility( state ) + player -> cache.heal_versatility(); }
+
+  virtual double composite_resolve( const action_state_t* state ) const
+  {
+    double m = 1.0;
+
+    if ( player -> resolve_manager.is_started() && state -> target == player )
+      m += player -> buffs.resolve -> current_value / 100.0;
+
+    return m;
+  }
+
 };
 
 // Sequence =================================================================
@@ -5875,51 +6008,111 @@ struct sequence_t : public action_t
   { return ! restarted && last_restart < sim -> current_time; }
 };
 
+struct strict_sequence_t : public action_t
+{
+  size_t current_action;
+  std::vector<action_t*> sub_actions;
+  std::string seq_name_str;
+
+  strict_sequence_t( player_t*, const std::string& opts );
+
+  bool ready();
+  void reset();
+  void cancel();
+  void interrupt_action();
+  void schedule_execute( action_state_t* execute_state = 0 );
+};
+
+// Primary proc type of the result (direct (aoe) damage/heal, periodic
+// damage/heal)
+inline proc_types action_state_t::proc_type() const
+{
+  if ( result_type == DMG_DIRECT || result_type == HEAL_DIRECT )
+    return action -> proc_type();
+  else if ( result_type == DMG_OVER_TIME )
+    return PROC1_PERIODIC;
+  else if ( result_type == HEAL_OVER_TIME )
+    return PROC1_PERIODIC_HEAL;
+
+  return PROC1_INVALID;
+}
+
+// Secondary proc type of the "finished casting" (i.e., execute()). Only
+// triggers the "landing", dodge, parry, and miss procs
+inline proc_types2 action_state_t::execute_proc_type2() const
+{
+  // Bunch up all non-damaging harmful attacks that land into "hit"
+  if ( action -> harmful && ( action -> result_is_hit( result ) || action -> result_is_multistrike( result ) ) )
+    return PROC2_LANDED;
+  else if ( result == RESULT_DODGE )
+    return PROC2_DODGE;
+  else if ( result == RESULT_PARRY )
+    return PROC2_PARRY;
+  else if ( result == RESULT_MISS )
+    return PROC2_MISS;
+
+  return PROC2_INVALID;
+}
+
 // DoT ======================================================================
 
 struct dot_t : public noncopyable
 {
 private:
   sim_t& sim;
+  bool ticking;
+  timespan_t current_duration;
+  timespan_t last_start;
+  timespan_t extended_time; // Added time per extend_duration for the current dot application
+  core_event_t* tick_event;
+  core_event_t* end_event;
+  double last_tick_factor;
 public:
   player_t* const target;
   player_t* const source;
   action_t* current_action;
   action_state_t* state;
-  core_event_t* tick_event;
-  int num_ticks, current_tick, added_ticks;
-  bool ticking;
-  timespan_t added_seconds;
-  timespan_t ready;
+  int num_ticks, current_tick;
   timespan_t miss_time;
   timespan_t time_to_tick;
-  const std::string name_str;
-  double tick_amount;
+  std::string name_str;
 
   dot_t( const std::string& n, player_t* target, player_t* source );
 
-  void   cancel();
-  void   extend_duration( int extra_ticks, bool cap = false, uint32_t state_flags = -1 );
-  void   extend_duration_seconds( timespan_t extra_seconds, uint32_t state_flags = -1 );
-  void   recalculate_ready();
+  void   extend_duration( timespan_t extra_seconds, timespan_t max_total_time = timespan_t::min(), uint32_t state_flags = -1 );
+  void   extend_duration( timespan_t extra_seconds, uint32_t state_flags )
+  { extend_duration( extra_seconds, timespan_t::min(), state_flags ); }
   void   refresh_duration( uint32_t state_flags = -1 );
   void   reset();
-  void   last_tick();
-  void   schedule_tick();
-  int    ticks();
-  void   copy( player_t* destination );
-  bool   is_higher_priority_action_available();
-
-  timespan_t remains() const
-  {
-    if ( ! current_action ) return timespan_t::zero();
-    if ( ! ticking ) return timespan_t::zero();
-    return ready - sim.current_time;
-  };
-
+  void   cancel();
+  void   trigger( timespan_t duration );
+  void   copy( player_t* destination, dot_copy_e = DOT_COPY_START );
+  void   copy( dot_t* other_dot );
   expr_t* create_expression( action_t* action, const std::string& name_str, bool dynamic );
 
-  const char* name() const { return name_str.c_str(); }
+  timespan_t remains() const;
+  timespan_t time_to_next_tick() const;
+  int    ticks_left() const;
+  const char* name() const
+  { return name_str.c_str(); }
+  bool is_ticking() const
+  { return ticking; }
+  timespan_t get_extended_time() const
+  { return extended_time; }
+  double get_last_tick_factor() const
+  { return last_tick_factor; }
+
+private:
+  struct dot_tick_event_t;
+  struct dot_end_event_t;
+  void tick();
+  void tick_zero();
+  void last_tick();
+  void schedule_tick();
+  void start( timespan_t duration );
+  void refresh( timespan_t duration );
+  void check_tick_zero();
+  bool is_higher_priority_action_available() const;
 };
 
 // "Real" 'Procs per Minute' helper class =====================================
@@ -6126,8 +6319,6 @@ struct dbc_proc_callback_t : public action_callback_t
 
   void initialize();
 
-  std::string cooldown_name() const;
-
   void reset()
   {
     action_callback_t::reset();
@@ -6263,6 +6454,93 @@ struct travel_event_t : public event_t
   virtual void execute();
 };
 
+struct multistrike_execute_event_t : public event_t
+{
+  action_state_t* state;
+
+  multistrike_execute_event_t( action_state_t* s ) :
+      event_t( *s -> action -> player, "Multistrike-Execute-Event" ), state( s )
+  {
+    if ( sim().debug )
+    {
+      sim().out_debug.printf( "New Multistrike Execute Event: %s %s (target=%s)",
+                  s -> action -> player -> name(), s -> action -> name(),
+                  s -> target -> name() );
+    }
+
+    // Hots/Dots will be scheduled immediately, direct damage multistrikes will
+    // jump through hoops .. below
+    if ( state -> result_type == DMG_OVER_TIME || state -> result_type == HEAL_OVER_TIME )
+      sim().add_event( this, timespan_t::zero() );
+    // Direct damage/heal multistrikes need to take into account the travel
+    // time of the "real" spell, and impact at the same time(?), so ..
+    // TODO-WOD: Multistrike impacts in combatlog have delay of .. ?
+    else if ( state -> result_type == DMG_DIRECT || state -> result_type == HEAL_DIRECT )
+    {
+      // No travel time -> impact immediately. Event ordering is guaranteed, as
+      // schedule_travel() in action_t::execute() has already impacted on this
+      // timestamp
+      if ( state -> action -> travel_time() == timespan_t::zero() )
+      {
+        sim().add_event( this, timespan_t::zero() );
+      }
+      // Travel time spell, schedule_travel() has inserted a new entry into the
+      // action's travel events (at the end of the vector), so use it's
+      // remaining time as a basis for this event. Event ordering guaranteed,
+      // as the main spell travel event is already in the queue.
+      else
+      {
+        assert( state -> action -> current_travel_events().size() > 0 );
+        timespan_t time_to_travel = state -> action -> current_travel_events().back() -> remains();
+        sim().add_event( this, time_to_travel );
+      }
+    }
+    else
+      assert( 0 && "Multistrike Execute event, where state has no result_type" );
+  }
+
+  // Ensure we properly release the carried execute_state even if this event
+  // is never executed.
+  ~multistrike_execute_event_t()
+  {
+    if ( state )
+      action_state_t::release( state );
+  }
+
+  void execute()
+  {
+    if ( ! state -> target -> is_sleeping() )
+    {
+      if ( sim().debug )
+        state -> debug();
+
+      if ( state -> result_type == DMG_OVER_TIME || state -> result_type == HEAL_OVER_TIME )
+        state -> action -> assess_damage( state -> result_type, state );
+      else
+        state -> action -> impact( state );
+
+      // Multistrike callbacks, if there are any
+      if ( state -> action -> callbacks )
+      {
+        proc_types pt = state -> proc_type();
+        proc_types2 pt2 = state -> execute_proc_type2();
+        if ( pt2 == PROC2_LANDED )
+          pt2 = state -> impact_proc_type2();
+
+        // "On an execute result"
+        if ( pt != PROC1_INVALID && pt2 != PROC2_INVALID )
+        {
+          action_callback_t::trigger( state -> action -> player -> callbacks.procs[ pt ][ pt2 ],
+                                      state -> action,
+                                      state );
+        }
+      }
+    }
+
+    action_state_t::release( state );
+  }
+};
+
 // Item database ============================================================
 
 namespace item_database
@@ -6354,13 +6632,17 @@ namespace unique_gear
     unsigned    spell_id;
     const char* encoded_options;
     //const std::function<void(special_effect_t&, const item_t&, const special_effect_db_item_t&)> custom_cb;
-    void (*custom_cb)(special_effect_t&, const item_t&, const special_effect_db_item_t&);
+    void (*custom_cb)( special_effect_t&, const item_t& );
   };
 
 void init( player_t* );
 
-const special_effect_db_item_t& find_special_effect_db_item( unsigned spell_id );
+const special_effect_db_item_t& find_special_effect_db_item( const special_effect_db_item_t* start, unsigned n, unsigned spell_id );
 bool initialize_special_effect( special_effect_t& effect, const item_t& item, unsigned spell_id );
+
+const item_data_t* find_consumable( const dbc_t& dbc, const std::string& name, item_subclass_consumable type );
+
+expr_t* create_expression( action_t* a, const std::string& name_str );
 };
 
 // Consumable ===============================================================
@@ -6369,6 +6651,8 @@ namespace consumable
 {
 action_t* create_action( player_t*, const std::string& name, const std::string& options );
 }
+
+// Wowhead  =================================================================
 
 // Wowhead  =================================================================
 
@@ -6407,6 +6691,8 @@ std::string decorated_buff_name( const std::string& name,
                                  const std::string& href_parm = std::string(),
                                  bool affix = true );
 }
+
+
 // Blizzard Community Platform API ==========================================
 
 namespace bcp_api
@@ -6451,8 +6737,8 @@ struct proxy_t
 };
 void set_proxy( const std::string& type, const std::string& host, const unsigned port );
 
-void cache_load( const char* file_name );
-void cache_save( const char* file_name );
+void cache_load( const std::string& file_name );
+void cache_save( const std::string& file_name );
 bool clear_cache( sim_t*, const std::string& name, const std::string& value );
 
 bool get( std::string& result, const std::string& url, cache::behavior_e b,
@@ -6460,208 +6746,7 @@ bool get( std::string& result, const std::string& url, cache::behavior_e b,
 }
 
 // XML ======================================================================
-
-struct xml_parm_t
-{
-  std::string name_str;
-  std::string value_str;
-  xml_parm_t( const std::string& n, const std::string& v ) : name_str( n ), value_str( v ) {}
-  const char* name() { return name_str.c_str(); }
-};
-
-struct xml_node_t
-{
-  std::string name_str;
-  std::vector<std::shared_ptr<xml_node_t> > children;
-  std::vector<xml_parm_t> parameters;
-  xml_node_t() {}
-  xml_node_t( const std::string& n ) : name_str( n ) {}
-  const char* name() { return name_str.c_str(); }
-  xml_node_t* get_child( const std::string& name );
-  xml_node_t* get_node ( const std::string& path );
-  xml_node_t* get_node ( const std::string& path, const std::string& parm_name, const std::string& parm_value );
-  std::vector<xml_node_t*>  get_children( const std::string& name = std::string() );
-  std::vector<xml_node_t*>  get_nodes   ( const std::string& path );
-  std::vector<xml_node_t*>  get_nodes   ( const std::string& path, const std::string& parm_name, const std::string& parm_value );
-  bool get_value( std::string& value, const std::string& path = std::string() );
-  bool get_value( int&         value, const std::string& path = std::string() );
-  bool get_value( double&      value, const std::string& path = std::string() );
-  xml_parm_t* get_parm( const std::string& parm_name );
-
-  std::shared_ptr<xml_node_t> create_node     ( sim_t* sim, const std::string& input, std::string::size_type& index );
-  int         create_children ( sim_t* sim, const std::string& input, std::string::size_type& index );
-  void        create_parameter( const std::string& input, std::string::size_type& index );
-
-  xml_node_t* search_tree( const std::string& node_name );
-  xml_node_t* search_tree( const std::string& node_name, const std::string& parm_name, const std::string& parm_value );
-  xml_node_t* split_path ( std::string& key, const std::string& path );
-
-  void print( FILE* f = stdout, int spacing = 0 );
-  void print_xml( FILE* f = stdout, int spacing = 0 );
-  static std::shared_ptr<xml_node_t> get( sim_t* sim, const std::string& url, cache::behavior_e b,
-                          const std::string& confirmation = std::string() );
-  static std::shared_ptr<xml_node_t> create( sim_t* sim, const std::string& input );
-
-  xml_node_t* add_child( const std::string& name );
-  template <typename T>
-  void add_parm( const std::string& name, const T& value )
-  {
-    std::ostringstream s;
-    s << value;
-    parameters.push_back( xml_parm_t( name, s.str() ) );
-  }
-};
-
-class xml_writer_t
-{
-private:
-  io::cfile file;
-  enum state
-  {
-    NONE, TAG, TEXT
-  };
-  std::stack<std::string> current_tags;
-  std::string tabulation;
-  state current_state;
-  std::string indentation;
-
-  struct replacement
-  {
-    const char* from;
-    const char* to;
-  };
-
-public:
-  xml_writer_t( const std::string & filename ) :
-    file( filename, "w" ),
-    tabulation( "  " ), current_state( NONE )
-  {
-  }
-
-  bool ready() { return file != NULL; }
-
-  int printf( const char *format, ... ) const PRINTF_ATTRIBUTE( 2, 3 )
-  {
-    va_list fmtargs;
-    va_start( fmtargs, format );
-
-    int retcode = vfprintf( file, format, fmtargs );
-
-    va_end( fmtargs );
-
-    return retcode;
-  }
-
-  void init_document( const std::string & stylesheet_file )
-  {
-    assert( current_state == NONE );
-
-    printf( "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" );
-    if ( !stylesheet_file.empty() )
-    {
-      printf( "<?xml-stylesheet type=\"text/xml\" href=\"%s\"?>", stylesheet_file.c_str() );
-    }
-
-    current_state = TEXT;
-  }
-
-  void begin_tag( const std::string & tag )
-  {
-    assert( current_state != NONE );
-
-    if ( current_state != TEXT )
-    {
-      printf( ">" );
-    }
-
-    printf( "\n%s<%s", indentation.c_str(), tag.c_str() );
-
-    current_tags.push( tag );
-    indentation += tabulation;
-
-    current_state = TAG;
-  }
-
-  void end_tag( const std::string & tag )
-  {
-    assert( current_state != NONE );
-    assert( ! current_tags.empty() );
-    assert( indentation.size() == tabulation.size() * current_tags.size() );
-
-    assert( tag == current_tags.top() );
-    current_tags.pop();
-
-    indentation.resize( indentation.size() - tabulation.size() );
-
-    if ( current_state == TAG )
-    {
-      printf( "/>" );
-    }
-    else if ( current_state == TEXT )
-    {
-      printf( "\n%s</%s>", indentation.c_str(), tag.c_str() );
-    }
-
-    current_state = TEXT;
-  }
-
-  void print_attribute( const std::string & name, const std::string & value )
-  { print_attribute_unescaped( name, sanitize( value ) ); }
-
-  void print_attribute_unescaped( const std::string & name, const std::string & value )
-  {
-    assert( current_state != NONE );
-
-    if ( current_state == TAG )
-    {
-      printf( " %s=\"%s\"", name.c_str(), value.c_str() );
-    }
-  }
-
-  void print_tag( const std::string & name, const std::string & inner_value )
-  {
-    assert( current_state != NONE );
-
-    if ( current_state != TEXT )
-    {
-      printf( ">" );
-    }
-
-    printf( "\n%s<%s>%s</%s>", indentation.c_str(), name.c_str(), sanitize( inner_value ).c_str(), name.c_str() );
-
-    current_state = TEXT;
-  }
-
-  void print_text( const std::string & input )
-  {
-    assert( current_state != NONE );
-
-    if ( current_state != TEXT )
-    {
-      printf( ">" );
-    }
-
-    printf( "\n%s", sanitize( input ).c_str() );
-
-    current_state = TEXT;
-  }
-
-  static std::string sanitize( std::string v )
-  {
-    static const replacement replacements[] =
-    {
-      { "&", "&amp;" },
-      { "\"", "&quot;" },
-      { "<", "&lt;" },
-      { ">", "&gt;" },
-    };
-
-    for ( unsigned int i = 0; i < sizeof_array( replacements ); ++i )
-      util::replace_all( v, replacements[ i ].from, replacements[ i ].to );
-
-    return v;
-  }
-};
+#include "util/xml.hpp"
 
 // Handy Actions ============================================================
 
@@ -6686,23 +6771,45 @@ struct wait_for_cooldown_t : public wait_action_base_t
   virtual timespan_t execute_time() const;
 };
 
-namespace ignite {
+// Namespace for a ignite like action. Not mandatory, but encouraged to use it.
+namespace residual_action
+{
+// Custom state for ignite-like actions. tick_amount contains the current
+// ticking value of the ignite periodic effect, and is adjusted every time
+// residual_periodic_action_t (the ignite spell) impacts on the target.
+struct residual_periodic_state_t : public action_state_t
+{
+  double tick_amount;
 
-// Template for a ignite like action. Not mandatory, but encouraged to use it.
+  residual_periodic_state_t( action_t* a, player_t* t ) :
+    action_state_t( a, t ),
+    tick_amount( 0 )
+  { }
 
-// It makes sure that the travel time corresponds to our ignite model,
-// and sets various flags so as to not further modify the damage with which it gets executed
+  std::ostringstream& debug_str( std::ostringstream& s ) override
+  { action_state_t::debug_str( s ) << " tick_amount=" << tick_amount; return s; }
+
+  void initialize() override
+  { action_state_t::initialize(); tick_amount = 0; }
+
+  void copy_state( const action_state_t* o ) override
+  {
+    action_state_t::copy_state( o );
+    const residual_periodic_state_t* dps_t = debug_cast<const residual_periodic_state_t*>( o );
+    tick_amount = dps_t -> tick_amount;
+  }
+};
 
 template <class Base>
-struct pct_based_action_t : public Base
+struct residual_periodic_action_t : public Base
 {
 private:
   typedef Base ab; // typedef for the templated action type, spell_t, or heal_t
 public:
-  typedef pct_based_action_t base_t;
+  typedef residual_periodic_action_t base_t;
 
   template <typename T>
-  pct_based_action_t( const std::string& n, T& p, const spell_data_t* s ) :
+  residual_periodic_action_t( const std::string& n, T& p, const spell_data_t* s ) :
     ab( n, p, s )
   {
     ab::background = true;
@@ -6713,107 +6820,93 @@ public:
     ab::attack_power_mod.tick = 0;
     ab::spell_power_mod.tick = 0;
     ab::dot_behavior  = DOT_REFRESH;
+    ab::callbacks = false;
+    ab::may_multistrike = false;
   }
+
+  virtual action_state_t* new_state() override
+  { return new residual_periodic_state_t( this, ab::target ); }
+
+  // Residual periodic actions will not be extendeed by the pandemic mechanism,
+  // thus the new maximum length of the dot is the ongoing tick plus the
+  // duration of the dot.
+  virtual timespan_t calculate_dot_refresh_duration( const dot_t* dot, timespan_t triggered_duration ) const override
+  { return dot -> time_to_next_tick() + triggered_duration; }
 
   virtual void impact( action_state_t* s )
   {
-    double saved_impact_dmg = s -> result_amount;
-    s -> result_amount = 0;
-    ab::impact( s );
+    // Residual periodic actions + tick_zero does not work
+    assert( ! ab::tick_zero );
 
     dot_t* dot = ab::get_dot( s -> target );
-    assert( dot -> ticking && dot -> ticks() && "No dot has been triggered for ignite_pct_based_action!" );
-    ab::base_td = saved_impact_dmg / dot -> ticks();
+    double current_amount = 0, old_amount = 0;
+    int ticks_left = 0;
+    residual_periodic_state_t* dot_state = debug_cast<residual_periodic_state_t*>( dot -> state );
+
+    // If dot is ticking get current residual pool before we overwrite it
+    if ( dot -> is_ticking() )
+    {
+      old_amount = dot_state -> tick_amount;
+      ticks_left = dot -> ticks_left();
+      current_amount = old_amount * dot -> ticks_left();
+    }
+
+    // Add new amount to residual pool
+    current_amount += s -> result_amount;
+
+    // Trigger the dot, refreshing it's duration or starting it
+    ab::trigger_dot( s );
+
+    // If the dot is not ticking, dot_state will be nullptr, so get the
+    // residual_periodic_state_t object from the dot again (since it will exist
+    // after trigger_dot() is called)
+    if ( ! dot_state )
+      dot_state = debug_cast<residual_periodic_state_t*>( dot -> state );
+
+    // Compute tick damage after refresh, so we divide by the correct number of
+    // ticks
+    dot_state -> tick_amount = current_amount / dot -> ticks_left();
+
+    // Spit out debug for what we did
+    if ( ab::sim -> debug )
+      ab::sim -> out_debug.printf( "%s %s residual_action impact amount=%f old_total=%f old_ticks=%d old_tick=%f current_total=%f current_ticks=%d current_tick=%f",
+                  ab::player -> name(), ab::name(), s -> result_amount,
+                  old_amount, ticks_left, ticks_left > 0 ? old_amount / ticks_left : 0,
+                  current_amount, dot -> ticks_left(), dot_state -> tick_amount );
   }
 
-  virtual timespan_t travel_time() const
+  // The damage of the tick is simply the tick_amount in the state
+  virtual double base_ta( const action_state_t* s ) const
   {
-    // Starts directly after ignite amount is calculated
-    return timespan_t::zero();
+    dot_t* d = ab::find_dot( s -> target );
+    residual_periodic_state_t* rd_state = debug_cast<residual_periodic_state_t*>( d -> state );
+
+    return d ? rd_state -> tick_amount : 0.0;
   }
 
+  // Ensure that not travel time exists for the ignite ability. Delay is
+  // handled in the trigger via a custom event
+  virtual timespan_t travel_time() const
+  { return timespan_t::zero(); }
+
+  // This object is not "executable" normally. Instead, the custom event
+  // handles the triggering of ignite
   virtual void execute()
   { assert( 0 ); }
 
+  // Ensure that the ignite action snapshots nothing
   void init()
   {
     ab::init();
 
     ab::update_flags = ab::snapshot_flags = 0;
   }
-
-  virtual double composite_ta_multiplier() const { return 1.0; } // stateless
 };
 
-// This is a template for Ignite like mechanics, like of course Ignite, Hunter Piercing Shots, Priest Echo of Light, etc.
-// It should get specialized in the class module
-void trigger_pct_based( action_t* ignite_action,
-                        player_t* t,
-                        double dmg );
+// Trigger a residual periodic action on target t
+void trigger( action_t* residual_action, player_t* t, double amount );
 
-}  // namespace ignite
-
-template <typename Action>
-struct residual_dot_action : public Action
-{
-  typedef residual_dot_action< Action > residual_dot_action_t;
-
-  template <typename Player>
-  residual_dot_action( const std::string& n, Player& p, const spell_data_t* s ) :
-    Action( n, p, s )
-  {
-    Action::background = true;
-    Action::tick_may_crit = false;
-    Action::hasted_ticks  = false;
-    Action::may_crit = false;
-    Action::attack_power_mod.tick = 0;
-    Action::spell_power_mod.tick = 0;
-    Action::may_multistrike = false;
-    Action::dot_behavior  = DOT_REFRESH;
-  }
-
-  virtual void execute() { assert( 0 ); }
-
-  // Never need to update the state.
-  virtual void snapshot_state( action_state_t*, dmg_e ) { }
-  virtual void update_state( action_state_t*, dmg_e ) { }
-
-  virtual double calculate_tick_amount( action_state_t* s )
-  {
-    dot_t* d = Action::find_dot( s -> target );
-    s -> result_amount =  d ? d -> tick_amount : 0.0;
-    return s -> result_amount;
-  }
-
-  virtual void impact( action_state_t* s )
-  {
-    // Amortize damage AFTER dot initialized so we know how many ticks. Only works if tick_zero=false.
-    assert( ! Action::tick_zero );
-    dot_t* dot = Action::get_dot( s -> target );
-    if ( dot -> ticking )
-      dot -> tick_amount *= dot -> ticks();
-    else
-      dot -> tick_amount = 0;
-    dot -> tick_amount += s -> result_amount;
-    Action::trigger_dot( s );
-    dot -> tick_amount /= dot -> ticks();
-  }
-
-  virtual timespan_t travel_time() const
-  {
-    return Action::rng().gauss( Action::sim -> default_aura_delay,
-                                 Action::sim -> default_aura_delay_stddev );
-  }
-
-  void trigger( player_t* t, double amount )
-  {
-    action_state_t* s = Action::get_state();
-    s -> result = RESULT_HIT;
-    s -> result_amount = amount;
-    s -> target = t;
-    Action::schedule_travel( s );
-  }
-};
+}  // namespace residual_action
 
 // Inlines ==================================================================
 

@@ -160,7 +160,7 @@ const char * _effect_subtype_strings[] =
   "Confuse",                    "Charm",                    "Fear",                 "Periodic Heal",            "Attack Speed",                       // 5
   "Threat",                     "Taunt",                    "Stun",                 "Damage Done",              "Damage Taken",                       // 10
   "Damage Shield",              "Stealth",                  "Stealth Detection",    "Invisibility",             "Invisibility Detection",             // 15
-  0,                            0,                          "Resistance",           "Periodic Trigger Spell",   "Periodic Energize Power",            // 20
+  "Periodic Heal%",             0,                          "Resistance",           "Periodic Trigger Spell",   "Periodic Energize Power",            // 20
   "Pacify",                     "Root",                     "Silence",              "Spell Reflection",         "Attribute",                          // 25
   "Skill",                      "Increase Speed%",          "Increase Mounted Speed%", "Decrease Movement Speed%", "Increase Health",                 // 30
   "Increase Energy",            "Shapeshift",               "Immunity Against External Movement", 0,            "School Immunity",                    // 35
@@ -183,7 +183,7 @@ const char * _effect_subtype_strings[] =
   0,                            0,                          0,                      0,                          "Modify Ranged Attack Power", // 120
   0,                            0,                          0,                      0,                          0,                       // 125
   0,                            0,                          0,                      0,                          0,                       // 130
-  "Modify Healing Power",       0,                          "Modify Total Stat%",   "Modify Melee Haste%",      0,                       // 135
+  "Modify Healing Power",       "Modify Healing% Done",     "Modify Total Stat%",   "Modify Melee Haste%",      0,                       // 135
   "Modify Ranged Haste%",       0,                          "Modify Base Resistance",0,                         0,                       // 140
   0,                            0,                          0,                      0,                          0,                       // 145
   0,                            0,                          0,                      0,                          0,                       // 150
@@ -240,7 +240,7 @@ const char * _effect_subtype_strings[] =
   0,                            0,                          0,                      0,                          0,                       // 405
   0,                            0,                          0,                      0,                          0,                       // 410
   0,                            0,                          0,                      0,                          0,                       // 415
-  0,                            0,                          0,                      0,                          0,                       // 420
+  0,                            0,                          "Modify Absorb% Done", 0,                          0,                       // 420
   0,                            0,                          0,                      0,                          0,                       // 425
   0,                            0,                          0,                      0,                          0,                       // 430
   0,                            0,                          0,                      0,                          0,                       // 435
@@ -346,6 +346,7 @@ std::ostringstream& spell_info::effect_to_str( const dbc_t& dbc,
         case A_PERIODIC_HEAL:
         case A_PERIODIC_ENERGIZE:
         case A_PERIODIC_DUMMY:
+        case A_OBS_MOD_HEALTH:
           if ( e -> period() != timespan_t::zero() )
             s << ": every " << e -> period().total_seconds() << " seconds";
           break;
@@ -428,10 +429,10 @@ std::ostringstream& spell_info::effect_to_str( const dbc_t& dbc,
     s << " | Value Range: " << e -> die_sides();
   }
 
-  if ( e -> coeff() != 0 )
+  if ( e -> sp_coeff() != 0 )
   {
-    snprintf( tmp_buffer, sizeof( tmp_buffer ), "%.5f", e -> coeff() );
-    s << " | Coefficient: " << tmp_buffer;
+    snprintf( tmp_buffer, sizeof( tmp_buffer ), "%.5f", e -> sp_coeff() );
+    s << " | SP Coefficient: " << tmp_buffer;
   }
 
   if ( e -> ap_coeff() != 0 )
@@ -532,7 +533,7 @@ std::string spell_info::to_str( const dbc_t& dbc, const spell_data_t* spell, int
 
       for ( iter = spec_list.begin(); iter != spec_list.end(); ++iter )
       {
-        if ( *iter == PET_FEROCIOUS_VERSATILITY || *iter == PET_CUNNING_VERSATILITY || *iter == PET_TENACIOUS_VERSATILITY )
+        if ( *iter == PET_FEROCITY || *iter == PET_CUNNING || *iter == PET_TENACITY )
           pet_ability = true;
         s << util::inverse_tokenize( dbc::specialization_string( *iter ) ) << " ";
       }
@@ -1027,9 +1028,14 @@ void spell_info::effect_to_xml( const dbc_t& dbc,
     node -> add_parm( "value_range", e -> die_sides() );
   }
 
-  if ( e -> coeff() != 0 )
+  if ( e -> sp_coeff() != 0 )
   {
-    node -> add_parm( "coefficient", e -> coeff() );
+    node -> add_parm( "sp_coefficient", e -> sp_coeff() );
+  }
+
+  if ( e -> ap_coeff() != 0 )
+  {
+    node -> add_parm( "ap_coefficient", e -> ap_coeff() );
   }
 
   if ( e -> chain_multiplier() != 0 && e -> chain_multiplier() != 1.0 )
@@ -1096,7 +1102,7 @@ void spell_info::to_xml( const dbc_t& dbc, const spell_data_t* spell, xml_node_t
         xml_node_t* spec_node = node -> add_child( "spec" );
         spec_node -> add_parm( "id", *iter );
         spec_node -> add_parm( "name", dbc::specialization_string( *iter ) );
-        if ( *iter == PET_FEROCIOUS_VERSATILITY || *iter == PET_CUNNING_VERSATILITY || *iter == PET_TENACIOUS_VERSATILITY )
+        if ( *iter == PET_FEROCITY || *iter == PET_CUNNING || *iter == PET_TENACITY )
         {
           pet_ability = true;
         }

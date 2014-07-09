@@ -64,11 +64,13 @@ double attack_t::miss_chance( double hit, player_t* t ) const
 {
   // cache.miss() contains the target's miss chance (3.0 base in almost all cases)
   double miss = t -> cache.miss();
+  
+  // add or subtract 1.5% per level difference
+  miss += ( t -> level - player -> level ) * 0.015;
 
-  // TODO-WOD: Miss chance increase per 4+ level delta?
-  if ( t -> level - player -> level > 3 )
-  {
-  }
+  // asymmetric hit penalty for npcs attacking higher-level players
+  if ( ! t -> is_enemy() )
+    miss += std::max( t -> level - player -> level - 3, 0 ) * 0.015;
 
   // subtract the player's hit chance
   miss -= hit;
@@ -76,26 +78,44 @@ double attack_t::miss_chance( double hit, player_t* t ) const
   return miss;
 }
 
-double attack_t::block_chance( player_t* t ) const
+// attack_t::dodge_chance ===================================================
+
+double attack_t::dodge_chance( double expertise, player_t* t ) const
+{
+  // cache.dodge() contains the target's dodge chance (3.0 base, plus spec bonuses and rating)
+  double dodge = t -> cache.dodge();
+
+  // WoD mechanics are unchanged from MoP
+  // add or subtract 1.5% per level difference
+  dodge += ( t -> level - player -> level ) * 0.015; 
+
+  // subtract the player's expertise chance
+  dodge -= expertise;
+
+
+  return dodge;
+}
+
+double attack_t::block_chance( action_state_t* s ) const
 {
   // cache.block() contains the target's block chance (3.0 base for bosses, more for shield tanks)
-  double block = t -> cache.block();
+  double block = s -> target -> cache.block();
 
   // add or subtract 1.5% per level difference
-  block += ( t-> level - player -> level ) * 0.015;
+  block += ( s -> target -> level - player -> level ) * 0.015;
 
   return block;
 }
 
 // attack_t::crit_block_chance ==============================================
 
-double attack_t::crit_block_chance( player_t* t ) const
+double attack_t::crit_block_chance( action_state_t* s ) const
 {
   // This function is probably unnecessary, as we could just query cache.crit_block() directly.
   // I'm leaving it for consistency with *_chance() and in case future changes modify crit block mechanics
 
   // Crit Block does not suffer from level-based suppression, return cached value directly
-  return t -> cache.crit_block();
+  return s -> target -> cache.crit_block();
 }
 
 // attack_t::build_table ====================================================
@@ -169,35 +189,6 @@ void attack_t::build_table( double miss_chance, double dodge_chance,
   }
 }
 
-// attack_t::calculate_block_result =========================================
-
-block_result_e attack_t::calculate_block_result( action_state_t* s )
-{
-  block_result_e block_result = BLOCK_RESULT_UNBLOCKED;
-
-  // Blocks also get a their own roll, and glances/crits can be blocked.
-  if ( result_is_hit( s -> result ) && may_block && ( player -> position() == POSITION_FRONT ) && ! ( s -> result == RESULT_NONE ) )
-  {
-    double block_total = block_chance( s -> target );
-
-    double crit_block = crit_block_chance( s -> target );
-
-    // Roll once for block, then again for crit block if the block succeeds
-    if ( rng().roll( block_total ) )
-    {
-      if ( rng().roll( crit_block ) )
-        block_result = BLOCK_RESULT_CRIT_BLOCKED;
-      else
-        block_result = BLOCK_RESULT_BLOCKED;
-    }
-  }
-
-  if ( sim -> debug )
-    sim -> out_debug.printf( "%s result for %s is %s", player -> name(), name(), util::block_result_type_string( block_result ) );
-
-  return block_result;
-}
-
 // attack_t::calculate_result ===============================================
 
 result_e attack_t::calculate_result( action_state_t* s )
@@ -211,7 +202,7 @@ result_e attack_t::calculate_result( action_state_t* s )
   double miss     = may_miss ? miss_chance( composite_hit(), s -> target ) : 0;
   double dodge    = may_dodge ? dodge_chance( composite_expertise(), s -> target ) : 0;
   double parry    = may_parry && player -> position() == POSITION_FRONT ? parry_chance( composite_expertise(), s -> target ) : 0;
-  double crit     = may_crit ? ( crit_chance( s -> composite_crit() + s -> target -> cache.crit_avoidance(), delta_level ) ) : 0;
+  double crit     = may_crit ? std::max( s -> composite_crit() + s -> target -> cache.crit_avoidance(), 0.0 ) : 0;
 
   // Specials are 2-roll calculations, so only pass crit chance to
   // build_table for non-special attacks
@@ -319,42 +310,23 @@ void melee_attack_t::init()
     may_glance = false;
 }
 
-// melee_attack_t::dodge_chance =============================================
-
-double melee_attack_t::dodge_chance( double expertise, player_t* t ) const
-{
-  // cache.dodge() contains the target's dodge chance (3.0 base, plus spec bonuses and rating)
-  double dodge = t -> cache.dodge();
-
-  // TODO-WOD: Dodge chance increase per 4+ level delta?
-  if ( t -> level - player -> level > 3 )
-  {
-  }
-
-  // subtract the player's expertise chance
-  dodge -= expertise;
-
-  return dodge;
-}
-
 // melee_attack_t::parry_chance =============================================
 
 double melee_attack_t::parry_chance( double expertise, player_t* t ) const
 {
   // cache.parry() contains the target's parry chance (3.0 base, plus spec bonuses and rating)
   double parry = t -> cache.parry();
+  
+  // WoD mechanics are similar to MoP
+  // add or subtract 1.5% per level difference
+  parry += ( t -> level - player -> level ) * 0.015; 
 
-  // TODO-WOD: Parry chance increase per 4+ level delta?
-  if ( t -> level - player -> level > 3 )
-  {
-  }
-
-  // 3% additional parry change from front
-  if ( player -> position() == POSITION_FRONT )
+  // 3% additional parry for attacking a level+3 or higher NPC
+  if ( t -> is_enemy() && ( t -> level - player -> level ) > 2 )
     parry += 0.03;
 
-  // subtract the player's expertise chance
-  parry += std::min( 0.0, dodge_chance( expertise, t ) );
+  // subtract the player's expertise chance - no longer depends on dodge
+  parry -= expertise;
 
   return parry;
 }
@@ -368,6 +340,7 @@ double melee_attack_t::glance_chance( int delta_level ) const
   // TODO-WOD: Glance chance increase per 4+ level delta?
   if ( delta_level > 3 )
   {
+    glance += 0.10 + 0.10 * delta_level;
   }
 
   return glance;
@@ -410,46 +383,8 @@ ranged_attack_t::ranged_attack_t( const std::string& token,
   may_dodge = true;
 }
 
-// ranged_attack_t::dodge_chance ============================================
-
-double ranged_attack_t::dodge_chance( double expertise, player_t* t ) const
-{
-  // cache.dodge() contains the target's dodge chance (3.0 base, plus spec bonuses and rating)
-  double dodge = t -> cache.dodge();
-
-  // TODO-WOD: Dodge chance increase per 4+ level delta?
-  if ( t -> level - player -> level > 3 )
-  {
-  }
-
-  // subtract the player's expertise chance
-  dodge -= expertise;
-
-  return dodge;
-}
-
-// ranged_attack_t::parry_chance ============================================
-
-double ranged_attack_t::parry_chance( double /* expertise */, player_t* /* target */ ) const
-{
-  // Assumed impossible to parry ranged. Needs checking.
-  // TODO: Ranged parries used to exist as "Deflects" - may need re-testing post-MoP
-  return 0.0;
-}
-
-// ranged_attack_t::glance_chance ===========================================
-
-double ranged_attack_t::glance_chance( int delta_level ) const
-{
-  double glance = 0;
-
-  // TODO-WOD: Glance chance increase per 4+ level delta?
-  if ( delta_level > 3 )
-  {
-  }
-
-  return glance;
-}
+// Ranged attacks are identical to melee attacks, but cannot be parried or dodged.
+// all of the inherited *_chance() methods are accurate.
 
 double ranged_attack_t::composite_target_multiplier( player_t* target ) const
 {

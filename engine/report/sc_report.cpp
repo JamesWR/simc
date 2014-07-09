@@ -147,7 +147,7 @@ class tooltip_parser_t
     else if ( ( player && effect.type() == E_SCHOOL_DAMAGE && ( spell.get_school_type() & SCHOOL_MAGIC_MASK ) != 0 ) ||
               ( player && effect.type() == E_HEAL ) )
     {
-      double power = effect.coeff() * player -> initial.stats.spell_power;
+      double power = effect.sp_coeff() * player -> initial.stats.spell_power;
       s_min += power;
       s_max += power;
       show_scale_factor = false;
@@ -158,10 +158,10 @@ class tooltip_parser_t
       result += " to ";
       result += util::to_string( util::round( multiplier * s_max ) );
     }
-    if ( show_scale_factor && effect.coeff() )
+    if ( show_scale_factor && effect.sp_coeff() )
     {
       result += " + ";
-      result += util::to_string( 100 * multiplier * effect.coeff(), 1 );
+      result += util::to_string( 100 * multiplier * effect.sp_coeff(), 1 );
       result += '%';
     }
 
@@ -554,7 +554,7 @@ void report::print_suite( sim_t* sim )
   report::print_csv_data( sim );
 }
 
-void report::print_html_sample_data( report::sc_html_stream& os, sim_t* sim, extended_sample_data_t& data, const std::string& name, int& td_counter, int columns )
+void report::print_html_sample_data( report::sc_html_stream& os, const sim_t* sim, const extended_sample_data_t& data, const std::string& name, int& td_counter, int columns )
 {
   // Print Statistics of a Sample Data Container
   os << "\t\t\t\t\t\t\t<tr";

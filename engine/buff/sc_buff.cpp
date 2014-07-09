@@ -259,7 +259,7 @@ buff_t::buff_t( const buff_creation::buff_creator_basics_t& params ) :
   if ( params._activated != -1 )
     activated = params._activated != 0;
 
-  if ( params._period > timespan_t::zero() )
+  if ( params._period >= timespan_t::zero() )
     buff_period = params._period;
   else
   {
@@ -524,13 +524,17 @@ void buff_t::execute( int stacks, double value, timespan_t duration )
   }
   last_trigger = sim -> current_time;
 
-  if ( reverse && current_stack > 0 )
-  {
-    decrement( stacks, value );
-  }
+  // If the buff has a tick event ongoing, the rules change a bit for ongoing
+  // ticking buffs, we treat executes as another "normal trigger", which
+  // refreshes the buff
+  if ( tick_event )
+    increment( stacks == 1 ? ( reverse ? _max_stack : stacks ) : stacks, value, duration );
   else
   {
-    increment( stacks == 1 ? ( reverse ? _max_stack : stacks ) : stacks, value, duration );
+    if ( reverse && current_stack > 0 )
+      decrement( stacks, value );
+    else
+      increment( stacks == 1 ? ( reverse ? _max_stack : stacks ) : stacks, value, duration );
   }
 
   // new buff cooldown impl
@@ -742,7 +746,7 @@ void buff_t::refresh( int        stacks,
       // Reorder the last tick to happen 1ms before expiration
       if ( tick_time == d )
         tick_time -= timespan_t::from_millis( 1 );
-      tick_event = new ( *sim ) tick_t( this, tick_time, current_value, stacks );
+      tick_event = new ( *sim ) tick_t( this, tick_time, current_value, reverse ? 1 : stacks );
     }
   }
 }
@@ -1518,7 +1522,7 @@ absorb_buff_t::absorb_buff_t( const absorb_buff_creator_t& params ) :
   if ( absorb_source )
     absorb_source -> type = STATS_ABSORB;
 
-  if ( params._absorb_school == SCHOOL_NONE )
+  if ( params._absorb_school == SCHOOL_CHAOS )
   {
     for ( size_t i = 1, e = data().effect_count(); i <= e; i++ )
     {

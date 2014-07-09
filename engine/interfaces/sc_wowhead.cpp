@@ -5,25 +5,26 @@
 
 #include "simulationcraft.hpp"
 
-#include "rapidjson/document.h"
-#include "rapidjson/stringbuffer.h"
-#include "rapidjson/prettywriter.h"
+#include "util/rapidjson/document.h"
+#include "util/rapidjson/stringbuffer.h"
+#include "util/rapidjson/prettywriter.h"
 
+namespace {
 // source_str ===============================================================
 
-static std::string source_str( wowhead::wowhead_e source )
+std::string source_str( wowhead::wowhead_e source )
 {
   switch ( source )
   {
     case wowhead::PTR:  return "ptr";
 #if SC_BETA
-    case wowhead::BETA: SC_BETA_STR;
+    case wowhead::BETA: return SC_BETA_STR;
 #endif
     default:   return "www";
   }
 }
 
-static std::string source_desc_str( wowhead::wowhead_e source )
+std::string source_desc_str( wowhead::wowhead_e source )
 {
   switch ( source )
   {
@@ -37,7 +38,7 @@ static std::string source_desc_str( wowhead::wowhead_e source )
 
 // download_id ==============================================================
 
-static std::shared_ptr<xml_node_t> download_id( sim_t*             sim,
+std::shared_ptr<xml_node_t> download_id( sim_t*             sim,
                                 unsigned           id,
                                 cache::behavior_e  caching,
                                 wowhead::wowhead_e source )
@@ -52,6 +53,8 @@ static std::shared_ptr<xml_node_t> download_id( sim_t*             sim,
   if ( sim -> debug && node ) node -> print();
   return node;
 }
+
+} // unnamed namespace
 
 // wowhead::download_glyph ==================================================
 

@@ -892,7 +892,7 @@ void print_xml_config( sim_t* sim, xml_writer_t & writer )
 {
   writer.begin_tag( "config" );
 
-  writer.print_tag( "style", sim -> hosted_html ? "hosted" : ( sim -> print_styles ? "print" : "not-specified" ) );
+  writer.print_tag( "style", sim -> print_styles ? "print" : "not-specified" );
   writer.print_tag( "has_scale_factors", sim -> scaling -> has_scale_factors() ? "true" : "false" );
   writer.print_tag( "report_pets_separately", sim -> report_pets_separately ? "true" : "false" );
   writer.print_tag( "report_details", sim -> report_details ? "true" : "false" );
@@ -1106,7 +1106,7 @@ void print_xml_player_action_definitions( xml_writer_t & writer, player_t * p )
           writer.end_tag( "direct_damage" );
         }
 
-        if ( a -> num_ticks )
+        if ( a -> dot_duration > timespan_t::zero() )
         {
           writer.begin_tag( "damage_over_time" );
           writer.print_tag( "tick_may_crit", a -> tick_may_crit ? "true" : "false" );
@@ -1114,7 +1114,7 @@ void print_xml_player_action_definitions( xml_writer_t & writer, player_t * p )
           writer.print_tag( "attack_power_mod.tick", util::to_string( a -> attack_power_mod.tick ) );
           writer.print_tag( "spell_power_mod.tick", util::to_string( a -> spell_power_mod.tick ) );
           writer.print_tag( "base", util::to_string( a -> base_td ) );
-          writer.print_tag( "num_ticks", util::to_string( a -> num_ticks ) );
+          writer.print_tag( "dot_duration", util::to_string( a -> dot_duration.total_seconds() ) );
           writer.print_tag( "base_tick_time", util::to_string( a -> base_tick_time.total_seconds() ) );
           writer.print_tag( "hasted_ticks", util::to_string( a -> hasted_ticks ) );
           writer.print_tag( "dot_behavior", util::dot_behavior_type_string( a -> dot_behavior ) );

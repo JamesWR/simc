@@ -20,9 +20,15 @@ struct token_t
 // item_t::item_t ===========================================================
 
 item_t::item_t( player_t* p, const std::string& o ) :
-  sim( p -> sim ), player( p ), slot( SLOT_INVALID ), unique( false ),
-  unique_addon( false ), is_ptr( p -> dbc.ptr ),
-  parsed(), xml(), options_str( o )
+  sim( p -> sim ),
+  player( p ),
+  slot( SLOT_INVALID ),
+  unique( false ),
+  unique_addon( false ),
+  is_ptr( p -> dbc.ptr ),
+  parsed(),
+  xml(),
+  options_str( o )
 {
   parsed.data.name = name_str.c_str();
 }
@@ -821,11 +827,6 @@ bool item_t::init()
     sim -> errorf( "Player %s upgrading item %s at slot %s without quality or ilevel, upgrading will not work\n",
                    player -> name(), name(), slot_name() );
 
-  if ( ! option_enchant_str.empty() && ( slot == SLOT_FINGER_1 || slot == SLOT_FINGER_2 ) &&
-       ! ( player -> profession[ PROF_ENCHANTING ] > 0 ) )
-    sim -> errorf( "Player %s's ring at slot %s has a ring enchant without the enchanting profession\n",
-                   player -> name(), slot_name() );
-
   // Process complex input, and initialize item in earnest
   if ( ! decode_stats()                            ) return false;
   if ( ! decode_gems()                             ) return false;
@@ -1237,8 +1238,6 @@ bool item_t::decode_equip_effect()
         parsed.special_effects.push_back( effect );
         effects++;
       }
-      else
-        break;
     }
   }
 

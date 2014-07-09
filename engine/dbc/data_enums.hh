@@ -386,7 +386,7 @@ enum item_mod_type {
   ITEM_MOD_EXPERTISE_RATING         = 37,
   ITEM_MOD_ATTACK_POWER             = 38,
   ITEM_MOD_RANGED_ATTACK_POWER      = 39,
-  ITEM_MOD_FERAL_ATTACK_POWER       = 40,                 // deprecated
+  ITEM_MOD_VERSATILITY_RATING       = 40,
   ITEM_MOD_SPELL_HEALING_DONE       = 41,                 // deprecated
   ITEM_MOD_SPELL_DAMAGE_DONE        = 42,                 // deprecated
   ITEM_MOD_MANA_REGENERATION        = 43,
@@ -434,7 +434,12 @@ enum rating_mod_type {
   RATING_MOD_HASTE_SPELL  = 0x00080000,
   RATING_MOD_EXPERTISE    = 0x00800000,
   RATING_MOD_MASTERY      = 0x02000000,
-  RATING_MOD_PVP_POWER    = 0x04000000
+  RATING_MOD_PVP_POWER    = 0x04000000,
+
+  RATING_MOD_VERS_DAMAGE  = 0x10000000,
+  RATING_MOD_VERS_HEAL    = 0x20000000,
+  RATING_MOD_VERS_MITIG   = 0x40000000,
+
 };
 
 // Property (misc_value) types for
@@ -657,6 +662,7 @@ enum effect_type_t {
     E_196 = 196,
     E_203 = 203,
     E_206 = 206,
+    E_238 = 238,
     E_MAX
 };
 
@@ -1061,17 +1067,24 @@ enum effect_subtype_t {
     A_418 = 418,
     A_419 = 419,
     A_421 = 421,
+    A_MOD_ABSORB_DONE_PERCENT = 422,
     A_423 = 423,
     A_424 = 424,
     A_429 = 429,
+    A_440 = 440,
     A_441 = 441,
     A_443 = 443,
     A_447 = 447,
     A_451 = 451,
     A_453 = 453,
     A_454 = 454,
+    A_455 = 455,
+    A_458 = 458,
+    A_463 = 463,
     A_464 = 464,
     A_466 = 466,
+    A_467 = 467,
+    A_471 = 471,
     A_MAX
 };
 

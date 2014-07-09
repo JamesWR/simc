@@ -20,14 +20,14 @@ actions.precombat+=/food,type=sea_mist_rice_noodles
 actions.precombat+=/apply_poison,lethal=deadly
 # Snapshot raid buffed stats before combat begins and pre-potting is done.
 actions.precombat+=/snapshot_stats
-actions.precombat+=/virmens_bite_potion
+actions.precombat+=/potion,name=virmens_bite
 actions.precombat+=/stealth
 actions.precombat+=/premeditation
 actions.precombat+=/slice_and_dice
 
 # Executed every time the actor is available.
 
-actions=virmens_bite_potion,if=buff.bloodlust.react|target.time_to_die<40
+actions=potion,name=virmens_bite,if=buff.bloodlust.react|target.time_to_die<40
 actions+=/auto_attack
 actions+=/kick
 actions+=/blood_fury,if=buff.shadow_dance.up
@@ -94,7 +94,6 @@ off_hand=hvitserks_formidable_shanker,id=105601,upgrade=2,gems=8agi_3agi,enchant
 # gear_mastery_rating=434
 # gear_armor=414
 # gear_multistrike_rating=99
-# gear_readiness_rating=99
 # meta_gem=capacitive_primal
 # tier16_2pc_melee=1
 # tier16_4pc_melee=1

@@ -53,6 +53,8 @@ bool spell_data_t::override_field( const std::string& field, double value )
     _cast_min = ( int ) value;
   else if ( util::str_compare_ci( field, "cast_max" ) )
     _cast_max = ( int ) value;
+  else if ( util::str_compare_ci( field, "rppm" ) )
+    _rppm = value;
   else
     return false;
   return true;
@@ -73,7 +75,7 @@ bool spelleffect_data_t::override_field( const std::string& field, double value 
   else if ( util::str_compare_ci( field, "bonus" ) )
     _m_unk = value;
   else if ( util::str_compare_ci( field, "coefficient" ) )
-    _coeff = value;
+    _sp_coeff = value;
   else if ( util::str_compare_ci( field, "period" ) )
     _amplitude = value;
   else if ( util::str_compare_ci( field, "base_value" ) )

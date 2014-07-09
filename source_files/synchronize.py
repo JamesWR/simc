@@ -71,7 +71,8 @@ def VS_no_precompiled_header():
 def VS_use_precompiled_header( filename ):
     if re.search( r"sc_player.cpp", filename ):
         return "<PrecompiledHeader>Create</PrecompiledHeader>"
-    with open( filename ) as f:
+    transformed_filename = re.sub( r"\\", "/", filename )
+    with open( transformed_filename ) as f:
           content = f.read()
           if re.search( r"#include \"simulationcraft.hpp\"", content ):
             return "" #"<PrecompiledHeader />"
@@ -117,11 +118,11 @@ def create_vs_str( input, gui = False ):
         prepare += "\t<!-- Moc Definitions -->"
         
         prepare += "\n\t<PropertyGroup Label=\"UserMacros\" Condition=\"'$(Configuration)'=='Debug'\">"
-        prepare += "\n\t\t<MOC_DEFINES>-DUNICODE -DWIN32 -DWIN64 -DQT_VERSION_5 -DQT_QML_DEBUG -DQT_DECLARATIVE_DEBUG -DQT_WEBKITWIDGETS_LIB -DQT_QUICK_LIB -DQT_MULTIMEDIAWIDGETS_LIB -DQT_OPENGL_LIB -DQT_PRINTSUPPORT_LIB -DQT_QML_LIB -DQT_MULTIMEDIA_LIB -DQT_WEBKIT_LIB -DQT_WIDGETS_LIB -DQT_SENSORS_LIB -DQT_NETWORK_LIB -DQT_GUI_LIB -DQT_CORE_LIB -DQT_OPENGL_ES_2 -DQT_OPENGL_ES_2_ANGLE -D_MSC_VER=1700 -D_WIN32 -D_WIN64</MOC_DEFINES>"
+        prepare += "\n\t\t<MOC_DEFINES>-DUNICODE -DWIN32 -DWIN64 -DQT_VERSION_5 -DQT_QML_DEBUG -DQT_DECLARATIVE_DEBUG -DQT_WIDGETS -DQT_WEBKITWIDGETS_LIB -DQT_QUICK_LIB -DQT_MULTIMEDIAWIDGETS_LIB -DQT_OPENGL_LIB -DQT_PRINTSUPPORT_LIB -DQT_QML_LIB -DQT_MULTIMEDIA_LIB -DQT_WEBKIT_LIB -DQT_WIDGETS_LIB -DQT_SENSORS_LIB -DQT_NETWORK_LIB -DQT_GUI_LIB -DQT_CORE_LIB -DQT_OPENGL_ES_2 -DQT_OPENGL_ES_2_ANGLE -D_MSC_VER=1700 -D_WIN32 -D_WIN64</MOC_DEFINES>"
         prepare += "\n\t</PropertyGroup>"
         
         prepare += "\n\t<PropertyGroup Label=\"UserMacros\" Condition=\"'$(Configuration)'=='Release'\">"
-        prepare += "\n\t\t<MOC_DEFINES>-DUNICODE -DWIN32 -DWIN64 -DQT_VERSION_5 -DQT_NO_DEBUG -DQT_WEBKITWIDGETS_LIB -DQT_QUICK_LIB -DQT_MULTIMEDIAWIDGETS_LIB -DQT_OPENGL_LIB -DQT_PRINTSUPPORT_LIB -DQT_QML_LIB -DQT_MULTIMEDIA_LIB -DQT_WEBKIT_LIB -DQT_WIDGETS_LIB -DQT_SENSORS_LIB -DQT_NETWORK_LIB -DQT_GUI_LIB -DQT_CORE_LIB -DQT_OPENGL_ES_2 -DQT_OPENGL_ES_2_ANGLE -D_MSC_VER=1700 -D_WIN32 -D_WIN64</MOC_DEFINES>"
+        prepare += "\n\t\t<MOC_DEFINES>-DUNICODE -DWIN32 -DWIN64 -DQT_VERSION_5 -DQT_NO_DEBUG -DQT_WEBKITWIDGETS_LIB -DQT_WIDGETS -DQT_QUICK_LIB -DQT_MULTIMEDIAWIDGETS_LIB -DQT_OPENGL_LIB -DQT_PRINTSUPPORT_LIB -DQT_QML_LIB -DQT_MULTIMEDIA_LIB -DQT_WEBKIT_LIB -DQT_WIDGETS_LIB -DQT_SENSORS_LIB -DQT_NETWORK_LIB -DQT_GUI_LIB -DQT_CORE_LIB -DQT_OPENGL_ES_2 -DQT_OPENGL_ES_2_ANGLE -D_MSC_VER=1700 -D_WIN32 -D_WIN64</MOC_DEFINES>"
         prepare += "\n\t</PropertyGroup>"
 
         prepare += "\n\n"
@@ -135,7 +136,7 @@ def create_vs_str( input, gui = False ):
                 prepare += """
 \t\t<CustomBuild Include=\"""" + entry[1] + """\">
 \t\t\t<AdditionalInputs>$(QTDIR)\\bin\moc.exe</AdditionalInputs>
-\t\t\t<Message>Moc%27ing %(Identity)... QTDIR:$(QTDIR)</Message>
+\t\t\t<Message>Moc%27ing %(Identity)... ( with $(QTDIR)\\bin\moc.exe )</Message>
 \t\t\t<Command>"$(QTDIR)\\bin\\moc.exe" $(MOC_DEFINES) -I"$(QTDIR)\\include" -I"(SolutionDir)engine" -I"$(QTDIR)\\mkspecs\\default" "%(Identity)" -o "$(IntDir)moc_%(Filename).cpp" </Command>
 \t\t\t<AdditionalInputs>Rem;""" + entry[1] + """;%(AdditionalInputs)</AdditionalInputs>
 \t\t\t<Outputs>$(IntDir)\\moc_%(Filename).cpp</Outputs>

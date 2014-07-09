@@ -21,19 +21,21 @@ actions.precombat+=/horn_of_winter
 actions.precombat+=/frost_presence
 # Snapshot raid buffed stats before combat begins and pre-potting is done.
 actions.precombat+=/snapshot_stats
-actions.precombat+=/mogu_power_potion
+actions.precombat+=/potion,name=mogu_power
 actions.precombat+=/pillar_of_frost
 
 # Executed every time the actor is available.
 
 actions=auto_attack
+actions+=/deaths_advance,if=talent.deaths_advance.enabled&movement.remains>2
 actions+=/antimagic_shell,damage=100000
 actions+=/pillar_of_frost
-actions+=/mogu_power_potion,if=target.time_to_die<=30|(target.time_to_die<=60&buff.pillar_of_frost.up)
-actions+=/empower_rune_weapon,if=target.time_to_die<=60&(buff.mogu_power_potion.up|buff.golemblood_potion.up)
+actions+=/potion,name=mogu_power,if=target.time_to_die<=30|(target.time_to_die<=60&buff.pillar_of_frost.up)
+actions+=/empower_rune_weapon,if=target.time_to_die<=60&(buff.potion_of_mogu_power.up|buff.golemblood_potion.up)
 actions+=/blood_fury
 actions+=/berserking
 actions+=/arcane_torrent
+actions+=/use_item,slot=trinket1
 actions+=/run_action_list,name=aoe,if=active_enemies>=3
 actions+=/run_action_list,name=single_target,if=active_enemies<3
 
@@ -47,7 +49,6 @@ actions.aoe+=/death_and_decay,if=unholy=1
 actions.aoe+=/plague_strike,if=unholy=2
 actions.aoe+=/blood_tap,if=talent.blood_tap.enabled
 actions.aoe+=/frost_strike
-actions.aoe+=/horn_of_winter
 actions.aoe+=/plague_leech,if=talent.plague_leech.enabled&unholy=1
 actions.aoe+=/plague_strike,if=unholy=1
 actions.aoe+=/empower_rune_weapon
@@ -67,39 +68,34 @@ actions.single_target+=/howling_blast
 actions.single_target+=/frost_strike,if=talent.runic_empowerment.enabled&unholy=1
 actions.single_target+=/blood_tap,if=talent.blood_tap.enabled&(target.health.pct-3*(target.health.pct%target.time_to_die)>35|buff.blood_charge.stack>=8)
 actions.single_target+=/frost_strike,if=runic_power>=40
-actions.single_target+=/horn_of_winter
 actions.single_target+=/blood_tap,if=talent.blood_tap.enabled
 actions.single_target+=/plague_leech,if=talent.plague_leech.enabled
 actions.single_target+=/empower_rune_weapon
 
-head=helmet_of_cyclopean_dread,id=99337,upgrade=2,gems=capacitive_primal_4str_8mastery_9str
-neck=malkoroks_tainted_dog_tags,id=105566,upgrade=2
-shoulders=pauldrons_of_cyclopean_dread,id=99339,upgrade=2,gems=4str_8mastery_4str_8mastery_6str,enchant=10str_5crit
-back=gonglu_strength_of_xuen,id=102249,upgrade=2,gems=4str_8mastery_3str,enchant=9crit
-chest=breastplate_of_cyclopean_dread,id=99335,upgrade=2,gems=4str_8mastery_4str_8mastery_4str_8mastery_9str,enchant=4all
-wrists=bracers_of_blind_hatred,id=105456,upgrade=2,gems=16mastery,enchant=9str
-hands=gauntlets_of_cyclopean_dread,id=99336,upgrade=2,gems=16mastery_4str_8mastery_4str_8mastery_6str,enchant=9str,addon=synapse_springs_mark_ii
-waist=demolishers_reinforced_belt,id=105509,upgrade=2,gems=4str_8mastery_16mastery_16mastery_6str
-legs=legplates_of_willful_doom,id=105565,upgrade=2,gems=8mastery_8crit_8mastery_8crit_4str_8mastery_6str,enchant=14str_8crit
-feet=malkoroks_giant_stompers,id=105563,upgrade=2,gems=16mastery,enchant=7mastery
-finger1=devilfang_band,id=105611,upgrade=2,gems=4str_8mastery_3exp
-finger2=bloodclaw_band,id=105534,upgrade=2,gems=16mastery_3haste
-trinket1=evil_eye_of_galakras,id=105491,upgrade=2
-trinket2=thoks_tail_tip,id=105609,upgrade=2
-main_hand=xifeng_longblade_of_the_titanic_guardian,id=105460,upgrade=2,gems=4str_8mastery_3str,enchant=rune_of_the_fallen_crusader
-off_hand=xifeng_longblade_of_the_titanic_guardian,id=105460,upgrade=2,gems=4str_8mastery_3str,enchant=rune_of_razorice
+head=primal_gladiators_plate_helm,id=111241
+neck=primal_gladiators_choker_of_cruelty,id=111207
+shoulders=primal_gladiators_plate_shoulders,id=111243,enchant=10str_5crit
+back=primal_gladiators_cloak_of_prowess,id=111206
+chest=primal_gladiators_plate_chestpiece,id=111239,enchant=glorious_stats
+wrists=primal_gladiators_armplates_of_prowess,id=111181,enchant=8mastery
+hands=primal_gladiators_plate_gauntlets,id=111210,enchant=8crit
+waist=primal_gladiators_girdle_of_cruelty,id=111174
+legs=primal_gladiators_plate_legguards,id=111212,enchant=14str_8crit
+feet=primal_gladiators_warboots_of_cruelty,id=111177,enchant=pandarens_step
+finger1=primal_gladiators_signet_of_cruelty,id=111219
+finger2=primal_gladiators_signet_of_accuracy,id=111272
+trinket1=primal_gladiators_badge_of_victory,id=111232
+trinket2=primal_gladiators_insignia_of_victory,id=111233
+main_hand=primal_gladiators_bonecracker,id=111200,enchant=rune_of_the_fallen_crusader
+off_hand=primal_gladiators_bonecracker,id=111200,enchant=rune_of_razorice
 
 # Gear Summary
-# gear_strength=1074
-# gear_agility=4
-# gear_stamina=1514
-# gear_intellect=4
-# gear_expertise_rating=3
-# gear_crit_rating=510
-# gear_haste_rating=210
-# gear_mastery_rating=813
-# gear_armor=1191
-# gear_readiness_rating=99
-# meta_gem=capacitive_primal
-# tier16_2pc_melee=1
-# tier16_4pc_melee=1
+# gear_strength=2586
+# gear_agility=3
+# gear_stamina=3202
+# gear_intellect=3
+# gear_crit_rating=1365
+# gear_haste_rating=436
+# gear_mastery_rating=664
+# gear_armor=2574
+# gear_multistrike_rating=411
