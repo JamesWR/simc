@@ -122,21 +122,23 @@ chart_t::chart_t( const std::string& id_str, const sim_t* sim ) :
 std::string chart_t::to_string() const
 {
 
-  rapidjson::StringBuffer b;
-  rapidjson::PrettyWriter< rapidjson::StringBuffer > writer( b );
+    rapidjson::StringBuffer b;
+    rapidjson::PrettyWriter< rapidjson::StringBuffer > writer( b );
 
-  js_.Accept( writer );
+    js_.Accept( writer );
+    std::string javascript = b.GetString();
+      javascript.erase(std::remove(javascript.begin(),javascript.end(),' '),javascript.end());
+      javascript.erase(std::remove(javascript.begin(),javascript.end(), '\n'), javascript.end());
+    std::string str_ = "<div id=\"" + id_str_ + "\"";
+    str_ += " style=\"min-width: " + util::to_string( width_ ) + "px;";
+    str_ += " height: " + util::to_string( height_ ) + "px; margin: 0 auto\"></div>\n";
+    str_ += "<script type=\"text/javascript\">\n";
+    str_ += "jQuery( document ).ready( function( $ ) {\n$('#" + id_str_ + "').highcharts(";
+    str_ += javascript;
+    str_ += ");\n});\n";
+    str_ += "</script>\n";
 
-  std::string str_ = "<div id=\"" + id_str_ + "\"";
-  str_ += " style=\"min-width: " + util::to_string( width_ ) + "px;";
-  str_ += " height: " + util::to_string( height_ ) + "px; margin: 0 auto\"></div>\n";
-  str_ += "<script type=\"text/javascript\">\n";
-  str_ += "jQuery( document ).ready( function( $ ) {\n$('#" + id_str_ + "').highcharts(";
-  str_ += b.GetString();
-  str_ += ");\n});\n";
-  str_ += "</script>\n";
-
-  return str_;
+    return str_;
 }
 
 std::string chart_t::to_json() const
