@@ -16,12 +16,12 @@ spec=elemental
 
 # Executed before combat begins. Accepts non-harmful actions only.
 
-actions.precombat=flask,type=greater_draenor_multistrike_flask
+actions.precombat=flask,type=greater_draenic_multistrike_flask
 actions.precombat+=/food,type=mogu_fish_stew
 actions.precombat+=/lightning_shield,if=!buff.lightning_shield.up
 # Snapshot raid buffed stats before combat begins and pre-potting is done.
 actions.precombat+=/snapshot_stats
-actions.precombat+=/potion,name=draenor_intellect
+actions.precombat+=/potion,name=draenic_intellect
 
 # Executed every time the actor is available.
 
@@ -30,7 +30,7 @@ actions=wind_shear
 actions+=/bloodlust,if=target.health.pct<25|time>0.500
 actions+=/use_item,name=primal_gladiators_badge_of_dominance
 # In-combat potion is linked to Primal or Greater Fire Elemental Totem, after the first 60 seconds of combat.
-actions+=/potion,name=draenor_intellect,if=time>60&(pet.primal_fire_elemental.active|pet.greater_fire_elemental.active|target.time_to_die<=60)
+actions+=/potion,name=draenic_intellect,if=time>60&(pet.primal_fire_elemental.active|pet.greater_fire_elemental.active|target.time_to_die<=60)
 actions+=/berserking,if=!buff.bloodlust.up&!buff.elemental_mastery.up&(set_bonus.tier15_4pc_caster=1|(buff.ascendance.cooldown_remains=0&(dot.flame_shock.remains>buff.ascendance.duration|level<87)))
 actions+=/blood_fury,if=buff.bloodlust.up|buff.ascendance.up|((cooldown.ascendance.remains>10|level<87)&cooldown.fire_elemental_totem.remains>10)
 actions+=/arcane_torrent
@@ -47,13 +47,11 @@ actions+=/run_action_list,name=aoe,if=active_enemies>1
 
 actions.single=unleash_flame,if=talent.unleashed_fury.enabled&!buff.ascendance.up
 actions.single+=/spiritwalkers_grace,moving=1,if=buff.ascendance.up
-actions.single+=/lava_burst,if=dot.flame_shock.remains>cast_time&(buff.ascendance.up|cooldown_react)
-actions.single+=/flame_shock,if=ticks_remain<2
-actions.single+=/elemental_blast,if=talent.elemental_blast.enabled
-# Use Earth Shock if Lightning Shield is at max (20) charges
 actions.single+=/earth_shock,if=buff.lightning_shield.react=buff.lightning_shield.max_stack
-# Use Earth Shock if Lightning Shield is above 15 charges and the Flame Shock remaining duration is longer than the shock cooldown but shorter than shock cooldown + tick time interval
-actions.single+=/earth_shock,if=buff.lightning_shield.react>15&dot.flame_shock.remains>cooldown&dot.flame_shock.remains<cooldown+action.flame_shock.tick_time
+actions.single+=/lava_burst,if=dot.flame_shock.remains>cast_time&(buff.ascendance.up|cooldown_react)
+actions.single+=/flame_shock,if=dot.flame_shock.remains<9
+actions.single+=/earth_shock,if=buff.lightning_shield.react>15
+actions.single+=/elemental_blast,if=talent.elemental_blast.enabled
 # After the initial Ascendance, use Flame Shock pre-emptively just before Ascendance to guarantee Flame Shock staying up for the full duration of the Ascendance buff
 actions.single+=/flame_shock,if=time>60&remains<=buff.ascendance.duration&cooldown.ascendance.remains+buff.ascendance.duration<duration
 actions.single+=/storm_elemental_totem,if=talent.storm_elemental_totem.enabled&(!active&cooldown.fire_elemental_totem.remains>=60)

@@ -729,8 +729,13 @@ void player_t::init_base_stats()
     base.mana_regen_per_second = dbc.regen_base( type, level ) / 5.0;
     base.mana_regen_per_spirit = dbc.regen_spirit( type, level );
     base.health_per_stamina    = dbc.health_per_stamina( level );
-    base.dodge_per_agility     = 1 / 10000.0 / 100.0; // default at L90, modified for druid/monk in class module
-    base.parry_per_strength    = 0.0;                 // only certain classes get STR->parry conversions, handle in class module
+    
+    // only certain classes get Agi->Dodge conversions
+    base.dodge_per_agility     = ( type == MONK || type == DRUID || type == ROGUE || type == HUNTER || type == SHAMAN ) ? 1.0 : 0.0; 
+    base.dodge_per_agility     *= 1 / 176.3760684 / 100.0; // exact value given by Blizzard, L100 only (?)
+    // only certain classes get STR->parry conversions
+    base.parry_per_strength    = ( type == PALADIN || type == WARRIOR || type == DEATH_KNIGHT ) ? 1.0 : 0.0; 
+    base.parry_per_strength    *= 1 / 176.3760684 / 100.0; // exact value given by Blizzard, L100 only (?)
 
     // players have a base 7.5% hit/exp 
     base.hit       = 0.075;
@@ -738,7 +743,7 @@ void player_t::init_base_stats()
   }
 
   base.dodge = 0.03 + racials.quickness -> effectN( 1 ).percent();
-  base.parry = 0.0; // No more base parry, it's all from strength.
+  base.parry = 0.00; // overridden in modules of players that can parry
   base.miss  = 0.03;
   base.block = 0.0;  // overridden in enemy, paladin, and warrior modules  
 
@@ -769,7 +774,8 @@ void player_t::init_base_stats()
     for ( attribute_e a = ATTR_STRENGTH; a <= ATTR_SPIRIT; a++ )
     {
       base.stats.attribute[ a ] *= 1.0 + matching_gear_multiplier( a );
-      base.stats.attribute[ a ] = util::floor( base.stats.attribute[ a ] );
+      // NOTE: post-matching-multiplier base stats are NOT actually floored.
+      // They are only floor()-ed for the character sheet and in certain calculations.
     }
   }
 
@@ -1076,11 +1082,7 @@ void player_t::init_resources( bool force )
                                    + ( is_pet() ? 0 : sim -> enchant.resource[ i ] )
                                ) * resources.initial_multiplier[ i ];
       if ( i == RESOURCE_HEALTH )
-      {
-        // The first 20pts of stamina only provide 1pt of health.
-        double adjust = ( is_pet() || is_enemy() || is_add() ) ? 0 : std::min( 20, static_cast<int>( floor( stamina() ) ) );
-        resources.initial[ i ] += ( floor( stamina() ) - adjust ) * current.health_per_stamina + adjust;
-      }
+        resources.initial[ i ] += floor( stamina() ) * current.health_per_stamina;
     }
   }
 
@@ -2349,9 +2351,8 @@ double player_t::composite_block_dr( double extra_block ) const
 
 double player_t::composite_dodge() const
 {
-  // Start with sources not subject to DR - base dodge (stored in current.dodge) parry from base agility;
+  // Start with sources not subject to DR - base dodge (stored in current.dodge). Base stats no longer give dodge/parry.
   double total_dodge = current.dodge;
-  total_dodge += base.stats.attribute[ ATTR_AGILITY ] * current.dodge_per_agility;
 
   // bonus_dodge is dodge from rating and non-base agility
   double bonus_dodge = composite_dodge_rating() / current.rating.dodge;
@@ -2368,10 +2369,8 @@ double player_t::composite_dodge() const
 
 double player_t::composite_parry() const
 {
-  // Start with sources not subject to DR - base parry (stored in current.parry) and parry from base strength
+  // Start with sources not subject to DR - base parry (stored in current.parry). Base stats no longer give dodge/parry.
   double total_parry = current.parry;
-  if ( current.parry_per_strength > 0 )
-    total_parry += base.stats.attribute[ ATTR_STRENGTH ] * current.parry_per_strength;
 
   // bonus_parry is from rating and non-base STR
   double bonus_parry = composite_parry_rating() / current.rating.parry;
@@ -2651,6 +2650,9 @@ double player_t::composite_player_critical_healing_multiplier() const
 double player_t::temporary_movement_modifier() const
 {
   double temporary = 0;
+
+  if ( buffs.fierce_tiger_movement_aura -> up() )
+    temporary = std::max( buffs.fierce_tiger_movement_aura -> data().effectN( 5 ).percent(), temporary );
 
   if ( buffs.darkflight -> up() )
     temporary = std::max( buffs.darkflight -> data().effectN( 1 ).percent(), temporary );
@@ -3408,9 +3410,7 @@ void player_t::reset()
     proc_list[ i ] -> reset();
 
   potion_used = 0;
-
-  temporary = gear_stats_t();
-
+  
   item_cooldown.reset( false );
 
   incoming_damage.clear();
@@ -3975,8 +3975,6 @@ bool player_t::resource_available( resource_e resource_type,
 
 void player_t::recalculate_resource_max( resource_e resource_type )
 {
-  // The first 20pts of intellect/stamina only provide 1pt of mana/health.
-
   resources.max[ resource_type ] = resources.base[ resource_type ] * resources.base_multiplier[ resource_type ] +
                                    gear.resource[ resource_type ] +
                                    enchant.resource[ resource_type ] +
@@ -3984,24 +3982,21 @@ void player_t::recalculate_resource_max( resource_e resource_type )
   resources.max[ resource_type ] *= resources.initial_multiplier[ resource_type ];
   switch ( resource_type )
   {
-    case RESOURCE_MANA:
-    {
-      break;
-    }
     case RESOURCE_HEALTH:
     {
       // Calculate & set maximum health
-      double adjust = ( is_pet() || is_enemy() || is_add() ) ? 0 : std::min( 20, ( int ) floor( stamina() ) );
-      resources.max[ resource_type ] += ( floor( stamina() ) - adjust ) * current.health_per_stamina + adjust;
+      resources.max[ resource_type ] += floor( stamina() ) * current.health_per_stamina;
 
-      // Sanity check on current health values
+      // Make sure the player starts combat with full health
       if ( ! in_combat )
         resources.current[ resource_type ] = resources.max[ resource_type ];
-      resources.current[ resource_type ] = std::min( resources.current[ resource_type ], resources.max[ resource_type] );
       break;
     }
     default: break;
   }
+  resources.max[ resource_type ] += resources.temporary[ resource_type ];
+  // Sanity check on current values
+  resources.current[ resource_type ] = std::min( resources.current[ resource_type ], resources.max[ resource_type] );
 }
 
 // player_t::primary_role ===================================================
@@ -4111,7 +4106,6 @@ void player_t::stat_gain( stat_e    stat,
     case STAT_READINESS_RATING:
     case STAT_VERSATILITY_RATING:
       current.stats.add_stat( stat, amount );
-      temporary.add_stat( stat, temp_value * amount );
       invalidate_cache( cache_from_stat( stat ) );
       break;
 
@@ -4122,7 +4116,6 @@ void player_t::stat_gain( stat_e    stat,
         old_attack_speed = cache.attack_speed();
 
       current.stats.add_stat( stat, amount );
-      temporary.add_stat( stat, temp_value * amount );
       invalidate_cache( cache_from_stat( stat ) );
 
       if ( main_hand_attack )
@@ -4135,7 +4128,6 @@ void player_t::stat_gain( stat_e    stat,
     case STAT_ALL:
       for ( attribute_e i = ATTRIBUTE_NONE; i < ATTRIBUTE_MAX; i++ )
       {
-        temporary.attribute[ i ] += temp_value * amount;
         current.stats.attribute[ i ] += amount;
         invalidate_cache( static_cast<cache_e>( i ) );
       }
@@ -4169,12 +4161,9 @@ void player_t::stat_gain( stat_e    stat,
                        ( stat == STAT_MAX_RAGE   ) ? RESOURCE_RAGE   :
                        ( stat == STAT_MAX_ENERGY ) ? RESOURCE_ENERGY :
                        ( stat == STAT_MAX_FOCUS  ) ? RESOURCE_FOCUS  : RESOURCE_RUNIC_POWER );
-      resources.max[ r ] += amount;
-      // Stuff temporary max health gains into temporary.resource[ RESOURCE_HEALTH ] since temporary lacks a STAT_MAX_HEALTH field
-      // A bit of a kludge; if we ever use temporary.resource[ RESOURCE_HEALTH ] for something else, we'll have to tweak this, either
-      // by adding a temporary.resource_max[] array of doubles or a temporary.max_health double.
-      if ( r == RESOURCE_HEALTH )
-        temporary.resource[ r ] += temp_value * amount;
+
+      resources.temporary[ r ] += temp_value * amount;
+      recalculate_resource_max( r );
       resource_gain( r, amount, gain, action );
     }
     break;
@@ -4242,14 +4231,12 @@ void player_t::stat_loss( stat_e    stat,
     case STAT_READINESS_RATING:
     case STAT_VERSATILITY_RATING:
       current.stats.add_stat( stat, -amount );
-      temporary.add_stat( stat, temp_value * -amount );
       invalidate_cache( cache_from_stat( stat ) );
       break;
 
     case STAT_ALL:
       for ( attribute_e i = ATTRIBUTE_NONE; i < ATTRIBUTE_MAX; i++ )
       {
-        temporary.attribute[ i ] -= temp_value * amount;
         current.stats.attribute  [ i ] -= amount;
         invalidate_cache( ( cache_e ) i );
       }
@@ -4283,13 +4270,12 @@ void player_t::stat_loss( stat_e    stat,
                        ( stat == STAT_MAX_RAGE   ) ? RESOURCE_RAGE   :
                        ( stat == STAT_MAX_ENERGY ) ? RESOURCE_ENERGY :
                        ( stat == STAT_MAX_FOCUS  ) ? RESOURCE_FOCUS  : RESOURCE_RUNIC_POWER );
+
+      resources.temporary[ r ] -= temp_value * amount;
       recalculate_resource_max( r );
       double delta = resources.current[ r ] - resources.max[ r ];
       if ( delta > 0 ) resource_loss( r, delta, gain, action );
 
-      // See equivalent part of player_t::stat_gain for comment on this kludge
-      if ( r == RESOURCE_HEALTH )
-        temporary.resource[ r ] -= temp_value * amount;
     }
     break;
 
@@ -4299,7 +4285,6 @@ void player_t::stat_loss( stat_e    stat,
       if ( main_hand_attack || off_hand_attack )
         old_attack_speed = cache.attack_speed();
 
-      temporary.haste_rating -= temp_value * amount;
       current.stats.haste_rating   -= amount;
       invalidate_cache( CACHE_HASTE );
 
@@ -7238,86 +7223,6 @@ expr_t* player_t::create_expression( action_t* a,
         return pet -> owner -> create_expression( a, expression_str.substr( 6 ) );
     }
     // FIXME: report failure.
-  }
-
-  else if ( splits[ 0 ] == "temporary_bonus" && splits.size() == 2 )
-  {
-    stat_e stat = util::parse_stat_type( splits[ 1 ] );
-    switch ( stat )
-    {
-      case STAT_STRENGTH:
-      case STAT_AGILITY:
-      case STAT_STAMINA:
-      case STAT_INTELLECT:
-      case STAT_SPIRIT:
-      {
-        struct temp_attr_expr_t : public player_expr_t
-        {
-          attribute_e attr;
-          temp_attr_expr_t( const std::string& name, player_t& p, attribute_e a ) :
-            player_expr_t( name, p ), attr( a ) {}
-          virtual double evaluate()
-          { return player.temporary.attribute[ attr ] * player.composite_attribute_multiplier( attr ); }
-        };
-        return new temp_attr_expr_t( expression_str, *this, static_cast<attribute_e>( stat ) );
-      }
-
-      case STAT_SPELL_POWER:
-      {
-        struct temp_sp_expr_t : player_expr_t
-        {
-          temp_sp_expr_t( const std::string& name, player_t& p ) :
-            player_expr_t( name, p ) {}
-          virtual double evaluate()
-          {
-            return ( player.temporary.spell_power +
-                     player.temporary.attribute[ ATTR_INTELLECT ] *
-                     player.composite_attribute_multiplier( ATTR_INTELLECT ) *
-                     player.current.spell_power_per_intellect ) *
-                   player.composite_spell_power_multiplier();
-          }
-        };
-        return new temp_sp_expr_t( expression_str, *this );
-      }
-
-      case STAT_ATTACK_POWER:
-      {
-        struct temp_ap_expr_t : player_expr_t
-        {
-          temp_ap_expr_t( const std::string& name, player_t& p ) :
-            player_expr_t( name, p ) {}
-          virtual double evaluate()
-          {
-            return ( player.temporary.attack_power +
-                     player.temporary.attribute[ ATTR_STRENGTH ] *
-                     player.composite_attribute_multiplier( ATTR_STRENGTH ) *
-                     player.current.attack_power_per_strength +
-                     player.temporary.attribute[ ATTR_AGILITY ] *
-                     player.composite_attribute_multiplier( ATTR_AGILITY ) *
-                     player.current.attack_power_per_agility ) *
-                   player.composite_attack_power_multiplier();
-          }
-        };
-        return new temp_ap_expr_t( expression_str, *this );
-      }
-
-      case STAT_EXPERTISE_RATING: return make_ref_expr( expression_str, temporary.expertise_rating );
-      case STAT_HIT_RATING:       return make_ref_expr( expression_str, temporary.hit_rating );
-      case STAT_CRIT_RATING:      return make_ref_expr( expression_str, temporary.crit_rating );
-      case STAT_HASTE_RATING:     return make_ref_expr( expression_str, temporary.haste_rating );
-      case STAT_READINESS_RATING: return make_ref_expr( expression_str, temporary.readiness_rating );
-      case STAT_VERSATILITY_RATING: return make_ref_expr( expression_str, temporary.versatility_rating );
-      case STAT_MULTISTRIKE_RATING:return make_ref_expr( expression_str, temporary.multistrike_rating );
-      case STAT_ARMOR:            return make_ref_expr( expression_str, temporary.armor );
-      case STAT_BONUS_ARMOR:      return make_ref_expr( expression_str, temporary.bonus_armor );
-      case STAT_DODGE_RATING:     return make_ref_expr( expression_str, temporary.dodge_rating );
-      case STAT_PARRY_RATING:     return make_ref_expr( expression_str, temporary.parry_rating );
-      case STAT_BLOCK_RATING:     return make_ref_expr( expression_str, temporary.block_rating );
-      case STAT_MASTERY_RATING:   return make_ref_expr( expression_str, temporary.mastery_rating );
-      default: break;
-    }
-
-    // FIXME: report error and return?
   }
 
   else if ( splits[ 0 ] == "stat" && splits.size() == 2 )

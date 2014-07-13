@@ -411,6 +411,7 @@ public:
   virtual void      invalidate_cache( cache_e );
   virtual double    composite_spell_crit() const;
   virtual double    composite_spell_haste() const;
+  virtual double    composite_melee_crit() const;
   virtual double    composite_mastery() const;
   virtual double    resource_gain( resource_e, double, gain_t* = 0, action_t* = 0 );
   virtual double    mana_regen_per_second() const;
@@ -991,8 +992,8 @@ warlock_pet_t::warlock_pet_t( sim_t* sim, warlock_t* owner, const std::string& p
   pet_t( sim, owner, pet_name, pt, guardian ), special_action( 0 ), melee_attack( 0 ), summon_stats( 0 )
 {
   owner_fury_gain = owner -> get_gain( pet_name );
-  owner_coeff.ap_from_sp = 0.6; // Changed from 3.5 for more accurate pet damage. Not 100% accurate, but pretty close for now.
-  owner_coeff.sp_from_sp = 1.0;
+  owner_coeff.ap_from_sp = 0.6563;
+  owner_coeff.sp_from_sp = 0.75;
   supremacy = find_spell( 115578 );
 }
 
@@ -1086,12 +1087,17 @@ double warlock_pet_t::composite_player_multiplier( school_e school ) const
 
   m *= 1.0 + o() -> perk.improved_demons -> effectN( 1 ).percent();
 
+
   return m;
 }
 
 double warlock_pet_t::composite_melee_crit() const
 {
   double mc = pet_t::composite_melee_crit();
+
+  // must go first in this function!
+  if ( o() -> specialization() == WARLOCK_DEMONOLOGY && o() -> talents.grimoire_of_sacrifice -> ok() )
+    mc *= 1.0 + o() -> talents.grimoire_of_sacrifice -> effectN( 2 ).percent();
 
   mc += o() -> perk.empowered_demons -> effectN( 1 ).percent();
 
@@ -1101,6 +1107,10 @@ double warlock_pet_t::composite_melee_crit() const
 double warlock_pet_t::composite_spell_crit() const
 {
   double sc = pet_t::composite_spell_crit();
+
+  // must go first in this function!
+  if ( o() -> specialization() == WARLOCK_DEMONOLOGY && o() -> talents.grimoire_of_sacrifice -> ok() )
+    sc *= 1.0 + o() -> talents.grimoire_of_sacrifice -> effectN( 2 ).percent();
 
   sc += o() -> perk.empowered_demons -> effectN( 1 ).percent();
   
@@ -1206,7 +1216,7 @@ struct succubus_pet_t : public warlock_pet_t
     warlock_pet_t( sim, owner, name, PET_SUCCUBUS, name != "succubus" )
   {
     action_list_str = "lash_of_pain";
-    owner_coeff.ap_from_sp = 1.667;
+    owner_coeff.ap_from_sp = 0.3124;
   }
 
   virtual void init_base_stats()
@@ -1256,7 +1266,7 @@ struct infernal_pet_t : public warlock_pet_t
     warlock_pet_t( sim, owner, "infernal", PET_INFERNAL, true )
   {
     action_list_str = "immolation,if=!ticking";
-    owner_coeff.ap_from_sp = 0.5;
+    owner_coeff.ap_from_sp = 0.04688;
   }
 
   virtual void init_base_stats()
@@ -1278,7 +1288,9 @@ struct doomguard_pet_t : public warlock_pet_t
 {
   doomguard_pet_t( sim_t* sim, warlock_t* owner ) :
     warlock_pet_t( sim, owner, "doomguard", PET_DOOMGUARD, true )
-  { }
+  { 
+    owner_coeff.ap_from_sp = 0.09375;
+  }
 
   virtual void init_base_stats()
   {
@@ -1386,7 +1398,7 @@ struct wrathguard_pet_t : public warlock_pet_t
     warlock_pet_t( sim, owner, "wrathguard", PET_FELGUARD )
   {
     action_list_str = "mortal_cleave";
-    owner_coeff.ap_from_sp = 2.333; // FIXME: Retest this later
+    owner_coeff.ap_from_sp = 0.4376;
   }
 
   virtual void init_base_stats()
@@ -1437,7 +1449,7 @@ struct shivarra_pet_t : public warlock_pet_t
     warlock_pet_t( sim, owner, "shivarra", PET_SUCCUBUS )
   {
     action_list_str = "bladedance";
-    owner_coeff.ap_from_sp = 1.111;
+    owner_coeff.ap_from_sp = 0.2081;
   }
 
   virtual void init_base_stats()
@@ -1489,7 +1501,7 @@ struct abyssal_pet_t : public warlock_pet_t
     warlock_pet_t( sim, owner, "abyssal", PET_INFERNAL, true )
   {
     action_list_str = "immolation,if=!ticking";
-    owner_coeff.ap_from_sp = 0.5;
+    owner_coeff.ap_from_sp = 0.04688;
   }
 
   virtual void init_base_stats()
@@ -1513,6 +1525,7 @@ struct terrorguard_pet_t : public warlock_pet_t
     warlock_pet_t( sim, owner, "terrorguard", PET_DOOMGUARD, true )
   {
     action_list_str = "doom_bolt";
+    owner_coeff.ap_from_sp = 0.09375;
   }
 
   virtual action_t* create_action( const std::string& name, const std::string& options_str )
@@ -2779,8 +2792,6 @@ struct conflagrate_t : public warlock_spell_t
     else
       trigger_ember_gain( p(), s -> result == RESULT_CRIT ? 0.2 : 0.1, gain );
 
-    //hotfixed extra gain with 15% chance from 13.09.13
-    trigger_ember_gain( p(), 0.1, gain, 0.15 );
     if ( s -> result == RESULT_CRIT &&  p() -> sets.has_set_bonus( SET_T16_2PC_CASTER ) )
       p() -> buffs.tier16_2pc_destructive_influence -> trigger();
   }
@@ -2888,8 +2899,6 @@ struct incinerate_t : public warlock_spell_t
     else
       trigger_ember_gain( p(), s -> result == RESULT_CRIT ? 0.2 : 0.1, gain );
 
-    //hotfixed extra gain with 15% 13.09.13
-    trigger_ember_gain( p(), 0.1, gain, 0.15 );
     if ( rng().roll( p() -> sets.set ( SET_T15_4PC_CASTER ) -> effectN( 2 ).percent() ) )
       trigger_ember_gain( p(), s -> result == RESULT_CRIT ? 0.2 : 0.1, p() -> gains.incinerate_t15_4pc );
 
@@ -3027,11 +3036,7 @@ struct chaos_bolt_t : public warlock_spell_t
   {
     havoc_consume = 3;
     backdraft_consume = 3;
-    hasted_ticks = false;
     base_execute_time += p -> perk.enhanced_chaos_bolt -> effectN( 1 ).time_value();
-    
-    if ( p -> talents.grimoire_of_sacrifice -> ok() )
-      dot_duration = p -> talents.grimoire_of_sacrifice -> effectN( 12 ).time_value();
   }
 
   virtual double composite_crit() const
@@ -3057,7 +3062,7 @@ struct chaos_bolt_t : public warlock_spell_t
     if ( p() -> mastery_spells.emberstorm -> ok() )
       m *= 1.0 + p() -> cache.mastery_value();
 
-    m *= 1.0 + p() -> cache.spell_crit() + p() -> talents.grimoire_of_sacrifice -> effectN( 5 ).percent() * p() -> buffs.grimoire_of_sacrifice -> stack();
+    m *= 1.0 + p() -> cache.spell_crit(); //+ p() -> talents.grimoire_of_sacrifice -> effectN( 5 ).percent() * p() -> buffs.grimoire_of_sacrifice -> stack()
 
     return m;
   }
@@ -3084,8 +3089,11 @@ struct life_tap_t : public warlock_spell_t
 
     double health = player -> resources.max[ RESOURCE_HEALTH ];
     // FIXME: This should be implemented as a real health gain, but we don't have an easy way to do temporary percentage-wise resource gains
-    if ( p() -> talents.soul_link -> ok() && p() -> buffs.grimoire_of_sacrifice -> up() )
-      health *= 1.0 + p() -> talents.grimoire_of_sacrifice -> effectN( 7 ).percent();
+    if ( p() -> specialization() != WARLOCK_DEMONOLOGY )
+    {
+      if ( p() -> talents.soul_link -> ok() && p() -> buffs.grimoire_of_sacrifice -> up() )
+        health *= 1.0 + p() -> talents.grimoire_of_sacrifice -> effectN( 7 ).percent();
+    }
 
     // FIXME: Implement reduced healing debuff
     if ( ! p() -> glyphs.life_tap -> ok() ) player -> resource_loss( RESOURCE_HEALTH, health * data().effectN( 3 ).percent() );
@@ -4298,8 +4306,11 @@ struct grimoire_of_sacrifice_t : public warlock_spell_t
     {
       warlock_spell_t::execute();
 
-      p() -> pets.active -> dismiss();
-      p() -> pets.active = 0;
+      if ( p() -> specialization() != WARLOCK_DEMONOLOGY )
+      {
+        p() -> pets.active -> dismiss();
+        p() -> pets.active = 0;
+      }
       p() -> buffs.grimoire_of_sacrifice -> trigger();
 
       // FIXME: Demonic rebirth should really trigger on any pet death, but this is the only pet death we care about for now
@@ -4438,14 +4449,15 @@ double warlock_t::composite_spell_crit() const
   if ( specialization() == WARLOCK_DESTRUCTION )
   {
     if ( buffs.dark_soul -> up() )
-    {
       sc += spec.dark_soul -> effectN( 1 ).percent() ;
-    }
     if ( buffs.tier16_4pc_ember_fillup -> up() )
-    {
       sc += find_spell( 145164 ) -> effectN(1).percent();
-    }
   }
+
+
+  // This must go last in this function!
+  if ( specialization() == WARLOCK_DEMONOLOGY && talents.grimoire_of_sacrifice -> ok() )
+    sc *= 0.5;
 
   return sc;
 }
@@ -4465,6 +4477,17 @@ double warlock_t::composite_spell_haste() const
   }
 
   return h;
+}
+
+double warlock_t::composite_melee_crit() const
+{
+  double mc = player_t::composite_melee_crit();
+
+  // This must go last in this function!
+  if ( specialization() == WARLOCK_DEMONOLOGY && talents.grimoire_of_sacrifice -> ok() )
+    mc *= 0.5;
+
+  return mc;
 }
 
 
@@ -5005,7 +5028,7 @@ void warlock_t::apl_precombat()
   {
     // Flask
     if ( level == 100 )
-      precombat_list = "flask,type=greater_draenor_mastery_flask";
+      precombat_list = "flask,type=greater_draenic_mastery_flask";
     else if ( level >= 90 )
       precombat_list = "flask,type=warm_sun";
   }
@@ -5037,7 +5060,7 @@ void warlock_t::apl_precombat()
   {
     // Pre-potion
     if ( level == 100 )
-      precombat_list += "/potion,name=draenor_intellect";
+      precombat_list += "/potion,name=draenic_intellect";
     else if ( level >= 90 )
       precombat_list += "/potion,name=jade_serpent";
   }
@@ -5057,7 +5080,7 @@ void warlock_t::apl_precombat()
     // Potion
     if ( level == 100 )
       action_list_str +=
-          "/potion,name=draenor_intellect,if=buff.bloodlust.react|target.health.pct<=20";
+          "/potion,name=draenic_intellect,if=buff.bloodlust.react|target.health.pct<=20";
     else if ( level >= 90 )
       action_list_str +=
           "/potion,name=jade_serpent,if=buff.bloodlust.react|target.health.pct<=20";

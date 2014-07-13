@@ -1913,7 +1913,7 @@ struct stance_t : public monk_spell_t
   virtual void execute()
   {
     monk_spell_t::execute();
- 
+
     p() -> switch_to_stance( switch_to_stance );
   }
  
@@ -3339,10 +3339,8 @@ void monk_t::init_base_stats()
 
   // Avoidance diminishing Returns constants/conversions now handled in player_t::init_base_stats()
   // base miss & dodge are set to 3% and block & parry set to 0% in player_t::init_base_stats()
-
-  // note that these conversions are level-specific; these are L90 values
-  base.dodge_per_agility = 1 / 95115.8596; // exact value given by Blizzard
-  base.parry_per_strength = 1 / 10000.0 / 100.0 ; // empirically tested
+  // Need to apply 3% base parry here
+  base.parry = 3.0;
 }
 
 // monk_t::init_scaling =====================================================
@@ -3961,6 +3959,18 @@ void monk_t::combat_begin()
   base_t::combat_begin();
  
   resources.current[ RESOURCE_CHI ] = clamp( as<double>( user_options.initial_chi ), 0.0, resources.max[ RESOURCE_CHI ] );
+
+  if ( _active_stance == FIERCE_TIGER && !buffs.fierce_tiger_movement_aura -> up() )
+  {
+    for ( size_t i = 0; i < sim -> player_non_sleeping_list.size(); ++i )
+    {
+      player_t* p = sim -> player_non_sleeping_list[i];
+      if ( p -> is_enemy() || p -> type == PLAYER_GUARDIAN )
+        break;
+
+      p -> buffs.fierce_tiger_movement_aura -> trigger();
+    }
+  }
  
   if ( specialization() == MONK_BREWMASTER )
     resolve_manager.start();
@@ -4436,6 +4446,29 @@ bool monk_t::switch_to_stance( stance_e to )
   // validate stance availability
   if ( ! static_stance_data( to ).ok() )
     return false;
+
+  if ( to == FIERCE_TIGER )
+  {
+    for ( size_t i = 0; i < sim -> player_non_sleeping_list.size(); ++i )
+    {
+      player_t* p = sim -> player_non_sleeping_list[i];
+      if ( p -> is_enemy() || p -> type == PLAYER_GUARDIAN )
+        break;
+
+      p -> buffs.fierce_tiger_movement_aura -> trigger();
+    }
+  }
+  else if ( _active_stance == FIERCE_TIGER )
+  {
+    for ( size_t i = 0; i < sim -> player_non_sleeping_list.size(); ++i )
+    {
+      player_t* p = sim -> player_non_sleeping_list[i];
+      if ( p -> is_enemy() || p -> type == PLAYER_GUARDIAN )
+        break;
+
+      p -> buffs.fierce_tiger_movement_aura -> expire();
+    }
+  }
  
   stance_invalidates( current_stance() ); // Invalidate old stance
   _active_stance = to;
@@ -4518,7 +4551,15 @@ struct monk_module_t : public module_t
     return p;
   }
   virtual bool valid() const { return true; }
-  virtual void init        ( sim_t* ) const {}
+  virtual void init( sim_t* sim ) const
+  {
+    for ( unsigned int i = 0; i < sim -> actor_list.size(); i++ )
+    {
+      player_t* p = sim -> actor_list[i];
+      p -> buffs.fierce_tiger_movement_aura = buff_creator_t( p, "fierce_tiger_movement_aura", p -> find_spell( 103985 ) )
+        .duration( timespan_t::from_seconds( 0 ) );
+    }
+  }
   virtual void combat_begin( sim_t* ) const {}
   virtual void combat_end  ( sim_t* ) const {}
 };

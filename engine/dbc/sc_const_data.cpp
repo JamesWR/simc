@@ -184,7 +184,7 @@ std::vector< std::vector< const spell_data_t* > > ptr_class_family_index;
 } // ANONYMOUS namespace ====================================================
 
 int dbc::build_level( bool ptr )
-{ return maybe_ptr( ptr ) ? 17345 : 18505; }
+{ return maybe_ptr( ptr ) ? 17345 : 18546; }
 
 const char* dbc::wow_version( bool ptr )
 { return maybe_ptr( ptr ) ? "5.4.0" : "6.0.1"; }
@@ -198,6 +198,30 @@ const char* dbc::wow_ptr_status( bool ptr )
 #endif
                      : "Live" ); }
 
+const item_set_bonus_t* dbc::set_bonus( bool ptr )
+{
+  ( void ) ptr;
+
+  const item_set_bonus_t* p = __set_bonus_data;
+#if SC_USE_PTR
+  if ( ptr )
+    p = __ptr_set_bonus_data;
+#endif
+  return p;
+}
+
+std::size_t dbc::n_set_bonus( bool ptr )
+{
+  ( void ) ptr;
+
+  size_t n = SET_BONUS_DATA_SIZE;
+#if SC_USE_PTR
+  if ( ptr )
+    n = PTR_SET_BONUS_DATA_SIZE;
+#endif
+
+  return n;
+}
 
 const item_data_t* dbc::items( bool ptr )
 {

@@ -789,21 +789,21 @@ enum flask_e
   FLASK_CRYSTAL_OF_INSANITY,
   // wod
   FLASK_DRAENOR_ARMOR_FLASK,
-  FLASK_DRAENOR_CRITICAL_STRIKE_FLASK,
-  FLASK_DRAENOR_HASTE_FLASK,
-  FLASK_DRAENOR_MASTERY_FLASK,
-  FLASK_DRAENOR_MULTISTRIKE_FLASK,
+  FLASK_DRAENIC_CRITICAL_STRIKE_FLASK,
+  FLASK_DRAENIC_HASTE_FLASK,
+  FLASK_DRAENIC_MASTERY_FLASK,
+  FLASK_DRAENIC_MULTISTRIKE_FLASK,
   FLASK_DRAENOR_SPIRIT_FLASK,
-  FLASK_DRAENOR_STAMINA_FLASK,
-  FLASK_DRAENOR_VERSATILITY_FLASK,
+  FLASK_DRAENIC_STAMINA_FLASK,
+  FLASK_DRAENIC_VERSATILITY_FLASK,
   FLASK_GREATER_DRAENOR_ARMOR_FLASK,
-  FLASK_GREATER_DRAENOR_CRITICAL_STRIKE_FLASK,
-  FLASK_GREATER_DRAENOR_HASTE_FLASK,
-  FLASK_GREATER_DRAENOR_MASTERY_FLASK,
-  FLASK_GREATER_DRAENOR_MULTISTRIKE_FLASK,
+  FLASK_GREATER_DRAENIC_CRITICAL_STRIKE_FLASK,
+  FLASK_GREATER_DRAENIC_HASTE_FLASK,
+  FLASK_GREATER_DRAENIC_MASTERY_FLASK,
+  FLASK_GREATER_DRAENIC_MULTISTRIKE_FLASK,
   FLASK_GREATER_DRAENOR_SPIRIT_FLASK,
-  FLASK_GREATER_DRAENOR_STAMINA_FLASK,
-  FLASK_GREATER_DRAENOR_VERSATILITY_FLASK,
+  FLASK_GREATER_DRAENIC_STAMINA_FLASK,
+  FLASK_GREATER_DRAENIC_VERSATILITY_FLASK,
   // alchemist's flask
   FLASK_ALCHEMISTS,
   FLASK_MAX
@@ -1274,7 +1274,7 @@ player_e pet_class_type( pet_e type );
 
 const char* class_id_string( player_e type );
 player_e translate_class_id( int cid );
-player_e translate_class_str( std::string& s );
+player_e translate_class_str( const std::string& s );
 race_e translate_race_id( int rid );
 stat_e translate_item_mod( int stat_mod );
 int translate_stat( stat_e stat );
@@ -1376,7 +1376,9 @@ std::string to_str( const dbc_t& dbc, const spell_data_t* spell, int level = MAX
 void        to_xml( const dbc_t& dbc, const spell_data_t* spell, xml_node_t* parent, int level = MAX_LEVEL );
 //static std::string to_str( sim_t* sim, uint32_t spell_id, int level = MAX_LEVEL );
 std::string talent_to_str( const dbc_t& dbc, const talent_data_t* talent, int level = MAX_LEVEL );
+std::string set_bonus_to_str( const dbc_t& dbc, const item_set_bonus_t* set_bonus, int level = MAX_LEVEL );
 void        talent_to_xml( const dbc_t& dbc, const talent_data_t* talent, xml_node_t* parent, int level = MAX_LEVEL );
+void        set_bonus_to_xml( const dbc_t& dbc, const item_set_bonus_t* talent, xml_node_t* parent, int level = MAX_LEVEL );
 std::ostringstream& effect_to_str( const dbc_t& dbc, const spell_data_t* spell, const spelleffect_data_t* effect, std::ostringstream& s, int level = MAX_LEVEL );
 void                effect_to_xml( const dbc_t& dbc, const spell_data_t* spell, const spelleffect_data_t* effect, xml_node_t*    parent, int level = MAX_LEVEL );
 }
@@ -1539,7 +1541,7 @@ struct gear_stats_t
     multistrike_rating += right.multistrike_rating;
     readiness_rating += right.readiness_rating;
     versatility_rating += right.versatility_rating;
-    range::transform ( attribute, right.attribute, attribute.begin(), std::plus<int>() );
+    range::transform ( attribute, right.attribute, attribute.begin(), std::plus<double>() );
     range::transform ( resource, right.resource, resource.begin(), std::plus<int>() );
     return *this;
   }
@@ -2158,6 +2160,7 @@ enum expr_data_e
   DATA_GLYPH_SPELL,
   DATA_SET_BONUS_SPELL,
   DATA_PERK_SPELL,
+  DATA_SET_BONUS,
 };
 
 struct spell_data_expr_t
@@ -2601,7 +2604,6 @@ public:
 
   // Auras and De-Buffs
   auto_dispose< std::vector<buff_t*> > buff_list;
-  timespan_t aura_delay;
 
   // Global aura related delay
   timespan_t default_aura_delay;
@@ -4284,7 +4286,7 @@ struct player_t : public actor_t
   // Resources
   struct resources_t
   {
-    std::array<double, RESOURCE_MAX> base, initial, max, current,
+    std::array<double, RESOURCE_MAX> base, initial, max, current, temporary,
         base_multiplier, initial_multiplier;
     std::array<int, RESOURCE_MAX> infinite_resource;
 
@@ -4294,6 +4296,7 @@ struct player_t : public actor_t
       range::fill( initial, 0.0 );
       range::fill( max, 0.0 );
       range::fill( current, 0.0 );
+      range::fill( temporary, 0.0 );
       range::fill( base_multiplier, 1.0 );
       range::fill( initial_multiplier, 1.0 );
       range::fill( infinite_resource, 0 );
@@ -4399,7 +4402,7 @@ struct player_t : public actor_t
   // Gear
   std::string items_str, meta_gem_str;
   std::vector<item_t> items;
-  gear_stats_t gear, enchant, temporary;
+  gear_stats_t gear, enchant;
   gear_stats_t total_gear; // composite of gear, enchant and for non-pets sim -> enchant
   set_bonus_t sets;
   new_set_bonus::set_bonus_t new_sets;
@@ -4446,9 +4449,9 @@ struct player_t : public actor_t
     buff_t* self_movement;
     buff_t* stampeding_roar;
     buff_t* shadowmeld;
+    buff_t* fierce_tiger_movement_aura;
     buff_t* stoneform;
     buff_t* stunned;
-    buff_t* tricks_of_the_trade;
     buff_t* weakened_soul;
     buff_t* resolve;
 
@@ -6811,6 +6814,18 @@ public:
   template <typename T>
   residual_periodic_action_t( const std::string& n, T& p, const spell_data_t* s ) :
     ab( n, p, s )
+  {
+    initialize_();
+  }
+
+  template <typename T>
+  residual_periodic_action_t( const std::string& n, T* p, const spell_data_t* s ) :
+    ab( n, p, s )
+  {
+    initialize_();
+  }
+
+  void initialize_()
   {
     ab::background = true;
 

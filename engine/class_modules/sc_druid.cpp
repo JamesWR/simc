@@ -15,6 +15,7 @@ namespace { // UNNAMED NAMESPACE
     Fix Force of Nature (summons fine, but treants take no actions)
 
     = Feral =
+    Tweak LI implementation so Feral can use normal moonfire
     Damage check:
       Thrash (both forms)
       Swipe
@@ -24,9 +25,6 @@ namespace { // UNNAMED NAMESPACE
     Verify stuff.
 
     = Guardian =
-    PvP bonuses
-    Fix MoU and Ursa Major decreasing resolve
-    Mangle cleave
     FR "none" results?
     Verify stuff (particularly DoC)
 
@@ -231,6 +229,7 @@ public:
     gain_t* swipe;
     gain_t* tigers_fury;
     gain_t* tier15_2pc_melee;
+    gain_t* tier17_2pc_melee;
 
     // Guardian (Bear)
     gain_t* bear_form;
@@ -576,7 +575,7 @@ public:
   virtual void      assess_heal( school_e, dmg_e, action_state_t* );
   virtual void      create_options();
   virtual bool      create_profile( std::string& profile_str, save_e type = SAVE_ALL, bool save_html = false );
-  virtual void      recalculate_resource_max( resource_e resource_type );
+  virtual void      recalculate_resource_max( resource_e r );
 
   void              apl_precombat();
   void              apl_default();
@@ -903,7 +902,7 @@ struct yseras_gift_t : public heal_t
     heal_t( "yseras_gift", p, p -> talent.yseras_gift )
   {
     base_tick_time = data().effectN( 1 ).period();
-    dot_duration   = base_tick_time;
+    dot_duration   = base_tick_time * 2;
     harmful = tick_may_crit = hasted_ticks = false;
     may_multistrike = 0;
     background = proc = dual = true;
@@ -1282,7 +1281,7 @@ public:
 
     sim -> auras.critical_strike -> decrement();
 
-    druid.druid_t::recalculate_resource_max( RESOURCE_HEALTH );
+    druid.recalculate_resource_max( RESOURCE_HEALTH );
 
     if ( druid.specialization() == DRUID_GUARDIAN )
       druid.resolve_manager.stop();
@@ -1310,7 +1309,7 @@ public:
     if ( ! sim -> overrides.critical_strike )
       sim -> auras.critical_strike -> trigger();
 
-    druid.druid_t::recalculate_resource_max( RESOURCE_HEALTH );
+    druid.recalculate_resource_max( RESOURCE_HEALTH );
   }
 private:
   const spell_data_t* rage_spell;
@@ -1402,27 +1401,32 @@ struct celestial_alignment_t : public druid_buff_t < buff_t >
 };
 
 // Might of Ursoc Buff ======================================================
-/* TODO: Does this double dip on Ursa Major or not? Current implementation snapshots
-         20% of max HP post-major and then that value gets buffed by Ursa Major. */
 
 struct might_of_ursoc_t : public druid_buff_t < buff_t >
 {
+  int health_gain;
+  double health_pct;
+
   might_of_ursoc_t( druid_t& p ) :
-    base_t( p, buff_creator_t( &p, "might_of_ursoc", p.find_spell( 106922 ) ) )
-  {}
+    base_t( p, buff_creator_t( &p, "might_of_ursoc", p.find_spell( 106922 ) ) ),
+    health_gain( 0 ), health_pct( 0.0 )
+  {
+    health_pct = data().effectN( 1 ).percent() + p.glyph.might_of_ursoc -> effectN( 1 ).percent();
+  }
 
   virtual void start( int stacks, double value, timespan_t duration )
   {
-    base_t::start( stacks, value, duration );
+    health_gain = (int) floor( player -> resources.max[ RESOURCE_HEALTH ] * health_pct );
+    player -> stat_gain( STAT_MAX_HEALTH, health_gain, (gain_t*) 0, (action_t*) 0, true );
 
-    druid.druid_t::recalculate_resource_max( RESOURCE_HEALTH );
+    base_t::start( stacks, value, duration );
   }
 
   virtual void expire_override()
   {
-    base_t::expire_override();
+    player -> stat_loss( STAT_MAX_HEALTH, health_gain, (gain_t*) 0, (action_t*) 0, true );
 
-    druid.druid_t::recalculate_resource_max( RESOURCE_HEALTH );
+    base_t::expire_override();
   }
 };
 
@@ -1489,55 +1493,48 @@ struct tooth_and_claw_absorb_t : public absorb_buff_t
 
 struct ursa_major_t : public druid_buff_t < buff_t >
 {
+  int health_gain;
+
   ursa_major_t( druid_t& p ) :
     base_t( p, buff_creator_t( &p, "ursa_major", p.find_spell( 159233 ) )
                   .default_value( p.find_spell( 159233 ) -> effectN( 1 ).percent() )
-    )
+    ), health_gain( 0 )
   {}
 
   virtual void start( int stacks, double value, timespan_t duration )
   {
-    double health_before = druid.resources.max[ RESOURCE_HEALTH ];
-
     base_t::start( stacks, value, duration );
 
-    druid.druid_t::recalculate_resource_max( RESOURCE_HEALTH );
-
-    if ( sim -> debug )
-        sim -> out_debug.printf( "%s gains ursa_major -- before HP: %.1f, after HP: %.1f",
-                                 player -> name(),
-                                 health_before,
-                                 druid.resources.max[ RESOURCE_HEALTH ] );
+    recalculate_temporary_health( value );
   }
 
   virtual void refresh( int stacks, double value, timespan_t duration )
   {
-    double health_before = druid.resources.max[ RESOURCE_HEALTH ];
-
     base_t::refresh( stacks, value, duration );
-
-    druid.druid_t::recalculate_resource_max( RESOURCE_HEALTH );
-
-    if ( sim -> debug )
-        sim -> out_debug.printf( "%s refreshes ursa_major -- before HP: %.1f, after HP: %.1f",
-                                 player -> name(),
-                                 health_before,
-                                 druid.resources.max[ RESOURCE_HEALTH ] );
+    
+    recalculate_temporary_health( value );
   }
 
   virtual void expire_override()
   {
-    double health_before = druid.resources.max[ RESOURCE_HEALTH ];
-
     base_t::expire_override();
 
-    druid.druid_t::recalculate_resource_max( RESOURCE_HEALTH );
+    recalculate_temporary_health( 0.0 );
+  }
 
-    if ( sim -> debug )
-        sim -> out_debug.printf( "%s loses ursa_major -- before HP: %.1f, after HP: %.1f",
-                                 player -> name(),
-                                 health_before,
-                                 druid.resources.max[ RESOURCE_HEALTH ] );
+private:
+  void recalculate_temporary_health( double value )
+  {
+    // Calculate the benefit of the new buff
+    int old_health_gain = health_gain;
+    health_gain = (int) floor( ( druid.resources.max[ RESOURCE_HEALTH ] - old_health_gain ) * value );
+    int diff = health_gain - old_health_gain;
+
+    // Adjust the temporary HP gain
+    if ( diff > 0 )
+      druid.stat_gain( STAT_MAX_HEALTH, diff, (gain_t*) 0, (action_t*) 0, true );
+    else if ( diff < 0 )
+      druid.stat_loss( STAT_MAX_HEALTH, -diff, (gain_t*) 0, (action_t*) 0, true );
   }
 };
 
@@ -1776,6 +1773,14 @@ public:
       trigger_lotp( s );
   }
 
+  virtual void tick( dot_t* d )
+  {
+    ab::tick( d );
+
+    if ( ab::p() -> sets.has_set_bonus( SET_T17_2PC_MELEE ) && dbc::is_school( ab::school, SCHOOL_PHYSICAL ) )
+      ab::p() -> resource_gain( RESOURCE_ENERGY, 3.0, ab::p() -> gain.tier17_2pc_melee );
+  }
+
   virtual double composite_persistent_multiplier( const action_state_t* s ) const
   {
     double pm = ab::composite_persistent_multiplier( s );
@@ -1793,7 +1798,7 @@ public:
     /* Assume that any action that deals physical and applies a dot deals all bleed damage, so
        that it scales direct "bleed" damage. This is a bad assumption if there is an action
        that applies a dot but does plain physical direct damage, but there are none of those. */
-    if ( ! ab::p() -> bugs && dbc::is_school( ab::school, SCHOOL_PHYSICAL ) && ab::dot_duration > timespan_t::zero() )
+    if ( dbc::is_school( ab::school, SCHOOL_PHYSICAL ) && ab::dot_duration > timespan_t::zero() )
       tm *= 1.0 + ab::td( t ) -> buffs.bloodletting -> value();
 
     return tm;
@@ -1884,7 +1889,7 @@ public:
 
   void trigger_glyph_of_savage_roar()
   {
-    // Bail out if we have Savagery, buff should already be up so lets not mess with it.
+    // Bail out if we have Savagery
     if ( p() -> talent.savagery -> ok() )
       return;
 
@@ -2010,7 +2015,10 @@ public:
     if ( p() -> buff.cat_form -> check() && dbc::is_school( s -> action -> school, SCHOOL_PHYSICAL ) )
     { // Avoid using value() to prevent skewing benefit_pct.
       pm *= 1.0 + p() -> buff.tigers_fury -> check() * p() -> buff.tigers_fury -> default_value;
-      pm *= 1.0 + p() -> buff.savage_roar -> check() * p() -> buff.savage_roar -> default_value;
+      if ( p() -> talent.savagery -> ok() )
+        pm *= 1.0 + p() -> talent.savagery -> effectN( 1 ).percent();
+      else
+        pm *= 1.0 + p() -> buff.savage_roar -> check() * p() -> buff.savage_roar -> default_value;
     }
 
     return pm;
@@ -2283,7 +2291,12 @@ struct rake_t : public cat_attack_t
     cat_attack_t::impact( s );
 
     if ( result_is_hit( s -> result ) )
+    {
       p() -> resource_gain( RESOURCE_COMBO_POINT, combo_point_gain, p() -> gain.rake );
+
+      if ( p() -> sets.has_set_bonus( SET_T17_2PC_MELEE ) )
+        p() -> resource_gain( RESOURCE_ENERGY, 3.0, p() -> gain.tier17_2pc_melee );
+    }
   }
 
   virtual void execute()
@@ -2354,9 +2367,9 @@ struct rip_t : public cat_attack_t
   action_state_t* new_state()
   { return new rip_state_t( p(), this, target ); }
 
-  double attack_tick_power_coefficient( const action_state_t* ) const
+  double attack_tick_power_coefficient( const action_state_t* s ) const
   {
-    rip_state_t* rip_state = debug_cast<rip_state_t*>( td( target ) -> dots.rip -> state );
+    rip_state_t* rip_state = debug_cast<rip_state_t*>( td( s -> target ) -> dots.rip -> state );
 
     return ap_per_point * rip_state -> combo_points;
   }
@@ -2443,16 +2456,8 @@ struct shred_t : public cat_attack_t
     {
       p() -> resource_gain( RESOURCE_COMBO_POINT, combo_point_gain, p() -> gain.shred );
 
-      if ( s -> result == RESULT_CRIT )
-      {
-        if ( p() -> sets.has_set_bonus( SET_T17_2PC_MELEE ) )
-        {
-          p() -> cooldown.berserk -> adjust( timespan_t::from_seconds( -5.0 ), true );
-          p() -> proc.tier17_2pc_melee -> occur();
-        }
-        if ( p() -> sets.has_set_bonus( SET_PVP_4PC_MELEE ) )
-          td( s -> target ) -> buffs.bloodletting -> trigger(); // Druid module debuff
-      }
+      if ( s -> result == RESULT_CRIT && p() -> sets.has_set_bonus( SET_PVP_4PC_MELEE ) )
+        td( s -> target ) -> buffs.bloodletting -> trigger(); // Druid module debuff
     }
   }
 
@@ -2602,6 +2607,14 @@ struct thrash_cat_t : public cat_attack_t
       m *= 1.0 + p() -> cache.mastery_value();
 
     return m;
+  }
+
+  virtual void impact( action_state_t* s )
+  {
+    cat_attack_t::impact( s );
+
+    if ( result_is_hit( s -> result ) && p() -> sets.has_set_bonus( SET_T17_2PC_MELEE ) )
+      p() -> resource_gain( RESOURCE_ENERGY, 3.0, p() -> gain.tier17_2pc_melee );
   }
 
   // Treat direct damage as "bleed"
@@ -2834,6 +2847,16 @@ struct mangle_t : public bear_attack_t
     base_multiplier *= 1.0 + player -> perk.improved_mangle -> effectN( 1 ).percent();
   }
 
+  virtual int num_targets()
+  {
+    int t = bear_attack_t::num_targets();
+
+    if ( p() -> buff.berserk -> check() )
+      t += p() -> spell.berserk_bear -> effectN( 1 ).base_value();
+
+    return t;
+  }
+
   virtual void execute()
   {
     if ( p() -> buff.berserk -> up() )
@@ -2998,7 +3021,12 @@ struct thrash_bear_t : public bear_attack_t
     bear_attack_t::impact( s );
 
     if ( result_is_hit( s -> result ) )
+    {
       p() -> resource_gain( RESOURCE_RAGE, rage_gain, p() -> gain.thrash );
+
+      if ( p() -> sets.has_set_bonus( SET_T17_2PC_MELEE ) )
+        p() -> resource_gain( RESOURCE_ENERGY, 3.0, p() -> gain.tier17_2pc_melee );
+    }
   }
 
   virtual void tick( dot_t* d )
@@ -4345,7 +4373,7 @@ struct might_of_ursoc_t : public druid_spell_t
   {
     druid_spell_t::execute();
 
-    p() -> buff.might_of_ursoc -> trigger( 1, p() -> resources.max[ RESOURCE_HEALTH ] * data().effectN( 1 ).percent() );
+    p() -> buff.might_of_ursoc -> trigger();
   }
 
   virtual bool ready() 
@@ -5608,10 +5636,6 @@ void druid_t::init_base_stats()
 
   // Avoidance diminishing Returns constants/conversions now handled in player_t::init_base_stats()
   // base miss & dodge are set to 3% and block & parry set to 0% in player_t::init_base_stats()
-  
-  // note that these conversions are level-specific; these are L90 values
-  base.dodge_per_agility = 1 / 95115.8596; // exact value given by Blizzard
-  base.parry_per_strength = 0; // this is also the default, but just to be safe...
 
   resources.base[ RESOURCE_ENERGY ] = 100;
   resources.base[ RESOURCE_RAGE   ] = 100;
@@ -5720,10 +5744,7 @@ void druid_t::create_buffs()
                                .chance( 1.0 )
                                .duration( find_specialization_spell( "Tiger's Fury" ) -> duration() + perk.enhanced_tigers_fury -> effectN( 1 ).time_value() );
   buff.savage_roar           = buff_creator_t( this, "savage_roar", find_specialization_spell( "Savage Roar" ) )
-                               .default_value( talent.savagery -> ok() ?
-                                               talent.savagery -> effectN( 1 ).percent()
-                                             : find_specialization_spell( "Savage Roar" ) -> effectN( 2 ).percent() )
-                               .duration( timespan_t::zero() ); // Set base duration to infinite for Savagery talent. All other uses trigger with a set duration.
+                               .default_value( find_specialization_spell( "Savage Roar" ) -> effectN( 2 ).percent() );
   buff.predatory_swiftness   = buff_creator_t( this, "predatory_swiftness", spec.predatory_swiftness -> ok() ? find_spell( 69369 ) : spell_data_t::not_found() );
   buff.tier15_4pc_melee      = buff_creator_t( this, "tier15_4pc_melee", find_spell( 138358 ) );
   buff.feral_fury            = buff_creator_t( this, "feral_fury", find_spell( 144865 ) ); // tier16_2pc_melee
@@ -5788,7 +5809,7 @@ void druid_t::apl_precombat()
       if ( ( specialization() == DRUID_FERAL && primary_role() == ROLE_ATTACK ) || primary_role() == ROLE_ATTACK )
       {
         if ( level > 90 )
-          flask += "greater_draenor_mastery_flask";
+          flask += "greater_draenic_mastery_flask";
         else if ( level > 85 )
           flask += "spring_blossoms";
         else
@@ -5797,7 +5818,7 @@ void druid_t::apl_precombat()
       else
       {
         if ( level > 90 )
-          flask += "greater_draenor_mastery_flask";
+          flask += "greater_draenic_mastery_flask";
         else if ( level > 85 )
           flask += "warm_sun";
         else
@@ -5865,7 +5886,7 @@ void druid_t::apl_precombat()
     if ( specialization() == DRUID_FERAL && primary_role() == ROLE_ATTACK )
     {
       if ( level > 90 )
-        potion_action += "draenor_agility";
+        potion_action += "draenic_agility";
       else if ( level > 85 )
         potion_action += "virmens_bite";
       else
@@ -5875,7 +5896,7 @@ void druid_t::apl_precombat()
     else if ( ( specialization() == DRUID_BALANCE || specialization() == DRUID_RESTORATION ) && ( primary_role() == ROLE_SPELL || primary_role() == ROLE_HEAL ) )
     {
       if ( level > 90 )
-        potion_action += "draenor_intellect";
+        potion_action += "draenic_intellect";
       else if ( level > 85 )
         potion_action += "jade_serpent";
       else
@@ -5940,7 +5961,7 @@ void druid_t::apl_feral()
   std::vector<std::string> racial_actions = get_racial_actions();
   std::string              potion_action  = "potion,name=";
   if ( level > 90 )
-    potion_action += "draenor_agility";
+    potion_action += "draenic_agility";
   else if ( level > 85 )
     potion_action += "virmens_bite";
   else
@@ -6022,7 +6043,7 @@ void druid_t::apl_balance()
   std::vector<std::string> item_actions   = get_item_actions();
   std::string              potion_action  = "potion,name=";
   if ( level > 90 )
-    potion_action += "draenor_intellect";
+    potion_action += "draenic_intellect";
   else if ( level > 85 )
     potion_action += "jade_serpent";
   else
@@ -6210,6 +6231,7 @@ void druid_t::init_gains()
   gain.swipe                 = get_gain( "swipe"                 );
   gain.thrash                = get_gain( "thrash"                );
   gain.tier15_2pc_melee      = get_gain( "tier15_2pc_melee"      );
+  gain.tier17_2pc_melee      = get_gain( "tier17_2pc_melee"      );
   gain.tigers_fury           = get_gain( "tigers_fury"           );
 }
 
@@ -6364,10 +6386,6 @@ void druid_t::combat_begin()
   // If Ysera's Gift is talented, apply it upon entering combat
   if ( talent.yseras_gift -> ok() )
     active.yseras_gift -> execute();
-
-  // If Savagery is talented, apply Savage Roar entering combat
-  if ( talent.savagery -> ok() )
-    buff.savage_roar -> trigger();
   
   // Apply Bladed Armor buff 
   if ( spec.bladed_armor -> ok() )
@@ -6694,19 +6712,6 @@ double druid_t::composite_rating_multiplier( rating_e rating ) const
   return m;
 }
 
-// druid_t::recalculate_resource_max ========================================
-
-void druid_t::recalculate_resource_max( resource_e resource_type )
-{
-  player_t::recalculate_resource_max( resource_type );
-
-  if ( resource_type == RESOURCE_HEALTH )
-  {
-    resources.max[ RESOURCE_HEALTH ] += buff.might_of_ursoc -> value();
-    resources.max[ RESOURCE_HEALTH ] *= 1.0 + buff.ursa_major -> value();
-  }
-}
-
 // druid_t::create_expression ===============================================
 
 expr_t* druid_t::create_expression( action_t* a, const std::string& name_str )
@@ -6793,6 +6798,17 @@ bool druid_t::create_profile( std::string& profile_str, save_e type, bool save_h
   player_t::create_profile( profile_str, type, save_html );
 
   return true;
+}
+
+// druid_t::recalculate_resource_max ========================================
+
+void druid_t::recalculate_resource_max( resource_e r )
+{
+  player_t::recalculate_resource_max( r );
+  
+  // Update Ursa Major's value for the new health amount.
+  if ( r == RESOURCE_HEALTH && buff.ursa_major -> check() )
+    buff.ursa_major -> refresh( 1, buff.ursa_major -> value(), buff.ursa_major -> remains() );
 }
 
 // druid_t::decode_set ======================================================

@@ -5140,12 +5140,9 @@ void death_knight_t::init_base_stats()
 
   // Avoidance diminishing Returns constants/conversions now handled in player_t::init_base_stats()
   // base miss & dodge are set to 3% and block & parry set to 0% in player_t::init_base_stats()
-  // just need to add spec-based sources of dodge/parry
-  base.dodge += 0.0300 + spec.veteran_of_the_third_war -> effectN( 2 ).percent();
-
-  // note that these conversions are level-specific; these are L90 values
-  base.parry_per_strength = 1 / 95115.8596; // exact value given by Blizzard
-  base.dodge_per_agility = 1 / 10000.0 / 100.0; // empirically tested
+  // just need to add base parry and spec-based sources of dodge/parry
+  base.parry  = 0.030;
+  base.dodge += 0.030 + spec.veteran_of_the_third_war -> effectN( 2 ).percent();
 }
 
 // death_knight_t::init_spells ==============================================
@@ -6720,15 +6717,22 @@ void death_knight_t::trigger_necrosis( const action_state_t* state )
 
 void death_knight_t::trigger_plaguebearer( action_state_t* s )
 {
-  timespan_t pb_extend = timespan_t::from_seconds( talent.plaguebearer -> effectN( 1 ).base_value() );
-  if ( pb_extend != timespan_t::zero() )
-  {
-    death_knight_td_t* tdata = get_target_data( s -> target );
-    if ( tdata -> dots_blood_plague -> is_ticking() )
-      tdata -> dots_blood_plague -> extend_duration( pb_extend );
+  if ( ! talent.plaguebearer -> ok() )
+    return;
 
-    if ( tdata -> dots_frost_fever -> is_ticking() )
-      tdata -> dots_frost_fever -> extend_duration( pb_extend );
+  timespan_t pb_extend = timespan_t::from_seconds( talent.plaguebearer -> effectN( 1 ).base_value() );
+
+  death_knight_td_t* tdata = get_target_data( s -> target );
+  if ( tdata -> dots_blood_plague -> is_ticking() )
+    tdata -> dots_blood_plague -> extend_duration( pb_extend );
+
+  if ( tdata -> dots_frost_fever -> is_ticking() )
+    tdata -> dots_frost_fever -> extend_duration( pb_extend );
+
+  if ( tdata -> dots_necrotic_plague -> is_ticking() )
+  {
+    active_spells.necrotic_plague -> target = s -> target;
+    active_spells.necrotic_plague -> schedule_execute();
   }
 }
 
