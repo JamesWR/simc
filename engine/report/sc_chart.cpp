@@ -1270,7 +1270,7 @@ std::string chart::timeline(  player_t* p,
 
 // chart::distribution_dps ==================================================
 
-std::string chart::distribution( int print_style,
+highchart::histogram_chart_t& chart::generate_distribution( highchart::histogram_chart_t& hc,
                                  const std::vector<size_t>& dist_data,
                                  const std::string& distribution_name,
                                  double avg, double min, double max )
@@ -1278,35 +1278,23 @@ std::string chart::distribution( int print_style,
   int max_buckets = ( int ) dist_data.size();
 
   if ( ! max_buckets )
-    return std::string();
+    return hc;
 
-  size_t count_max = *range::max_element( dist_data );
+  hc.set_title( distribution_name + " Distribution" );
 
-  char buffer[ 1024 ];
-
-  sc_chart chart( distribution_name + " Distribution", VERTICAL_BAR, print_style );
-  chart.set_height( 185 );
-
-  std::string s = chart.create();
-
-  s += "chd=t:";
+  std::vector<highchart::chart_t::entry_t> data;
   for ( int i = 0; i < max_buckets; i++ )
   {
-    snprintf( buffer, sizeof( buffer ), "%s%u", ( i ? "," : "" ), as<unsigned>( dist_data[ i ] ) ); s += buffer;
+    highchart::chart_t::entry_t e;
+    e.value = dist_data[ i ];
+    data.push_back( e );
   }
-  s += amp;
-  snprintf( buffer, sizeof( buffer ), "chds=0,%u", as<unsigned>( count_max ) ); s += buffer;
-  s += amp;
-  s += "chbh=5";
-  s += amp;
-  s += "chxt=x";
-  s += amp;
-  snprintf( buffer, sizeof( buffer ), "chxl=0:|min=%.0f|avg=%.0f|max=%.0f", min, avg, max ); s += buffer;
-  s += amp;
-  snprintf( buffer, sizeof( buffer ), "chxp=0,1,%.0f,100", 100.0 * ( avg - min ) / ( max - min ) ); s += buffer;
-  s += amp;
+  hc.add_series( data );
 
-  return s;
+  //snprintf( buffer, sizeof( buffer ), "chxl=0:|min=%.0f|avg=%.0f|max=%.0f", min, avg, max ); s += buffer;
+
+
+  return hc;
 }
 
 #if LOOTRANK_ENABLED == 1

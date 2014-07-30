@@ -69,12 +69,13 @@ alt_chart_formatter_t::alt_chart_formatter_t() :
 
 }
 
-std::string highchart::build_id( const stats_t* stats )
+std::string highchart::build_id( const stats_t* stats, const std::string& suffix )
 {
   std::string s;
 
   s += "actor" + util::to_string( stats -> player -> index );
   s += "_" + stats -> name_str;
+  s += suffix;
 
   return s;
 }
@@ -508,7 +509,7 @@ void pie_chart_t::add_series( const std::vector<entry_t>& d, const std::string& 
 }
 
 histogram_chart_t::histogram_chart_t( const std::string& id_str, const sim_t* sim ) :
-    chart_t( id_str, sim )
+    bar_chart_t( id_str, sim )
 {
 
   // See http://stackoverflow.com/questions/18042165/plot-histograms-in-highcharts

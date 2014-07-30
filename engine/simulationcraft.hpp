@@ -2469,7 +2469,6 @@ struct sim_report_information_t
 {
   bool charts_generated;
   std::vector<std::string> gear_charts;
-  std::string timeline_chart;
   sim_report_information_t() { charts_generated = false; }
 };
 
@@ -3852,8 +3851,8 @@ struct player_processed_report_information_t
 {
   bool charts_generated, buff_lists_generated;
   std::string timeline_resource_health_chart;
-  std::string distribution_dps_chart, scaling_dps_chart, scale_factors_chart;
-  std::string reforge_dps_chart, dps_error_chart, distribution_deaths_chart;
+  std::string scaling_dps_chart, scale_factors_chart;
+  std::string reforge_dps_chart, dps_error_chart;
   std::string gear_weights_lootrank_link, gear_weights_wowhead_std_link, gear_weights_wowhead_alt_link, gear_weights_askmrrobot_link;
   std::string gear_weights_pawn_std_string, gear_weights_pawn_alt_string;
   std::string save_str;

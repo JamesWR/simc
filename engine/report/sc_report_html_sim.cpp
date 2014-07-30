@@ -529,11 +529,16 @@ void print_html_sim_summary( report::sc_html_stream& os, sim_t* sim, const sim_r
 
   os << "<div class=\"charts charts-left\">\n";
   // Timeline Distribution Chart
-  if ( sim -> iterations > 1 && ! ri.timeline_chart.empty() )
+  if ( sim -> iterations > 1 )
   {
+    highchart::histogram_chart_t chart( "sim_length_dist", sim );
+    chart::generate_distribution( chart, sim -> simulation_length.distribution, "Timeline",
+        sim -> simulation_length.mean(),
+        sim -> simulation_length.min(),
+        sim -> simulation_length.max() );
     os.printf(
-      "<a href=\"#help-timeline-distribution\" class=\"help\"><img src=\"%s\" alt=\"Timeline Distribution Chart\" /></a>\n",
-      ri.timeline_chart.c_str() );
+      "<a href=\"#help-timeline-distribution\" class=\"help\">%s</a>\n",
+      chart.to_string().c_str() );
   }
 
   // Gear Charts

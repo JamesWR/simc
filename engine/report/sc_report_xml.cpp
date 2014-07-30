@@ -783,11 +783,26 @@ void print_xml_player_charts( xml_writer_t & writer, player_processed_report_inf
     writer.end_tag( "chart" );
   }
 
-  if ( ! ri.distribution_dps_chart.empty() )
   {
+    highchart::histogram_chart_t chart( highchart::build_id( p, "dps_dist" ), p -> sim );
+    chart::generate_distribution( chart, p -> collected_data.dps.distribution, p -> name_str + " DPS",
+        p -> collected_data.dps.mean(),
+        p -> collected_data.dps.min(),
+        p -> collected_data.dps.max() );
     writer.begin_tag( "chart" );
     writer.print_attribute( "type", "distribution_dps" );
-    writer.print_attribute_unescaped( "href", ri.distribution_dps_chart );
+    writer.print_text( chart.to_xml() );
+    writer.end_tag( "chart" );
+  }
+  {
+    highchart::histogram_chart_t chart( highchart::build_id( p, "hps_dist" ), p -> sim );
+    chart::generate_distribution( chart, p -> collected_data.hps.distribution, p -> name_str + " HPS",
+        p -> collected_data.hps.mean(),
+        p -> collected_data.hps.min(),
+        p -> collected_data.hps.max() );
+    writer.begin_tag( "chart" );
+    writer.print_attribute( "type", "distribution_hps" );
+    writer.print_text( chart.to_xml() );
     writer.end_tag( "chart" );
   }
 

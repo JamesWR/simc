@@ -11,7 +11,7 @@
 
 namespace highchart
 {
-std::string build_id( const stats_t* stats );
+std::string build_id( const stats_t* stats, const std::string& suffix = "" );
 std::string build_id( const player_t* actor, const std::string& suffix );
 std::string build_id( const buff_t* buff, const std::string& suffix );
 
@@ -151,7 +151,7 @@ struct pie_chart_t : public chart_t
   void add_series( const std::vector<entry_t>& d, const std::string& color = std::string(), const std::string& name = std::string() );
 };
 
-struct histogram_chart_t : public chart_t
+struct histogram_chart_t : public bar_chart_t
 {
   histogram_chart_t( const std::string& id_str, const sim_t* sim );
 };

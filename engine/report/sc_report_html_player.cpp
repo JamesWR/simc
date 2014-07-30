@@ -377,11 +377,11 @@ void print_html_action_info( report::sc_html_stream& os, unsigned stats_mask, st
 
   if ( p -> sim -> report_details )
   {
-    std::string aps_distribution_str                    = "";
-    if ( ! s -> aps_distribution_chart.empty() )
-    {
-      aps_distribution_str = "<img src=\"" + s -> aps_distribution_chart + "\" alt=\"" + ( s -> type == STATS_DMG ? "DPS" : "HPS" ) + " Distribution Chart\" />\n";
-    }
+    highchart::histogram_chart_t aps_dist_chart( highchart::build_id( s, "aps_dist" ), p -> sim );
+    chart::generate_distribution( aps_dist_chart, s -> portion_aps.distribution, s -> name_str + ( s -> type == STATS_DMG ? " DPS" : " HPS" ),
+        s -> portion_aps.mean(), s -> portion_aps.min(), s -> portion_aps.max() );
+    std::string aps_distribution_str = aps_dist_chart.to_string();
+
     os << "<tr class=\"details hide\">\n"
        << "<td colspan=\"" << ( 7 + n_columns ) << "\" class=\"filler\">\n";
 
@@ -2186,7 +2186,7 @@ void print_html_player_resources( report::sc_html_stream& os, player_t* p, playe
 
     sc_timeline_t sliding_average_tl;
     p -> collected_data.health_changes.merged_timeline.build_sliding_average_timeline( sliding_average_tl, 6 );
-    highchart::time_series_t chart2 = highchart::time_series_t( highchart::build_id( p, "health_change_ma" ), p -> sim );
+    highchart::time_series_t chart2( highchart::build_id( p, "health_change_ma" ), p -> sim );
     chart::generate_actor_timeline( chart2, p, "Health Change (moving average, 6s window)", chart::resource_color( RESOURCE_HEALTH ), sliding_average_tl );
     chart2.set_mean( sliding_average_tl.mean() );
 
@@ -2197,8 +2197,9 @@ void print_html_player_resources( report::sc_html_stream& os, player_t* p, playe
       // Tmp Debug Visualization
       histogram tmi_hist;
       tmi_hist.create_histogram( p -> collected_data.theck_meloree_index, 50 );
-      std::string dist_chart = chart::distribution( p -> sim -> print_styles, tmi_hist.data(), "TMI", p -> collected_data.theck_meloree_index.mean(), tmi_hist.min(), tmi_hist.max() );
-      os << "<img src=\"" << dist_chart << "\" alt=\"Theck meloree distribution Chart\" />\n";
+      highchart::histogram_chart_t tmi_chart( highchart::build_id( p, "tmi_dist" ), p -> sim );
+      chart::generate_distribution( tmi_chart, tmi_hist.data(), "TMI", p -> collected_data.theck_meloree_index.mean(), tmi_hist.min(), tmi_hist.max() );
+      os <<tmi_chart.to_string();
     }
   }
   os << "</div>\n";
@@ -2324,14 +2325,21 @@ void print_html_player_charts( report::sc_html_stream& os, sim_t* sim, player_t*
     os << resolve.to_string();
   }
 
-  if ( ! ri.distribution_dps_chart.empty() )
   {
-    std::string chart_str;
-    if ( num_players == 1 )
-      chart_str = "<img src=\"" + ri.distribution_dps_chart + "\" alt=\"DPS Distribution Chart\" />\n";
-    else
-      chart_str = "<span class=\"chart-distribution-dps\" title=\"DPS Distribution Chart\">" + ri.distribution_dps_chart + "</span>\n";
-    os << chart_str;
+    highchart::histogram_chart_t chart( highchart::build_id( p, "hdps_dist" ), p -> sim );
+    chart::generate_distribution( chart, p -> collected_data.dps.distribution, p -> name_str + " DPS",
+        p -> collected_data.dps.mean(),
+        p -> collected_data.dps.min(),
+        p -> collected_data.dps.max() );
+    os <<  chart.to_string();
+  }
+  {
+    highchart::histogram_chart_t chart( highchart::build_id( p, "hps_dist" ), p -> sim );
+    chart::generate_distribution( chart, p -> collected_data.hps.distribution, p -> name_str + " HPS",
+        p -> collected_data.hps.mean(),
+        p -> collected_data.hps.min(),
+        p -> collected_data.hps.max() );
+    os <<  chart.to_string();
   }
 
   highchart::pie_chart_t time_spent( highchart::build_id( p, "time_spent" ), p -> sim );
@@ -3602,11 +3610,15 @@ void print_html_player_deaths( report::sc_html_stream& os, player_t* p, player_p
 
   if ( deaths.size() > 0 )
   {
-    std::string distribution_deaths_str                = "";
-    if ( ! ri.distribution_deaths_chart.empty() )
-    {
-      distribution_deaths_str = "<img src=\"" + ri.distribution_deaths_chart + "\" alt=\"Deaths Distribution Chart\" />\n";
-    }
+
+      highchart::histogram_chart_t chart( highchart::build_id( p, "hps_dist" ), p -> sim );
+      chart::generate_distribution( chart,
+          p -> collected_data.deaths.distribution, p -> name_str + " Death",
+          p -> collected_data.deaths.mean(),
+          p -> collected_data.deaths.min(),
+          p -> collected_data.deaths.max() );
+    std::string distribution_deaths_str = chart.to_string();
+
 
     os << "<div class=\"player-section gains\">\n"
        << "<h3 class=\"toggle\">Deaths</h3>\n"

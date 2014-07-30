@@ -870,11 +870,9 @@ void report::print_html_sample_data( report::sc_html_stream& os, const sim_t* si
 
   if ( ! data.simple )
   {
-    std::string dist_chart = chart::distribution( sim -> print_styles, data.distribution, name, data.mean(), data.min(), data.max() );
-
-    os.printf(
-      "\t\t\t\t\t<img src=\"%s\" alt=\"Distribution Chart\" />\n",
-      dist_chart.c_str() );
+    highchart::histogram_chart_t chart( data.name_str + "_dist", sim );
+    chart::generate_distribution( chart, data.distribution, name, data.mean(), data.min(), data.max() );
+    os << chart.to_string();
   }
 
 
@@ -922,32 +920,6 @@ void report::generate_player_charts( player_t* p, player_processed_report_inform
   // Pet Chart Adjustment ===================================================
   size_t max_buckets = player_chart_length( p );
 
-  // Stats Charts
-  std::vector<stats_t*> stats_list;
-
-  // Append p -> stats_list to stats_list
-  stats_list.insert( stats_list.end(), p -> stats_list.begin(), p -> stats_list.end() );
-
-  for ( size_t i = 0; i < p -> pet_list.size(); ++i )
-  {
-    pet_t* pet = p -> pet_list[ i ];
-    // Append pet -> stats_list to stats_list
-    stats_list.insert( stats_list.end(), pet -> stats_list.begin(), pet -> stats_list.end() );
-  }
-
-  if ( ! p -> is_pet() )
-  {
-    for ( size_t i = 0; i < stats_list.size(); i++ )
-    {
-      stats_t* s = stats_list[ i ];
-
-      // Create Stats Timeline Chart
-      s -> aps_distribution_chart = chart::distribution( p -> sim -> print_styles, s -> portion_aps.distribution, s -> name_str + ( s -> type == STATS_DMG ? " DPS" : " HPS" ),
-                                                         s -> portion_aps.mean(), s -> portion_aps.min(), s -> portion_aps.max() );
-    }
-  }
-  // End Stats Charts
-
   // Player Charts
   ri.scaling_dps_chart    = chart::scaling_dps  ( p );
   ri.reforge_dps_chart    = chart::reforge_dps  ( p );
@@ -956,28 +928,6 @@ void report::generate_player_charts( player_t* p, player_processed_report_inform
   std::string encoded_name = p -> name_str;
   util::urlencode( encoded_name );
 
-  if ( p -> primary_role() == ROLE_HEAL )
-  {
-    ri.distribution_dps_chart = chart::distribution( p -> sim -> print_styles,
-                                                     cd.hps.distribution, encoded_name + " HPS",
-                                                     cd.hps.mean(),
-                                                     cd.hps.min(),
-                                                     cd.hps.max() );
-  }
-  else
-  {
-    ri.distribution_dps_chart = chart::distribution( p -> sim -> print_styles,
-                                                     cd.dps.distribution, encoded_name + " DPS",
-                                                     cd.dps.mean(),
-                                                     cd.dps.min(),
-                                                     cd.dps.max() );
-  }
-
-  ri.distribution_deaths_chart = chart::distribution( p -> sim -> print_styles,
-                                                      cd.deaths.distribution, encoded_name + " Death",
-                                                      cd.deaths.mean(),
-                                                      cd.deaths.min(),
-                                                      cd.deaths.max() );
 
   // Scaling charts
   if ( ! ( ( p -> sim -> scaling -> num_scaling_stats <= 0 ) || p -> quiet || p -> is_pet() || p -> is_enemy() || p -> is_add() || p -> type == HEALING_ENEMY ) )
@@ -1004,11 +954,6 @@ void report::generate_sim_report_information( sim_t* s , sim_report_information_
     return;
 
   chart::raid_gear    ( ri.gear_charts, s, s -> print_styles );
-  ri.timeline_chart = chart::distribution( s -> print_styles,
-                                           s -> simulation_length.distribution, "Timeline",
-                                           s -> simulation_length.mean(),
-                                           s -> simulation_length.min(),
-                                           s -> simulation_length.max() );
 
   ri.charts_generated = true;
 }
