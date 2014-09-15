@@ -2270,7 +2270,8 @@ highchart::pie_chart_t& chart::generate_gains( highchart::pie_chart_t& pc, const
 
   return pc;
 }
-highchart::pie_chart_t& chart::generate_spent_time( highchart::pie_chart_t& pc, const player_t* p )
+
+bool chart::generate_spent_time( highchart::pie_chart_t& pc, const player_t* p )
 {
   pc.set_title( p -> name_str + " Spent Time" );
   pc.set( "plotOptions.pie.dataLabels.format", "<b>{point.name}</b>: {point.y:.1f}s" );
@@ -2282,10 +2283,9 @@ highchart::pie_chart_t& chart::generate_spent_time( highchart::pie_chart_t& pc, 
 
   size_t num_stats = filtered_waiting_stats.size();
   if ( num_stats == 0 && p -> collected_data.waiting_time.mean() == 0 )
-    return pc;
+    return false;
 
   range::sort( filtered_waiting_stats, compare_stats_time() );
-
 
   // Build Data
   std::vector<highchart::pie_chart_t::entry_t> data;
@@ -2323,7 +2323,7 @@ highchart::pie_chart_t& chart::generate_spent_time( highchart::pie_chart_t& pc, 
    // Add Data to Chart
    pc.add_series( data );
 
-  return pc;
+  return true;
 }
 
 highchart::pie_chart_t& chart::generate_stats_sources( highchart::pie_chart_t& pc, const player_t* p, const std::string title, const std::vector<stats_t*>& stats_list )
@@ -2363,7 +2363,7 @@ highchart::pie_chart_t& chart::generate_stats_sources( highchart::pie_chart_t& p
 }
 
 
-highchart::pie_chart_t& chart::generate_damage_stats_sources( highchart::pie_chart_t& chart, const player_t* p )
+bool chart::generate_damage_stats_sources( highchart::pie_chart_t& chart, const player_t* p )
 {
   std::vector<stats_t*> stats_list;
 
@@ -2391,39 +2391,47 @@ highchart::pie_chart_t& chart::generate_damage_stats_sources( highchart::pie_cha
 
   range::sort( stats_list, compare_amount() );
 
+  if ( stats_list.size() == 0 )
+    return false;
+
   generate_stats_sources( chart, p, p -> name_str + " Damage Sources", stats_list );
-  return chart;
+  return true;
 }
-highchart::pie_chart_t& chart::generate_heal_stats_sources( highchart::pie_chart_t& chart, const player_t* p )
+
+bool chart::generate_heal_stats_sources( highchart::pie_chart_t& chart, const player_t* p )
 {
   std::vector<stats_t*> stats_list;
 
-   for ( size_t i = 0; i < p -> stats_list.size(); ++i )
-   {
-     stats_t* st = p -> stats_list[ i ];
-     if ( st -> quiet ) continue;
-     if ( st -> actual_amount.mean() <= 0 ) continue;
-     if ( st -> type == STATS_DMG ) continue;
-     stats_list.push_back( st );
-   }
+  for ( size_t i = 0; i < p -> stats_list.size(); ++i )
+  {
+    stats_t* st = p -> stats_list[ i ];
+    if ( st -> quiet ) continue;
+    if ( st -> actual_amount.mean() <= 0 ) continue;
+    if ( st -> type == STATS_DMG ) continue;
+    stats_list.push_back( st );
+  }
 
-   for ( size_t i = 0; i < p -> pet_list.size(); ++i )
-   {
-     pet_t* pet = p -> pet_list[ i ];
-     for ( size_t j = 0; j < pet -> stats_list.size(); ++j )
-     {
-       stats_t* st = pet -> stats_list[ j ];
-       if ( st -> quiet ) continue;
-       if ( st -> actual_amount.mean() <= 0 ) continue;
-       if ( st -> type == STATS_DMG ) continue;
-       stats_list.push_back( st );
-     }
-   }
+  for ( size_t i = 0; i < p -> pet_list.size(); ++i )
+  {
+    pet_t* pet = p -> pet_list[ i ];
+    for ( size_t j = 0; j < pet -> stats_list.size(); ++j )
+    {
+      stats_t* st = pet -> stats_list[ j ];
+      if ( st -> quiet ) continue;
+      if ( st -> actual_amount.mean() <= 0 ) continue;
+      if ( st -> type == STATS_DMG ) continue;
+      stats_list.push_back( st );
+    }
+  }
+
+  if ( stats_list.size() == 0 )
+    return false;
 
   range::sort( stats_list, compare_amount() );
 
   generate_stats_sources( chart, p, p -> name_str + " Healing Sources", stats_list );
-  return chart;
+
+  return true;
 }
 
 highchart::bar_chart_t& chart::generate_player_waiting_time( highchart::bar_chart_t& bc, sim_t* s )
@@ -2569,7 +2577,7 @@ highchart::bar_chart_t& chart::generate_dpet( highchart::bar_chart_t& bc , sim_t
   return bc;
 }
 
-highchart::bar_chart_t& chart::generate_action_dpet( highchart::bar_chart_t& bc, const player_t* p )
+bool chart::generate_action_dpet( highchart::bar_chart_t& bc, const player_t* p )
 {
   bc.set_title( p -> name_str + " Damage per Execute Time" );
   bc.set_yaxis_title( "Damage per Execute Time" );
@@ -2580,9 +2588,12 @@ highchart::bar_chart_t& chart::generate_action_dpet( highchart::bar_chart_t& bc,
   range::remove_copy_if( p -> stats_list, back_inserter( stats_list ), filter_stats_dpet( *p ) );
   range::sort( stats_list, compare_dpet() );
 
+  if ( stats_list.size() == 0 )
+    return false;
+
   generate_dpet( bc, p -> sim, stats_list );
 
-  return bc;
+  return true;
 
 }
 

@@ -726,28 +726,37 @@ void print_xml_player_charts( xml_writer_t & writer, player_processed_report_inf
   if ( ! p -> stats_list.empty() )
   {
     highchart::bar_chart_t bc( highchart::build_id( p, "dpet" ), p -> sim );
-    writer.begin_tag( "chart" );
-    writer.print_attribute( "type", "dpet" );
-    writer.print_text( chart::generate_action_dpet( bc , p ).to_xml() );
-    writer.end_tag( "chart" );
+    if ( chart::generate_action_dpet( bc, p ) )
+    {
+      writer.begin_tag( "chart" );
+      writer.print_attribute( "type", "dpet" );
+      writer.print_text( bc.to_xml() );
+      writer.end_tag( "chart" );
+    }
   }
 
   if ( ! p -> stats_list.empty() )
   {
     highchart::pie_chart_t pc( highchart::build_id( p, "dps_sources" ), p -> sim );
-    writer.begin_tag( "chart" );
-    writer.print_attribute( "type", "dps_sources" );
-    writer.print_text( chart::generate_damage_stats_sources( pc , p ).to_xml() );
-    writer.end_tag( "chart" );
+    if ( chart::generate_damage_stats_sources( pc, p ) )
+    {
+      writer.begin_tag( "chart" );
+      writer.print_attribute( "type", "dps_sources" );
+      writer.print_text( pc.to_xml() );
+      writer.end_tag( "chart" );
+    }
   }
 
   if ( ! p -> stats_list.empty() )
   {
     highchart::pie_chart_t pc( highchart::build_id( p, "hps_sources" ), p -> sim );
-    writer.begin_tag( "chart" );
-    writer.print_attribute( "type", "hps_sources" );
-    writer.print_text( chart::generate_heal_stats_sources( pc , p ).to_xml() );
-    writer.end_tag( "chart" );
+    if ( chart::generate_heal_stats_sources( pc, p ) )
+    {
+      writer.begin_tag( "chart" );
+      writer.print_attribute( "type", "hps_sources" );
+      writer.print_text( pc.to_xml() );
+      writer.end_tag( "chart" );
+    }
   }
 
   if ( ! ri.scaling_dps_chart.empty() )

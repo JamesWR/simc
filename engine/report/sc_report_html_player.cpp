@@ -2406,7 +2406,7 @@ void print_html_player_resources( report::sc_html_stream& os, player_t* p, playe
 
     if ( p -> resources.max[ timeline.type ] == 0 )
       continue;
-    
+
     if ( timeline.timeline.mean() == 0 )
       continue;
 
@@ -2419,7 +2419,8 @@ void print_html_player_resources( report::sc_html_stream& os, player_t* p, playe
     os << ts.to_string();
 
   }
-  if ( p -> primary_role() == ROLE_TANK ) // Experimental, restrict to tanks for now
+
+  if ( p -> primary_role() == ROLE_TANK && ! p -> is_enemy() ) // Experimental, restrict to tanks for now
   {
     highchart::time_series_t chart = highchart::time_series_t( highchart::build_id( p, "health_change" ), p -> sim );
     chart::generate_actor_timeline( chart, p, "Health Change", chart::resource_color( RESOURCE_HEALTH ), p -> collected_data.health_changes.merged_timeline );
@@ -2435,15 +2436,12 @@ void print_html_player_resources( report::sc_html_stream& os, player_t* p, playe
 
     os << chart2.to_string();
 
-    if ( ! p -> is_enemy() )
-    {
-      // Tmp Debug Visualization
-      histogram tmi_hist;
-      tmi_hist.create_histogram( p -> collected_data.theck_meloree_index, 50 );
-      highchart::histogram_chart_t tmi_chart( highchart::build_id( p, "tmi_dist" ), p -> sim );
-      chart::generate_distribution( tmi_chart, tmi_hist.data(), "TMI", p -> collected_data.theck_meloree_index.mean(), tmi_hist.min(), tmi_hist.max() );
-      os <<tmi_chart.to_string();
-    }
+    // Tmp Debug Visualization
+    histogram tmi_hist;
+    tmi_hist.create_histogram( p -> collected_data.theck_meloree_index, 50 );
+    highchart::histogram_chart_t tmi_chart( highchart::build_id( p, "tmi_dist" ), p -> sim );
+    chart::generate_distribution( tmi_chart, tmi_hist.data(), "TMI", p -> collected_data.theck_meloree_index.mean(), tmi_hist.min(), tmi_hist.max() );
+    os <<tmi_chart.to_string();
   }
   os << "</div>\n";
   os << "<div class=\"clear\"></div>\n";
@@ -2466,19 +2464,16 @@ void print_html_player_charts( report::sc_html_stream& os, sim_t* sim, player_t*
   if ( ! p -> stats_list.empty() )
   {
     highchart::bar_chart_t bc( highchart::build_id( p, "dpet" ), p -> sim );
-    os <<  chart::generate_action_dpet( bc , p ).to_string();
-  }
+    if ( chart::generate_action_dpet( bc, p ) )
+      os << bc.to_string();
 
-  if ( ! p -> stats_list.empty() )
-  {
-    highchart::pie_chart_t pc( highchart::build_id( p, "dps_sources" ), p -> sim );
-    os <<  chart::generate_damage_stats_sources( pc , p ).to_string();
-  }
+    highchart::pie_chart_t damage_pie( highchart::build_id( p, "dps_sources" ), p -> sim );
+    if ( chart::generate_damage_stats_sources( damage_pie, p ) )
+      os << damage_pie.to_string();
 
-  if ( ! p -> stats_list.empty() )
-  {
-    highchart::pie_chart_t pc( highchart::build_id( p, "hps_sources" ), p -> sim );
-    os <<  chart::generate_heal_stats_sources( pc , p ).to_string();
+    highchart::pie_chart_t heal_pie( highchart::build_id( p, "hps_sources" ), p -> sim );
+    if ( chart::generate_heal_stats_sources( heal_pie, p ) )
+      os << heal_pie.to_string();
   }
 
   if ( ! ri.scaling_dps_chart.empty() )
@@ -2568,6 +2563,7 @@ void print_html_player_charts( report::sc_html_stream& os, sim_t* sim, player_t*
     os << resolve.to_string();
   }
 
+  if ( p -> collected_data.dps.mean() > 0 )
   {
     highchart::histogram_chart_t chart( highchart::build_id( p, "hdps_dist" ), p -> sim );
     chart::generate_distribution( chart, p -> collected_data.dps.distribution, p -> name_str + " DPS",
@@ -2576,6 +2572,8 @@ void print_html_player_charts( report::sc_html_stream& os, sim_t* sim, player_t*
         p -> collected_data.dps.max() );
     os <<  chart.to_string();
   }
+
+  if ( p -> collected_data.hps.mean() > 0 || p -> collected_data.aps.mean() > 0 )
   {
     highchart::histogram_chart_t chart( highchart::build_id( p, "hps_dist" ), p -> sim );
     chart::generate_distribution( chart, p -> collected_data.hps.distribution, p -> name_str + " HPS",
@@ -2586,7 +2584,8 @@ void print_html_player_charts( report::sc_html_stream& os, sim_t* sim, player_t*
   }
 
   highchart::pie_chart_t time_spent( highchart::build_id( p, "time_spent" ), p -> sim );
-  os <<  chart::generate_spent_time( time_spent , p ).to_string();
+  if ( chart::generate_spent_time( time_spent, p ) )
+    os << time_spent.to_string();
 
   for ( size_t i = 0, end = p -> collected_data.stat_timelines.size(); i < end; i++ )
   {

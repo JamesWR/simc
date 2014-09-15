@@ -47,14 +47,14 @@ highchart::histogram_chart_t& generate_distribution( highchart::histogram_chart_
                                  const std::string& distribution_name,
                                  double avg, double min, double max );
 highchart::pie_chart_t& generate_gains( highchart::pie_chart_t&, const player_t*, const resource_e );
-highchart::pie_chart_t& generate_spent_time( highchart::pie_chart_t&, const player_t* );
+bool generate_spent_time( highchart::pie_chart_t&, const player_t* );
 highchart::pie_chart_t& generate_stats_sources( highchart::pie_chart_t&, const player_t*, const std::string title, const std::vector<stats_t*>& stats_list );
-highchart::pie_chart_t& generate_damage_stats_sources( highchart::pie_chart_t&, const player_t* );
-highchart::pie_chart_t& generate_heal_stats_sources( highchart::pie_chart_t&, const player_t* );
+bool generate_damage_stats_sources( highchart::pie_chart_t&, const player_t* );
+bool generate_heal_stats_sources( highchart::pie_chart_t&, const player_t* );
 bool generate_raid_aps( highchart::bar_chart_t&, sim_t*, const std::string& type );
 highchart::bar_chart_t& generate_raid_dpet( highchart::bar_chart_t&, sim_t* );
 highchart::bar_chart_t& generate_player_waiting_time( highchart::bar_chart_t&, sim_t* );
-highchart::bar_chart_t& generate_action_dpet( highchart::bar_chart_t&, const player_t* );
+bool generate_action_dpet( highchart::bar_chart_t&, const player_t* );
 highchart::bar_chart_t& generate_dpet( highchart::bar_chart_t&, sim_t*, const std::vector<stats_t*>& );
 highchart::time_series_t& generate_stats_timeline( highchart::time_series_t&, const stats_t* );
 highchart::time_series_t& generate_actor_timeline( highchart::time_series_t&,
