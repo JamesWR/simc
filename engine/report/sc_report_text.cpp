@@ -562,7 +562,11 @@ void print_text_performance( FILE* file, sim_t* sim )
     date_str = date_str.substr( 0, date_str.size() - 1 );
   util::fprintf( file,
                  "\nBaseline Performance:\n"
-                 "  TotalEvents   = %ld\n"
+#if !defined( SC_WINDOWS )
+                 "  TotalEvents   = %llu\n"
+#else
+                 "  TotalEvents   = %I64u\n"
+#endif
                  "  MaxEventQueue = %ld\n"
                  "  TargetHealth  = %.0f\n"
                  "  SimSeconds    = %.0f\n"
@@ -570,7 +574,7 @@ void print_text_performance( FILE* file, sim_t* sim )
                  "  WallSeconds   = %.3f\n"
                  "  SpeedUp       = %.0f\n"
                  "  EndTime       = %s (%ld)\n\n",
-                 ( long ) sim -> total_events_processed,
+                 sim -> total_events_processed,
                  ( long ) sim -> max_events_remaining,
                  sim -> target -> resources.base[ RESOURCE_HEALTH ],
                  sim -> iterations * sim -> simulation_length.mean(),
@@ -959,7 +963,7 @@ void print_text( FILE* file, sim_t* sim, bool detail )
       for ( size_t i = 0; i < sim -> players_by_hps.size(); i++ )
       {
         player_t* p = sim -> players_by_hps[ i ];
-        if ( p -> collected_data.hps.mean() <= 0 ) continue;
+        if ( p -> collected_data.hps.mean() <= 0 && p -> collected_data.aps.mean() <= 0 ) continue;
         util::fprintf( file, "%7.0f  %4.1f%%  %s\n", p -> collected_data.hps.mean() + p -> collected_data.aps.mean(), sim -> raid_hps.mean() ? 100 * p -> collected_data.hpse.mean() / sim -> raid_hps.mean() : 0, p -> name() );
       }
     }

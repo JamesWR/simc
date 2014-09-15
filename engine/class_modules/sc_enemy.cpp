@@ -14,126 +14,323 @@ namespace { // UNNAMED NAMESPACE
 enum tmi_boss_e
 {
   TMI_NONE = 0,
-  TMI_T15LFR, TMI_T15N, TMI_T15H, TMI_T16_10N, TMI_T16_25N, TMI_T16_10H, TMI_T16_25H, TMI_T17_Q
+  TMI_T15LFR, TMI_T15N, TMI_T15H, TMI_T16_10N, TMI_T16_25N, TMI_T16_10H, TMI_T16_25H, TMI_T17_N, TMI_T17_H, TMI_T17_20M
 };
+
+
+struct enemy_t : public player_t
+{
+  double fixed_health, initial_health;
+  double fixed_health_percentage, initial_health_percentage;
+  double health_recalculation_dampening_exponent;
+  timespan_t waiting_time;
+  std::string tmi_boss_str;
+  tmi_boss_e tmi_boss_enum;
+  int current_target;
+  int apply_damage_taken_debuff;
+
+  std::vector<buff_t*> buffs_health_decades;
+
+  enemy_t( sim_t* s, const std::string& n, race_e r = RACE_HUMANOID, player_e type = ENEMY ) :
+    player_t( s, type, n, r ),
+    fixed_health( 0 ), initial_health( 0 ),
+    fixed_health_percentage( 0 ), initial_health_percentage( 100.0 ),
+    health_recalculation_dampening_exponent( 1.0 ),
+    waiting_time( timespan_t::from_seconds( 1.0 ) ),
+    tmi_boss_str( "none" ),
+    tmi_boss_enum( TMI_NONE ),
+    current_target( 0 ),
+    apply_damage_taken_debuff( 0 )
+  {
+    s -> target_list.push_back( this );
+    position_str = "front";
+    level = 0;
+  }
+
+  virtual role_e primary_role() const
+  { return ROLE_TANK; }
+
+  virtual resource_e primary_resource() const
+  { return RESOURCE_MANA; }
+
+  virtual action_t* create_action( const std::string& name, const std::string& options_str );
+  virtual void init_base_stats();
+  virtual void init_defense();
+  virtual void create_buffs();
+  virtual void init_resources( bool force = false );
+  virtual void init_target();
+  virtual std::string  fluffy_pillow_action_list();
+  virtual std::string  tmi_boss_action_list();
+  virtual std::string  retrieve_action_list();
+  virtual void init_action_list();
+  virtual void init_stats();
+  virtual double resource_loss( resource_e, double, gain_t*, action_t* );
+  virtual void create_options();
+  virtual pet_t* create_pet( const std::string& add_name, const std::string& pet_type = std::string() );
+  virtual void create_pets();
+  virtual double health_percentage() const;
+  virtual void combat_begin();
+  virtual void combat_end();
+  virtual void recalculate_health();
+  virtual void demise();
+  virtual expr_t* create_expression( action_t* action, const std::string& type );
+  virtual timespan_t available() const { return waiting_time; }
+
+  virtual tmi_boss_e convert_tmi_string( const std::string& tmi_string );
+
+  virtual bool taunt( player_t* source );
+};
+
 
 // Enemy actions are generic to serve both enemy_t and enemy_add_t,
 // so they can only rely on player_t and should have no knowledge of class definitions
 
-// Melee ====================================================================
-
-struct melee_t : public melee_attack_t
+template <typename ACTION_TYPE>
+struct enemy_action_t : public ACTION_TYPE
 {
-  melee_t( const std::string& name, player_t* player ) :
-    melee_attack_t( name, player, spell_data_t::nil() )
+  typedef ACTION_TYPE action_type_t;
+  typedef enemy_action_t<ACTION_TYPE> base_t;
+
+  bool apply_debuff;
+  std::string dmg_type_override;
+  int num_debuff_stacks;
+  double damage_range;
+  timespan_t cooldown_;
+  int aoe_tanks;
+
+  std::vector<option_t> options;
+
+  enemy_action_t( const std::string& name, player_t* player ) :
+    action_type_t( name, player ),
+    apply_debuff( false ), num_debuff_stacks( -1000000 ), damage_range( -1 ),
+    cooldown_( timespan_t::zero() ), aoe_tanks( 0 )
   {
-    school = SCHOOL_PHYSICAL;
-    may_crit    = true;
-    background  = true;
-    repeating   = true;
-    trigger_gcd = timespan_t::zero();
-    base_dd_min = 26000;
-    base_execute_time = timespan_t::from_seconds( 2.4 );
-    aoe = -1;
+    options.push_back( opt_float( "damage", this -> base_dd_min ) );
+    options.push_back( opt_timespan( "attack_speed", this -> base_execute_time ) );
+    options.push_back( opt_int( "apply_debuff", num_debuff_stacks ) );
+    options.push_back( opt_int( "aoe_tanks", aoe_tanks ) );
+    options.push_back( opt_float( "range", damage_range ) );
+    options.push_back( opt_timespan( "cooldown", cooldown_ ) );
+    options.push_back( opt_string( "type", dmg_type_override ) );
+    options.push_back( opt_null() );
+
+    dmg_type_override = "none";
   }
 
-  virtual size_t available_targets( std::vector< player_t* >& tl ) const
+  void add_option( const option_t& new_option )
+  {
+    size_t i;
+
+    for ( i = 0; i < options.size(); i++ )
+    {
+      if ( options[ i ].name_cstr() && util::str_compare_ci( options[ i ].name_cstr(), new_option.name_cstr() ) )
+      {
+        options[ i ] = new_option;
+        break;
+      }
+    }
+
+    if ( i == options.size() )
+      options.insert( options.begin(), new_option );
+  }
+
+  void init()
+  {
+    action_type_t::init();
+
+    if ( aoe_tanks == 1 )
+      this -> aoe = -1;
+    else
+      this -> aoe = aoe_tanks;
+
+    this -> name_str = this -> name_str + "_" + this -> target -> name();
+    this -> cooldown = this -> player -> get_cooldown( this -> name_str );
+
+    this -> stats = this -> player -> get_stats( this -> name_str, this );
+    this -> stats -> school = this -> school;
+
+    if ( cooldown_ > timespan_t::zero() )
+      this -> cooldown -> duration = cooldown_;
+
+    // if the debuff increment size is specified in the options string, it takes precedence
+    if ( num_debuff_stacks != -1e6 && num_debuff_stacks != 0 )
+      apply_debuff = true;
+
+    if ( enemy_t* e = dynamic_cast< enemy_t* >( this -> player ) )
+    {
+      // if the debuff increment hasn't been specified at all, set it
+      if ( num_debuff_stacks == -1e6 )
+      {
+        if ( e -> apply_damage_taken_debuff == 0 )
+          num_debuff_stacks = 0;
+        else
+        {
+          apply_debuff = true;
+          num_debuff_stacks = e -> apply_damage_taken_debuff;
+        }
+      }
+    }
+    if ( dmg_type_override != "none" )
+      this -> school = util::parse_school_type( dmg_type_override );
+  }
+
+  size_t available_targets( std::vector< player_t* >& tl ) const
   {
     // TODO: This does not work for heals at all, as it presumes enemies in the
     // actor list.
     tl.clear();
-    tl.push_back( target );
+    tl.push_back( this -> target );
 
-    for ( size_t i = 0, actors = sim -> actor_list.size(); i < actors; i++ )
+    for ( size_t i = 0, actors = this -> sim -> actor_list.size(); i < actors; i++ )
     {
+      player_t* actor = this -> sim -> actor_list[ i ];
       //only add non heal_target tanks to this list for now
-      if ( !sim -> actor_list[ i ] -> is_sleeping() &&
-           !sim -> actor_list[ i ] -> is_enemy() &&
-           sim -> actor_list[ i ] -> primary_role() == ROLE_TANK &&
-           sim -> actor_list[ i ] != target &&
-           sim -> actor_list[ i ] != sim -> heal_target )
-        tl.push_back( sim -> actor_list[ i ] );
+      if ( ! actor -> is_sleeping() &&
+           ! actor -> is_enemy() &&
+           actor -> primary_role() == ROLE_TANK &&
+           actor != this -> target &&
+           actor != this -> sim -> heal_target )
+        tl.push_back( actor );
     }
     //if we have no target (no tank), add the healing target as substitute
     if ( tl.empty() )
     {
-      tl.push_back( sim->heal_target );
+      tl.push_back( this -> sim -> heal_target );
     }
 
     return tl.size();
+  }
+
+  double calculate_direct_amount( action_state_t* s )
+  {
+    // force boss attack size to vary regardless of whether the sim itself does
+    int previous_average_range_state = this -> sim -> average_range;
+    this -> sim -> average_range = 0;
+
+    double amount = action_type_t::calculate_direct_amount( s );
+
+    this -> sim -> average_range = previous_average_range_state;
+
+    return amount;
+  }
+
+  void impact( action_state_t* s )
+  {
+    if ( apply_debuff && num_debuff_stacks >= 0 )
+      this -> target -> debuffs.damage_taken -> trigger( num_debuff_stacks );
+    else if ( apply_debuff )
+      this -> target -> debuffs.damage_taken -> decrement( - num_debuff_stacks );
+
+    action_type_t::impact( s );
+  }
+
+  void tick( dot_t* d )
+  {
+    if ( apply_debuff && num_debuff_stacks >= 0 )
+      this -> target -> debuffs.damage_taken -> trigger( num_debuff_stacks );
+    else if ( apply_debuff )
+      this -> target -> debuffs.damage_taken -> decrement( - num_debuff_stacks );
+
+    action_type_t::tick( d );
+  }
+};
+
+// Melee ====================================================================
+
+struct melee_t : public enemy_action_t<melee_attack_t>
+{
+  bool first;
+  melee_t( const std::string& name, player_t* player, const std::string options_str ) :
+    base_t( name, player ), first( false )
+  {
+    school = SCHOOL_PHYSICAL;
+    may_crit = true;
+    background = true;
+    trigger_gcd = timespan_t::zero();
+    base_dd_min = 26000;
+    base_execute_time = timespan_t::from_seconds( 1.5 );
+    repeating = true;
+
+    parse_options( options.data(), options_str );
+  }
+
+  void init()
+  {
+    base_t::init();
+
+    // check that the specified damage range is sane
+    if ( damage_range > base_dd_min || damage_range < 0 )
+      damage_range = 0.1 * base_dd_min; // if not, set to +/-10%
+
+    // set damage range to mean +/- range
+    base_dd_max = base_dd_min + damage_range;
+    base_dd_min -= damage_range;
+
+    // if the execute time is somehow less than 10 ms, set it back to the default of 1.5 seconds
+    if ( base_execute_time < timespan_t::from_seconds( 0.01 ) )
+      base_execute_time = timespan_t::from_seconds( 1.5 );
+  }
+
+  timespan_t execute_time() const
+  {
+    timespan_t et = base_t::execute_time();
+
+    if ( first )
+    {
+      et += this -> base_execute_time / 2;
+    }
+
+    return et;
   }
 };
 
 // Auto Attack ==============================================================
 
-struct auto_attack_t : public attack_t
+struct auto_attack_t : public enemy_action_t<attack_t>
 {
+  melee_t* mh;
+
+  // default constructor
   auto_attack_t( player_t* p, const std::string& options_str ) :
-    attack_t( "auto_attack", p, spell_data_t::nil() )
+    base_t( "auto_attack", p ), mh( 0 )
   {
-    school = SCHOOL_PHYSICAL;
-    p -> main_hand_attack = new melee_t( "melee_main_hand", p );
-    p -> main_hand_attack -> weapon = &( p -> main_hand_weapon );
-    p -> main_hand_attack -> base_execute_time = timespan_t::from_seconds( 2.4 );
+    parse_options( options.data(), options_str );
 
-    int aoe_tanks = 0;
-    double damage_range = -1;
-    option_t options[] =
-    {
-      opt_float( "damage", p -> main_hand_attack -> base_dd_min ),
-      opt_timespan( "attack_speed", p -> main_hand_attack -> base_execute_time ),
-      opt_bool( "aoe_tanks", aoe_tanks ),
-      opt_float( "range", damage_range ),
-      opt_null()
-    };
-    parse_options( options, options_str );
-
-    p -> main_hand_attack -> target = target;
-
-    if ( aoe_tanks == 1 )
-      p -> main_hand_attack -> aoe = -1;
-    else
-      p->main_hand_attack->aoe = aoe_tanks;
-
-    // check that the specified damage range is sane
-    if ( damage_range > p -> main_hand_attack -> base_dd_min || damage_range < 0 )
-      damage_range = 0.1 * p -> main_hand_attack -> base_dd_min; // if not, set to +/-10%
-
-    // set damage range to mean +/- range
-    p -> main_hand_attack -> base_dd_max = p -> main_hand_attack -> base_dd_min + damage_range;
-    p -> main_hand_attack -> base_dd_min -= damage_range;
-
-    // if the execute time is somehow less than 10 ms, set it back to the default of 1.5 seconds
-    if ( p -> main_hand_attack -> base_execute_time < timespan_t::from_seconds( 0.01 ) )
-      p -> main_hand_attack -> base_execute_time = timespan_t::from_seconds( 1.5 );
-
-    cooldown = player -> get_cooldown( name_str + "_" + target -> name() );
-    stats = player -> get_stats( name_str + "_" + target -> name(), this );
-    name_str = name_str + "_" + target -> name();
-
+    use_off_gcd = true;
     trigger_gcd = timespan_t::zero();
+
+    mh = new melee_t( "melee_main_hand", p, options_str );
+    mh -> weapon = &( p -> main_hand_weapon );
+    if ( ! mh -> target )
+      mh -> target = target;
+
+    p -> main_hand_attack = mh;
   }
 
-  virtual double calculate_direct_amount( action_state_t* s )
+  void init()
   {
-    // force boss attack size to vary regardless of whether the sim itself does
-    int previous_average_range_state = sim ->average_range;
-    sim -> average_range = 0;
+    base_t::init();
 
-    double amount = attack_t::calculate_direct_amount( s );
-
-    sim -> average_range = previous_average_range_state;
-
-    return amount;
+    if ( enemy_t* e = dynamic_cast< enemy_t* >( player ) )
+    {
+      // if the number of debuff stacks hasn't been specified yet, set it
+      if ( mh -> num_debuff_stacks == -1e6 )
+      {
+        if ( e -> apply_damage_taken_debuff == 0 )
+          mh -> num_debuff_stacks = 0;
+        else
+        {
+          mh -> apply_debuff = true;
+          mh -> num_debuff_stacks = e -> apply_damage_taken_debuff;
+        }
+      }
+    }
   }
 
   virtual void execute()
   {
+    player -> main_hand_attack = mh;
     player -> main_hand_attack -> schedule_execute();
-    if ( player -> off_hand_attack )
-    {
-      player -> off_hand_attack -> schedule_execute();
-    }
   }
 
   virtual bool ready()
@@ -143,12 +340,71 @@ struct auto_attack_t : public attack_t
   }
 };
 
+// Auto Attack Off-Hand =======================================================
+
+struct auto_attack_off_hand_t : public enemy_action_t<attack_t>
+{
+  melee_t* oh;
+
+  // default constructor
+  auto_attack_off_hand_t( player_t* p, const std::string& options_str ) :
+    base_t( "auto_attack_off_hand", p ), oh( 0 )
+  {
+    parse_options( options.data(), options_str );
+    
+    use_off_gcd = true;
+    trigger_gcd = timespan_t::zero();
+
+    oh = new melee_t( "melee_off_hand", p, options_str );
+    oh -> weapon = &( p -> off_hand_weapon );
+    if ( !oh -> target )
+      oh -> target = target;
+
+    p -> off_hand_attack = oh;
+  }
+
+  void init()
+  {
+    base_t::init();
+
+    if ( enemy_t* e = dynamic_cast< enemy_t* >( player ) )
+    {
+      // if the number of debuff stacks hasn't been specified yet, set it
+      if ( oh && oh -> num_debuff_stacks == -1e6 )
+      {
+        if ( e -> apply_damage_taken_debuff == 0 )
+          oh -> num_debuff_stacks = 0;
+        else
+        {
+          oh -> apply_debuff = true;
+          oh -> num_debuff_stacks = e -> apply_damage_taken_debuff;
+        }
+      }
+    }
+  }
+
+  virtual void execute()
+  {
+    oh -> first = true;
+    player -> off_hand_attack = oh;
+    player -> off_hand_attack -> schedule_execute();
+
+  }
+
+  virtual bool ready()
+  {
+    if ( player -> is_moving() ) return false;
+    return( player -> off_hand_attack -> execute_event == 0 ); // not swinging
+  }
+};
+
 // Melee Nuke ===============================================================
 
-struct melee_nuke_t : public attack_t
+struct melee_nuke_t : public enemy_action_t<attack_t>
 {
+  // default constructor
   melee_nuke_t( player_t* p, const std::string& options_str ) :
-    attack_t( "melee_nuke", p, spell_data_t::nil() )
+    base_t( "melee_nuke", p )
   {
     school = SCHOOL_PHYSICAL;
     may_miss = may_dodge = may_parry = false;
@@ -156,21 +412,13 @@ struct melee_nuke_t : public attack_t
     base_execute_time = timespan_t::from_seconds( 3.0 );
     base_dd_min = 25000;
 
-    cooldown = player -> get_cooldown( name_str + "_" + target -> name() );
+    parse_options( options.data(), options_str );
+  }
 
-    int aoe_tanks = 0;
-    double damage_range = -1;
-    option_t options[] =
-    {
-      opt_float( "damage", base_dd_min ),
-      opt_timespan( "attack_speed", base_execute_time ),
-      opt_timespan( "cooldown",     cooldown -> duration ),
-      opt_bool( "aoe_tanks", aoe_tanks ),
-      opt_float( "range", damage_range ),
-      opt_null()
-    };
-    parse_options( options, options_str );
-        
+  void init()
+  {
+    base_t::init();
+
     // check that the specified damage range is sane
     if ( damage_range > base_dd_min || damage_range < 0 )
       damage_range = 0.1 * base_dd_min; // if not, set to +/-10%
@@ -180,80 +428,27 @@ struct melee_nuke_t : public attack_t
 
     if ( base_execute_time < timespan_t::zero() )
       base_execute_time = timespan_t::from_seconds( 3.0 );
-
-    stats = player -> get_stats( name_str + "_" + target -> name(), this );
-    name_str = name_str + "_" + target -> name();
-
-    if ( aoe_tanks == 1 )
-      aoe = -1;
-  }
-
-  virtual size_t available_targets( std::vector< player_t* >& tl ) const
-  {
-    // TODO: This does not work for heals at all, as it presumes enemies in the
-    // actor list.
-
-    tl.clear();
-    tl.push_back( target );
-    for ( size_t i = 0, actors = sim -> actor_list.size(); i < actors; i++ )
-    {
-      //only add non heal_target tanks to this list for now
-      if ( !sim -> actor_list[ i ] -> is_sleeping() &&
-           !sim -> actor_list[ i ] -> is_enemy() &&
-           sim -> actor_list[ i ] -> primary_role() == ROLE_TANK &&
-           sim -> actor_list[ i ] != target &&
-           sim -> actor_list[ i ] != sim -> heal_target )
-        tl.push_back( sim -> actor_list[ i ] );
-    }
-    //if we have no target (no tank), add the healing target as substitute
-    if ( tl.empty() )
-    {
-      tl.push_back( sim->heal_target );
-    }
-    return tl.size();
-  }
-
-  
-  virtual double calculate_direct_amount( action_state_t* s )
-  {
-    // force boss attack size to vary regardless of whether the sim itself does
-    int previous_average_range_state = sim ->average_range;
-    sim -> average_range = 0;
-
-    double amount = attack_t::calculate_direct_amount( s );
-
-    sim -> average_range = previous_average_range_state;
-
-    return amount;
   }
 };
 
 // Spell Nuke ===============================================================
 
-struct spell_nuke_t : public spell_t
+struct spell_nuke_t : public enemy_action_t<spell_t>
 {
   spell_nuke_t( player_t* p, const std::string& options_str ) :
-    spell_t( "spell_nuke", p, spell_data_t::nil() )
+    base_t( "spell_nuke", p )
   {
-    school = SCHOOL_FIRE;
+    school            = SCHOOL_FIRE;
     base_execute_time = timespan_t::from_seconds( 3.0 );
-    base_dd_min = 5000;
+    base_dd_min       = 5000;
 
-    cooldown = player -> get_cooldown( name_str + "_" + target -> name() );
+    parse_options( options.data(), options_str );
+  }
 
-    int aoe_tanks = 0;
-    double damage_range = -1;
-    option_t options[] =
-    {
-      opt_float( "damage", base_dd_min ),
-      opt_timespan( "attack_speed", base_execute_time ),
-      opt_timespan( "cooldown",     cooldown -> duration ),
-      opt_bool( "aoe_tanks", aoe_tanks ),
-      opt_float( "range", damage_range ),
-      opt_null()
-    };
-    parse_options( options, options_str );
-    
+  void init()
+  {
+    base_t::init();
+
     // check that the specified damage range is sane
     if ( damage_range > base_dd_min || damage_range < 0 )
       damage_range = 0.1 * base_dd_min; // if not, set to +/-10%
@@ -263,162 +458,74 @@ struct spell_nuke_t : public spell_t
 
     if ( base_execute_time < timespan_t::zero() )
       base_execute_time = timespan_t::from_seconds( 3.0 );
-
-    stats = player -> get_stats( name_str + "_" + target -> name(), this );
-    name_str = name_str + "_" + target -> name();
-
-    may_crit = false;
-    if ( aoe_tanks == 1 )
-      aoe = -1;
   }
-
-  virtual size_t available_targets( std::vector< player_t* >& tl ) const
-  {
-    // TODO: This does not work for heals at all, as it presumes enemies in the
-    // actor list.
-
-    tl.clear();
-    tl.push_back( target );
-    for ( size_t i = 0, actors = sim -> actor_list.size(); i < actors; i++ )
-    {
-      //only add non heal_target tanks to this list for now
-      if ( !sim -> actor_list[ i ] -> is_sleeping() &&
-           !sim -> actor_list[ i ] -> is_enemy() &&
-           sim -> actor_list[ i ] -> primary_role() == ROLE_TANK &&
-           sim -> actor_list[ i ] != target &&
-           sim -> actor_list[ i ] != sim -> heal_target )
-        tl.push_back( sim -> actor_list[ i ] );
-    }
-    //if we have no target (no tank), add the healing target as substitute
-    if ( tl.empty() )
-    {
-      tl.push_back( sim->heal_target );
-    }
-    return tl.size();
-  }
-
-  
-  virtual double calculate_direct_amount( action_state_t* s )
-  {
-    // force boss attack size to vary regardless of whether the sim itself does
-    int previous_average_range_state = sim ->average_range;
-    sim -> average_range = 0;
-
-    double amount = spell_t::calculate_direct_amount( s );
-
-    sim -> average_range = previous_average_range_state;
-
-    return amount;
-  }
-
 };
 
 // Spell DoT ================================================================
 
-struct spell_dot_t : public spell_t
+struct spell_dot_t : public enemy_action_t<spell_t>
 {
   spell_dot_t( player_t* p, const std::string& options_str ) :
-    spell_t( "spell_dot", p, spell_data_t::nil() )
+    base_t( "spell_dot", p )
   {
-    school = SCHOOL_FIRE;
+    school         = SCHOOL_FIRE;
     base_tick_time = timespan_t::from_seconds( 1.0 );
-    dot_duration = timespan_t::from_seconds( 10.0 );
-    base_td = 5000;
+    dot_duration   = timespan_t::from_seconds( 10.0 );
+    base_td        = 5000;
+    tick_may_crit  = false; // FIXME: should ticks crit or not?
+    may_crit       = false;
 
-    cooldown = player -> get_cooldown( name_str + "_" + target -> name() );
+    // Replace damage option
+    add_option( opt_float( "damage", base_td ) );
+    add_option( opt_timespan( "dot_duration", dot_duration ) );
+    add_option( opt_timespan( "tick_time", base_tick_time ) );
 
-    int aoe_tanks = 0;
-    option_t options[] =
-    {
-      opt_float( "damage", base_td ),
-      opt_timespan( "tick_time", base_tick_time ),
-      opt_timespan( "dot_duration", dot_duration ),
-      opt_timespan( "cooldown",     cooldown -> duration ),
-      opt_bool( "aoe_tanks", aoe_tanks ),
-      opt_null()
-    };
-    parse_options( options, options_str );
+    parse_options( options.data(), options_str );
+  }
+
+  void init()
+  {
+    base_t::init();
 
     if ( base_tick_time < timespan_t::zero() ) // User input sanity check
-      base_execute_time = timespan_t::from_seconds( 1.0 );
-
-    stats = player -> get_stats( name_str + "_" + target -> name(), this );
-    name_str = name_str + "_" + target -> name();
-
-    tick_may_crit = false; // FIXME: should ticks crit or not?
-    may_crit = false;
-    if ( aoe_tanks == 1 )
-      aoe = -1;
+      base_tick_time = timespan_t::from_seconds( 1.0 );
   }
 
   virtual void execute()
   {
     target_cache.is_valid = false;
-    spell_t::execute();
+
+    base_t::execute();
   }
-
-  virtual size_t available_targets( std::vector< player_t* >& tl ) const
-  {
-    // TODO: This does not work for heals at all, as it presumes enemies in the
-    // actor list.
-
-    tl.clear();
-    tl.push_back( target );
-    for ( size_t i = 0, actors = sim -> actor_list.size(); i < actors; i++ )
-    {
-      //only add non heal_target tanks to this list for now
-      if ( !sim -> actor_list[ i ] -> is_sleeping() &&
-           !sim -> actor_list[ i ] -> is_enemy() &&
-           sim -> actor_list[ i ] -> primary_role() == ROLE_TANK &&
-           sim -> actor_list[ i ] != target &&
-           sim -> actor_list[ i ] != sim -> heal_target )
-        tl.push_back( sim -> actor_list[ i ] );
-    }
-    //if we have no target (no tank), add the healing target as substitute
-    if ( tl.empty() )
-    {
-      tl.push_back( sim->heal_target );
-    }
-    return tl.size();
-  }
-
 };
 
 // Spell AoE ================================================================
 
-struct spell_aoe_t : public spell_t
+struct spell_aoe_t : public enemy_action_t<spell_t>
 {
+  // default constructor
   spell_aoe_t( player_t* p, const std::string& options_str ) :
-    spell_t( "spell_aoe", p, spell_data_t::nil() )
+    base_t( "spell_aoe", p )
   {
-    school = SCHOOL_FIRE;
+    school            = SCHOOL_FIRE;
     base_execute_time = timespan_t::from_seconds( 3.0 );
-    base_dd_min = 5000;
+    base_dd_min       = 5000;
+    aoe               = -1;
+    may_crit          = false;
 
-    cooldown = player -> get_cooldown( name_str + "_" + target -> name() );
+    parse_options( options.data(), options_str );
+  }
 
-    option_t options[] =
-    {
-      opt_float( "damage", base_dd_min ),
-      opt_timespan( "cast_time", base_execute_time ),
-      opt_timespan( "cooldown", cooldown -> duration ),
-      opt_null()
-    };
-    parse_options( options, options_str );
+  void init()
+  {
+    base_t::init();
 
     base_dd_max = base_dd_min;
     if ( base_execute_time < timespan_t::from_seconds( 0.01 ) )
       base_execute_time = timespan_t::from_seconds( 3.0 );
-
-    stats = player -> get_stats( name_str + "_" + target -> name(), this );
-    name_str = name_str + "_" + target -> name();
-
-    may_crit = false;
-
-    aoe = -1;
   }
 
-  virtual size_t available_targets( std::vector< player_t* >& tl ) const
+  size_t available_targets( std::vector< player_t* >& tl ) const
   {
     // TODO: This does not work for heals at all, as it presumes enemies in the
     // actor list.
@@ -436,7 +543,6 @@ struct spell_aoe_t : public spell_t
 
     return tl.size();
   }
-
 };
 
 // Summon Add ===============================================================
@@ -491,70 +597,16 @@ struct summon_add_t : public spell_t
 
 action_t* enemy_create_action( player_t* p, const std::string& name, const std::string& options_str )
 {
-  if ( name == "auto_attack" ) return new auto_attack_t( p, options_str );
-  if ( name == "melee_nuke"  ) return new  melee_nuke_t( p, options_str );
-  if ( name == "spell_nuke"  ) return new  spell_nuke_t( p, options_str );
-  if ( name == "spell_dot"   ) return new   spell_dot_t( p, options_str );
-  if ( name == "spell_aoe"   ) return new   spell_aoe_t( p, options_str );
-  if ( name == "summon_add"  ) return new  summon_add_t( p, options_str );
+  if ( name == "auto_attack" )          return new          auto_attack_t( p, options_str );
+  if ( name == "auto_attack_off_hand" ) return new auto_attack_off_hand_t( p, options_str );
+  if ( name == "melee_nuke"  )          return new           melee_nuke_t( p, options_str );
+  if ( name == "spell_nuke"  )          return new           spell_nuke_t( p, options_str );
+  if ( name == "spell_dot"   )          return new            spell_dot_t( p, options_str );
+  if ( name == "spell_aoe"   )          return new            spell_aoe_t( p, options_str );
+  if ( name == "summon_add"  )          return new           summon_add_t( p, options_str );
 
   return NULL;
 }
-
-struct enemy_t : public player_t
-{
-  double fixed_health, initial_health;
-  double fixed_health_percentage, initial_health_percentage;
-  double health_recalculation_dampening_exponent;
-  timespan_t waiting_time;
-  std::string tmi_boss_str;
-  tmi_boss_e tmi_boss_enum;
-
-  std::vector<buff_t*> buffs_health_decades;
-
-  enemy_t( sim_t* s, const std::string& n, race_e r = RACE_HUMANOID, player_e type = ENEMY ) :
-    player_t( s, type, n, r ),
-    fixed_health( 0 ), initial_health( 0 ),
-    fixed_health_percentage( 0 ), initial_health_percentage( 100.0 ),
-    health_recalculation_dampening_exponent( 1.0 ),
-    waiting_time( timespan_t::from_seconds( 1.0 ) ),
-    tmi_boss_str( "none" ),
-    tmi_boss_enum( TMI_NONE )
-  {
-    s -> target_list.push_back( this );
-    position_str = "front";
-    level = level + 3;
-  }
-
-  virtual role_e primary_role() const
-  { return ROLE_TANK; }
-
-  virtual resource_e primary_resource() const
-  { return RESOURCE_MANA; }
-
-  virtual action_t* create_action( const std::string& name, const std::string& options_str );
-  virtual void init_base_stats();
-  virtual void init_defense();
-  virtual void create_buffs();
-  virtual void init_resources( bool force = false );
-  virtual void init_target();
-  virtual void init_action_list();
-  virtual void init_stats();
-  virtual double resource_loss( resource_e, double, gain_t*, action_t* );
-  virtual void create_options();
-  virtual pet_t* create_pet( const std::string& add_name, const std::string& pet_type = std::string() );
-  virtual void create_pets();
-  virtual double health_percentage() const;
-  virtual void combat_begin();
-  virtual void combat_end();
-  virtual void recalculate_health();
-  virtual void demise();
-  virtual expr_t* create_expression( action_t* action, const std::string& type );
-  virtual timespan_t available() const { return waiting_time; }
-
-  virtual tmi_boss_e convert_tmi_string( const std::string& tmi_string );
-};
-
 // ==========================================================================
 // Enemy Add
 // ==========================================================================
@@ -638,6 +690,8 @@ struct heal_enemy_t : public enemy_t
   virtual resource_e primary_resource() const
   { return RESOURCE_HEALTH; }
 
+//  void init_action_list()
+//  { }
 };
 
 // enemy_t::create_action ===================================================
@@ -673,8 +727,12 @@ tmi_boss_e enemy_t::convert_tmi_string( const std::string& tmi_string )
     return TMI_T16_10H;
   if ( tmi_string == "T16H" || tmi_string == "T16H25" )
     return TMI_T16_25H;
-  if ( tmi_string == "T17Q" )
-    return TMI_T17_Q;
+  if ( tmi_string == "T17N" )
+    return TMI_T17_N;
+  if ( tmi_string == "T17H" )
+    return TMI_T17_H;
+  if ( tmi_string == "T17M" || tmi_string == "TMI20M" )
+    return TMI_T17_20M;
 
   if ( ! tmi_string.empty() && sim -> debug )
     sim -> out_debug.printf( "Unknown TMI string input provided: %s", tmi_string.c_str() );
@@ -693,14 +751,15 @@ void enemy_t::init_base_stats()
 
   tmi_boss_enum = convert_tmi_string( tmi_boss_str );
 
-  level = sim -> max_player_level + 3;
+  if ( level == 0 )
+    level = sim -> max_player_level + 3;
 
   if ( tmi_boss_enum == TMI_NONE ) // skip overrides for TMI standard bosses
   {
     // target_level override
     if ( sim -> target_level >= 0 )
       level = sim -> target_level;
-    else if ( ( sim -> max_player_level + sim -> rel_target_level ) >= 0 )
+    else if ( sim -> rel_target_level > 0 && ( sim -> max_player_level + sim -> rel_target_level ) >= 0 )
       level = sim -> max_player_level + sim -> rel_target_level;
 
     // waiting_time override
@@ -735,17 +794,14 @@ void enemy_t::init_base_stats()
   {
     initial_health_percentage = 100.0;
   }
-
-  // Override base block. Note that these are only the base values, the level 
-  // differentials are handled in action_t::miss_chance(), dodge_chance(), parry_chance(), block_chance()
-  // base miss, dodge, parry all set to 3% in player_t::init_base_stats()
-  base.block = 0.030; 
-  base.block_reduction = 0.3;
 }
 
 void enemy_t::init_defense()
 {
   player_t::init_defense();
+
+  collected_data.health_changes_tmi.collect = false;
+  collected_data.health_changes.collect = false;
 
   if ( ( gear.armor + enchant.armor ) <= 0 )
   {
@@ -812,7 +868,10 @@ void enemy_t::init_target()
   }
 
   if ( target )
+  {
+    current_target = (int) target -> actor_index;
     return;
+  }
 
   for ( size_t i = 0; i < sim -> player_list.size(); ++i )
   {
@@ -826,39 +885,68 @@ void enemy_t::init_target()
 
   if ( !target )
     target = sim -> target;
+
+  current_target = (int) target -> actor_index;
 }
 
 // enemy_t::init_actions ====================================================
+
+std::string enemy_t::fluffy_pillow_action_list()
+{
+  std::string als = "";
+  double level_mult = sim -> dbc.combat_rating( RATING_BLOCK, sim -> max_player_level ) / sim -> dbc.combat_rating( RATING_BLOCK, 100 );
+  level_mult = std::pow( level_mult, 1.5 );
+
+  // this is the standard Fluffy Pillow action list
+  als += "/auto_attack,damage=" + util::to_string( 15000 * level_mult ) + ",attack_speed=2,aoe_tanks=1";
+  als += "/spell_dot,damage=" + util::to_string( 6000 * level_mult ) + ",tick_time=2,dot_duration=20,cooldown=40,aoe_tanks=1,if=!ticking";
+  als += "/spell_nuke,damage=" + util::to_string( 10000 * level_mult ) + ",cooldown=35,attack_speed=3,aoe_tanks=1";
+  als += "/melee_nuke,damage=" + util::to_string( 16000 * level_mult ) + ",cooldown=27,attack_speed=3,aoe_tanks=1";
+  
+  return als;
+}
+
+std::string enemy_t::tmi_boss_action_list()
+{
+  std::string als = "";
+  int aa_damage[ 11 ] = { 0, 5500, 7500, 9000, 12500, 15000, 25000, 45000, 100000, 150000, 200000 };
+  int dot_damage[ 11 ] = { 0, 2700, 3750, 4500, 6250, 10000, 15000, 35000, 60000, 90000, 120000 };
+
+  als += "/auto_attack,damage=" + util::to_string( aa_damage[ tmi_boss_enum ] ) + ",attack_speed=1.5,aoe_tanks=1";
+  als += "/spell_dot,damage=" + util::to_string( dot_damage[ tmi_boss_enum ] ) + ",tick_time=2,dot_duration=30,aoe_tanks=1,if=!ticking";
+
+  return als;
+}
+
+std::string enemy_t::retrieve_action_list()
+{
+  // in theory, we could change tmi_boss_enum to boss_enum and support a wider variety of bosses here
+  switch ( tmi_boss_enum )
+  {
+  // Fluffy Pillow
+  case TMI_NONE:
+    return fluffy_pillow_action_list();
+  // TMI bosses
+  default:
+    return tmi_boss_action_list();
+  }  
+}
 
 void enemy_t::init_action_list()
 {
   if ( ! is_add() && is_enemy() )
   {
+    // If the action list string is empty, automatically populate it 
     if ( action_list_str.empty() )
     {
       std::string& precombat_list = get_action_priority_list( "precombat" ) -> action_list_str;
       precombat_list += "/snapshot_stats";
 
-      double level_mult = sim -> dbc.combat_rating( RATING_BLOCK, sim -> max_player_level ) / sim -> dbc.combat_rating( RATING_BLOCK, 90 );
-      level_mult = std::pow( level_mult, 1.5 );
+      // If targeting an player, use Fluffy Pillow or TMI boss as appropriate
       if ( ! target -> is_enemy() )
-      {
-        switch ( tmi_boss_enum )
-        {
-          case TMI_NONE:
-            action_list_str += "/auto_attack,damage=" + util::to_string( 15000 * level_mult ) + ",attack_speed=2,aoe_tanks=1";
-            action_list_str += "/spell_dot,damage=" + util::to_string( 6000 * level_mult ) + ",tick_time=2,dot_duration=20,cooldown=40,aoe_tanks=1,if=!ticking";
-            action_list_str += "/spell_nuke,damage=" + util::to_string( 10000 * level_mult ) + ",cooldown=35,attack_speed=3,aoe_tanks=1";
-            action_list_str += "/melee_nuke,damage=" + util::to_string( 16000 * level_mult ) + ",cooldown=27,attack_speed=3,aoe_tanks=1";
-            break;
-          default:
-            // boss damage information ( could move outside this function and make a constant )
-            int aa_damage [ 9 ] =  { 0, 5500, 7500, 9000, 12500, 15000, 25000, 45000, 100000 };
-            int dot_damage [ 9 ] = { 0,  2700,  3750,  4500,   6250,   10000,   15000,  35000,  60000 };
-            action_list_str += "/auto_attack,damage=" + util::to_string( aa_damage[ tmi_boss_enum ] ) + ",attack_speed=1.5";
-            action_list_str += "/spell_dot,damage=" + util::to_string( dot_damage[ tmi_boss_enum ] ) + ",tick_time=2,dot_duration=30,aoe_tanks=1,if=!ticking";
-        }
-      }
+        action_list_str += retrieve_action_list();
+      
+      // Otherwise just auto-attack the heal target
       else if ( sim -> heal_target && this != sim -> heal_target )
       {
         unsigned int healers = 0;
@@ -868,6 +956,62 @@ void enemy_t::init_action_list()
 
         action_list_str += "/auto_attack,damage=" + util::to_string( 20000 * healers * level / 85 ) + ",attack_speed=2.0,target=" + sim -> heal_target -> name_str;
       }
+    }
+  }
+
+  /* If we have more than one tank in the simulation, we do some fancy stuff.
+     We take the default APL and clone it into a new APL for each tank, appending 
+     a "target=Tank_Name" to each ability. Then the default APL is replaced with
+     a series of /run_action_list entries at the end. This is how we support tank swaps.
+  */
+  // only do this for enemies targeting players
+  if ( sim -> enable_taunts && ! target -> is_enemy() && this != sim -> heal_target )
+  {
+    // count the number of tanks in the simulation
+    std::vector<player_t*> tanks;
+    for ( size_t i = 0, players = sim -> player_list.size(); i < players; i++ )
+    {
+      player_t* q = sim -> player_list[ i ];
+      if ( q -> primary_role() == ROLE_TANK )
+        tanks.push_back( q );
+    }
+
+    // If we have more than one tank, create a new action list for each
+    // Only do this if the user hasn't specified additional action lists beyond precombat & default
+    if ( tanks.size() > 1 && action_priority_list.size() < 3 )
+    {
+      std::string new_action_list_str = "";
+
+      // split the action_list_str into individual actions so we can modify each later
+      std::vector<std::string> splits = util::string_split( action_list_str, "/" );
+
+      for ( size_t i = 0; i < tanks.size(); i++ )
+      {
+        // create a new APL sub-entry with the name of the tank in question
+        std::string& tank_str = get_action_priority_list( tanks[ i ] -> name_str ) -> action_list_str;
+
+        // Reconstruct the action_list_str for this tank by appending ",target=Tank_Name"
+        // to each action if it doesn't already specify a different target
+        for ( size_t j = 0, jmax = splits.size(); j < jmax; j++ )
+        {
+          tank_str += "/" + splits[ j ];
+
+          if ( !util::str_in_str_ci( "target=", splits[ j ] ) )
+            tank_str += ",target=" + tanks[ i ] -> name_str;
+        }
+
+        // add a /run_action_list line to the new default APL
+        new_action_list_str += "/run_action_list,name=" + tanks[ i ] -> name_str + ",if=current_target=" + util::to_string( tanks[ i ] -> actor_index );
+      }
+
+      // finish off the default action list with an instruction to run the default target's APL
+      if ( !target -> is_enemy() )
+        new_action_list_str += "/run_action_list,name=" + target -> name_str;
+      else
+        new_action_list_str += "/run_action_list,name=" + tanks[ 0 ] -> name_str;
+
+      // replace the default APL with our new one.
+      action_list_str = new_action_list_str;
     }
   }
   player_t::init_action_list();
@@ -928,6 +1072,7 @@ void enemy_t::create_options()
     opt_float( "enemy_size", size ),
     opt_string( "enemy_tank", target_str ),
     opt_string( "tmi_boss", tmi_boss_str ),
+    opt_int( "apply_debuff", apply_damage_taken_debuff ),
     opt_null()
   };
 
@@ -1000,6 +1145,17 @@ void enemy_t::recalculate_health()
   if ( sim -> debug ) sim -> out_debug.printf( "Target %s initial health calculated to be %.0f. Damage was %.0f", name(), initial_health, iteration_dmg_taken );
 }
 
+bool enemy_t::taunt( player_t* source )
+{ 
+  current_target = (int) source -> actor_index;
+  if ( main_hand_attack && main_hand_attack -> execute_event ) 
+    core_event_t::cancel( main_hand_attack -> execute_event );  
+  if ( off_hand_attack && off_hand_attack -> execute_event )
+    core_event_t::cancel( off_hand_attack -> execute_event );
+
+  return true; 
+}
+
 // enemy_t::create_expression ===============================================
 
 expr_t* enemy_t::create_expression( action_t* action,
@@ -1011,6 +1167,64 @@ expr_t* enemy_t::create_expression( action_t* action,
   // override enemy health.pct expression
   if ( name_str == "health.pct" )
     return make_mem_fn_expr( name_str, *this, &enemy_t::health_percentage );
+
+  // current target (for tank/taunting purposes)
+  if ( name_str == "current_target" )
+    return make_ref_expr( name_str, current_target );
+
+  std::vector<std::string> splits = util::string_split( name_str, "." );
+
+  if ( splits[ 0 ] == "current_target" )
+  {
+    if ( splits.size() == 2 && splits[ 1 ] == "name" )
+    {
+      struct current_target_name_expr_t : public expr_t
+      {
+        enemy_t* boss;
+
+        current_target_name_expr_t( enemy_t* e ) :
+          expr_t( "current_target_name" ), boss( e )
+        {}
+
+        double evaluate()
+        {
+          return (double) boss -> sim -> actor_list[ boss -> current_target ] -> actor_index;
+        }
+      };
+
+      return new current_target_name_expr_t( this );
+
+    }
+    else if ( splits.size() == 3 && splits[ 1 ] == "debuff" )
+    {
+      struct current_target_debuff_expr_t : public expr_t
+      {
+        enemy_t* boss;
+        std::string debuff_str;
+
+        current_target_debuff_expr_t( enemy_t* e, const std::string& debuff_str ) :
+          expr_t( "current_target_debuff" ), boss( e ), debuff_str( debuff_str )
+        {}
+
+        double evaluate()
+        {
+          if ( debuff_str == "damage_taken" )
+            return boss -> sim -> actor_list[ boss -> current_target ] -> debuffs.damage_taken -> current_stack;
+          else if ( debuff_str == "vulnerable" )
+            return boss -> sim -> actor_list[ boss -> current_target ] -> debuffs.vulnerable -> current_stack;
+          else if ( debuff_str == "mortal_wounds" )
+            return boss -> sim -> actor_list[ boss -> current_target ] -> debuffs.mortal_wounds -> current_stack;
+          // may add others here as desired
+          else
+            return 0;
+        }
+      };
+
+      return new current_target_debuff_expr_t( this, splits[ 2 ] );
+
+    }
+
+  }
 
   return player_t::create_expression( action, name_str );
 }
@@ -1055,7 +1269,7 @@ public:
   enemy_report_t( enemy_t& player ) :
       p( player )
   {
-
+    ( void ) p;
   }
 
   virtual void html_customsection( report::sc_html_stream& /* os*/ ) override
@@ -1095,11 +1309,12 @@ struct enemy_module_t : public module_t
 
 struct heal_enemy_module_t : public module_t
 {
-  heal_enemy_module_t() : module_t( ENEMY ) {}
+  heal_enemy_module_t() : module_t( HEALING_ENEMY ) {}
 
   virtual player_t* create_player( sim_t* sim, const std::string& name, race_e /* r = RACE_NONE */ ) const
   {
-    return new heal_enemy_t( sim, name );
+    heal_enemy_t* p = new heal_enemy_t( sim, name );
+    return p;
   }
   virtual bool valid() const { return true; }
   virtual void init        ( sim_t* ) const {}

@@ -131,6 +131,11 @@ _DIFF_DATA = {
             ( 'unk_18505', _ADD_FIELD, 'unk_1' )
         ]
     },
+    18566: {
+        'ChrSpecialization.dbc': [
+            ( 'unk_wod_1', _ADD_FIELD, 'ofs_name' ),
+        ]
+    },
 }
 
 # Base DBC/DB2 fields, works for WoW build 17898 (Mists of Pandaria/5.4.7)
@@ -146,13 +151,13 @@ _DBC_FIELDS = {
         'id', 'id_spec', 'id_spell', 'index'
     ],
     'ItemBonus.db2': [
-        'id', 'f1', 'type', ( 'val1', '%d' ), ( 'val2', '%d' ), 'f5'
+        ( 'id', '%6u' ), ( 'id_node', '%4u' ), ( 'type', '%2u' ), ( 'val1', '%6d' ), ( 'val2', '%6d' ), ( 'index', '%2u' )
     ],
     'ItemXBonusTree.db2': [
-        'id', 'id_item', 'id_tree'
+        ( 'id', '%6u' ), ( 'id_item', '%6u' ), ( 'id_tree', '%4u' )
     ],
     'ItemBonusTreeNode.db2': [
-        'id', 'v1', 'v2', 'v3', 'v4'
+        ( 'id', '%4u' ), ( 'id_tree', '%4u' ), ( 'index', '%3u' ), ( 'id_child', '%4u' ), ( 'id_node', '%4u' )
     ],
     'ArmorLocation.dbc': [
         ( 'id', '%3u' ), ( 'v_1', '%11.6f' ), ( 'v_2', '%11.6f' ), ( 'v_3', '%11.6f' ), ( 'v_4', '%11.6f' ), ( 'v_5', '%11.6f')
@@ -456,7 +461,7 @@ _DBC_FIELDS = {
           'id', 'id_spell', 'unk_15589_1', ( 'base_level', '%3u' ), ( 'max_level', '%2u' ), 'spell_level'
     ],
     'SpellPower.dbc' : [
-          ( 'id', '%6u' ), 'id_spell', 'unk_15589_1', ( 'type_power', '%2d' ),( 'cost', '%6d' ),     'unk_1',     ( 'cost_per_second', '%3d' ), 'unk_2',
+          ( 'id', '%6u' ), 'id_spell', 'unk_15589_1', ( 'type_power', '%2d' ),( 'cost', '%6d' ),     ( 'cost_per_second', '%3d' ),     'unk_1', 'unk_2',
           'id_display', ( 'cost_2', '%5.2f' ),     ( 'cost_per_second2', '%5.2f' ),   ( 'aura_id', '%6u' ), ( 'unk_15589_2', '%f' )
     ],
     'SpellProcsPerMinute.dbc' : [

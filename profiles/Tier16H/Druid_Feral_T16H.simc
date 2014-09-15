@@ -17,11 +17,10 @@ spec=feral
 # Executed before combat begins. Accepts non-harmful actions only.
 
 actions.precombat=flask,type=spring_blossoms
-actions.precombat+=/food,type=sea_mist_rice_noodles
+actions.precombat+=/food,type=pandaren_treasure_noodle_soup
 actions.precombat+=/mark_of_the_wild,if=!aura.str_agi_int.up
-actions.precombat+=/cat_form,if=active_enemies=1
+actions.precombat+=/cat_form
 actions.precombat+=/prowl
-actions.precombat+=/bear_form,if=active_enemies>1
 # Snapshot raid buffed stats before combat begins and pre-potting is done.
 actions.precombat+=/snapshot_stats
 actions.precombat+=/potion,name=virmens_bite
@@ -30,24 +29,21 @@ actions.precombat+=/potion,name=virmens_bite
 
 actions=rake,if=buff.prowl.up|buff.shadowmeld.up
 actions+=/auto_attack
-actions+=/cat_form,if=prev.thrash_bear
-actions+=/thrash_bear
-actions+=/shadowmeld,if=buff.savage_roar.remains<3|(buff.bloodtalons.up&buff.savage_roar.remains<6)
-# Keep Rip from falling off during execute range.
-actions+=/ferocious_bite,cycle_targets=1,if=dot.rip.ticking&dot.rip.remains<=3&target.health.pct<25
-actions+=/healing_touch,if=talent.bloodtalons.enabled&buff.predatory_swiftness.up&(combo_points>=4|buff.predatory_swiftness.remains<1.5)
-# Maintain Thrash during AoE, clipping before Tiger's Fury comes off cooldown.
-actions+=/bear_form,if=active_enemies>1&energy.time_to_max>=5.5&(dot.thrash_bear.remains-gcd<=dot.thrash_bear.duration*0.3|(cooldown.tigers_fury.remains>6&cooldown.tigers_fury.remains<8))
-actions+=/savage_roar,if=buff.savage_roar.remains<3
+actions+=/skull_bash
+actions+=/incarnation,sync=berserk
+actions+=/berserk,if=cooldown.tigers_fury.remains<8
 actions+=/potion,name=virmens_bite,if=target.time_to_die<=40
-actions+=/incarnation,if=energy<25&!buff.omen_of_clarity.react&cooldown.tigers_fury.remains<=1
 actions+=/use_item,slot=waist,sync=tigers_fury
 actions+=/blood_fury,sync=tigers_fury
 actions+=/berserking,sync=tigers_fury
 actions+=/arcane_torrent,sync=tigers_fury
-actions+=/tigers_fury,if=energy<=35&!buff.omen_of_clarity.react&(!talent.incarnation_king_of_the_jungle.enabled|buff.king_of_the_jungle.up|cooldown.incarnation.remains>0)
+actions+=/tigers_fury,if=(!buff.omen_of_clarity.react&energy.max-energy>=60)|energy.max-energy>=80
+actions+=/shadowmeld,if=buff.savage_roar.remains<3|(buff.bloodtalons.up&buff.savage_roar.remains<6)
+# Keep Rip from falling off during execute range.
+actions+=/ferocious_bite,cycle_targets=1,if=dot.rip.ticking&dot.rip.remains<=3&target.health.pct<25
+actions+=/healing_touch,if=talent.bloodtalons.enabled&buff.predatory_swiftness.up&(combo_points>=4|buff.predatory_swiftness.remains<1.5)
+actions+=/savage_roar,if=buff.savage_roar.remains<3
 actions+=/potion,name=virmens_bite,sync=berserk,if=target.health.pct<25
-actions+=/berserk,if=buff.tigers_fury.up
 actions+=/thrash_cat,if=buff.omen_of_clarity.react&remains<=duration*0.3&active_enemies>1
 actions+=/rip,cycle_targets=1,if=combo_points=5&dot.rip.ticking&persistent_multiplier>dot.rip.pmultiplier
 actions+=/ferocious_bite,cycle_targets=1,if=combo_points=5&target.health.pct<25&dot.rip.ticking
@@ -58,10 +54,11 @@ actions+=/rake,cycle_targets=1,if=remains<=duration*0.3&active_enemies<9&combo_p
 actions+=/pool_resource,for_next=1
 actions+=/thrash_cat,if=dot.thrash_cat.remains<4.5&active_enemies>1
 actions+=/rake,cycle_targets=1,if=persistent_multiplier>dot.rake.pmultiplier&active_enemies<9&combo_points<5
-actions+=/pool_resource,for_next=1
 actions+=/swipe,if=combo_points<5&active_enemies>1
-actions+=/shred,if=combo_points<5
-actions+=/bear_form,if=dot.thrash_bear.remains-gcd<=dot.thrash_bear.duration*0.3&cooldown.tigers_fury.remains>6&dot.rip.remains>6&energy.time_to_max>=5.5
+actions+=/shred,if=combo_points<5&active_enemies=1
+actions+=/rejuvenation,cycle_targets=1,max_cycle_targets=3,if=talent.natures_vigil.enabled&!ticking&(buff.natures_vigil.up|cooldown.natures_vigil.remains<15)
+actions+=/rejuvenation,cycle_targets=1,if=talent.natures_vigil.enabled&!ticking&(buff.natures_vigil.up|cooldown.natures_vigil.remains<15)
+actions+=/rejuvenation,cycle_targets=1,if=talent.natures_vigil.enabled&buff.natures_vigil.up
 
 head=headpiece_of_the_shattered_vale,id=99328,upgrade=2,gems=capacitive_primal_8agi_9agi
 neck=immerseus_crystalline_eye,id=105407,upgrade=2
@@ -81,15 +78,15 @@ main_hand=halberd_of_inner_shadows,id=105560,upgrade=2,gems=4agi_8crit_3agi,ench
 
 # Gear Summary
 # gear_strength=4
-# gear_agility=1237
+# gear_agility=1240
 # gear_stamina=1539
-# gear_intellect=8
+# gear_intellect=4
 # gear_hit_rating=9
-# gear_crit_rating=470
-# gear_haste_rating=372
-# gear_mastery_rating=527
-# gear_armor=414
+# gear_crit_rating=478
+# gear_haste_rating=376
+# gear_mastery_rating=531
+# gear_armor=536
 # gear_multistrike_rating=99
 # meta_gem=capacitive_primal
-# tier16_2pc_melee=1
-# tier16_4pc_melee=1
+# set_bonus=tier16_2pc_melee=1
+# set_bonus=tier16_4pc_melee=1

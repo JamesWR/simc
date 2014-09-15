@@ -17,6 +17,10 @@ namespace { // UNNAMED NAMESPACE
 
 namespace enchant
 {
+  void mark_of_bleeding_hollow( special_effect_t&, const item_t& );
+  void megawatt_filament( special_effect_t&, const item_t& );
+  void oglethorpes_missile_splitter( special_effect_t&, const item_t& );
+  void hemets_heartseeker( special_effect_t&, const item_t& );
   void mark_of_the_thunderlord( special_effect_t&, const item_t& );
   void mark_of_the_shattered_hand( special_effect_t&, const item_t& );
   void mark_of_the_frostwolf( special_effect_t&, const item_t& );
@@ -49,6 +53,14 @@ namespace item
   void rune_of_reorigination( special_effect_t&, const item_t& );
   void spark_of_zandalar( special_effect_t&, const item_t& );
   void unerring_vision_of_leishen( special_effect_t&, const item_t& );
+  /* Warlards of Draenor 6.0 */
+  void blackiron_micro_crucible( special_effect_t&, const item_t& );
+  void humming_blackiron_trigger( special_effect_t&, const item_t& );
+  void battering_talisman_trigger( special_effect_t&, const item_t& );
+  void forgemasters_insignia( special_effect_t&, const item_t& );
+  void autorepairing_autoclave( special_effect_t&, const item_t& );
+  void spellbound_runic_band( special_effect_t&, const item_t& );
+  void spellbound_solium_band( special_effect_t&, const item_t& );
 }
 
 namespace gem
@@ -190,6 +202,15 @@ static const special_effect_db_item_t __special_effect_db[] = {
    * Items
    */
 
+  /* Warlords of Draenor 6.0 */
+  { 177085, 0,                     item::blackiron_micro_crucible }, /* Blackiron Micro Crucible */
+  { 177071, 0,                    item::humming_blackiron_trigger }, /* Humming Blackiron Trigger */
+  { 177104, 0,                   item::battering_talisman_trigger }, /* Battering Talisman Trigger */
+  { 177098, 0,                        item::forgemasters_insignia }, /* Forgemaster's Insignia */
+  { 177090, 0,                      item::autorepairing_autoclave }, /* Forgemaster's Insignia */
+  { 177171, 0,                        item::spellbound_runic_band }, /* 700 ilevel proc-ring */
+  { 177163, 0,                       item::spellbound_solium_band }, /* 690 ilevel proc-ring */
+
   /* Mists of Pandaria: 5.4 */
   { 146195, 0,                               item::flurry_of_xuen }, /* Melee legendary cloak */
   { 146197, 0,                             item::essence_of_yulon }, /* Caster legendary cloak */
@@ -257,12 +278,16 @@ static const special_effect_db_item_t __special_effect_db[] = {
    */
 
   /* Warlords of Draenor */
-  { 159236, 0,                enchant::mark_of_the_shattered_hand },
+  { 159239, 0,                enchant::mark_of_the_shattered_hand },
   { 159243, 0,                   enchant::mark_of_the_thunderlord },
   { 159682, 0,                           enchant::mark_of_warsong },
   { 159683, 0,                     enchant::mark_of_the_frostwolf },
   { 159684, 0,                        enchant::mark_of_shadowmoon },
   { 159685, 0,                         enchant::mark_of_blackrock },
+  { 156059, 0,                         enchant::megawatt_filament },
+  { 156052, 0,              enchant::oglethorpes_missile_splitter },
+  { 173286, 0,                        enchant::hemets_heartseeker },
+  { 173321, 0,                   enchant::mark_of_bleeding_hollow },
 
   /* Mists of Pandaria */
   { 118333, 0,                             enchant::dancing_steel },
@@ -324,6 +349,58 @@ static const special_effect_db_item_t __special_effect_db[] = {
 
 // Enchants ================================================================
 
+void enchant::mark_of_bleeding_hollow( special_effect_t& effect,
+                                       const item_t& item )
+{
+  // Custom callback to help the special effect initialization, we can use
+  // generic initialization for the enchant, but the game client data does not
+  // link driver to the procced spell, so we do it here.
+
+  effect.type = SPECIAL_EFFECT_EQUIP;
+  effect.trigger_spell_id = 173322;
+
+  new dbc_proc_callback_t( item, effect );
+}
+
+void enchant::megawatt_filament( special_effect_t& effect,
+                                 const item_t& item )
+{
+  // Custom callback to help the special effect initialization, we can use
+  // generic initialization for the enchant, but the game client data does not
+  // link driver to the procced spell, so we do it here.
+
+  effect.type = SPECIAL_EFFECT_EQUIP;
+  effect.trigger_spell_id = 156060;
+
+  new dbc_proc_callback_t( item, effect );
+}
+
+void enchant::oglethorpes_missile_splitter( special_effect_t& effect,
+                                            const item_t& item )
+{
+  // Custom callback to help the special effect initialization, we can use
+  // generic initialization for the enchant, but the game client data does not
+  // link driver to the procced spell, so we do it here.
+
+  effect.type = SPECIAL_EFFECT_EQUIP;
+  effect.trigger_spell_id = 156055;
+
+  new dbc_proc_callback_t( item, effect );
+}
+
+void enchant::hemets_heartseeker( special_effect_t& effect,
+                                            const item_t& item )
+{
+  // Custom callback to help the special effect initialization, we can use
+  // generic initialization for the enchant, but the game client data does not
+  // link driver to the procced spell, so we do it here.
+
+  effect.type = SPECIAL_EFFECT_EQUIP;
+  effect.trigger_spell_id = 173288;
+
+  new dbc_proc_callback_t( item, effect );
+}
+
 void enchant::mark_of_shadowmoon( special_effect_t& effect, 
                                   const item_t& item )
 {
@@ -380,24 +457,78 @@ void enchant::mark_of_warsong( special_effect_t& effect,
   effect.type = SPECIAL_EFFECT_EQUIP;
   effect.trigger_spell_id = 159675;
   effect.reverse = true;
-  
+
   new dbc_proc_callback_t( item, effect );
 }
 
-void enchant::mark_of_the_thunderlord( special_effect_t& effect, 
+void enchant::mark_of_the_thunderlord( special_effect_t& effect,
                                        const item_t& item )
 {
-  // Custom callback to help the special effect initialization, we can use
-  // generic initialization for the enchant, but the game client data does not
-  // link driver to the procced spell, so we do it here.
- 
-  effect.type = SPECIAL_EFFECT_EQUIP;
-  effect.trigger_spell_id = 159234;
-  
+  struct mott_buff_t : public stat_buff_t
+  {
+    unsigned extensions;
+    unsigned max_extensions;
+
+    mott_buff_t( const item_t& item, const std::string& name, unsigned max_ext ) :
+      stat_buff_t( stat_buff_creator_t( item.player, name, item.player -> find_spell( 159234 ) ) ),
+      extensions( 0 ), max_extensions( max_ext )
+    { }
+
+    void extend_duration( player_t* p, timespan_t extend_duration )
+    {
+      if ( extensions < max_extensions )
+      {
+        stat_buff_t::extend_duration( p, extend_duration );
+        extensions++;
+      }
+    }
+
+    void execute( int stacks, double value, timespan_t duration )
+    { stat_buff_t::execute( stacks, value, duration ); extensions = 0; }
+
+    void reset()
+    { stat_buff_t::reset(); extensions = 0; }
+
+    void expire_override()
+    { stat_buff_t::expire_override(); extensions = 0; }
+  };
+
+  // Max extensions is hardcoded, no spell data to fetch it
+  effect.custom_buff = new mott_buff_t( item, effect.name(), 3 );
+
+  // Setup another proc callback, that uses the same driver as the proc that
+  // triggers the buff, however it only procs on crits. This callback will
+  // extend the duration of the buff, only if the buff is up. The extension
+  // capping is handled in the buff itself.
+  special_effect_t effect2( &item );
+  effect2.name_str = effect.name() + "_crit_driver";
+  effect2.proc_chance_ = 1;
+  effect2.ppm_ = 0;
+  effect2.spell_id = effect.spell_id;
+  effect2.custom_buff = effect.custom_buff;
+  effect2.cooldown_ = timespan_t::zero();
+  effect2.proc_flags2_ = PF2_CRIT;
+
+  item.player -> special_effects.push_back( effect2 );
+
+  struct mott_crit_callback_t : public dbc_proc_callback_t
+  {
+    mott_crit_callback_t( const item_t& item, const special_effect_t& effect ) :
+      dbc_proc_callback_t( item, effect )
+    { }
+
+    void execute( action_t*, action_state_t* )
+    {
+      if ( proc_buff -> check() )
+        proc_buff -> extend_duration( listener, timespan_t::from_seconds( 2 ) );
+    }
+  };
+
   new dbc_proc_callback_t( item, effect );
+  new mott_crit_callback_t( item, item.player -> special_effects.back() );
 }
 
-void enchant::mark_of_the_frostwolf( special_effect_t& effect, 
+void enchant::mark_of_the_frostwolf( special_effect_t& effect,
                                      const item_t& item )
 {
   // Custom callback to help the special effect initialization, we can use
@@ -416,10 +547,25 @@ void enchant::mark_of_the_shattered_hand( special_effect_t& effect,
   // Custom callback to help the special effect initialization, we can use
   // generic initialization for the enchant, but the game client data does not
   // link driver to the procced spell, so we do it here.
- 
-  effect.type = SPECIAL_EFFECT_EQUIP;
+  effect.rppm_scale = RPPM_HASTE;
   effect.trigger_spell_id = 159238;
-  
+
+  struct bleed_attack_t : public attack_t
+  {
+    bleed_attack_t( player_t* p, const special_effect_t& effect ) :
+      attack_t( effect.name(), p, p -> find_spell( effect.trigger_spell_id ) )
+    {
+      hasted_ticks = false; background = true; callbacks = false; special = true;
+      may_miss = may_block = may_dodge = may_parry = false; may_crit = true;
+      tick_may_crit = true;
+    }
+
+    double target_armor( player_t* ) const
+    { return 0.0; }
+  };
+
+  effect.execute_action = new bleed_attack_t( item.player, effect );
+
   new dbc_proc_callback_t( item, effect );
 }
 
@@ -1124,6 +1270,183 @@ void item::skeers_bloodsoaked_talisman( special_effect_t& effect,
   new dbc_proc_callback_t( item.player, effect );
 }
 
+void item::blackiron_micro_crucible( special_effect_t& effect,
+                                        const item_t& item )
+{
+  maintenance_check( 528 );
+
+  const spell_data_t* driver = item.player -> find_spell( effect.spell_id );
+  const spell_data_t* spell = driver -> effectN( 1 ).trigger();
+
+  std::string buff_name = spell -> name_cstr();
+  util::tokenize( buff_name );
+
+  // Require a damaging result, instead of any harmful spell hit
+  effect.proc_flags2_ = PF2_ALL_HIT;
+
+  stat_buff_t* b = stat_buff_creator_t( item.player, buff_name, spell )
+                   .add_stat( STAT_MULTISTRIKE_RATING, spell -> effectN( 1 ).average( item ) )
+                   .max_stack( 20 ) // Hardcoded for now - spell->max_stacks() returns 0
+                   .tick_behavior( BUFF_TICK_CLIP )
+                   .period( spell -> effectN( 1 ).period() )
+                   .duration( spell -> duration() );
+
+  effect.custom_buff = b;
+
+  new dbc_proc_callback_t( item.player, effect );
+}
+
+void item::humming_blackiron_trigger( special_effect_t& effect,
+                                        const item_t& item )
+{
+  maintenance_check( 528 );
+
+  const spell_data_t* driver = item.player -> find_spell( effect.spell_id );
+  const spell_data_t* spell = driver -> effectN( 1 ).trigger();
+
+  std::string buff_name = spell -> name_cstr();
+  util::tokenize( buff_name );
+
+  // Require a damaging result, instead of any harmful spell hit
+  effect.proc_flags2_ = PF2_ALL_HIT;
+
+  stat_buff_t* b = stat_buff_creator_t( item.player, buff_name, spell )
+                   .add_stat( STAT_CRIT_RATING, spell -> effectN( 1 ).average( item ) )
+                   .max_stack( 20 ) // Hardcoded for now - spell->max_stacks() returns 0
+                   .tick_behavior( BUFF_TICK_CLIP )
+                   .period( spell -> effectN( 1 ).period() )
+                   .duration( spell -> duration() );
+
+  effect.custom_buff = b;
+
+  new dbc_proc_callback_t( item.player, effect );
+}
+
+void item::battering_talisman_trigger( special_effect_t& effect,
+                                      const item_t& item )
+{
+  maintenance_check( 528 );
+
+  const spell_data_t* driver = item.player -> find_spell( effect.spell_id );
+  const spell_data_t* spell = driver -> effectN( 1 ).trigger();
+  const spell_data_t* stacks = item.player -> find_spell( 146293 );
+
+  std::string buff_name = spell -> name_cstr();
+  util::tokenize( buff_name );
+
+  // Require a damaging result, instead of any harmful spell hit
+  effect.proc_flags2_ = PF2_ALL_HIT;
+
+  stat_buff_t* b = stat_buff_creator_t( item.player, buff_name, spell )
+    .add_stat( STAT_HASTE_RATING, spell -> effectN( 1 ).average( item ) )
+    .max_stack( stacks -> max_stacks() )
+    .tick_behavior( BUFF_TICK_CLIP )
+    .period( spell -> effectN( 1 ).period() )
+    .duration( spell -> duration() );
+
+  effect.custom_buff = b;
+
+  new dbc_proc_callback_t( item.player, effect );
+}
+
+void item::forgemasters_insignia( special_effect_t& effect,
+                                        const item_t& item )
+{
+  maintenance_check( 528 );
+
+  const spell_data_t* driver = item.player -> find_spell( effect.spell_id );
+  const spell_data_t* spell = driver -> effectN( 1 ).trigger();
+
+  std::string buff_name = spell -> name_cstr();
+  util::tokenize( buff_name );
+
+  // Require a damaging result, instead of any harmful spell hit
+  effect.proc_flags2_ = PF2_ALL_HIT;
+
+  stat_buff_t* b = stat_buff_creator_t( item.player, buff_name, spell )
+                   .add_stat( STAT_MULTISTRIKE_RATING, spell -> effectN( 1 ).average( item ) )
+                   .max_stack( 20 ) // Hardcoded for now - spell->max_stacks() returns 0
+                   .tick_behavior( BUFF_TICK_CLIP )
+                   .period( spell -> effectN( 1 ).period() )
+                   .duration( spell -> duration() );
+
+  effect.custom_buff = b;
+
+  new dbc_proc_callback_t( item.player, effect );
+}
+
+void item::autorepairing_autoclave( special_effect_t& effect,
+                                        const item_t& item )
+{
+  maintenance_check( 528 );
+
+  const spell_data_t* driver = item.player -> find_spell( effect.spell_id );
+  const spell_data_t* spell = driver -> effectN( 1 ).trigger();
+
+  std::string buff_name = spell -> name_cstr();
+  util::tokenize( buff_name );
+
+  // Require a damaging result, instead of any harmful spell hit
+  effect.proc_flags2_ = PF2_ALL_HIT;
+
+  stat_buff_t* b = stat_buff_creator_t( item.player, buff_name, spell )
+                   .add_stat( STAT_HASTE_RATING, spell -> effectN( 1 ).average( item ) )
+                   .max_stack( 20 ) // Hardcoded for now - spell->max_stacks() returns 0
+                   .tick_behavior( BUFF_TICK_CLIP )
+                   .period( spell -> effectN( 1 ).period() )
+                   .duration( spell -> duration() );
+
+  effect.custom_buff = b;
+
+  new dbc_proc_callback_t( item.player, effect );
+}
+
+void item::spellbound_runic_band( special_effect_t& effect,
+                                  const item_t& item )
+{
+  maintenance_check( 528 );
+
+  player_t* p = item.player;
+  const spell_data_t* driver = item.player -> find_spell( effect.spell_id );
+  buff_t* buff;
+
+  if ( item.player -> convert_hybrid_stat( STAT_STRENGTH ) )
+    buff = buff_t::find( item.player, "archmages_greater_incandescence_str" );
+  else if ( item.player -> convert_hybrid_stat( STAT_AGILITY ) )
+    buff = buff_t::find( item.player, "archmages_greater_incandescence_agi" );
+  else if ( item.player -> convert_hybrid_stat( STAT_INTELLECT ) )
+    buff = buff_t::find( item.player, "archmages_greater_incandescence_int" );
+
+  effect.ppm_ = -1.0 * driver -> real_ppm();
+  effect.custom_buff = buff;
+  effect.type = SPECIAL_EFFECT_EQUIP;
+
+  new dbc_proc_callback_t( item.player, effect );
+}
+
+void item::spellbound_solium_band( special_effect_t& effect,
+                                   const item_t& item )
+{
+  maintenance_check( 528 );
+
+  player_t* p = item.player;
+  const spell_data_t* driver = item.player -> find_spell( effect.spell_id );
+  buff_t* buff;
+
+  if ( item.player -> convert_hybrid_stat( STAT_STRENGTH ) )
+    buff = buff_t::find( item.player, "archmages_incandescence_str" );
+  else if ( item.player -> convert_hybrid_stat( STAT_AGILITY ) )
+    buff = buff_t::find( item.player, "archmages_incandescence_agi" );
+  else if ( item.player -> convert_hybrid_stat( STAT_INTELLECT ) )
+    buff = buff_t::find( item.player, "archmages_incandescence_int" );
+
+  effect.ppm_ = -1.0 * driver -> real_ppm();
+  effect.custom_buff = buff;
+  effect.type = SPECIAL_EFFECT_EQUIP;
+
+  new dbc_proc_callback_t( item.player, effect );
+}
+
 void item::black_blood_of_yshaarj( special_effect_t& effect,
                                    const item_t& item )
 {
@@ -1799,3 +2122,16 @@ const item_data_t* unique_gear::find_consumable( const dbc_t& dbc,
   return 0;
 }
 
+const item_data_t* unique_gear::find_item_by_spell( const dbc_t& dbc, unsigned spell_id )
+{
+  for ( const item_data_t* item = dbc::items( maybe_ptr( dbc.ptr ) ); item -> id != 0; item++ )
+  {
+    for ( size_t spell_idx = 0, end = sizeof_array( item -> id_spell ); spell_idx < end; spell_idx++ )
+    {
+      if ( item -> id_spell[ spell_idx ] == static_cast<int>( spell_id ) )
+        return item;
+    }
+  }
+
+  return 0;
+}

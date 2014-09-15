@@ -486,7 +486,7 @@ bool parse_fight_style( sim_t*             sim,
   {
     sim -> fight_style = "HelterSkelter";
     sim -> raid_events_str = "casting,cooldown=30,duration=3,first=15";
-    sim -> raid_events_str += "/movement,cooldown=30,duration=5";
+    sim -> raid_events_str += "/movement,cooldown=30,distance=20";
     sim -> raid_events_str += "/stun,cooldown=60,duration=2";
     sim -> raid_events_str += "/invulnerable,cooldown=120,duration=3";
   }
@@ -495,19 +495,22 @@ bool parse_fight_style( sim_t*             sim,
     sim -> fight_style = "LightMovement";
     sim -> raid_events_str = "/movement,players_only=1,first=";
     sim -> raid_events_str += util::to_string( int( sim -> max_time.total_seconds() * 0.1 ) );
-    sim -> raid_events_str += ",cooldown=85,duration=7,last=";
+    sim -> raid_events_str += ",cooldown=85,distance=50,last=";
     sim -> raid_events_str += util::to_string( int( sim -> max_time.total_seconds() * 0.8 ) );
   }
   else if ( util::str_compare_ci( value, "HeavyMovement" ) )
   {
     sim -> fight_style = "HeavyMovement";
-    sim -> raid_events_str = "/movement,players_only=1,first=10,cooldown=10,duration=4";
+    sim -> raid_events_str = "/movement,players_only=1,first=10,cooldown=10,distance=25";
   }
-  else if ( util::str_compare_ci( value, "RaidDummy" ) )
+  else if ( util::str_compare_ci( value, "WoD_KillableRaidDummy" ) || util::str_compare_ci( value, "WoD_KillableMythicDummy" ) )
   {
-    sim -> fight_style = "RaidDummy";
+    sim -> fight_style = value;
     sim -> overrides.bloodlust = 0;
-    sim -> overrides.target_health = 50000000;
+    if ( util::str_compare_ci( value, "WoD_KillableRaidDummy" ) )
+      sim -> overrides.target_health = 20000000;
+    else
+      sim -> overrides.target_health = 300000000;
     sim -> target_death_pct = 0;
     sim -> allow_potions = false;
     sim -> vary_combat_length = 0;
@@ -515,13 +518,45 @@ bool parse_fight_style( sim_t*             sim,
     sim -> average_range = false;
     sim -> solo_raid = true;
   }
+  else if ( util::str_compare_ci( value, "WoD_RaidDamageDummyCluster" ) )
+  {
+    sim -> fight_style = value;
+    sim -> overrides.bloodlust = 0;
+    sim -> allow_potions = false;
+    sim -> average_range = false;
+    sim -> solo_raid = true;
+
+    // Set the main target to "RaidDamageDummy" and spawn 2 lower level mobs too
+    sim -> target = module_t::enemy() -> create_player( sim, "RaidDamageDummy" );
+
+    player_t* add_1 = module_t::enemy() -> create_player( sim, "DungeonDamageDummy1" );
+    add_1 -> level = 102;
+    player_t* add_2 = module_t::enemy() -> create_player( sim, "DungeonDamageDummy2" );
+    add_2 -> level = 102;
+  }
+  else if ( util::str_compare_ci( value, "WoD_WeakDamageDummyCluster" ) )
+  {
+    sim -> fight_style = value;
+    sim -> overrides.bloodlust = 0;
+    sim -> allow_potions = false;
+    sim -> average_range = false;
+    sim -> solo_raid = true;
+
+    for ( size_t i = 0; i < 5; i++ )
+    {
+      player_t* dummy = module_t::enemy() -> create_player( sim, "WeakDamageDummy" + util::to_string( i + 1 ) );
+      dummy -> level = 100;
+      if ( i == 0 )
+        sim -> target = dummy;
+    }
+  }
   else if ( util::str_compare_ci( value, "HecticAddCleave" ) )
   {
     sim -> fight_style = "HecticAddCleave";
 
     sim -> raid_events_str += "/adds,count=5,first=" + util::to_string( int( sim -> max_time.total_seconds() * 0.05 ) ) + ",cooldown=" + util::to_string( int( sim -> max_time.total_seconds() * 0.075 ) ) + ",duration=" + util::to_string( int( sim -> max_time.total_seconds() * 0.05 ) ) + ",last=" + util::to_string( int( sim -> max_time.total_seconds() * 0.75 ) ); //P1
-    sim -> raid_events_str += "/movement,players_only=1,first=" + util::to_string( int( sim -> max_time.total_seconds() * 0.05 ) ) + ",cooldown=" + util::to_string( int( sim -> max_time.total_seconds() * 0.075 ) ) + ",duration=" + util::to_string( int( sim -> max_time.total_seconds() * 0.008 ) ) + ",last=" + util::to_string( int( sim -> max_time.total_seconds() * 0.75 ) ); //move to new position of adds
-    sim -> raid_events_str += "/movement,players_only=1,first=" + util::to_string( int( sim -> max_time.total_seconds() * 0.03 ) ) + ",cooldown=" + util::to_string( int( sim -> max_time.total_seconds() * 0.03 ) ) + ",duration=" + util::to_string( std::max( int( sim -> max_time.total_seconds() * 0.003 ), 1 ) ); //move out of stuff
+    sim -> raid_events_str += "/movement,players_only=1,first=" + util::to_string( int( sim -> max_time.total_seconds() * 0.05 ) ) + ",cooldown=" + util::to_string( int( sim -> max_time.total_seconds() * 0.075 ) ) + ",distance=" + util::to_string( int( sim -> max_time.total_seconds() * 0.056 ) ) + ",last=" + util::to_string( int( sim -> max_time.total_seconds() * 0.75 ) ); //move to new position of adds
+    sim -> raid_events_str += "/movement,players_only=1,first=" + util::to_string( int( sim -> max_time.total_seconds() * 0.03 ) ) + ",cooldown=" + util::to_string( int( sim -> max_time.total_seconds() * 0.03 ) ) + ",distance=" + util::to_string( std::max( int( sim -> max_time.total_seconds() * 0.021 ), 1 ) ); //move out of stuff
 
   }
   else
@@ -811,19 +846,22 @@ struct resource_timeline_collect_event_t : public event_t
 
   virtual void execute()
   {
-    // Assumptions: Enemies do not have primary resource regeneration
-    for ( size_t i = 0, actors = sim().player_non_sleeping_list.size(); i < actors; i++ )
+    if ( sim().iterations == 1 || sim().current_iteration > 0 )
     {
-      player_t* p = sim().player_non_sleeping_list[ i ];
-      if ( p -> primary_resource() == RESOURCE_NONE ) continue;
+      // Assumptions: Enemies do not have primary resource regeneration
+      for ( size_t i = 0, actors = sim().player_non_sleeping_list.size(); i < actors; i++ )
+      {
+        player_t* p = sim().player_non_sleeping_list[ i ];
+        if ( p -> primary_resource() == RESOURCE_NONE ) continue;
 
-      p -> collect_resource_timeline_information();
-    }
-    // However, enemies do have health
-    for ( size_t i = 0, actors = sim().target_non_sleeping_list.size(); i < actors; i++ )
-    {
-      player_t* p = sim().target_non_sleeping_list[ i ];
-      p -> collect_resource_timeline_information();
+        p -> collect_resource_timeline_information();
+      }
+      // However, enemies do have health
+      for ( size_t i = 0, actors = sim().target_non_sleeping_list.size(); i < actors; i++ )
+      {
+        player_t* p = sim().target_non_sleeping_list[ i ];
+        p -> collect_resource_timeline_information();
+      }
     }
 
     new ( sim() ) resource_timeline_collect_event_t( sim() );
@@ -847,6 +885,8 @@ struct regen_event_t : public event_t
     {
       player_t* p = sim().player_non_sleeping_list[ i ];
       if ( p -> primary_resource() == RESOURCE_NONE ) continue;
+      if ( p -> regen_type != REGEN_STATIC ) continue;
+
       p -> regen( sim().regen_periodicity );
     }
 
@@ -876,10 +916,10 @@ sim_t::sim_t( sim_t* p, int index ) :
   player_non_sleeping_list(),
   active_player( 0 ),
   num_players( 0 ),
-  num_enemies( 0 ),
+  num_enemies( 0 ), healing( 0 ),
   global_spawn_index( 0 ),
   max_player_level( -1 ),
-  queue_lag( timespan_t::from_seconds( 0.037 ) ), queue_lag_stddev( timespan_t::zero() ),
+  queue_lag( timespan_t::from_seconds( 0.005 ) ), queue_lag_stddev( timespan_t::zero() ),
   gcd_lag( timespan_t::from_seconds( 0.150 ) ), gcd_lag_stddev( timespan_t::zero() ),
   channel_lag( timespan_t::from_seconds( 0.250 ) ), channel_lag_stddev( timespan_t::zero() ),
   queue_gcd_reduction( timespan_t::from_seconds( 0.032 ) ), strict_gcd_queue( 0 ),
@@ -898,7 +938,7 @@ sim_t::sim_t( sim_t* p, int index ) :
   save_talent_str( 0 ),
   talent_format( TALENT_FORMAT_UNCHANGED ),
   auto_ready_trigger( 0 ), stat_cache( 1 ), max_aoe_enemies( 20 ), show_etmi( 0 ), tmi_window_global( 0 ), tmi_bin_size( 0.5 ),
-  target_death_pct( 0 ), rel_target_level( 3 ), target_level( -1 ), target_adds( 0 ), desired_targets( 0 ),
+  target_death_pct( 0 ), rel_target_level( 0 ), target_level( -1 ), target_adds( 0 ), desired_targets( 0 ), enable_taunts( false ),
   challenge_mode( false ), scale_to_itemlevel ( -1 ),
   active_enemies( 0 ), active_allies( 0 ),
   deterministic_rng( false ),
@@ -923,6 +963,7 @@ sim_t::sim_t( sim_t* p, int index ) :
   report_precision( 2 ), report_pets_separately( 0 ), report_targets( 1 ), report_details( 1 ), report_raw_abilities( 1 ),
   report_rng( 0 ), hosted_html( 0 ), print_styles( 0 ),
   save_raid_summary( 0 ), save_gear_comments( 0 ), statistics_level( 1 ), separate_stats_by_actions( 0 ), report_raid_summary( 0 ), buff_uptime_timeline( 0 ),
+  wowhead_tooltips( -1 ),
   allow_potions( true ),
   allow_food( true ),
   allow_flasks( true ),
@@ -933,7 +974,8 @@ sim_t::sim_t( sim_t* p, int index ) :
   // Multi-Threading
   threads( 0 ), thread_index( index ), thread_priority( sc_thread_t::NORMAL ), work_queue(),
   spell_query( 0 ), spell_query_level( MAX_LEVEL ),
-  pause_cvar( &pause_mutex )
+  pause_cvar( &pause_mutex ),
+  requires_regen_event( false )
 {
   item_db_sources.assign( range::begin( default_item_db_sources ),
                           range::end( default_item_db_sources ) );
@@ -1087,7 +1129,9 @@ void sim_t::combat_begin()
     player_t* p = player_list[ i ];
     p -> combat_begin();
   }
-  new ( *this ) regen_event_t( *this );
+
+  if ( requires_regen_event )
+    new ( *this ) regen_event_t( *this );
 
   if ( overrides.bloodlust )
   {
@@ -1188,7 +1232,7 @@ void sim_t::datacollection_begin()
 {
   if ( debug ) out_debug << "Sim Data Collection Begin";
 
-  iteration_dmg = iteration_heal = 0.0;
+  iteration_dmg = iteration_heal = iteration_absorb = 0.0;
 
   for ( size_t i = 0; i < target_list.size(); ++i )
   {
@@ -1405,6 +1449,9 @@ bool sim_t::init_actors()
     p -> initialized = true;
   }
 
+  if ( wowhead_tooltips == -1 )
+    wowhead_tooltips = player_no_pet_list.size() <= 10;
+
   // This next section handles all the ugly details of initialization. Ideally, each of these
   // init_* methods will eventually return a bool to indicate success or failure, from which
   // we can either continue or halt initialization.
@@ -1493,7 +1540,7 @@ bool sim_t::init()
   if ( challenge_mode && scale_to_itemlevel < 0 ) scale_to_itemlevel = 620; //Check later
 
 
-  // MoP aura initialization
+  // WoD aura initialization
 
   // Attack Power Multiplier, value from Trueshot Aura (id=19506) (Hunter)
   auras.attack_power_multiplier = buff_creator_t( this, "attack_power_multiplier" )
@@ -1525,10 +1572,10 @@ bool sim_t::init()
                       .default_value( dbc.spell( 49868 ) -> effectN( 2 ).percent() )
                       .add_invalidate( CACHE_MULTISTRIKE );
 
-  // Spell Power Multiplier, value from Burning Wrath (id=77747) (Shaman)
+  // Spell Power Multiplier, value from Arcane Brilliance (id=1459) (Mage)
   auras.spell_power_multiplier = buff_creator_t( this, "spell_power_multiplier" )
                                  .max_stack( 100 )
-                                 .default_value( dbc.spell( 77747 ) -> effectN( 1 ).percent() )
+                                 .default_value( dbc.spell( 1459 ) -> effectN( 1 ).percent() )
                                  .add_invalidate( CACHE_SPELL_POWER );
 
   // Stamina, value from fortitude (id=21562) (Priest)
@@ -1545,11 +1592,11 @@ bool sim_t::init()
                       .add_invalidate( CACHE_AGILITY )
                       .add_invalidate( CACHE_INTELLECT );
 
-  // Versatility --########## ADD IN ACTUAL AURA NAME WITH NEW SPELL DATA #########
+  // Versatility from Inspiring Presence - ID=167188 (Warrior)
   // Warriors will have it.
   auras.versatility = buff_creator_t( this, "versatility" )
                       .max_stack( 100 )
-                      .default_value( 0.03 ) //Check
+                      .default_value( dbc.spell( 167188 ) -> effectN ( 1 ).percent() )
                       .add_invalidate( CACHE_VERSATILITY );
 
   // Find Already defined target, otherwise create a new one.
@@ -1591,8 +1638,18 @@ bool sim_t::init()
       else if ( p.primary_role() == ROLE_TANK )
         ++tanks;
     }
-    if ( healers > 0 )
-      heal_target = module_t::heal_enemy() -> create_player( this, "Healing Target" );
+    if ( healers > 0 || healing > 0 )
+      heal_target = module_t::heal_enemy() -> create_player( this, "Healing_Target" );
+    if ( healing > 1 )
+    {
+      int targets_create = healing;
+      do
+      {
+        heal_target = module_t::heal_enemy() -> create_player( this, "Healing_Target_" + util::to_string( targets_create ) );
+        targets_create--;
+      }
+      while ( targets_create > 1 );
+    }
   }
 
   if ( max_player_level < 0 )
@@ -1616,6 +1673,15 @@ bool sim_t::init()
 
   initialized = true;
 
+  for ( size_t i = 0, end = player_list.size(); i < end; i++ )
+  {
+    if ( player_list[ i ] -> regen_type == REGEN_STATIC )
+    {
+      requires_regen_event = true;
+      break;
+    }
+  }
+
   return canceled ? false : true;
 }
 
@@ -1636,6 +1702,26 @@ struct compare_hps
   bool operator()( player_t* l, player_t* r ) const
   {
     return l -> collected_data.hps.mean() > r -> collected_data.hps.mean();
+  }
+};
+
+// compare_dtps ==============================================================
+
+struct compare_dtps
+{
+  bool operator()( player_t* l, player_t* r ) const
+  {
+    return l -> collected_data.dtps.mean() < r -> collected_data.dtps.mean();
+  }
+};
+
+// compare_tmi==============================================================
+
+struct compare_tmi
+{
+  bool operator()( player_t* l, player_t* r ) const
+  {
+    return l -> collected_data.theck_meloree_index.mean() < r -> collected_data.theck_meloree_index.mean();
   }
 };
 
@@ -1685,8 +1771,10 @@ void sim_t::analyze()
   for ( size_t i = 0; i < actor_list.size(); i++ )
     actor_list[ i ] -> analyze( *this );
 
-  range::sort( players_by_dps, compare_dps() );
-  range::sort( players_by_hps, compare_hps() );
+  range::sort( players_by_dps,  compare_dps() );
+  range::sort( players_by_hps,  compare_hps() );
+  range::sort( players_by_dtps, compare_dtps() );
+  range::sort( players_by_tmi,  compare_tmi() );
   range::sort( players_by_name, compare_name() );
   range::sort( targets_by_name, compare_name() );
 }
@@ -1864,6 +1952,7 @@ void sim_t::merge()
     if ( child )
     {
       child -> wait();
+      children[ i ] = 0;
       delete child;
     }
   }
@@ -2076,6 +2165,13 @@ expr_t* sim_t::create_expression( action_t* a,
     return make_ref_expr( name_str, target -> actor_index );
   }
 
+  // If nothing else works, check to see if the string matches an actor in the sim.
+  // If so, return their actor index
+  if ( splits.size() == 1 )
+    for ( size_t i = 0; i < actor_list.size(); i++ )
+      if ( name_str == actor_list[ i ] -> name_str )
+        return make_ref_expr( name_str, actor_list[ i ] -> actor_index );    
+
   return 0;
 }
 
@@ -2164,6 +2260,7 @@ void sim_t::create_options()
     opt_bool( "debug_each", debug_each ),
     opt_string( "html", html_file_str ),
     opt_bool( "hosted_html", hosted_html ),
+    opt_int( "healing", healing ),
     opt_string( "xml", xml_file_str ),
     opt_string( "xml_style", xml_stylesheet_file_str ),
     opt_bool( "log", log ),
@@ -2211,6 +2308,7 @@ void sim_t::create_options()
     opt_bool( "show_etmi", show_etmi ),
     opt_float( "tmi_window_global", tmi_window_global ),
     opt_float( "tmi_bin_size", tmi_bin_size ),
+    opt_bool( "enable_taunts", enable_taunts ),
     // Character Creation
     opt_func( "death_knight", parse_player ),
     opt_func( "deathknight", parse_player ),
@@ -2276,6 +2374,7 @@ void sim_t::create_options()
     opt_bool( "monitor_cpu", monitor_cpu ),
     opt_func( "maximize_reporting", parse_maximize_reporting ),
     opt_int( "global_item_upgrade_level", global_item_upgrade_level ),
+    opt_int( "wowhead_tooltips", wowhead_tooltips ),
     opt_null()
   };
 
@@ -2429,12 +2528,15 @@ double sim_t::progress( int* current,
                         std::string* detailed )
 {
   int total_iterations = iterations;
-  for ( size_t i = 0; i < children.size(); i++ )
-    total_iterations += children[ i ] -> iterations;
-
   int total_current_iterations = current_iteration + 1;
   for ( size_t i = 0; i < children.size(); i++ )
+  {
+    if ( ! children[ i ] )
+      continue;
+
+    total_iterations += children[ i ] -> iterations;
     total_current_iterations += children[ i ] -> current_iteration + 1;
+  }
 
   if ( current ) *current = total_current_iterations;
   if ( _final   ) *_final   = total_iterations;

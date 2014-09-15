@@ -48,7 +48,7 @@ enum main_tabs_e
   TAB_HELP,
   TAB_LOG,
   TAB_RESULTS,
-  TAB_SITE
+  TAB_SPELLQUERY
 #ifdef SC_PAPERDOLL
   , TAB_PAPERDOLL
 #endif
@@ -61,10 +61,12 @@ enum import_tabs_e
   TAB_BIS,
   TAB_HISTORY,
   TAB_RECENT,
+  TAB_AUTOMATION,
   TAB_CUSTOM
 };
 
 class SC_WebView;
+//class SC_SpellQueryTab;
 class SC_CommandLine;
 class SimulateThread;
 #ifdef SC_PAPERDOLL
@@ -511,6 +513,60 @@ public:
     SC_enumeratedTab<import_tabs_e>( parent )
   {
   }
+
+  // these are options on the Automation tab
+  struct choices_t
+  {
+    QComboBox* player_class;
+    QComboBox* player_spec;
+    QComboBox* player_race;
+    QComboBox* player_level;
+    QComboBox* comp_type;
+  } choice;
+
+  struct labels_t
+  {
+    QLabel* talents;
+    QLabel* glyphs;
+    QLabel* gear;
+    QLabel* rotationHeader;
+    QLabel* rotationFooter;
+    QLabel* advanced;
+    QLabel* sidebar;
+    QLabel* footer;
+  } label;
+
+  struct textBoxes_t
+  {
+    QLineEdit* talents;
+    QLineEdit* glyphs;
+    SC_TextEdit* gear;
+    SC_TextEdit* rotationHeader;
+    SC_TextEdit* rotationFooter;
+    SC_TextEdit* advanced;
+    SC_TextEdit* sidebar;
+    SC_TextEdit* helpbar;
+    SC_TextEdit* footer;
+  } textbox;
+
+  QString advTalent;
+  QString advGlyph;
+  QString advGear;
+  QString advRotation;
+
+  void encodeSettings();
+  void load_setting( QSettings& s, const QString& name, QComboBox* choice, const QString& default_value );
+  void load_setting( QSettings& s, const QString& name, QString* text, const QString& default_value);
+  void load_setting( QSettings& s, const QString& name, QLineEdit* textbox, const QString& default_value);
+  void load_setting( QSettings& s, const QString& name, SC_TextEdit* textbox, const QString& default_value);
+  void decodeSettings();
+  void createAutomationTab();
+  void createTooltips();
+
+public slots:
+  void setSpecDropDown( const int player_class );
+  void setSidebarClassText();
+  void compTypeChanged( const int comp );
 };
 
 // ==========================================================================
@@ -820,6 +876,7 @@ public slots:
 };
 
 class SC_OptionsTab;
+class SC_SpellQueryTab;
 
 // ============================================================================
 // SC_ComboBoxIntegerValidator
@@ -964,6 +1021,7 @@ public:
   SC_ImportTab* importTab;
   SC_SimulateTab* simulateTab;
   SC_ResultTab* resultsTab;
+  SC_SpellQueryTab* spellQueryTab;
   QTabWidget* createCustomProfileDock;
 #ifdef SC_PAPERDOLL
   QTabWidget* paperdollTab;
@@ -971,9 +1029,7 @@ public:
   PaperdollProfile* paperdollProfile;
 #endif
 
-
   SC_WebView* battleNetView;
-  SC_WebView* siteView;
   SC_WebView* helpView;
   SC_WebView* visibleWebView;
   QListWidget* historyList;
@@ -1020,6 +1076,7 @@ public:
   int consecutiveSimulationsRun;
 
   void    startImport( int tab, const QString& url );
+  void    startAutomationImport( int tab );
   bool    importRunning();
   void    startSim();
   bool    simRunning();
@@ -1041,7 +1098,7 @@ public:
   void createHelpTab();
   void createLogTab();
   void createResultsTab();
-  void createSiteTab();
+  void createSpellQueryTab();
   void createToolTips();
   void createTabShortcuts();
 #ifdef SC_PAPERDOLL
@@ -1082,6 +1139,7 @@ private slots:
   void cancelButtonClicked();
   void queueButtonClicked();
   void importButtonClicked();
+  void queryButtonClicked();
   void mainTabChanged( int index );
   void importTabChanged( int index );
   void resultsTabChanged( int index );
@@ -1104,7 +1162,7 @@ public slots:
   void stopImport();
   void stopSim();
   void stopAllSim();
-
+  
 public:
   SC_MainWindow( QWidget *parent = 0 );
 };
@@ -1489,6 +1547,69 @@ public:
   virtual void run();
   ImportThread( SC_MainWindow* mw ) : mainWindow( mw ), sim( 0 ), player( 0 ) {}
 };
+
+
+namespace automation {
+
+  QString tokenize( QString qstr );
+  QStringList splitPreservingComments( QString qstr );
+
+  QString automation_main( int sim_type,
+                        QString player_class,
+                        QString player_spec,
+                        QString player_race,
+                        QString player_level,
+                        QString player_talents,
+                        QString player_glyphs,
+                        QString player_gear,
+                        QString player_rotationHeader,
+                        QString player_rotationFooter,
+                        QString advanced_text,
+                        QString sidebar_text,
+                        QString footer_text
+                      );
+
+  QString auto_talent_sim( QString player_class,
+                           QString base_profile_info,
+                           QStringList advanced_text,
+                           QString player_glyphs,
+                           QString player_gear,
+                           QString player_rotation
+                         );
+
+  QString auto_glyph_sim( QString player_class,
+                          QString base_profile_info,
+                          QString player_talents,
+                          QStringList advanced_text,
+                          QString player_gear,
+                          QString player_rotation
+                        );
+
+  QString auto_gear_sim( QString player_class,
+                         QString base_profile_info, 
+                         QString player_talents,
+                         QString player_glyphs,
+                         QStringList advanced_text,
+                         QString player_rotation
+                       );
+
+  QString auto_rotation_sim( QString player_class,
+                             QString player_spec,
+                             QString base_profile_info,
+                             QString player_talents,
+                             QString player_glyphs,
+                             QString player_gear,
+                             QString player_rotationHeader,
+                             QString player_rotationFooter,
+                             QStringList advanced_text,
+                             QString sidebar_text
+                           );
+
+  QStringList convert_shorthand( QStringList shorthandList, QString sidebar_text );
+  QStringList splitOption( QString options_shorthand );
+  QStringList splitOnFirst( QString str, const char* delimiter );
+
+} // end automation namespace
 
 #ifdef SC_PAPERDOLL
 

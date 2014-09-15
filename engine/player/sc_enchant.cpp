@@ -19,19 +19,7 @@ namespace /* ANONYMOUS NAMESPACE */
  * item_enchantment_data_t structs in sc_item_data.inc.
  */
 static const enchant_db_item_t __enchant_db[] = {
-  /* Engineering tinkers */
-  { "synapse_springs_2",       4898 }, /* Default is "synapse_springs_mark_ii" */
 
-  /* Tailoring cloak enchants */
-  { "lightweave_1",            3722 },
-  { "lightweave_2",            4115 },
-  { "lightweave_3",            4892 },
-  { "darkglow_1",              3728 },
-  { "darkglow_2",              4116 },
-  { "darkglow_3",              4893 },
-  { "swordguard_1",            3730 },
-  { "swordguard_2",            4118 },
-  { "swordguard_3",            4894 },
   { 0,                         0    }
 };
 
@@ -152,25 +140,29 @@ std::string enchant::encoded_enchant_name( const dbc_t& dbc, const item_enchantm
  * enchant procs for even more detection. This would remove the need for
  * Tailoring enchant mappings in the array above.
  */
-const item_enchantment_data_t& enchant::find_item_enchant( const dbc_t& dbc,
+const item_enchantment_data_t& enchant::find_item_enchant( const item_t& item,
                                                            const std::string& name )
 {
   // Check additional mapping table first
   if ( find_enchant_id( name ) > 0 )
-    return dbc.item_enchantment( find_enchant_id( name ) );
+    return item.player -> dbc.item_enchantment( find_enchant_id( name ) );
 
-  for ( const item_enchantment_data_t* item_enchant = dbc.item_enchantments();
+  for ( const item_enchantment_data_t* item_enchant = item.player -> dbc.item_enchantments();
         item_enchant -> id != 0;
         item_enchant++ )
   {
     if ( ! item_enchant -> name && ! item_enchant -> id_spell )
       continue;
 
-    if ( util::str_compare_ci( name, encoded_enchant_name( dbc, *item_enchant ) ) )
+    const spell_data_t* enchant_spell = item.player -> dbc.spell( item_enchant -> id_spell );
+    if ( ! enchant_spell -> valid_item_enchantment( item.inv_type() ) )
+      continue;
+
+    if ( util::str_compare_ci( name, encoded_enchant_name( item.player -> dbc, *item_enchant ) ) )
       return *item_enchant;
   }
 
-  return dbc.item_enchantment( 0 );
+  return item.player -> dbc.item_enchantment( 0 );
 }
 
 /**

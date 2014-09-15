@@ -128,8 +128,7 @@ std::string chart_t::to_string() const
 
     js_.Accept( writer );
     std::string javascript = b.GetString();
-      javascript.erase(std::remove(javascript.begin(),javascript.end(),' '),javascript.end());
-      javascript.erase(std::remove(javascript.begin(),javascript.end(), '\n'), javascript.end());
+    javascript.erase(std::remove(javascript.begin(),javascript.end(), '\n'), javascript.end());
     std::string str_ = "<div id=\"" + id_str_ + "\"";
     str_ += " style=\"min-width: " + util::to_string( width_ ) + "px;";
     str_ += " height: " + util::to_string( height_ ) + "px; margin: 0 auto\"></div>\n";

@@ -29,14 +29,24 @@ bool has_multistrike( const std::vector<stats_t::stats_results_t>& s)
   return ( s[ RESULT_MULTISTRIKE ].count.mean() + s[ RESULT_MULTISTRIKE_CRIT ].count.mean() ) > 0;
 }
 
-bool has_block( const stats_t* s )
+bool has_amount_results( const std::vector<stats_t::stats_results_t>& res )
 {
-  return ( s -> direct_results_detail[ FULLTYPE_HIT_BLOCK ].count.mean() +
-           s -> direct_results_detail[ FULLTYPE_HIT_CRITBLOCK ].count.mean() +
-           s -> direct_results_detail[ FULLTYPE_GLANCE_BLOCK ].count.mean() +
-           s -> direct_results_detail[ FULLTYPE_GLANCE_CRITBLOCK ].count.mean() +
-           s -> direct_results_detail[ FULLTYPE_CRIT_BLOCK ].count.mean() +
-           s -> direct_results_detail[ FULLTYPE_CRIT_CRITBLOCK ].count.mean() ) > 0;
+  return (
+      res[ RESULT_HIT ].actual_amount.mean() > 0 ||
+      res[ RESULT_CRIT ].actual_amount.mean() > 0 ||
+      res[ RESULT_MULTISTRIKE ].actual_amount.mean() > 0 ||
+      res[ RESULT_MULTISTRIKE_CRIT ].actual_amount.mean() > 0
+  );
+}
+
+bool has_block( const std::vector<stats_t::stats_results_t>& s )
+{
+  return ( s[ FULLTYPE_HIT_BLOCK ].count.mean() +
+           s[ FULLTYPE_HIT_CRITBLOCK ].count.mean() +
+           s[ FULLTYPE_GLANCE_BLOCK ].count.mean() +
+           s[ FULLTYPE_GLANCE_CRITBLOCK ].count.mean() +
+           s[ FULLTYPE_CRIT_BLOCK ].count.mean() +
+           s[ FULLTYPE_CRIT_CRITBLOCK ].count.mean() ) > 0;
 }
 
 bool player_has_tick_results( player_t* p, unsigned stats_mask )
@@ -112,7 +122,8 @@ bool player_has_block( player_t* p, unsigned stats_mask )
     if ( ! ( stats_mask & ( 1 << p -> stats_list[ i ] -> type ) ) )
       continue;
 
-    if ( has_block( p -> stats_list[ i ] ) )
+    if ( has_block( p -> stats_list[ i ] -> direct_results_detail ) ||
+         has_block( p -> stats_list[ i ] -> tick_results_detail ) )
       return true;
   }
 
@@ -165,7 +176,11 @@ std::string output_action_name( stats_t* s, player_t* actor )
   if ( ! SC_BETA )
     domain = s -> player -> dbc.ptr ? wowhead::PTR : wowhead::LIVE;
 
-  std::string name = wowhead::decorated_action_name( s -> name_str, a, domain );
+  std::string name;
+  if ( a && a -> sim -> wowhead_tooltips )
+    name = wowhead::decorated_action_name( s -> name_str, a, domain );
+  else
+    name = "<a href=\"#\">" + s -> name_str + "</a>";
 
   // If we are printing a stats object that belongs to a pet, for an actual
   // actor, print out the pet name too
@@ -500,11 +515,7 @@ void print_html_action_info( report::sc_html_stream& os, unsigned stats_mask, st
             value /= 2;
           }
 
-          os.printf(
-            "<td>%s%.*f</td>\n",
-            prefix.c_str(), 
-            ( i == STAT_WEAPON_OFFHAND_SPEED || i == STAT_WEAPON_SPEED ) ? 2 : 0,
-            value );
+          os.printf( "<td>%s%.0f</td>\n", prefix.c_str(), value );
         }
         os << "</tr>\n";
         os << "<tr>\n"
@@ -556,10 +567,13 @@ void print_html_action_info( report::sc_html_stream& os, unsigned stats_mask, st
          << "<th class=\"small\">Overkill %</th>\n"
          << "</tr>\n";
       int k = 0;
-      for ( full_result_e i = FULLTYPE_MAX; --i >= FULLTYPE_NONE; )
+      if ( has_block( s -> direct_results_detail ) )
       {
-        if ( s -> direct_results_detail[ i ].count.mean() )
+        for ( full_result_e i = FULLTYPE_MAX; --i >= FULLTYPE_NONE; )
         {
+          if ( ! s -> direct_results_detail[ i ].count.mean() )
+            continue;
+
           os << "<tr";
 
           if ( k & 1 )
@@ -597,6 +611,50 @@ void print_html_action_info( report::sc_html_stream& os, unsigned stats_mask, st
             s -> direct_results_detail[ i ].overkill_pct.mean() );
         }
       }
+      else
+      {
+        for ( result_e i = RESULT_MAX; --i >= RESULT_NONE; )
+        {
+          if ( ! s -> direct_results[ i ].count.mean() )
+            continue;
+
+          os << "<tr";
+
+          if ( k & 1 )
+          {
+            os << " class=\"odd\"";
+          }
+          k++;
+          os << ">\n";
+
+          os.printf(
+            "<td class=\"left small\">%s</td>\n"
+            "<td class=\"right small\">%.2f</td>\n"
+            "<td class=\"right small\">%.2f%%</td>\n"
+            "<td class=\"right small\">%.2f</td>\n"
+            "<td class=\"right small\">%.0f</td>\n"
+            "<td class=\"right small\">%.0f</td>\n"
+            "<td class=\"right small\">%.2f</td>\n"
+            "<td class=\"right small\">%.0f</td>\n"
+            "<td class=\"right small\">%.0f</td>\n"
+            "<td class=\"right small\">%.0f</td>\n"
+            "<td class=\"right small\">%.0f</td>\n"
+            "<td class=\"right small\">%.2f</td>\n"
+            "</tr>\n",
+            util::result_type_string( i ),
+            s -> direct_results[ i ].count.mean(),
+            s -> direct_results[ i ].pct,
+            s -> direct_results[ i ].actual_amount.mean(),
+            s -> direct_results[ i ].actual_amount.min(),
+            s -> direct_results[ i ].actual_amount.max(),
+            s -> direct_results[ i ].avg_actual_amount.mean(),
+            s -> direct_results[ i ].avg_actual_amount.min(),
+            s -> direct_results[ i ].avg_actual_amount.max(),
+            s -> direct_results[ i ].fight_actual_amount.mean(),
+            s -> direct_results[ i ].fight_total_amount.mean(),
+            s -> direct_results[ i ].overkill_pct.mean() );
+        }
+      }
 
     }
 
@@ -625,10 +683,13 @@ void print_html_action_info( report::sc_html_stream& os, unsigned stats_mask, st
          << "<th class=\"small\">Overkill %</th>\n"
          << "</tr>\n";
       int k = 0;
-      for ( full_result_e i = FULLTYPE_MAX; --i >= FULLTYPE_NONE; )
+      if ( has_block( s -> tick_results_detail ) )
       {
-        if ( s -> tick_results_detail[ i ].count.mean() )
+        for ( full_result_e i = FULLTYPE_MAX; --i >= FULLTYPE_NONE; )
         {
+          if ( ! s -> tick_results_detail[ i ].count.mean() )
+            continue;
+
           os << "<tr";
           if ( k & 1 )
           {
@@ -664,8 +725,50 @@ void print_html_action_info( report::sc_html_stream& os, unsigned stats_mask, st
             s -> tick_results_detail[ i ].overkill_pct.mean() );
         }
       }
+      else
+      {
+        for ( result_e i = RESULT_MAX; --i >= RESULT_NONE; )
+        {
+          if ( ! s -> tick_results[ i ].count.mean() )
+            continue;
+
+          os << "<tr";
+          if ( k & 1 )
+          {
+            os << " class=\"odd\"";
+          }
+          k++;
+          os << ">\n";
+          os.printf(
+            "<td class=\"left small\">%s</td>\n"
+            "<td class=\"right small\">%.1f</td>\n"
+            "<td class=\"right small\">%.2f%%</td>\n"
+            "<td class=\"right small\">%.2f</td>\n"
+            "<td class=\"right small\">%.0f</td>\n"
+            "<td class=\"right small\">%.0f</td>\n"
+            "<td class=\"right small\">%.2f</td>\n"
+            "<td class=\"right small\">%.0f</td>\n"
+            "<td class=\"right small\">%.0f</td>\n"
+            "<td class=\"right small\">%.0f</td>\n"
+            "<td class=\"right small\">%.0f</td>\n"
+            "<td class=\"right small\">%.2f</td>\n"
+            "</tr>\n",
+            util::result_type_string( i ),
+            s -> tick_results[ i ].count.mean(),
+            s -> tick_results[ i ].pct,
+            s -> tick_results[ i ].actual_amount.mean(),
+            s -> tick_results[ i ].actual_amount.min(),
+            s -> tick_results[ i ].actual_amount.max(),
+            s -> tick_results[ i ].avg_actual_amount.mean(),
+            s -> tick_results[ i ].avg_actual_amount.min(),
+            s -> tick_results[ i ].avg_actual_amount.max(),
+            s -> tick_results[ i ].fight_actual_amount.mean(),
+            s -> tick_results[ i ].fight_total_amount.mean(),
+            s -> tick_results[ i ].overkill_pct.mean() );
+        }
+      }
     }
-    
+
     os << "</table>\n";
 
     os << "<div class=\"clear\">&nbsp;</div>\n";
@@ -934,7 +1037,16 @@ void print_html_gear ( report::sc_html_stream& os, player_t* p )
     if ( item.active() )
     {
       std::string rel_str = "";
-      if ( item.upgrade_level() ) rel_str = " rel=\"upgd=" + util::to_string( item.upgrade_level() ) + "\"";
+      if ( item.parsed.bonus_id.size() )
+      {
+        rel_str += " rel=\"bonus=";
+        for ( size_t i = 0; i < item.parsed.bonus_id.size(); i++ )
+        {
+          rel_str += util::to_string( item.parsed.bonus_id[i] );
+          rel_str += ":";
+        }
+        rel_str += "\"";
+      }
       item_string = ! item.parsed.data.id ? item.options_str : "<a href=\"http://" + domain + ".wowhead.com/item=" + util::to_string( item.parsed.data.id ) + "\"" + rel_str + ">" + item.encoded_item() + "</a>";
     }
     else
@@ -1026,8 +1138,8 @@ void print_html_stats ( report::sc_html_stream& os, player_t* a )
         "<td class=\"right\">%.0f",
         ( j % 2 == 1 ) ? " class=\"odd\"" : "",
         util::inverse_tokenize( util::attribute_type_string( i ) ).c_str(),
-        buffed_stats.attribute[ i ],
-        a -> get_attribute( i ),
+        util::floor( buffed_stats.attribute[ i ] ),
+        util::floor( a -> get_attribute( i ) ),
         util::floor( a -> initial.stats.attribute[ i ] ) );
       // append hybrid attributes as a parenthetical if appropriate
       if ( hybrid_attributes[ i ] > 0 )
@@ -1274,7 +1386,7 @@ void print_html_stats ( report::sc_html_stream& os, player_t* a )
       100.0 * a -> cache.mastery_value(),
       a -> initial.stats.mastery_rating );
     j++;
-    if ( buffed_stats.mh_attack_expertise > 0 )
+    if ( buffed_stats.mh_attack_expertise > 7.5 )
     {
       if ( a -> dual_wield() )
       {
@@ -1426,10 +1538,20 @@ void print_html_talents( report::sc_html_stream& os, player_t* p )
 
     for ( uint32_t row = 0; row < MAX_TALENT_ROWS; row++ )
     {
-      os.printf(
-        "<tr>\n"
-        "<th class=\"left\">%d</th>\n",
-        ( row + 1 ) * 15 );
+      if ( row == 6 )
+      {
+        os.printf(
+          "<tr>\n"
+          "<th class=\"left\">%d</th>\n",
+          100 );
+      }
+      else
+      {
+        os.printf(
+          "<tr>\n"
+          "<th class=\"left\">%d</th>\n",
+          ( row + 1 ) * 15 );
+      }
       for ( uint32_t col = 0; col < MAX_TALENT_COLS; col++ )
       {
         talent_data_t* t = talent_data_t::find( p -> type, row, col, p -> specialization(), p -> dbc.ptr );
@@ -1547,12 +1669,7 @@ void print_html_player_scale_factors( report::sc_html_stream& os, sim_t* sim, pl
           prefix = "+/- ";
         }
 
-        os.printf(
-          "<td>%s%.*f</td>\n",
-          prefix.c_str(),
-          ( p -> scaling_stats[ i ] == STAT_WEAPON_OFFHAND_SPEED || 
-            p -> scaling_stats[ i ] == STAT_WEAPON_SPEED ) ? 2 : 0,
-          value );
+        os.printf( "<td>%s%.0f</td>\n", prefix.c_str(), value );
 
       }
       if ( p -> sim -> scaling -> scale_lag )
@@ -1715,7 +1832,79 @@ void print_html_player_scale_factors( report::sc_html_stream& os, sim_t* sim, pl
      << "</div>\n";
 }
 
-// print_html_player_action_priority_list ===================================
+// print_html_sample_sequence_table_entry =====================================
+
+void print_html_sample_sequence_table_entry( report::sc_html_stream& os,
+                                             player_collected_data_t::action_sequence_data_t* data,
+                                             player_t* p,
+                                             bool precombat = false )
+{
+  os << "<tr>\n";
+
+  if ( precombat )
+    os << "<td class=\"right\">Pre</td>\n";
+  else
+    os.printf( "<td class=\"right\">%d:%02d.%03d</td>\n",
+               ( int ) data -> time.total_minutes(),
+               ( int ) data -> time.total_seconds() % 60,
+               ( int ) data -> time.total_millis() % 1000
+               );
+
+  os.printf( "<td></td>\n"
+             "<td class=\"left\">%s</td>\n"
+             "<td></td>\n"
+             "<td class=\"left\">%s</td>\n"
+             "<td></td>\n",
+             data -> action -> name(),
+             data -> target -> name()
+             );
+
+  os.printf( "<td class=\"left\" style=\"white-space: nowrap\">" );
+
+  bool first = true;
+  for ( resource_e r = RESOURCE_HEALTH; r < RESOURCE_MAX; ++r )
+  {
+    if ( !p -> resources.is_infinite( r ) && ( data -> resource_snapshot[ r ] >= 0 || 
+      ( r == RESOURCE_ECLIPSE && p -> specialization() == DRUID_BALANCE ) ) ) // Eclipse currently dips into the negatives.
+    {
+      if ( first )
+        first = false;
+      else
+        os.printf( " |" );
+
+      if ( r == RESOURCE_HEALTH || r == RESOURCE_MANA )
+        os.printf( " %d%%", ( int ) ( ( data -> resource_snapshot[ r ] / p -> resources.max[ r ] ) * 100 ) );
+      else
+        os.printf( " %.1f", data -> resource_snapshot[ r ] );
+      os.printf( " %s", util::resource_type_string( r ) );
+    }
+  }
+
+  os.printf( "</td>\n<td></td>\n<td class=\"left\">" );
+
+  first = true;
+  for ( size_t b = 0; b < data -> buff_list.size(); ++b )
+  {
+    buff_t* buff = data -> buff_list[ b ].first;
+    int stacks = data -> buff_list[ b ].second;
+
+    if ( ! buff -> constant )
+    {
+      if ( first )
+        first = false;
+      else
+        os.printf( ", " );
+
+      os.printf( "%s", buff -> name() );
+      if ( stacks > 1 )
+        os.printf( "(%d)", stacks );
+    }
+  }
+
+  os.printf( "</td>\n" );
+}
+
+// print_html_player_action_priority_list =====================================
 
 void print_html_player_action_priority_list( report::sc_html_stream& os, sim_t* sim, player_t* p )
 {
@@ -1730,14 +1919,15 @@ void print_html_player_action_priority_list( report::sc_html_stream& os, sim_t* 
     action_t* a = p -> action_list[ i ];
     if ( a -> signature_str.empty() || ! a -> marker ) continue;
 
-    if ( ! alist || a -> action_list != alist -> name_str )
+    if ( ! alist || a -> action_list -> name_str != alist -> name_str )
     {
       if ( alist )
       {
         os << "</table>\n";
       }
 
-      alist = p -> find_action_priority_list( a -> action_list );
+      //alist = p -> find_action_priority_list( a -> action_list );
+      alist = a -> action_list;
 
       if ( ! alist -> used ) continue;
 
@@ -1786,11 +1976,10 @@ void print_html_player_action_priority_list( report::sc_html_stream& os, sim_t* 
     os << "</table>\n";
   }
 
+  // Sample Sequences
+
   if ( ! p -> collected_data.action_sequence.empty() )
   {
-    os << "<div class=\"subsection subsection-small\">\n"
-       << "<h4>Sample Sequence</h4>\n"
-       << "<div class=\"force-wrap mono\">\n";
 
     std::vector<std::string> targets;
 
@@ -1812,6 +2001,12 @@ void print_html_player_action_priority_list( report::sc_html_stream& os, sim_t* 
       }
       if ( ! found ) targets.push_back( data -> target -> name() );
     }
+
+    // Sample Sequence (text string)
+
+    os << "<div class=\"subsection subsection-small\">\n"
+       << "<h4>Sample Sequence</h4>\n"
+       << "<div class=\"force-wrap mono\">\n";
 
     os << "<style type=\"text/css\" media=\"all\">\n";
 
@@ -1860,8 +2055,14 @@ void print_html_player_action_priority_list( report::sc_html_stream& os, sim_t* 
 
       for ( size_t b = 0; b < data -> buff_list.size(); ++b )
       {
-        buff_t* buff = data -> buff_list[ b ];
-        if ( ! buff -> constant ) os.printf( "\n%s", buff -> name() );
+        buff_t* buff = data -> buff_list[ b ].first;
+        int stacks = data -> buff_list[ b ].second;
+        if ( ! buff -> constant ) 
+        {
+          os.printf( "\n%s", buff -> name() );
+          if ( stacks > 1 )
+            os.printf( "(%d)", stacks );
+        }
       }
 
       os.printf( "\">%c</span>", data -> action -> marker );
@@ -1869,8 +2070,50 @@ void print_html_player_action_priority_list( report::sc_html_stream& os, sim_t* 
 
     os << "\n</div>\n"
        << "</div>\n";
+
+    // Sample Sequence (table)
+    
+    // define collapsable section
+    os << "<h3 class=\"toggle\">Sample Sequence Table</h3>\n"
+       << "<div class=\"toggle-content hide\">\n";
+
+    // create table header
+    os.printf(
+      "<table class=\"sc\">\n"
+      "<tr>\n"
+      "<th class=\"center\">time</th>\n"
+      "<th></th>\n"
+      "<th class=\"center\">name</th>\n"
+      "<th></th>\n"
+      "<th class=\"center\">target</th>\n"
+      "<th></th>\n"
+      "<th class=\"center\">resources</th>\n"
+      "<th></th>\n"
+      "<th class=\"center\">buffs</th>\n"
+      "</tr>\n");
+    
+    for ( size_t i = 0; i < p -> collected_data.action_sequence_precombat.size(); ++i )
+    {
+      player_collected_data_t::action_sequence_data_t* data = p -> collected_data.action_sequence_precombat[ i ];
+      
+      print_html_sample_sequence_table_entry( os, data, p, true );      
+    }
+
+    for ( size_t i = 0; i < p -> collected_data.action_sequence.size(); ++i )
+    {
+      player_collected_data_t::action_sequence_data_t* data = p -> collected_data.action_sequence[ i ];
+      
+      print_html_sample_sequence_table_entry( os, data, p );
+    }
+
+    // close table
+    os << "</table>\n";
+
+    // close collapsable section
+    os << "</div>\n";
   }
 
+  // End Action Priority List section
   os << "</div>\n"
      << "</div>\n";
 
@@ -2312,14 +2555,14 @@ void print_html_player_charts( report::sc_html_stream& os, sim_t* sim, player_t*
 
   }
 
-  if ( p -> resolve_timeline.mean() > 0 )
+  if ( p -> collected_data.resolve_timeline.merged_timeline.mean() > 0 )
   {
     highchart::time_series_t resolve( highchart::build_id( p, "resolve" ), p -> sim );
     resolve.set_yaxis_title( "Attack Power" );
     resolve.set_title( p -> name_str + " Resolve attack power" );
-    resolve.add_series( "#FF0000", "Attack Power", p -> resolve_timeline.data() );
-    resolve.set_mean( p -> resolve_timeline.mean() );
-    resolve.set_max( p -> resolve_timeline.max() );
+    resolve.add_series( "#FF0000", "Attack Power", p -> collected_data.resolve_timeline.merged_timeline.data() );
+    resolve.set_mean( p -> collected_data.resolve_timeline.merged_timeline.mean() );
+    resolve.set_max( p -> collected_data.resolve_timeline.merged_timeline.max() );
     resolve.set_xaxis_max( p -> sim -> simulation_length.max() );
 
     os << resolve.to_string();
@@ -3033,7 +3276,7 @@ void print_html_player_results_spec_gear( report::sc_html_stream& os, sim_t* sim
             }
           }
           if ( p -> talent_points.has_row_col( row, col ) )
-            os.printf( "<li><strong>%d</strong>:&nbsp;%s</li>\n", ( row + 1 ) * 15, name.c_str() );
+            os.printf( "<li><strong>%d</strong>:&nbsp;%s</li>\n", row == 6 ? 100 : ( row + 1 ) * 15, name.c_str() );
         }
       }
 

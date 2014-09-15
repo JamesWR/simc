@@ -1,6 +1,16 @@
 #ifndef DATA_ENUMS_HH
 #define DATA_ENUMS_HH
 
+enum item_bonus_type
+{
+  ITEM_BONUS_ILEVEL    = 1,
+  ITEM_BONUS_MOD       = 2,
+  ITEM_BONUS_DESC      = 4,
+  ITEM_BONUS_SUFFIX    = 5,
+  ITEM_BONUS_SOCKET    = 6,
+  ITEM_BONUS_REQ_LEVEL = 8,
+};
+
 enum proc_types
 {
   PROC1_KILLED = 0,
@@ -69,8 +79,8 @@ enum item_raid_type
   RAID_TYPE_NORMAL   = 0x00,
   RAID_TYPE_LFR      = 0x01,
   RAID_TYPE_HEROIC   = 0x02,
-  RAID_TYPE_FLEXIBLE = 0x04,
-  RAID_TYPE_ELITE    = 0x10,
+  RAID_TYPE_WARFORGED = 0x04,
+  RAID_TYPE_MYTHIC    = 0x10,
 };
 
 // Mangos data types for various DBC-related enumerations
@@ -407,14 +417,15 @@ enum item_mod_type {
   ITEM_MOD_MULTISTRIKE_RATING       = 59,
   ITEM_MOD_READINESS_RATING         = 60,
   ITEM_MOD_WOD_1                    = 61,
-  ITEM_MOD_WOD_2                    = 62,
+  ITEM_MOD_LEECH_RATING             = 62,
   ITEM_MOD_WOD_3                    = 63,
   ITEM_MOD_WOD_4                    = 64,
   ITEM_MOD_WOD_5                    = 65,
   ITEM_MOD_WOD_6                    = 66,
+  ITEM_MOD_STRENGTH_AGILITY_INTELLECT = 71,
+  ITEM_MOD_STRENGTH_AGILITY         = 72,
   ITEM_MOD_AGILITY_INTELLECT        = 73,
   ITEM_MOD_STRENGTH_INTELLECT       = 74,
-  ITEM_MOD_STRENGTH_AGILITY         = 75, // WOD-TODO: This is a guess, verify once an item with this stat exists
 };
 
 enum rating_mod_type {
@@ -429,6 +440,7 @@ enum rating_mod_type {
   RATING_MOD_MULTISTRIKE  = 0x00000800,
   RATING_MOD_READINESS    = 0x00001000,
   RATING_MOD_RESILIENCE   = 0x00008000,
+  RATING_MOD_LEECH        = 0x00010000,
   RATING_MOD_HASTE_MELEE  = 0x00020000,
   RATING_MOD_HASTE_RANGED = 0x00040000,
   RATING_MOD_HASTE_SPELL  = 0x00080000,
@@ -662,7 +674,10 @@ enum effect_type_t {
     E_196 = 196,
     E_203 = 203,
     E_206 = 206,
+    E_223 = 223,
+    E_230 = 230,
     E_238 = 238,
+    E_243 = 243,
     E_MAX
 };
 
@@ -1074,6 +1089,7 @@ enum effect_subtype_t {
     A_440 = 440,
     A_441 = 441,
     A_443 = 443,
+    A_446 = 446,
     A_447 = 447,
     A_451 = 451,
     A_453 = 453,
@@ -1085,7 +1101,10 @@ enum effect_subtype_t {
     A_465 = 465,
     A_466 = 466,
     A_467 = 467,
+    A_468 = 468,
+    A_470 = 470,
     A_471 = 471,
+    A_478 = 478,
     A_MAX
 };
 

@@ -102,6 +102,8 @@ full_result_e stats_t::translate_result( result_e result, block_result_e block_r
     case RESULT_GLANCE:
     case RESULT_CRIT:
     case RESULT_HIT:
+    case RESULT_MULTISTRIKE:
+    case RESULT_MULTISTRIKE_CRIT:
     {
       switch ( block_result )
       {
@@ -136,19 +138,21 @@ void stats_t::add_result( double act_amount,
   r -> actual_amount.add( act_amount );
   r -> total_amount.add( tot_amount );
 
-  full_result_e fulltype = translate_result( result, block_result );
-  stats_results_t* f = 0;
-  if ( dmg_type == DMG_DIRECT || dmg_type == HEAL_DIRECT || dmg_type == ABSORB )
-    f = &( direct_results_detail[ fulltype ] );
-  else
-    f = &( tick_results_detail[ fulltype ] );
+  if ( block_result != BLOCK_RESULT_UNKNOWN )
+  {
+    full_result_e fulltype = translate_result( result, block_result );
+    stats_results_t* f = 0;
+    if ( dmg_type == DMG_DIRECT || dmg_type == HEAL_DIRECT || dmg_type == ABSORB )
+      f = &( direct_results_detail[ fulltype ] );
+    else
+      f = &( tick_results_detail[ fulltype ] );
 
-  f -> iteration_count += 1;
-  f -> iteration_actual_amount += act_amount;
-  f -> iteration_total_amount += tot_amount;
-  f -> actual_amount.add( act_amount );
-  f -> total_amount.add( tot_amount );
-
+    f -> iteration_count += 1;
+    f -> iteration_actual_amount += act_amount;
+    f -> iteration_total_amount += tot_amount;
+    f -> actual_amount.add( act_amount );
+    f -> total_amount.add( tot_amount );
+  }
   timeline_amount.add( sim.current_time, act_amount );
 }
 

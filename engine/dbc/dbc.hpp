@@ -495,6 +495,9 @@ public:
   size_t effect_count() const
   { assert( _effects ); return _effects -> size(); }
 
+  size_t power_count() const
+  { return _power ? _power -> size() : 0; }
+
   bool found() const
   { return ( this != not_found() ); }
 
@@ -528,6 +531,18 @@ public:
     assert( idx <= _effects -> size() && "effect index out of bound!" );
 
     return *( ( *_effects )[ idx - 1 ] );
+  }
+
+  const spellpower_data_t& powerN( size_t idx ) const
+  {
+    if ( _power )
+    {
+      assert( idx > 0 && _power && idx <= _power -> size() );
+
+      return *_power -> at( idx - 1 );
+    }
+
+    return *spellpower_data_t::nil();
   }
 
   const spellpower_data_t& powerN( power_e pt ) const
@@ -647,6 +662,18 @@ public:
 
   bool override_field( const std::string& field, double value );
 
+  bool valid_item_enchantment( inventory_type inv_type ) const
+  {
+    if ( ! _equipped_invtype_mask )
+      return true;
+
+    unsigned invtype_mask = 1 << inv_type;
+    if ( _equipped_invtype_mask & invtype_mask )
+      return true;
+
+    return false;
+  }
+
   std::string to_str() const
   {
     std::ostringstream s;
@@ -686,7 +713,7 @@ class spelleffect_data_nil_t : public spelleffect_data_t
 {
 public:
   spelleffect_data_nil_t() : spelleffect_data_t()
-  { _spell = _trigger_spell = spell_data_t::nil(); }
+  { _spell = _trigger_spell = spell_data_t::not_found(); }
 
   static spelleffect_data_nil_t singleton;
 };
@@ -738,7 +765,7 @@ inline spell_data_t* spell_data_t::not_found()
 
 inline spell_data_t* spelleffect_data_t::spell() const
 {
-  return _spell ? _spell : spell_data_t::nil();
+  return _spell ? _spell : spell_data_t::not_found();
 }
 
 inline spell_data_t* spelleffect_data_t::trigger() const
@@ -927,6 +954,7 @@ public:
   double oct_combat_rating( unsigned combat_rating_id, player_e t ) const;
 
   int resolve_item_scaling( unsigned level ) const;
+  double resolve_level_scaling( unsigned level ) const;
 
 private:
   template <typename T>
@@ -973,6 +1001,8 @@ public:
   const item_upgrade_t&          item_upgrade( unsigned upgrade_id ) const;
   const item_upgrade_rule_t&     item_upgrade_rule( unsigned item_id, unsigned upgrade_level ) const;
   const rppm_modifier_t&         real_ppm_modifier( specialization_e spec, unsigned spell_id ) const;
+
+  std::vector<const item_bonus_entry_t*> item_bonus( unsigned bonus_id ) const;
 
   // Derived data access
   unsigned num_tiers() const;
@@ -1040,6 +1070,8 @@ public:
   bool     is_mastery_ability( uint32_t spell_id ) const;
   bool     is_glyph_spell( uint32_t spell_id ) const;
   bool     is_set_bonus_spell( uint32_t spell_id ) const;
+
+  specialization_e spec_by_spell( uint32_t spell_id ) const;
 
   bool spec_idx( specialization_e spec_id, uint32_t& class_idx, uint32_t& spec_index ) const;
   specialization_e spec_by_idx( const player_e c, unsigned idx ) const;

@@ -6,6 +6,7 @@
 #include "simulationcraft.hpp"
 #include "simulationcraftqt.hpp"
 #include "SC_OptionsTab.hpp"
+#include "SC_SpellQueryTab.hpp"
 #include "util/sc_mainwindowcommandline.hpp"
 #ifdef SC_PAPERDOLL
 #include "simcpaperdoll.hpp"
@@ -130,6 +131,8 @@ void SC_MainWindow::loadHistory()
     }
   }
   optionsTab -> decodeOptions();
+  importTab -> decodeSettings();
+  spellQueryTab -> decodeSettings();
 
   if ( simulateTab -> count() <= 1 )
   { // If we haven't retrieved any simulate tabs from history, add a default one.
@@ -292,6 +295,8 @@ void SC_MainWindow::saveHistory()
   settings.endGroup();
 
   optionsTab -> encodeOptions();
+  importTab -> encodeSettings();
+  spellQueryTab -> encodeSettings();
 }
 
 // ==========================================================================
@@ -410,7 +415,7 @@ SC_MainWindow::SC_MainWindow( QWidget *parent )
   createHelpTab();
   createLogTab();
   createResultsTab();
-  createSiteTab();
+  createSpellQueryTab();
   createCmdLine();
   createToolTips();
   createTabShortcuts();
@@ -464,6 +469,7 @@ void SC_MainWindow::createCmdLine()
   connect( cmdLine, SIGNAL( forwardButtonClicked() ), this, SLOT( forwardButtonClicked() ) );
   connect( cmdLine, SIGNAL( simulateClicked() ), this, SLOT( enqueueSim() ) );
   connect( cmdLine, SIGNAL( queueClicked() ), this, SLOT( enqueueSim() ) );
+  connect( cmdLine, SIGNAL( queryClicked() ), this, SLOT( queryButtonClicked() ) );
   connect( cmdLine, SIGNAL( importClicked() ), this, SLOT( importButtonClicked() ) );
   connect( cmdLine, SIGNAL( saveLogClicked() ), this, SLOT( saveLog() ) );
   connect( cmdLine, SIGNAL( saveResultsClicked() ), this, SLOT( saveResults() ) );
@@ -534,6 +540,8 @@ void SC_MainWindow::createImportTab()
   recentlyClosedTabImport = new SC_RecentlyClosedTabWidget( this, QBoxLayout::LeftToRight );
   recentlyClosedTabModel = recentlyClosedTabImport -> getModel();
   importTab -> addTab( recentlyClosedTabImport, tr( "Recently Closed" ) );
+
+  importTab -> createAutomationTab();
 
   connect( historyList, SIGNAL( itemDoubleClicked( QListWidgetItem* ) ), this, SLOT( historyDoubleClicked( QListWidgetItem* ) ) );
   connect( importTab,   SIGNAL( currentChanged( int ) ),                 this, SLOT( importTabChanged( int ) ) );
@@ -804,13 +812,10 @@ void SC_MainWindow::createResultsTab()
   mainTab -> addTab( resultsTab, tr( "Results" ) );
 }
 
-void SC_MainWindow::createSiteTab()
+void SC_MainWindow::createSpellQueryTab()
 {
-  siteView = new SC_WebView( this );
-  siteView -> setUrl( QUrl( "http://code.google.com/p/simulationcraft/" ) );
-  siteView -> enableMouseNavigation();
-  siteView -> enableKeyboardNavigation();
-  mainTab -> addTab( siteView, tr( "Site" ) );
+  spellQueryTab = new SC_SpellQueryTab( this );
+  mainTab -> addTab( spellQueryTab, tr( "Spell Query" ) );
 }
 
 void SC_MainWindow::createToolTips()
@@ -871,11 +876,6 @@ void SC_MainWindow::updateWebView( SC_WebView* wv )
     {
       cmdLine -> setHelpViewProgress( visibleWebView -> progress, "%p%", "" );
       cmdLine -> setCommandLineText( TAB_HELP, visibleWebView -> url_to_show );
-    }
-    else if ( visibleWebView == siteView )
-    {
-      cmdLine -> setSiteLoadProgress( visibleWebView -> progress, "%p%", "" );
-      cmdLine -> setCommandLineText( TAB_SITE, visibleWebView -> url_to_show );
     }
   }
 }
@@ -1019,6 +1019,11 @@ void SC_MainWindow::deleteSim( sim_t* sim, SC_TextEdit* append_error_message )
       logText -> moveCursor( QTextCursor::End );
     }
     logText -> resetformat();
+    if ( mainTab -> currentTab() == TAB_SPELLQUERY )
+    {
+      spellQueryTab -> textbox.result -> setText( contents );
+      spellQueryTab -> checkForSave();
+    }
   }
 }
 
@@ -1134,6 +1139,7 @@ void SC_MainWindow::startSim()
     return;
   }
   optionsTab -> encodeOptions();
+  importTab -> encodeSettings();
   if ( simulateTab -> current_Text() -> toPlainText() != defaultSimulateText )
   {
     //simulateTextHistory.add( simulateText -> toPlainText() );
@@ -1160,18 +1166,17 @@ void SC_MainWindow::stopSim()
 {
   if ( simRunning() )
   {
+    simulationQueue.clear();
     sim -> cancel();
+    stopImport();
 
     if ( sim -> is_paused() )
       sim -> toggle_pause();
   }
 }
-
 void SC_MainWindow::stopAllSim()
 {
-  simulationQueue.clear();
   stopSim();
-  stopImport();
 }
 
 bool SC_MainWindow::simRunning()
@@ -1293,7 +1298,8 @@ void SC_MainWindow::simulateFinished( sim_t* sim )
     logText -> append( "Simulation failed!" );
     logText -> moveCursor( QTextCursor::End );
     logText -> resetformat();
-    mainTab -> setCurrentTab( TAB_LOG );
+    if ( mainTab -> currentTab() != TAB_SPELLQUERY )
+      mainTab -> setCurrentTab( TAB_LOG );
   }
   else
   {
@@ -1376,6 +1382,9 @@ void SC_MainWindow::simulateFinished( sim_t* sim )
     }
 
   }
+  if ( simulationQueue.isEmpty() && ! importRunning() )
+    timer -> stop();
+
   deleteSim( sim, simulateThread -> success == true ? 0:logText ); SC_MainWindow::sim = 0;
 
   if ( ! simulationQueue.isEmpty() )
@@ -1384,10 +1393,6 @@ void SC_MainWindow::simulateFinished( sim_t* sim )
   }
   else
   {
-    if ( ! importRunning() )
-    {
-      timer -> stop();
-    }
     consecutiveSimulationsRun = 0;
     cmdLine -> setState( SC_MainWindowCommandLine::IDLE );
   }
@@ -1461,7 +1466,6 @@ void SC_MainWindow::cmdLineTextEdited( const QString& s )
     case TAB_SIMULATE:  cmdLineText = s; break;
     case TAB_OVERRIDES: cmdLineText = s; break;
     case TAB_HELP:      cmdLineText = s; break;
-    case TAB_SITE:      cmdLineText = s; break;
     case TAB_LOG:       logFileText = s; break;
     case TAB_RESULTS:   resultsFileText = s; break;
     default:  break;
@@ -1499,7 +1503,6 @@ void SC_MainWindow::mainButtonClicked( bool /* checked */ )
     case TAB_SIMULATE:  enqueueSim(); break;
     case TAB_OVERRIDES: enqueueSim(); break;
     case TAB_HELP:      enqueueSim(); break;
-    case TAB_SITE:      enqueueSim(); break;
     case TAB_IMPORT:
       switch ( importTab -> currentTab() )
       {
@@ -1510,6 +1513,7 @@ void SC_MainWindow::mainButtonClicked( bool /* checked */ )
       break;
     case TAB_LOG: saveLog(); break;
     case TAB_RESULTS: saveResults(); break;
+    case TAB_SPELLQUERY: spellQueryTab -> run_spell_query();
 #ifdef SC_PAPERDOLL
     case TAB_PAPERDOLL: start_paperdoll_sim(); break;
 #endif
@@ -1544,8 +1548,14 @@ void SC_MainWindow::importButtonClicked()
   {
     case TAB_BATTLE_NET: startImport( TAB_BATTLE_NET, cmdLine -> commandLineText( TAB_BATTLE_NET ) ); break;
     case TAB_RECENT:     recentlyClosedTabImport -> restoreCurrentlySelected(); break;
+    case TAB_AUTOMATION: startAutomationImport( TAB_AUTOMATION ); break;
     default: break;
   }
+}
+
+void SC_MainWindow::queryButtonClicked()
+{
+  spellQueryTab -> run_spell_query();
 }
 
 void SC_MainWindow::pauseButtonClicked( bool )
@@ -1614,6 +1624,10 @@ void SC_MainWindow::mainTabChanged( int index )
     cmdLine -> setTab( static_cast< main_tabs_e >( index ) );
   }
 
+  // clear spell_query entries when changing tabs
+  if ( cmdLine -> commandLineText().startsWith( "spell_query" ) )
+    cmdLine -> setCommandLineText( " " );
+
   switch ( index )
   {
     case TAB_WELCOME:
@@ -1631,8 +1645,7 @@ void SC_MainWindow::mainTabChanged( int index )
     case TAB_RESULTS:
       resultsTabChanged( resultsTab -> currentIndex() );
       break;
-    case TAB_SITE:
-      updateWebView( siteView );
+    case TAB_SPELLQUERY:
       break;
     default: assert( 0 );
   }
@@ -1643,6 +1656,7 @@ void SC_MainWindow::importTabChanged( int index )
   if ( index == TAB_BIS     ||
        index == TAB_CUSTOM  ||
        index == TAB_HISTORY ||
+       index == TAB_AUTOMATION ||
        index == TAB_RECENT )
   {
     cmdLine -> setTab( static_cast< import_tabs_e >( index ) );
@@ -1829,6 +1843,13 @@ void SimulateThread::run()
     sim -> errorf( "Failed to parse text" );
   }
   if ( sim -> challenge_mode ) sim -> scale_to_itemlevel = 620; //Check
+
+  if ( sim -> spell_query != 0 )
+  {
+    sim -> spell_query -> evaluate();
+    report::print_spell_query( sim, MAX_LEVEL );
+    success = false;
+  }
 
   if ( success )
   {

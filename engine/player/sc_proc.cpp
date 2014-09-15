@@ -101,8 +101,11 @@ stat_e stat_buff_type( const spelleffect_data_t& effect )
       stat = STAT_ATTACK_POWER;
       break;
     case A_MOD_DAMAGE_DONE:
-      if ( effect.misc_value1() == 0xFE )
+      if ( effect.misc_value1() & 0x7E )
         stat = STAT_SPELL_POWER;
+      break;
+    case A_465:
+      stat = STAT_BONUS_ARMOR;
       break;
     default:
       break;
@@ -148,8 +151,8 @@ void special_effect_t::reset()
   max_stacks = -1;
   proc_chance_ = -1;
 
-  // ppm < 0 = real ppm, ppm > 0 = normal "ppm"
-  ppm_ = 0;
+  // ppm < 0 = real ppm, ppm > 0 = normal "ppm", min_double off
+  ppm_ = std::numeric_limits<double>::min();
   rppm_scale = RPPM_NONE;
 
   // Must match buff creator defaults for now
@@ -302,7 +305,12 @@ stat_buff_t* special_effect_t::initialize_stat_buff() const
     creator.reverse( true );
 
   if ( tick > timespan_t::zero() )
+  {
     creator.period( tick );
+    creator.tick_behavior( BUFF_TICK_CLIP );
+  }
+
+  creator.refresh_behavior( BUFF_REFRESH_DURATION );
 
   // If user given stat is defined, override whatever the spell would contain
   if ( stat != STAT_NONE )
@@ -351,7 +359,12 @@ absorb_buff_t* special_effect_t::initialize_absorb_buff() const
     creator.reverse( true );
 
   if ( tick > timespan_t::zero() )
+  {
     creator.period( tick );
+    creator.tick_behavior( BUFF_TICK_CLIP );
+  }
+
+  creator.refresh_behavior( BUFF_REFRESH_DURATION );
 
   return creator;
 }
@@ -594,14 +607,17 @@ unsigned special_effect_t::proc_flags2() const
 // manually set by simc.
 double special_effect_t::ppm() const
 {
-  return ppm_;
+  if ( ppm_ != std::numeric_limits<double>::min() )
+    return ppm_;
+
+  return 0;
 }
 
 // special_effect_t::rppm ===================================================
 
 double special_effect_t::rppm() const
 {
-  if ( ppm_ < 0 )
+  if ( ppm_ <= 0 && ppm_ != std::numeric_limits<double>::min() )
     return std::fabs( ppm_ );
 
   return driver() -> real_ppm();

@@ -4,7 +4,7 @@
 #ifndef MAX_CLASS
 #define MAX_CLASS (12)
 #endif
-// Class based active abilities, wow build 18546
+// Class based active abilities, wow build 18865
 static unsigned __class_ability_data[][CLASS_ABILITY_TREE_SIZE][CLASS_ABILITY_SIZE] = {
   {
     {
@@ -28,13 +28,14 @@ static unsigned __class_ability_data[][CLASS_ABILITY_TREE_SIZE][CLASS_ABILITY_SI
   },
   // Class active abilities for Warrior
   {
-    // General tree, 17 abilities
+    // General tree, 20 abilities
     {
         6673, // Battle Shout
         2457, // Battle Stance
        18499, // Berserker Rage
          100, // Charge
          469, // Commanding Shout
+      175708, // Concussion Blow
           71, // Defensive Stance
         1715, // Hamstring
         6544, // Heroic Leap
@@ -42,14 +43,16 @@ static unsigned __class_ability_data[][CLASS_ABILITY_TREE_SIZE][CLASS_ABILITY_SI
        57755, // Heroic Throw
         3411, // Intervene
         5246, // Intimidating Shout
-      114192, // Mocking Banner
         6552, // Pummel
+       64382, // Shattering Throw
+      112048, // Shield Barrier
        23920, // Spell Reflection
          355, // Taunt
+      175710, // Unleashed Rage
        34428, // Victory Rush
            0,
     },
-    // Arms tree, 10 abilities
+    // Arms tree, 11 abilities
     {
       167105, // Colossus Smash
       118038, // Die by the Sword
@@ -58,20 +61,23 @@ static unsigned __class_ability_data[][CLASS_ABILITY_TREE_SIZE][CLASS_ABILITY_SI
        97462, // Rallying Cry
         1719, // Recklessness
          772, // Rend
+      174926, // Shield Barrier
        12328, // Sweeping Strikes
         6343, // Thunder Clap
         1680, // Whirlwind
            0,
     },
-    // Fury tree, 9 abilities
+    // Fury tree, 11 abilities
     {
        23881, // Bloodthirst
        86346, // Colossus Smash
       118038, // Die by the Sword
         5308, // Execute
+       12323, // Piercing Howl
        85288, // Raging Blow
        97462, // Rallying Cry
         1719, // Recklessness
+      174926, // Shield Barrier
         1680, // Whirlwind
       100130, // Wild Strike
            0,
@@ -82,8 +88,8 @@ static unsigned __class_ability_data[][CLASS_ABILITY_TREE_SIZE][CLASS_ABILITY_SI
        20243, // Devastate
         5308, // Execute
        12975, // Last Stand
+      114192, // Mocking Banner
         6572, // Revenge
-      112048, // Shield Barrier
         2565, // Shield Block
        23922, // Shield Slam
          871, // Shield Wall
@@ -99,8 +105,9 @@ static unsigned __class_ability_data[][CLASS_ABILITY_TREE_SIZE][CLASS_ABILITY_SI
   },
   // Class active abilities for Paladin
   {
-    // General tree, 23 abilities
+    // General tree, 25 abilities
     {
+      114919, // Arcing Light
        20217, // Blessing of Kings
        19740, // Blessing of Might
         4987, // Cleanse
@@ -113,7 +120,7 @@ static unsigned __class_ability_data[][CLASS_ABILITY_TREE_SIZE][CLASS_ABILITY_SI
         1044, // Hand of Freedom
         1022, // Hand of Protection
         6940, // Hand of Sacrifice
-        1038, // Hand of Salvation
+      162056, // Jailer's Judgment
        20271, // Judgment
          633, // Lay on Hands
        96231, // Rebuke
@@ -123,6 +130,7 @@ static unsigned __class_ability_data[][CLASS_ABILITY_TREE_SIZE][CLASS_ABILITY_SI
       105361, // Seal of Command
        20165, // Seal of Insight
        10326, // Turn Evil
+      175699, // Weapons of the Light
        85673, // Word of Glory
            0,
     },
@@ -177,9 +185,11 @@ static unsigned __class_ability_data[][CLASS_ABILITY_TREE_SIZE][CLASS_ABILITY_SI
   },
   // Class active abilities for Hunter
   {
-    // General tree, 28 abilities
+    // General tree, 32 abilities
     {
+        3044, // Arcane Shot
         5118, // Aspect of the Cheetah
+      172106, // Aspect of the Fox
        13159, // Aspect of the Pack
         1462, // Beast Lore
          883, // Call Pet 1
@@ -197,6 +207,7 @@ static unsigned __class_ability_data[][CLASS_ABILITY_TREE_SIZE][CLASS_ABILITY_SI
         5384, // Feign Death
         1543, // Flare
         1499, // Freezing Trap (Frost Trap)
+      175687, // Heavy Artilery
        13809, // Ice Trap (Frost Trap)
        53271, // Master's Call
          136, // Mend Pet
@@ -204,14 +215,14 @@ static unsigned __class_ability_data[][CLASS_ABILITY_TREE_SIZE][CLASS_ABILITY_SI
         2643, // Multi-Shot
          982, // Revive Pet
        56641, // Steady Shot
+      175686, // Stopping Power
         1515, // Tame Beast
        19801, // Tranquilizing Shot
        77769, // Trap Launcher
            0,
     },
-    // Beast Mastery tree, 6 abilities
+    // Beast Mastery tree, 5 abilities
     {
-        3044, // Arcane Shot
        19574, // Bestial Wrath
        77767, // Cobra Shot
        82692, // Focus Fire
@@ -222,14 +233,13 @@ static unsigned __class_ability_data[][CLASS_ABILITY_TREE_SIZE][CLASS_ABILITY_SI
     // Marksmanship tree, 4 abilities
     {
        19434, // Aimed Shot
-       53209, // Chimera Shot
+       53209, // Chimaera Shot
        53351, // Kill Shot
         3045, // Rapid Fire
            0,
     },
-    // Survival tree, 4 abilities
+    // Survival tree, 3 abilities
     {
-        3044, // Arcane Shot
         3674, // Black Arrow
        77767, // Cobra Shot
        53301, // Explosive Shot
@@ -240,7 +250,6 @@ static unsigned __class_ability_data[][CLASS_ABILITY_TREE_SIZE][CLASS_ABILITY_SI
     },
     // Pet tree, 49 abilities
     {
-       55749, // Acid Spit (Special Ability)
       160011, // Agile Reflexes (Special Ability)
        90355, // Ancient Hysteria (Exotic Ability)
        50433, // Ankle Crack (Special Ability)
@@ -248,47 +257,48 @@ static unsigned __class_ability_data[][CLASS_ABILITY_TREE_SIZE][CLASS_ABILITY_SI
        17253, // Bite (Basic Attack)
       160017, // Blessing of Kongs
        24423, // Bloody Screech (Special Ability)
+       24844, // Breath of the Winds (Special Ability)
        93433, // Burrow Attack (Exotic Ability)
       128432, // Cackling Howl (Special Ability)
+       50518, // Chitinous Armor (Special Ability)
        16827, // Claw (Basic Attack)
       160060, // Deadly Sting (Special Ability)
+       58604, // Double Bite (Special Ability)
       159956, // Dust of Life (Exotic Ability)
       135678, // Energizing Spores
       159953, // Feast (Special Ability)
-       34889, // Fire Breath (Special Ability)
        54644, // Frost Breath (Special Ability)
        92380, // Froststorm Breath (Exotic Ability)
        24604, // Furious Howl
-       35290, // Gore (Special Ability)
         2649, // Growl (Basic Ability)
+       35290, // Indomitable (Special Ability)
        19577, // Intimidation
        50256, // Invigorating Roar (Special Ability)
-       58604, // Lava Breath (Special Ability)
       138374, // Lightning Blast
-       24844, // Lightning Breath (Special Ability)
        54680, // Monstrous Bite (Exotic Ability)
       160073, // Plainswalking (Special Ability)
        90347, // Play (Bonus Ability)
        24450, // Prowl (Bonus Ability)
        90364, // Qiraji Fortitude (Exotic Ability)
-       50518, // Ravage (Special Ability)
        94019, // Rest (Bonus Ability)
        93435, // Roar of Courage (Special Ability)
       128433, // Serpent's Cunning (Special Ability)
        49966, // Smack (Basic Attack)
-       50519, // Sonic Blast (Special Ability)
+       50519, // Sonic Focus (Special Ability)
       160074, // Speed of the Swarm (Special Ability)
       128997, // Spirit Beast Blessing (Special Ability)
        90361, // Spirit Mend (Exotic Ability)
        90328, // Spirit Walk (Bonus Ability)
-       57386, // Stampede (Special Ability)
+       34889, // Spry Attacks (Special Ability)
       160077, // Strength of the Earth
       160052, // Strength of the Pack (Special Ability)
+      159735, // Tenacity (Special Ability)
       160065, // Tendon Rip (Special Ability)
        90309, // Terrifying Roar (Special Ability)
        94022, // Trick (Bonus Ability)
        35346, // Warp Time (Special Ability)
       160067, // Web Spray (Special Ability)
+       57386, // Wild Strength (Special Ability)
     },
   },
   // Class active abilities for Rogue
@@ -363,9 +373,11 @@ static unsigned __class_ability_data[][CLASS_ABILITY_TREE_SIZE][CLASS_ABILITY_SI
   },
   // Class active abilities for Priest
   {
-    // General tree, 15 abilities
+    // General tree, 18 abilities
     {
+      161862, // Ascension
          528, // Dispel Magic
+      175702, // Divine Burst
          586, // Fade
         6346, // Fear Ward
         2061, // Flash Heal
@@ -379,20 +391,22 @@ static unsigned __class_ability_data[][CLASS_ABILITY_TREE_SIZE][CLASS_ABILITY_SI
         9484, // Shackle Undead
          589, // Shadow Word: Pain
        34433, // Shadowfiend
+      175701, // Shadowy Grasp
          585, // Smite
            0,
     },
-    // Discipline tree, 9 abilities
+    // Discipline tree, 10 abilities
     {
        81700, // Archangel
         2060, // Heal
        14914, // Holy Fire
-      132157, // Holy Nova (Discipline)
+      132157, // Holy Nova
        33206, // Pain Suppression
        47540, // Penance
        62618, // Power Word: Barrier
          596, // Prayer of Healing
          527, // Purify
+       15487, // Silence
            0,
     },
     // Holy tree, 14 abilities
@@ -417,9 +431,9 @@ static unsigned __class_ability_data[][CLASS_ABILITY_TREE_SIZE][CLASS_ABILITY_SI
     {
         2944, // Devouring Plague
        47585, // Dispersion
+      129197, // Insanity
         8092, // Mind Blast
        15407, // Mind Flay
-      129197, // Mind Flay (Insanity)
        73510, // Mind Spike
        64044, // Psychic Horror
        32379, // Shadow Word: Death
@@ -440,29 +454,32 @@ static unsigned __class_ability_data[][CLASS_ABILITY_TREE_SIZE][CLASS_ABILITY_SI
   },
   // Class active abilities for Death Knight
   {
-    // General tree, 23 abilities
+    // General tree, 26 abilities
     {
        48707, // Anti-Magic Shell
        42650, // Army of the Dead
+       50842, // Blood Boil
        48263, // Blood Presence
        45524, // Chains of Ice
       111673, // Control Undead
        77606, // Dark Simulacrum
        47541, // Death Coil
        49576, // Death Grip
+      175678, // Death Heal
        49998, // Death Strike
        43265, // Death and Decay
        47568, // Empower Rune Weapon
        48266, // Frost Presence
+      175680, // Grip of Death
        57330, // Horn of Winter
        48792, // Icebound Fortitude
        45477, // Icy Touch
        47528, // Mind Freeze
        77575, // Outbreak
         3714, // Path of Frost
-       50842, // Pestilence
        45462, // Plague Strike
        61999, // Raise Ally
+      130736, // Soul Reaper
        47476, // Strangulate
        48265, // Unholy Presence
            0,
@@ -486,13 +503,12 @@ static unsigned __class_ability_data[][CLASS_ABILITY_TREE_SIZE][CLASS_ABILITY_SI
       130735, // Soul Reaper
            0,
     },
-    // Unholy tree, 6 abilities
+    // Unholy tree, 5 abilities
     {
        63560, // Dark Transformation
        85948, // Festering Strike
        46584, // Raise Dead
        55090, // Scourge Strike
-      130736, // Soul Reaper
        49206, // Summon Gargoyle
            0,
     },
@@ -510,8 +526,9 @@ static unsigned __class_ability_data[][CLASS_ABILITY_TREE_SIZE][CLASS_ABILITY_SI
   },
   // Class active abilities for Shaman
   {
-    // General tree, 27 abilities
+    // General tree, 28 abilities
     {
+      114911, // Ancestral Guidance
         2008, // Ancestral Spirit
       114049, // Ascendance
         2825, // Bloodlust
@@ -599,7 +616,7 @@ static unsigned __class_ability_data[][CLASS_ABILITY_TREE_SIZE][CLASS_ABILITY_SI
   },
   // Class active abilities for Mage
   {
-    // General tree, 15 abilities
+    // General tree, 16 abilities
     {
       159916, // Amplify Magic
       120145, // Ancient Teleport: Dalaran
@@ -609,6 +626,7 @@ static unsigned __class_ability_data[][CLASS_ABILITY_TREE_SIZE][CLASS_ABILITY_SI
         2139, // Counterspell
        61316, // Dalaran Brilliance
         2136, // Fire Blast
+      175689, // Freezing Grasp
          122, // Frost Nova
        44614, // Frostfire Bolt
        45438, // Ice Block
@@ -655,12 +673,13 @@ static unsigned __class_ability_data[][CLASS_ABILITY_TREE_SIZE][CLASS_ABILITY_SI
     {
            0,
     },
-    // Pet tree, 5 abilities
+    // Pet tree, 6 abilities
     {
        88084, // Arcane Blast
        88082, // Fireball
        33395, // Freeze
        59638, // Frostbolt
+      155152, // Prismatic Crystal
        31707, // Waterbolt
            0,
     },
@@ -672,10 +691,10 @@ static unsigned __class_ability_data[][CLASS_ABILITY_TREE_SIZE][CLASS_ABILITY_SI
          710, // Banish
          172, // Corruption
         6201, // Create Healthstone
+      175707, // Crippling Shadows
       109773, // Dark Intent
        77801, // Dark Soul
       111771, // Demonic Gateway
-         689, // Drain Life
         1098, // Enslave Demon
         5782, // Fear
       111897, // Grimoire: Felhunter (Summon)
@@ -684,7 +703,7 @@ static unsigned __class_ability_data[][CLASS_ABILITY_TREE_SIZE][CLASS_ABILITY_SI
       111895, // Grimoire: Voidwalker (Summon)
         5484, // Howl of Terror
         1454, // Life Tap
-      114790, // Seed of Corruption (Soulburn)
+      114790, // Seed of Corruption
          686, // Shadow Bolt
       119678, // Soul Swap (Soulburn)
        29858, // Soulshatter
@@ -704,25 +723,27 @@ static unsigned __class_ability_data[][CLASS_ABILITY_TREE_SIZE][CLASS_ABILITY_SI
       104773, // Unending Resolve
            0,
     },
-    // Affliction tree, 10 abilities
+    // Affliction tree, 11 abilities
     {
          980, // Agony
       113860, // Dark Soul: Misery
+         689, // Drain Life
       103103, // Drain Soul
        48181, // Haunt
          755, // Health Funnel
-      114790, // Seed of Corruption (Soulburn)
+      114790, // Seed of Corruption
        27243, // Seed of Corruption
        86121, // Soul Swap
        74434, // Soulburn
        30108, // Unstable Affliction
            0,
     },
-    // Demonology tree, 14 abilities
+    // Demonology tree, 15 abilities
     {
       124916, // Chaos Wave (Metamorphosis)
       113861, // Dark Soul: Knowledge
       109151, // Demonic Leap
+         689, // Drain Life
       111898, // Grimoire: Felguard (Summon)
       105174, // Hand of Gul'dan
          755, // Health Funnel
@@ -736,13 +757,14 @@ static unsigned __class_ability_data[][CLASS_ABILITY_TREE_SIZE][CLASS_ABILITY_SI
       103964, // Touch of Chaos (Metamorphosis)
            0,
     },
-    // Destruction tree, 11 abilities
+    // Destruction tree, 12 abilities
     {
       116858, // Chaos Bolt
        17962, // Conflagrate
       113858, // Dark Soul: Instability
       114635, // Ember Tap
       108683, // Fire and Brimstone
+      120451, // Flames of Xoroth
        80240, // Havoc
          348, // Immolate
        29722, // Incinerate
@@ -754,11 +776,13 @@ static unsigned __class_ability_data[][CLASS_ABILITY_TREE_SIZE][CLASS_ABILITY_SI
     {
            0,
     },
-    // Pet tree, 28 abilities
+    // Pet tree, 33 abilities
     {
        89766, // Axe Toss (Special Ability)
       115748, // Bladedance (Basic Attack)
+      171011, // Burning Presence (Special Ability)
       119899, // Cauterize Master (Special Ability)
+      170995, // Cripple
        19505, // Devour Magic (Special Ability)
        19658, // Devour Magic
        85692, // Doom Bolt
@@ -773,7 +797,9 @@ static unsigned __class_ability_data[][CLASS_ABILITY_TREE_SIZE][CLASS_ABILITY_SI
       115625, // Mortal Cleave (Basic Attack)
        30151, // Pursuit (Special Ability)
         6358, // Seduction (Special Ability)
+      171014, // Seethe (Special Ability)
        54049, // Shadow Bite (Basic Attack)
+      171138, // Shadow Lock (Special Ability)
       115232, // Shadow Shield (Special Ability)
        89808, // Singe Magic (Special Ability)
        19647, // Spell Lock (Special Ability)
@@ -781,6 +807,7 @@ static unsigned __class_ability_data[][CLASS_ABILITY_TREE_SIZE][CLASS_ABILITY_SI
       134477, // Threatening Presence (Special Ability)
       112042, // Threatening Presence (Special Ability)
       115778, // Tongue Lash (Basic Attack)
+      171021, // Torch Magic (Special Ability)
         3716, // Torment (Basic Attack)
         6360, // Whiplash (Special Ability)
       115831, // Wrathstorm (Special Ability)
@@ -789,12 +816,14 @@ static unsigned __class_ability_data[][CLASS_ABILITY_TREE_SIZE][CLASS_ABILITY_SI
   },
   // Class active abilities for Monk
   {
-    // General tree, 22 abilities
+    // General tree, 24 abilities
     {
       100784, // Blackout Kick
+      175693, // Chi Shaping
       117952, // Crackling Jade Lightning
       125170, // Detox
       115450, // Detox
+      175697, // Disabling Technique
       115072, // Expel Harm
       115203, // Fortifying Brew
       100780, // Jab
@@ -847,9 +876,10 @@ static unsigned __class_ability_data[][CLASS_ABILITY_TREE_SIZE][CLASS_ABILITY_SI
       116670, // Uplift
            0,
     },
-    // Windwalker tree, 12 abilities
+    // Windwalker tree, 13 abilities
     {
       116768, // Combo Breaker: Blackout Kick
+      159407, // Combo Breaker: Chi Explosion
       118864, // Combo Breaker: Tiger Palm
       116095, // Disable
       115288, // Energizing Brew
@@ -872,7 +902,7 @@ static unsigned __class_ability_data[][CLASS_ABILITY_TREE_SIZE][CLASS_ABILITY_SI
   },
   // Class active abilities for Druid
   {
-    // General tree, 25 abilities
+    // General tree, 27 abilities
     {
         5487, // Bear Form (Shapeshift)
          768, // Cat Form (Shapeshift)
@@ -891,6 +921,7 @@ static unsigned __class_ability_data[][CLASS_ABILITY_TREE_SIZE][CLASS_ABILITY_SI
        33917, // Mangle
         1126, // Mark of the Wild
         8921, // Moonfire (Lunar)
+      175682, // Nature's Control
         5215, // Prowl
        20484, // Rebirth
          774, // Rejuvenation
@@ -898,15 +929,17 @@ static unsigned __class_ability_data[][CLASS_ABILITY_TREE_SIZE][CLASS_ABILITY_SI
         2908, // Soothe
       106898, // Stampeding Roar
          783, // Travel Form (Shapeshift)
+      175683, // Ursol's Power
         5176, // Wrath (Solar)
            0,
     },
-    // Balance tree, 12 abilities
+    // Balance tree, 13 abilities
     {
       127663, // Astral Communion
       106996, // Astral Storm (Lunar)
        22812, // Barkskin
       112071, // Celestial Alignment
+      122114, // Chosen of Elune
        24858, // Moonkin Form
         2782, // Remove Corruption
        78675, // Solar Beam
@@ -932,14 +965,13 @@ static unsigned __class_ability_data[][CLASS_ABILITY_TREE_SIZE][CLASS_ABILITY_SI
         5217, // Tiger's Fury
            0,
     },
-    // Guardian tree, 10 abilities
+    // Guardian tree, 9 abilities
     {
        22812, // Barkskin
       106952, // Berserk
          770, // Faerie Fire
        33745, // Lacerate
         6807, // Maul
-      106922, // Might of Ursoc
         2782, // Remove Corruption
        62606, // Savage Defense
       106839, // Skull Bash
@@ -972,7 +1004,7 @@ static unsigned __class_ability_data[][CLASS_ABILITY_TREE_SIZE][CLASS_ABILITY_SI
 
 #define TREE_SPECIALIZATION_SIZE (28)
 
-// Talent tree specialization abilities, wow build 18546
+// Talent tree specialization abilities, wow build 18865
 static unsigned __tree_specialization_data[][MAX_SPECS_PER_CLASS][TREE_SPECIALIZATION_SIZE] = {
   // Specialization abilities for Hunter pets
   {
@@ -994,7 +1026,7 @@ static unsigned __tree_specialization_data[][MAX_SPECS_PER_CLASS][TREE_SPECIALIZ
        53184, // Spiked Collar
            0,
     },
-    // Specialization abilities for Tenacious Adaptation
+    // Specialization abilities for Tenacity
     {
        53482, // Blood of the Rhino
        53482, // Blood of the Rhino
@@ -1051,10 +1083,10 @@ static unsigned __tree_specialization_data[][MAX_SPECS_PER_CLASS][TREE_SPECIALIZ
        12294, // Mortal Strike
        86101, // Plate Specialization
        97462, // Rallying Cry
-      145990, // Readiness: Arms
         1719, // Recklessness
          772, // Rend
        12712, // Seasoned Soldier
+      174926, // Shield Barrier
       162698, // Stat Negation Aura - Strength DPS
        12328, // Sweeping Strikes
         6343, // Thunder Clap
@@ -1076,11 +1108,12 @@ static unsigned __tree_specialization_data[][MAX_SPECS_PER_CLASS][TREE_SPECIALIZ
       167188, // Inspiring Presence
        76856, // Mastery: Unshackled Fury
        12950, // Meat Cleaver
+       12323, // Piercing Howl
        86110, // Plate Specialization
        85288, // Raging Blow
        97462, // Rallying Cry
-      145991, // Readiness: Fury
         1719, // Recklessness
+      174926, // Shield Barrier
        81099, // Single-Minded Fury
       162698, // Stat Negation Aura - Strength DPS
        46917, // Titan's Grip
@@ -1102,12 +1135,11 @@ static unsigned __tree_specialization_data[][MAX_SPECS_PER_CLASS][TREE_SPECIALIZ
       137048, // Hotfix Passive
        12975, // Last Stand
        76857, // Mastery: Critical Block
+      114192, // Mocking Banner
        86535, // Plate Specialization
-      145992, // Readiness: Protection
       158298, // Resolve
         6572, // Revenge
       161798, // Riposte
-      112048, // Shield Barrier
         2565, // Shield Block
       165393, // Shield Mastery
        23922, // Shield Slam
@@ -1144,7 +1176,6 @@ static unsigned __tree_specialization_data[][MAX_SPECS_PER_CLASS][TREE_SPECIALIZ
        53651, // Light's Beacon
        76669, // Mastery: Illuminated Healing
        86103, // Plate Specialization
-      145975, // Readiness: Holy
        53551, // Sacred Cleansing
       148040, // Sacred Shield Overridde (Holy)
       165380, // Sanctified Light
@@ -1169,7 +1200,6 @@ static unsigned __tree_specialization_data[][MAX_SPECS_PER_CLASS][TREE_SPECIALIZ
       105424, // Judgments of the Wise
        76671, // Mastery: Divine Bulwark
        86102, // Plate Specialization
-      145976, // Readiness: Protection
       158298, // Resolve
       161800, // Riposte
       165375, // Sacred Duty
@@ -1195,7 +1225,6 @@ static unsigned __tree_specialization_data[][MAX_SPECS_PER_CLASS][TREE_SPECIALIZ
       137027, // Hotfix Passive
        76672, // Mastery: Hand of Light
        86539, // Plate Specialization
-      145978, // Readiness: Retribution
       165381, // Righteous Vengeance
       167187, // Sanctity Aura
        20164, // Seal of Justice
@@ -1204,7 +1233,7 @@ static unsigned __tree_specialization_data[][MAX_SPECS_PER_CLASS][TREE_SPECIALIZ
       162698, // Stat Negation Aura - Strength DPS
        31868, // Supplication
        53503, // Sword of Light
-       20113, // Sword of Light part two (Do not display)
+       20113, // Sword of Light
        85256, // Templar's Verdict
            0,
     },
@@ -1217,7 +1246,6 @@ static unsigned __tree_specialization_data[][MAX_SPECS_PER_CLASS][TREE_SPECIALIZ
     // Specialization abilities for Beast Mastery
     {
       165389, // Animal Handler
-        3044, // Arcane Shot
       115939, // Beast Cleave
        19574, // Bestial Wrath
        77767, // Cobra Shot
@@ -1232,7 +1260,6 @@ static unsigned __tree_specialization_data[][MAX_SPECS_PER_CLASS][TREE_SPECIALIZ
        53351, // Kill Shot
        56315, // Kindred Spirits
        76657, // Mastery: Master of Beasts
-      145964, // Readiness: Beast Mastery
            0,
     },
     // Specialization abilities for Marksmanship
@@ -1240,27 +1267,23 @@ static unsigned __tree_specialization_data[][MAX_SPECS_PER_CLASS][TREE_SPECIALIZ
        19434, // Aimed Shot
        35110, // Bombardment
        34483, // Careful Aim
-       53209, // Chimera Shot
+       53209, // Chimaera Shot
       137016, // Hotfix Passive
        53351, // Kill Shot
       165378, // Lethal Shots
        76659, // Mastery: Sniper Training
         3045, // Rapid Fire
-      145965, // Readiness: Marksmanship
            0,
     },
     // Specialization abilities for Survival
     {
-        3044, // Arcane Shot
         3674, // Black Arrow
        77767, // Cobra Shot
        19387, // Entrapment
        53301, // Explosive Shot
       137017, // Hotfix Passive
       165396, // Lightning Reflexes
-       56343, // Lock and Load
        76658, // Mastery: Essence of the Viper
-      145966, // Readiness: Survival
        87935, // Serpent Sting
       164856, // Survivalist
        63458, // Trap Mastery
@@ -1285,7 +1308,6 @@ static unsigned __tree_specialization_data[][MAX_SPECS_PER_CLASS][TREE_SPECIALIZ
       165390, // Master Poisoner
        76803, // Mastery: Potent Poisons
         1329, // Mutilate
-      145983, // Readiness: Assassination
        58423, // Relentless Strikes
         1943, // Rupture
        14190, // Seal Fate
@@ -1302,8 +1324,8 @@ static unsigned __tree_specialization_data[][MAX_SPECS_PER_CLASS][TREE_SPECIALIZ
       137036, // Hotfix Passive
        51690, // Killing Spree
        76806, // Mastery: Main Gauche
-      145984, // Readiness: Combat
        84617, // Revealing Strike
+      174597, // Ruthlessness
        14161, // Ruthlessness
        61329, // Vitality
            0,
@@ -1320,7 +1342,6 @@ static unsigned __tree_specialization_data[][MAX_SPECS_PER_CLASS][TREE_SPECIALIZ
        31223, // Master of Subtlety
        76808, // Mastery: Executioner
        14183, // Premeditation
-      145985, // Readiness: Subtlety
        58423, // Relentless Strikes
         1943, // Rupture
        79147, // Sanguinary Vein
@@ -1339,9 +1360,10 @@ static unsigned __tree_specialization_data[][MAX_SPECS_PER_CLASS][TREE_SPECIALIZ
        81700, // Archangel
        81749, // Atonement
        52798, // Borrowed Time
-      165376, // Critical Strike Attunement
+      178291, // Discipline
        47515, // Divine Aegis
       122098, // Divine Fury
+      165376, // Enlightenment
        81662, // Evangelism
        45243, // Focused Will
        47517, // Grace
@@ -1358,7 +1380,7 @@ static unsigned __tree_specialization_data[][MAX_SPECS_PER_CLASS][TREE_SPECIALIZ
          596, // Prayer of Healing
          527, // Purify
        47536, // Rapture
-      145981, // Readiness: Discipline
+       15487, // Silence
        87336, // Spiritual Healing
       162701, // Stat Negation Aura - Intellect Healer
            0,
@@ -1386,7 +1408,6 @@ static unsigned __tree_specialization_data[][MAX_SPECS_PER_CLASS][TREE_SPECIALIZ
          596, // Prayer of Healing
          527, // Purify
        95649, // Rapid Renewal
-      145982, // Readiness: Holy
          139, // Renew
        63733, // Serendipity
        20711, // Spirit of Redemption
@@ -1407,14 +1428,12 @@ static unsigned __tree_specialization_data[][MAX_SPECS_PER_CLASS][TREE_SPECIALIZ
        49868, // Mind Quickening
        73510, // Mind Spike
        64044, // Psychic Horror
-      151022, // Readiness: Shadow
        95740, // Shadow Orbs
       121196, // Shadow Passive
        32379, // Shadow Word: Death
        15473, // Shadowform
        78203, // Shadowy Apparitions
        15487, // Silence
-      162699, // Stat Negation Aura - Intellect DPS
        15286, // Vampiric Embrace
        34914, // Vampiric Touch
            0,
@@ -1439,7 +1458,6 @@ static unsigned __tree_specialization_data[][MAX_SPECS_PER_CLASS][TREE_SPECIALIZ
        77513, // Mastery: Blood Shield
        86537, // Plate Specialization
       155522, // Power of the Grave
-      145958, // Readiness: Blood
       158298, // Resolve
       161797, // Riposte
        48982, // Rune Tap
@@ -1468,12 +1486,10 @@ static unsigned __tree_specialization_data[][MAX_SPECS_PER_CLASS][TREE_SPECIALIZ
        49020, // Obliterate
        51271, // Pillar of Frost
        86113, // Plate Specialization
-      145959, // Readiness: Frost
        59057, // Rime
       130735, // Soul Reaper
       162698, // Stat Negation Aura - Strength DPS
        66192, // Threat of Thassarian
-      165361, // Tundra Stalker
        55610, // Unholy Aura
            0,
     },
@@ -1488,11 +1504,9 @@ static unsigned __tree_specialization_data[][MAX_SPECS_PER_CLASS][TREE_SPECIALIZ
       165395, // Necrosis
        86536, // Plate Specialization
        46584, // Raise Dead
-      145960, // Readiness: Unholy
        56835, // Reaping
        55090, // Scourge Strike
        49572, // Shadow Infusion
-      130736, // Soul Reaper
       162698, // Stat Negation Aura - Strength DPS
        49530, // Sudden Doom
        49206, // Summon Gargoyle
@@ -1520,7 +1534,6 @@ static unsigned __tree_specialization_data[][MAX_SPECS_PER_CLASS][TREE_SPECIALIZ
        77756, // Lava Surge
        86108, // Mail Specialization
       170374, // Mastery: Molten Earth
-      151023, // Readiness: Elemental
        62099, // Shamanism
        30823, // Shamanistic Rage
       123099, // Spiritual Insight
@@ -1549,7 +1562,6 @@ static unsigned __tree_specialization_data[][MAX_SPECS_PER_CLASS][TREE_SPECIALIZ
        77223, // Mastery: Enhanced Elements
        30814, // Mental Quickness
        51522, // Primal Wisdom
-      145986, // Readiness: Enhancement
        30823, // Shamanistic Rage
        58875, // Spirit Walk
       162697, // Stat Negation Aura - Agility DPS
@@ -1572,9 +1584,8 @@ static unsigned __tree_specialization_data[][MAX_SPECS_PER_CLASS][TREE_SPECIALIZ
        77226, // Mastery: Deep Healing
        95862, // Meditation
       165391, // Purification
-       16213, // Purification
        77130, // Purify Spirit
-      145988, // Readiness: Restoration
+       16213, // Restorative Waves
        16196, // Resurgence
        61295, // Riptide
        98008, // Spirit Link Totem
@@ -1608,7 +1619,6 @@ static unsigned __tree_specialization_data[][MAX_SPECS_PER_CLASS][TREE_SPECIALIZ
         6117, // Mage Armor
        76547, // Mastery: Mana Adept
        12043, // Presence of Mind
-      151024, // Readiness: Arcane
        31589, // Slow
            0,
     },
@@ -1626,7 +1636,6 @@ static unsigned __tree_specialization_data[][MAX_SPECS_PER_CLASS][TREE_SPECIALIZ
        30482, // Molten Armor
        11366, // Pyroblast
        44448, // Pyroblast Clearcasting Driver
-      151026, // Readiness: Fire
         2948, // Scorch
            0,
     },
@@ -1644,7 +1653,6 @@ static unsigned __tree_specialization_data[][MAX_SPECS_PER_CLASS][TREE_SPECIALIZ
       165360, // Ice Shards
        12472, // Icy Veins
        76613, // Mastery: Icicles
-      151027, // Readiness: Frost
        12982, // Shatter
        31687, // Summon Water Elemental
            0,
@@ -1659,6 +1667,7 @@ static unsigned __tree_specialization_data[][MAX_SPECS_PER_CLASS][TREE_SPECIALIZ
     {
          980, // Agony
       113860, // Dark Soul: Misery
+         689, // Drain Life
       103103, // Drain Soul
       165367, // Eradication
        48181, // Haunt
@@ -1666,7 +1675,6 @@ static unsigned __tree_specialization_data[][MAX_SPECS_PER_CLASS][TREE_SPECIALIZ
       137043, // Hotfix Passive
        77215, // Mastery: Potent Afflictions
       108558, // Nightfall
-      151028, // Readiness: Affliction
        27243, // Seed of Corruption
       117198, // Soul Shards
        86121, // Soul Swap
@@ -1684,6 +1692,8 @@ static unsigned __tree_specialization_data[][MAX_SPECS_PER_CLASS][TREE_SPECIALIZ
       109145, // Demonic Fury
       109151, // Demonic Leap
       165392, // Demonic Tactics
+      124913, // Doom
+         689, // Drain Life
       105174, // Hand of Gul'dan
          755, // Health Funnel
         1949, // Hellfire
@@ -1691,7 +1701,6 @@ static unsigned __tree_specialization_data[][MAX_SPECS_PER_CLASS][TREE_SPECIALIZ
        77219, // Mastery: Master Demonologist
       103958, // Metamorphosis
       122351, // Molten Core
-      151029, // Readiness: Demonology
         6353, // Soul Fire
        30146, // Summon Felguard
       114592, // Wild Imps
@@ -1710,13 +1719,13 @@ static unsigned __tree_specialization_data[][MAX_SPECS_PER_CLASS][TREE_SPECIALIZ
       165363, // Devastation
       114635, // Ember Tap
       108683, // Fire and Brimstone
+      120451, // Flames of Xoroth
        80240, // Havoc
       137046, // Hotfix Passive
          348, // Immolate
        29722, // Incinerate
        77220, // Mastery: Emberstorm
         5740, // Rain of Fire
-      151030, // Readiness: Destruction
        17877, // Shadowburn
            0,
     },
@@ -1747,9 +1756,9 @@ static unsigned __tree_specialization_data[][MAX_SPECS_PER_CLASS][TREE_SPECIALIZ
       116781, // Legacy of the White Tiger
       117906, // Mastery: Elusive Brawler
       119582, // Purifying Brew
-      145967, // Readiness: Brewmaster
       158298, // Resolve
       115069, // Stance of the Sturdy Ox
+      162700, // Stat Negation Aura - Agility Tank
       115315, // Summon Black Ox Statue
       115176, // Zen Meditation
            0,
@@ -1773,13 +1782,13 @@ static unsigned __tree_specialization_data[][MAX_SPECS_PER_CLASS][TREE_SPECIALIZ
       115294, // Mana Tea
       115869, // Mana Tea Driver <DND>
       117907, // Mastery: Gift of the Serpent
-      145968, // Readiness: Mistweaver
       115151, // Renewing Mist
       115310, // Revival
       107428, // Rising Sun Kick
       115175, // Soothing Mist
       154436, // Stance of the Spirited Crane
       115070, // Stance of the Wise Serpent
+      162701, // Stat Negation Aura - Intellect Healer
       115313, // Summon Jade Serpent Statue
       116645, // Teachings of the Monastery
       116680, // Thunder Focus Tea
@@ -1802,8 +1811,8 @@ static unsigned __tree_specialization_data[][MAX_SPECS_PER_CLASS][TREE_SPECIALIZ
       120227, // Leather Specialization
       116781, // Legacy of the White Tiger
       115636, // Mastery: Bottled Fury
-      145969, // Readiness: Windwalker
       107428, // Rising Sun Kick
+      162697, // Stat Negation Aura - Agility DPS
       137639, // Storm, Earth, and Fire
       116740, // Tigereye Brew
       122470, // Touch of Karma
@@ -1833,7 +1842,6 @@ static unsigned __tree_specialization_data[][MAX_SPECS_PER_CLASS][TREE_SPECIALIZ
        77492, // Mastery: Total Eclipse
        24858, // Moonkin Form
       112857, // Natural Insight
-      151021, // Readiness: Balance
         2782, // Remove Corruption
        93399, // Shooting Stars
        78675, // Solar Beam
@@ -1862,7 +1870,6 @@ static unsigned __tree_specialization_data[][MAX_SPECS_PER_CLASS][TREE_SPECIALIZ
        16864, // Omen of Clarity
        16974, // Predatory Swiftness
         1822, // Rake
-      145961, // Readiness: Feral
         2782, // Remove Corruption
         1079, // Rip
        52610, // Savage Roar
@@ -1890,9 +1897,7 @@ static unsigned __tree_specialization_data[][MAX_SPECS_PER_CLASS][TREE_SPECIALIZ
       155783, // Mastery: Primal Tenacity
       159195, // Mastery: Primal Tenacity
         6807, // Maul
-      106922, // Might of Ursoc
        33873, // Nurturing Instinct
-      145962, // Readiness: Guardian
         2782, // Remove Corruption
       158298, // Resolve
        62606, // Savage Defense
@@ -1925,7 +1930,6 @@ static unsigned __tree_specialization_data[][MAX_SPECS_PER_CLASS][TREE_SPECIALIZ
        88423, // Nature's Cure
       132158, // Nature's Swiftness
       113043, // Omen of Clarity
-      145963, // Readiness: Restoration
         8936, // Regrowth
       106735, // Restoration Overrides Passive
       162701, // Stat Negation Aura - Intellect Healer
@@ -1940,7 +1944,7 @@ static unsigned __tree_specialization_data[][MAX_SPECS_PER_CLASS][TREE_SPECIALIZ
 
 #define CLASS_MASTERY_ABILITY_SIZE (1)
 
-// Class mastery abilities, wow build 18546
+// Class mastery abilities, wow build 18865
 static unsigned __class_mastery_ability_data[MAX_CLASS][MAX_SPECS_PER_CLASS][CLASS_MASTERY_ABILITY_SIZE] = {
   {
     {
@@ -2163,7 +2167,7 @@ static unsigned __class_mastery_ability_data[MAX_CLASS][MAX_SPECS_PER_CLASS][CLA
 #define MAX_RACE (28)
 #endif
 
-// Racial abilities, wow build 18546
+// Racial abilities, wow build 18865
 static unsigned __race_ability_data[MAX_RACE][MAX_CLASS][RACE_ABILITY_SIZE] = {
   {
     {     0, },
@@ -2884,9 +2888,9 @@ static unsigned __race_ability_data[MAX_RACE][MAX_CLASS][RACE_ABILITY_SIZE] = {
   },
 };
 
-#define GLYPH_ABILITIES_SIZE (40)
+#define GLYPH_ABILITIES_SIZE (41)
 
-// Glyph spells for classes, wow build 18546
+// Glyph spells for classes, wow build 18865
 static unsigned __glyph_abilities_data[][3][GLYPH_ABILITIES_SIZE] = {
   {
     {
@@ -2932,7 +2936,7 @@ static unsigned __glyph_abilities_data[][3][GLYPH_ABILITIES_SIZE] = {
        58098, // Glyph of Unending Rage
       146965, // Glyph of Victorious Throw
        58382, // Glyph of Victory Rush
-       63324, // Glyph of Whirlwind
+       63324, // Glyph of Wind and Thunder
       159703, // Glyph of the Drawn Sword
       146971, // Glyph of the Executor
            0,
@@ -2968,6 +2972,7 @@ static unsigned __glyph_abilities_data[][3][GLYPH_ABILITIES_SIZE] = {
        63218, // Glyph of Beacon of Light
        54943, // Glyph of Blessed Life
        54931, // Glyph of Burden of Guilt
+      171929, // Glyph of Cleanse
        54928, // Glyph of Consecration
        56414, // Glyph of Dazing Shield
        56420, // Glyph of Denounce
@@ -2986,7 +2991,6 @@ static unsigned __glyph_abilities_data[][3][GLYPH_ABILITIES_SIZE] = {
        54938, // Glyph of Harsh Words
        63224, // Glyph of Holy Shock
        54923, // Glyph of Holy Wrath
-       54937, // Glyph of Illumination
        56416, // Glyph of Immediate Truth
       159592, // Glyph of Judgment
        54940, // Glyph of Light of Dawn
@@ -3028,8 +3032,7 @@ static unsigned __glyph_abilities_data[][3][GLYPH_ABILITIES_SIZE] = {
        20895, // Glyph of Animal Bond
       109263, // Glyph of Black Ice
       119449, // Glyph of Camouflage
-      119447, // Glyph of Chimera Shot
-      159467, // Glyph of Deep Frost
+      119447, // Glyph of Chimaera Shot
        56850, // Glyph of Deterrence
        56844, // Glyph of Disengage
       123632, // Glyph of Distracting Shot
@@ -3043,6 +3046,7 @@ static unsigned __glyph_abilities_data[][3][GLYPH_ABILITIES_SIZE] = {
        19573, // Glyph of Mend Pet
        56833, // Glyph of Mending
        83495, // Glyph of Mirrored Blades
+       56829, // Glyph of Misdirection
        53299, // Glyph of No Escape
        19560, // Glyph of Pathfinding
       159469, // Glyph of Quick Revival
@@ -3073,7 +3077,7 @@ static unsigned __glyph_abilities_data[][3][GLYPH_ABILITIES_SIZE] = {
   },
   // Glyph spells for Rogue
   {
-    // Major Glyphs (25 spells)
+    // Major Glyphs (24 spells)
     {
        56813, // Glyph of Ambush
        56818, // Glyph of Blade Flurry
@@ -3093,7 +3097,6 @@ static unsigned __glyph_abilities_data[][3][GLYPH_ABILITIES_SIZE] = {
        56805, // Glyph of Kick
       146625, // Glyph of Recovery
        56806, // Glyph of Recuperate
-       56808, // Glyph of Shadow Walk
        56810, // Glyph of Shiv
        56819, // Glyph of Smoke Bomb
        56811, // Glyph of Sprint
@@ -3125,7 +3128,7 @@ static unsigned __glyph_abilities_data[][3][GLYPH_ABILITIES_SIZE] = {
   },
   // Glyph spells for Priest
   {
-    // Major Glyphs (40 spells)
+    // Major Glyphs (41 spells)
     {
        63248, // Glyph of Binding Heal
        55675, // Glyph of Circle of Healing
@@ -3153,6 +3156,7 @@ static unsigned __glyph_abilities_data[][3][GLYPH_ABILITIES_SIZE] = {
        55685, // Glyph of Prayer of Mending
        55688, // Glyph of Psychic Horror
        55676, // Glyph of Psychic Scream
+      171921, // Glyph of Purification
        55677, // Glyph of Purify
        33202, // Glyph of Reflective Shield
       119872, // Glyph of Renew
@@ -3191,10 +3195,11 @@ static unsigned __glyph_abilities_data[][3][GLYPH_ABILITIES_SIZE] = {
   },
   // Glyph spells for Death Knight
   {
-    // Major Glyphs (28 spells)
+    // Major Glyphs (27 spells)
     {
       159415, // Glyph of Absorb Magic
        58623, // Glyph of Anti-Magic Shell
+       58657, // Glyph of Blood Boil
        58620, // Glyph of Chains of Ice
        63330, // Glyph of Dancing Rune Weapon
        63331, // Glyph of Dark Simulacrum
@@ -3207,9 +3212,7 @@ static unsigned __glyph_abilities_data[][3][GLYPH_ABILITIES_SIZE] = {
       159418, // Glyph of Icy Runes
        58631, // Glyph of Icy Touch
        58686, // Glyph of Mind Freeze
-      159422, // Glyph of Necrotic Strike
        59332, // Glyph of Outbreak
-       58657, // Glyph of Pestilence
        58635, // Glyph of Pillar of Frost
       159427, // Glyph of Raise Ally
       146648, // Glyph of Regenerative Magic
@@ -3244,7 +3247,7 @@ static unsigned __glyph_abilities_data[][3][GLYPH_ABILITIES_SIZE] = {
   },
   // Glyph spells for Shaman
   {
-    // Major Glyphs (37 spells)
+    // Major Glyphs (38 spells)
     {
        55442, // Glyph of Capacitor Totem
        55449, // Glyph of Chain Lightning
@@ -3257,7 +3260,7 @@ static unsigned __glyph_abilities_data[][3][GLYPH_ABILITIES_SIZE] = {
        55450, // Glyph of Fire Nova
        55447, // Glyph of Flame Shock
        55443, // Glyph of Frost Shock
-      161654, // Glyph of Frostflame Weapon
+      161654, // Glyph of Frostbrand Weapon
        59289, // Glyph of Ghost Wolf
       159643, // Glyph of Grounding
        55441, // Glyph of Grounding Totem
@@ -3268,6 +3271,7 @@ static unsigned __glyph_abilities_data[][3][GLYPH_ABILITIES_SIZE] = {
       101052, // Glyph of Lightning Shield
        55439, // Glyph of Purge
       147762, // Glyph of Purging
+      171933, // Glyph of Purify Spirit
       159647, // Glyph of Reactive Shielding
        63273, // Glyph of Riptide
        63280, // Glyph of Shamanistic Rage
@@ -3312,7 +3316,7 @@ static unsigned __glyph_abilities_data[][3][GLYPH_ABILITIES_SIZE] = {
   },
   // Glyph spells for Mage
   {
-    // Major Glyphs (22 spells)
+    // Major Glyphs (21 spells)
     {
       115718, // Glyph of Arcane Explosion
        62210, // Glyph of Arcane Power
@@ -3327,7 +3331,6 @@ static unsigned __glyph_abilities_data[][3][GLYPH_ABILITIES_SIZE] = {
       115723, // Glyph of Ice Block
        56364, // Glyph of Icy Veins
        89926, // Glyph of Inferno Blast
-      159484, // Glyph of Interruption
        56375, // Glyph of Polymorph
       146659, // Glyph of Rapid Displacement
       159486, // Glyph of Regenerative Ice
@@ -3338,7 +3341,7 @@ static unsigned __glyph_abilities_data[][3][GLYPH_ABILITIES_SIZE] = {
        63090, // Glyph of Water Elemental
            0,
     },
-    // Minor Glyphs (13 spells)
+    // Minor Glyphs (9 spells)
     {
        57925, // Glyph of Arcane Language
       147353, // Glyph of Condensation
@@ -3348,10 +3351,6 @@ static unsigned __glyph_abilities_data[][3][GLYPH_ABILITIES_SIZE] = {
        63092, // Glyph of Illusion
        56384, // Glyph of Momentum
        89749, // Glyph of Rapid Teleportation
-       58136, // Glyph of the Bear Cub
-       57927, // Glyph of the Monkey
-       52648, // Glyph of the Penguin
-       57924, // Glyph of the Porcupine
       146976, // Glyph of the Unbound Elemental
            0,
     },
@@ -3361,11 +3360,9 @@ static unsigned __glyph_abilities_data[][3][GLYPH_ABILITIES_SIZE] = {
   },
   // Glyph spells for Warlock
   {
-    // Major Glyphs (25 spells)
+    // Major Glyphs (21 spells)
     {
        56235, // Glyph of Conflagrate
-       58080, // Glyph of Curse of Exhaustion
-      159653, // Glyph of Curses
       159665, // Glyph of Dark Soul
        56249, // Glyph of Demon Training
        63309, // Glyph of Demonic Circle
@@ -3373,7 +3370,6 @@ static unsigned __glyph_abilities_data[][3][GLYPH_ABILITIES_SIZE] = {
        63304, // Glyph of Ember Tap
       148683, // Glyph of Eternal Resolve
        56244, // Glyph of Fear
-      159667, // Glyph of Flames of Xoroth
       146962, // Glyph of Havoc
        56224, // Glyph of Healthstone
        56242, // Glyph of Imp Swarm
@@ -3385,7 +3381,6 @@ static unsigned __glyph_abilities_data[][3][GLYPH_ABILITIES_SIZE] = {
       159691, // Glyph of Soul Swap
        56231, // Glyph of Soulstone
       159697, // Glyph of Strengthened Resolve
-      159693, // Glyph of Twilight Ward
       146964, // Glyph of Unending Resolve
        56233, // Glyph of Unstable Affliction
            0,
@@ -3415,13 +3410,14 @@ static unsigned __glyph_abilities_data[][3][GLYPH_ABILITIES_SIZE] = {
   },
   // Glyph spells for Monk
   {
-    // Major Glyphs (31 spells)
+    // Major Glyphs (30 spells)
     {
       123394, // Glyph of Breath of Fire
       146954, // Glyph of Detox
-      120482, // Glyph of Enduring Healing Sphere
+      171926, // Glyph of Detoxing
       159487, // Glyph of Expel Harm
       125671, // Glyph of Fists of Fury
+      173182, // Glyph of Flying Fists
       124997, // Glyph of Fortifying Brew
       146953, // Glyph of Fortuitous Spheres
       159534, // Glyph of Freedom Roll
@@ -3436,8 +3432,6 @@ static unsigned __glyph_abilities_data[][3][GLYPH_ABILITIES_SIZE] = {
       159496, // Glyph of Renewed Tea
       123334, // Glyph of Renewing Mist
       159536, // Glyph of Soothing Mist
-      125673, // Glyph of Sparring
-      120479, // Glyph of Spinning Crane Kick
       120483, // Glyph of Surging Mist
       146950, // Glyph of Targeted Expulsion
       123391, // Glyph of Touch of Death
@@ -3450,9 +3444,8 @@ static unsigned __glyph_abilities_data[][3][GLYPH_ABILITIES_SIZE] = {
       159492, // Glyph of the Flying Serpent
            0,
     },
-    // Minor Glyphs (10 spells)
+    // Minor Glyphs (9 spells)
     {
-      132005, // Glyph of Blackout Kick
       125931, // Glyph of Crackling Tiger Lightning
       125872, // Glyph of Fighting Pose
       123403, // Glyph of Flying Serpent Kick
@@ -3470,7 +3463,7 @@ static unsigned __glyph_abilities_data[][3][GLYPH_ABILITIES_SIZE] = {
   },
   // Glyph spells for Druid
   {
-    // Major Glyphs (36 spells)
+    // Major Glyphs (35 spells)
     {
       159432, // Glyph of Astral Communion
        63057, // Glyph of Barkskin
@@ -3493,7 +3486,7 @@ static unsigned __glyph_abilities_data[][3][GLYPH_ABILITIES_SIZE] = {
        54811, // Glyph of Maul
       116238, // Glyph of Might of Ursoc
       159455, // Glyph of Moonwarding
-      116203, // Glyph of Nature's Grasp
+      171924, // Glyph of Nature's Cure
        54821, // Glyph of Rake
        54733, // Glyph of Rebirth
       116218, // Glyph of Regrowth
@@ -3501,16 +3494,15 @@ static unsigned __glyph_abilities_data[][3][GLYPH_ABILITIES_SIZE] = {
       127540, // Glyph of Savage Roar
       116216, // Glyph of Skull Bash
       114222, // Glyph of Stampeding Roar
-      159448, // Glyph of Sudden Eclipse
       114223, // Glyph of Survival Instincts
-      159441, // Glyph of Ursol's Defense
        62970, // Glyph of Wild Growth
       116172, // Glyph of the Master Shapeshifter
       159444, // Glyph of the Ninth Life
       159453, // Glyph of the Shapemender
+      171752, // Savagery
            0,
     },
-    // Minor Glyphs (13 spells)
+    // Minor Glyphs (15 spells)
     {
        57856, // Glyph of Aquatic Form
        57855, // Glyph of Charm Woodland Creature
@@ -3520,8 +3512,10 @@ static unsigned __glyph_abilities_data[][3][GLYPH_ABILITIES_SIZE] = {
       159456, // Glyph of Travel
       107059, // Glyph of the Chameleon
       131113, // Glyph of the Cheetah
+      164997, // Glyph of the Flapping Owl
       114333, // Glyph of the Orca
       114280, // Glyph of the Predator
+      171803, // Glyph of the Solstice
       146654, // Glyph of the Sprouting Mushroom
       114338, // Glyph of the Stag
       125047, // Glyph of the Treant
@@ -3538,7 +3532,7 @@ static unsigned __glyph_abilities_data[][3][GLYPH_ABILITIES_SIZE] = {
 
 #define TIER_BONUSES_TIER_BASE (13)
 
-// Tier item set bonuses for class, wow build 18546
+// Tier item set bonuses for class, wow build 18865
 static unsigned __tier_bonuses_data[][TIER_BONUSES_MAX_TIER][TIER_BONUSES_SIZE] = {
   {
     {
@@ -3587,7 +3581,7 @@ static unsigned __tier_bonuses_data[][TIER_BONUSES_MAX_TIER][TIER_BONUSES_SIZE] 
   {
     // Tier 13 bonuses (6 spells)
     {
-      105743, // Regalia of Radiant Glory - 2 Piece Bonus (Item - Paladin T13 Holy 2P Bonus (Divine Favor))
+      105743, // Regalia of Radiant Glory - 2 Piece Bonus (Item - Paladin T13 Holy 2P Bonus (Avenging Wrath))
       105744, // Armor of Radiant Glory - 4 Piece Bonus (Item - Paladin T13 Protection 4P Bonus (Divine Guardian))
       105765, // Battleplate of Radiant Glory - 2 Piece Bonus (Item - Paladin T13 Retribution 2P Bonus (Judgment))
       105798, // Regalia of Radiant Glory - 4 Piece Bonus (Item - Paladin T13 Holy 4P Bonus (Holy Radiance))
@@ -3693,7 +3687,7 @@ static unsigned __tier_bonuses_data[][TIER_BONUSES_MAX_TIER][TIER_BONUSES_SIZE] 
   {
     // Tier 13 bonuses (4 spells)
     {
-      105827, // Vestments of Dying Light - 2 Piece Bonus (Item - Priest T13 Healer 2P Bonus (Power Infusion and Lightwell))
+      105827, // Vestments of Dying Light - 2 Piece Bonus (Item - Priest T13 Healer 2P Bonus (Power Word: Barrier and Divine Hymn))
       105832, // Vestments of Dying Light - 4 Piece Bonus (Item - Priest T13 Healer 4P Bonus (Holy Word and Power Word: Shield))
       105843, // Regalia of Dying Light - 2 Piece Bonus (Item - Priest T13 Shadow 2P Bonus (Shadow Word: Death))
       105844, // Regalia of Dying Light - 4 Piece Bonus (Item - Priest T13 Shadow 4P Bonus (Shadow Word: Pain))
@@ -3846,7 +3840,7 @@ static unsigned __tier_bonuses_data[][TIER_BONUSES_MAX_TIER][TIER_BONUSES_SIZE] 
     // Tier 13 bonuses (2 spells)
     {
       105787, // Vestments of the Faceless Shroud - 4 Piece Bonus (Item - Warlock T13 4P Bonus (Soulburn))
-      105888, // Vestments of the Faceless Shroud - 2 Piece Bonus (Item - Warlock T13 2P Bonus (Doomguard and Infernal))
+      105888, // Vestments of the Faceless Shroud - 2 Piece Bonus (Item - Warlock T13 2P Bonus (Haste))
           0,
     },
     // Tier 14 bonuses (2 spells)
@@ -3914,7 +3908,7 @@ static unsigned __tier_bonuses_data[][TIER_BONUSES_MAX_TIER][TIER_BONUSES_SIZE] 
   {
     // Tier 13 bonuses (6 spells)
     {
-      105715, // Deep Earth Vestments - 2 Piece Bonus (Item - Druid T13 Restoration 2P Bonus (Innervate))
+      105715, // Deep Earth Vestments - 2 Piece Bonus (Item - Druid T13 Restoration 2P Bonus (Healing Touch and Rejuv))
       105717, // Deep Earth Regalia - 4 Piece Bonus (Item - Druid T13 Balance 4P Bonus (Starsurge))
       105722, // Deep Earth Regalia - 2 Piece Bonus (Item - Druid T13 Balance 2P Bonus (Insect Swarm))
       105725, // Deep Earth Battlegarb - 2 Piece Bonus (Item - Druid T13 Feral 2P Bonus (Savage Defense and Blood In The Water))
@@ -3961,439 +3955,580 @@ static unsigned __tier_bonuses_data[][TIER_BONUSES_MAX_TIER][TIER_BONUSES_SIZE] 
   },
 };
 
-#define SET_BONUS_DATA_SIZE (407)
+#define SET_BONUS_DATA_SIZE (543)
 
-// Set bonus data, wow build 18546
+// Set bonus data, wow build 18865
 static item_set_bonus_t __set_bonus_data[SET_BONUS_DATA_SIZE] = {
-  //                                    Tier name, Tier, Bns, Cls,         Derived Spec, Spec,  Spell, Items
-  { "Siegebreaker Battlegear"                    ,    8,   2,   1,      {  71,  72, 0 },    0,  64938, {  46278,  46280,  46282,  46285,  46287,  0 } },
-  { "Siegebreaker Battlegear"                    ,    8,   4,   1,      {  71,  72, 0 },    0,  64939, {  46278,  46280,  46282,  46285,  46287,  0 } },
-  { "Siegebreaker Plate"                         ,    8,   2,   1,           {  73, 0 },    0,  64933, {  46279,  46281,  46283,  46284,  46286,  0 } },
-  { "Siegebreaker Plate"                         ,    8,   4,   1,           {  73, 0 },    0,  64936, {  46279,  46281,  46283,  46284,  46286,  0 } },
-  { "Aegis Regalia"                              ,    8,   2,   2,           {  65, 0 },    0,  64890, {  46217,  46218,  46220,  46227,  46228,  0 } },
-  { "Aegis Regalia"                              ,    8,   4,   2,           {  65, 0 },    0,  64895, {  46217,  46218,  46220,  46227,  46228,  0 } },
-  { "Aegis Plate"                                ,    8,   2,   2,           {  66, 0 },    0,  64881, {  46214,  46215,  46219,  46222,  46225,  0 } },
-  { "Aegis Plate"                                ,    8,   4,   2,           {  66, 0 },    0,  64882, {  46214,  46215,  46219,  46222,  46225,  0 } },
-  { "Aegis Battlegear"                           ,    8,   2,   2,           {  70, 0 },    0,  64878, {  46213,  46216,  46221,  46224,  46226,  0 } },
-  { "Aegis Battlegear"                           ,    8,   4,   2,           {  70, 0 },    0,  64879, {  46213,  46216,  46221,  46224,  46226,  0 } },
-  { "Scourgestalker Battlegear"                  ,    8,   2,   3, { 253, 254, 255, 0 },    0,  64854, {  46273,  46274,  46275,  46276,  46277,  0 } },
-  { "Scourgestalker Battlegear"                  ,    8,   4,   3, { 253, 254, 255, 0 },    0,  64860, {  46273,  46274,  46275,  46276,  46277,  0 } },
-  { "Terrorblade Battlegear"                     ,    8,   2,   4, { 259, 260, 261, 0 },    0,  64914, {  46288,  46289,  46290,  46291,  46292,  0 } },
-  { "Terrorblade Battlegear"                     ,    8,   4,   4, { 259, 260, 261, 0 },    0,  64915, {  46288,  46289,  46290,  46291,  46292,  0 } },
-  { "Sanctification Regalia"                     ,    8,   2,   5,      { 256, 257, 0 },    0,  64910, {  46231,  46247,  46254,  46258,  46259,  0 } },
-  { "Sanctification Regalia"                     ,    8,   4,   5,      { 256, 257, 0 },    0,  64912, {  46231,  46247,  46254,  46258,  46259,  0 } },
-  { "Sanctification Garb"                        ,    8,   2,   5,           { 258, 0 },    0,  64906, {  46230,  46248,  46255,  46256,  46257,  0 } },
-  { "Sanctification Garb"                        ,    8,   4,   5,           { 258, 0 },    0,  64908, {  46230,  46248,  46255,  46256,  46257,  0 } },
-  { "Darkruned Plate"                            ,    8,   2,   6,           { 250, 0 },    0,  64744, {  46233,  46234,  46236,  46238,  46240,  0 } },
-  { "Darkruned Plate"                            ,    8,   4,   6,           { 250, 0 },    0,  64745, {  46233,  46234,  46236,  46238,  46240,  0 } },
-  { "Darkruned Battlegear"                       ,    8,   2,   6,      { 251, 252, 0 },    0,  64735, {  46232,  46235,  46237,  46239,  46241,  0 } },
-  { "Darkruned Battlegear"                       ,    8,   4,   6,      { 251, 252, 0 },    0,  64736, {  46232,  46235,  46237,  46239,  46241,  0 } },
-  { "Worldbreaker Garb"                          ,    8,   2,   7,           { 262, 0 },    0,  64925, {  46295,  46298,  46300,  46301,  46304,  0 } },
-  { "Worldbreaker Garb"                          ,    8,   4,   7,           { 262, 0 },    0,  64928, {  46295,  46298,  46300,  46301,  46304,  0 } },
-  { "Worldbreaker Battlegear"                    ,    8,   2,   7,           { 263, 0 },    0,  64916, {  46293,  46294,  46296,  46303,  46307,  0 } },
-  //                                    Tier name, Tier, Bns, Cls,         Derived Spec, Spec,  Spell, Items
-  { "Worldbreaker Battlegear"                    ,    8,   4,   7,           { 263, 0 },    0,  64917, {  46293,  46294,  46296,  46303,  46307,  0 } },
-  { "Worldbreaker Regalia"                       ,    8,   2,   7,           { 264, 0 },    0,  64921, {  46297,  46299,  46302,  46305,  46306,  0 } },
-  { "Worldbreaker Regalia"                       ,    8,   4,   7,           { 264, 0 },    0,  64922, {  46297,  46299,  46302,  46305,  46306,  0 } },
-  { "Kirin Tor Garb"                             ,    8,   2,   8, {  62,  63,  64, 0 },    0,  64867, {  46249,  46250,  46251,  46252,  46253,  0 } },
-  { "Kirin Tor Garb"                             ,    8,   4,   8, {  62,  63,  64, 0 },    0,  64869, {  46249,  46250,  46251,  46252,  46253,  0 } },
-  { "Deathbringer Garb"                          ,    8,   2,   9, { 265, 266, 267, 0 },    0,  64931, {  46242,  46243,  46244,  46245,  46246,  0 } },
-  { "Deathbringer Garb"                          ,    8,   4,   9, { 265, 266, 267, 0 },    0,  64932, {  46242,  46243,  46244,  46245,  46246,  0 } },
-  { "Nightsong Garb"                             ,    8,   2,  11,           { 102, 0 },    0,  64818, {  45350,  46309,  46266,  46271,  46272,  0 } },
-  { "Nightsong Garb"                             ,    8,   4,  11,           { 102, 0 },    0,  64824, {  45350,  46309,  46266,  46271,  46272,  0 } },
-  { "Nightsong Battlegear"                       ,    8,   2,  11,           { 103, 0 },    0,  64752, {  46260,  46262,  46265,  46267,  46269,  0 } },
-  { "Nightsong Battlegear"                       ,    8,   4,  11,           { 103, 0 },    0,  64754, {  46260,  46262,  46265,  46267,  46269,  0 } },
-  { "Nightsong Regalia"                          ,    8,   2,  11,           { 105, 0 },    0,  64756, {  46261,  46263,  46264,  46268,  46270,  0 } },
-  { "Nightsong Regalia"                          ,    8,   4,  11,           { 105, 0 },    0,  64760, {  46261,  46263,  46264,  46268,  46270,  0 } },
-  { "Hellscream's Battlegear"                    ,    9,   2,   1,      {  71,  72, 0 },    0,  67234, {  48860,  48861,  48862,  48863,  48864,  0 } },
-  { "Wrynn's Battlegear"                         ,    9,   2,   1,      {  71,  72, 0 },    0,  67234, {  48865,  48866,  48867,  48868,  48869,  0 } },
-  { "Hellscream's Battlegear"                    ,    9,   4,   1,      {  71,  72, 0 },    0,  67268, {  48860,  48861,  48862,  48863,  48864,  0 } },
-  { "Wrynn's Battlegear"                         ,    9,   4,   1,      {  71,  72, 0 },    0,  67268, {  48865,  48866,  48867,  48868,  48869,  0 } },
-  { "Wrynn's Plate"                              ,    9,   2,   1,           {  73, 0 },    0,  67269, {  48875,  48876,  48877,  48878,  48879,  0 } },
-  { "Hellscream's Plate"                         ,    9,   2,   1,           {  73, 0 },    0,  67269, {  48870,  48871,  48872,  48873,  48874,  0 } },
-  { "Wrynn's Plate"                              ,    9,   4,   1,           {  73, 0 },    0,  67273, {  48875,  48876,  48877,  48878,  48879,  0 } },
-  { "Hellscream's Plate"                         ,    9,   4,   1,           {  73, 0 },    0,  67273, {  48870,  48871,  48872,  48873,  48874,  0 } },
-  { "Liadrin's Garb"                             ,    9,   2,   2,           {  65, 0 },    0,  67190, {  48909,  48908,  48907,  48906,  48905,  0 } },
-  { "Turalyon's Garb"                            ,    9,   2,   2,           {  65, 0 },    0,  67190, {  48904,  48903,  48902,  48901,  48900,  0 } },
-  { "Liadrin's Garb"                             ,    9,   4,   2,           {  65, 0 },    0,  67191, {  48909,  48908,  48907,  48906,  48905,  0 } },
-  { "Turalyon's Garb"                            ,    9,   4,   2,           {  65, 0 },    0,  67191, {  48904,  48903,  48902,  48901,  48900,  0 } },
-  //                                    Tier name, Tier, Bns, Cls,         Derived Spec, Spec,  Spell, Items
-  { "Turalyon's Plate"                           ,    9,   2,   2,           {  66, 0 },    0,  67186, {  48927,  48928,  48929,  48930,  48931,  0 } },
-  { "Liadrin's Plate"                            ,    9,   2,   2,           {  66, 0 },    0,  67186, {  48922,  48923,  48924,  48925,  48926,  0 } },
-  { "Turalyon's Plate"                           ,    9,   4,   2,           {  66, 0 },    0,  67187, {  48927,  48928,  48929,  48930,  48931,  0 } },
-  { "Liadrin's Plate"                            ,    9,   4,   2,           {  66, 0 },    0,  67187, {  48922,  48923,  48924,  48925,  48926,  0 } },
-  { "Turalyon's Battlegear"                      ,    9,   2,   2,           {  70, 0 },    0,  67188, {  48915,  48916,  48917,  48918,  48919,  0 } },
-  { "Liadrin's Battlegear"                       ,    9,   2,   2,           {  70, 0 },    0,  67188, {  48910,  48911,  48912,  48913,  48914,  0 } },
-  { "Turalyon's Battlegear"                      ,    9,   4,   2,           {  70, 0 },    0,  67189, {  48915,  48916,  48917,  48918,  48919,  0 } },
-  { "Liadrin's Battlegear"                       ,    9,   4,   2,           {  70, 0 },    0,  67189, {  48910,  48911,  48912,  48913,  48914,  0 } },
-  { "Windrunner's Battlegear"                    ,    9,   2,   3, { 253, 254, 255, 0 },    0,  67150, {  48819,  48820,  48821,  48822,  48823,  0 } },
-  { "Windrunner's Pursuit"                       ,    9,   2,   3, { 253, 254, 255, 0 },    0,  67150, {  48814,  48815,  48816,  48817,  48818,  0 } },
-  { "Windrunner's Battlegear"                    ,    9,   4,   3, { 253, 254, 255, 0 },    0,  67151, {  48819,  48820,  48821,  48822,  48823,  0 } },
-  { "Windrunner's Pursuit"                       ,    9,   4,   3, { 253, 254, 255, 0 },    0,  67151, {  48814,  48815,  48816,  48817,  48818,  0 } },
-  { "VanCleef's Battlegear"                      ,    9,   2,   4, { 259, 260, 261, 0 },    0,  67209, {  48809,  48810,  48811,  48812,  48813,  0 } },
-  { "Garona's Battlegear"                        ,    9,   2,   4, { 259, 260, 261, 0 },    0,  67209, {  48804,  48805,  48806,  48807,  48808,  0 } },
-  { "VanCleef's Battlegear"                      ,    9,   4,   4, { 259, 260, 261, 0 },    0,  67211, {  48809,  48810,  48811,  48812,  48813,  0 } },
-  { "Garona's Battlegear"                        ,    9,   4,   4, { 259, 260, 261, 0 },    0,  67211, {  48804,  48805,  48806,  48807,  48808,  0 } },
-  { "Zabra's Raiment"                            ,    9,   2,   5,      { 256, 257, 0 },    0,  67201, {  48750,  48751,  48752,  48753,  48754,  0 } },
-  { "Velen's Raiment"                            ,    9,   2,   5,      { 256, 257, 0 },    0,  67201, {  48745,  48746,  48747,  48748,  48749,  0 } },
-  { "Zabra's Raiment"                            ,    9,   4,   5,      { 256, 257, 0 },    0,  67202, {  48750,  48751,  48752,  48753,  48754,  0 } },
-  { "Velen's Raiment"                            ,    9,   4,   5,      { 256, 257, 0 },    0,  67202, {  48745,  48746,  48747,  48748,  48749,  0 } },
-  { "Zabra's Regalia"                            ,    9,   2,   5,           { 258, 0 },    0,  67193, {  48760,  48761,  48762,  48763,  48764,  0 } },
-  { "Velen's Regalia"                            ,    9,   2,   5,           { 258, 0 },    0,  67193, {  48755,  48756,  48757,  48758,  48759,  0 } },
-  { "Zabra's Regalia"                            ,    9,   4,   5,           { 258, 0 },    0,  67198, {  48760,  48761,  48762,  48763,  48764,  0 } },
-  { "Velen's Regalia"                            ,    9,   4,   5,           { 258, 0 },    0,  67198, {  48755,  48756,  48757,  48758,  48759,  0 } },
-  { "Thassarian's Plate"                         ,    9,   2,   6,           { 250, 0 },    0,  67119, {  48895,  48896,  48897,  48898,  48899,  0 } },
-  //                                    Tier name, Tier, Bns, Cls,         Derived Spec, Spec,  Spell, Items
-  { "Koltira's Plate"                            ,    9,   2,   6,           { 250, 0 },    0,  67119, {  48890,  48891,  48892,  48893,  48894,  0 } },
-  { "Thassarian's Plate"                         ,    9,   4,   6,           { 250, 0 },    0,  67120, {  48895,  48896,  48897,  48898,  48899,  0 } },
-  { "Koltira's Plate"                            ,    9,   4,   6,           { 250, 0 },    0,  67120, {  48890,  48891,  48892,  48893,  48894,  0 } },
-  { "Thassarian's Battlegear"                    ,    9,   2,   6,      { 251, 252, 0 },    0,  67115, {  48885,  48886,  48887,  48888,  48889,  0 } },
-  { "Koltira's Battlegear"                       ,    9,   2,   6,      { 251, 252, 0 },    0,  67115, {  48880,  48881,  48882,  48883,  48884,  0 } },
-  { "Thassarian's Battlegear"                    ,    9,   4,   6,      { 251, 252, 0 },    0,  67118, {  48885,  48886,  48887,  48888,  48889,  0 } },
-  { "Koltira's Battlegear"                       ,    9,   4,   6,      { 251, 252, 0 },    0,  67118, {  48880,  48881,  48882,  48883,  48884,  0 } },
-  { "Thrall's Regalia"                           ,    9,   2,   7,           { 262, 0 },    0,  67227, {  48841,  48842,  48843,  48844,  48845,  0 } },
-  { "Nobundo's Regalia"                          ,    9,   2,   7,           { 262, 0 },    0,  67227, {  48836,  48837,  48838,  48839,  48840,  0 } },
-  { "Thrall's Regalia"                           ,    9,   4,   7,           { 262, 0 },    0,  67228, {  48841,  48842,  48843,  48844,  48845,  0 } },
-  { "Nobundo's Regalia"                          ,    9,   4,   7,           { 262, 0 },    0,  67228, {  48836,  48837,  48838,  48839,  48840,  0 } },
-  { "Nobundo's Battlegear"                       ,    9,   2,   7,           { 263, 0 },    0,  67220, {  48846,  48847,  48848,  48849,  48850,  0 } },
-  { "Thrall's Battlegear"                        ,    9,   2,   7,           { 263, 0 },    0,  67220, {  48854,  48855,  48852,  48853,  48851,  0 } },
-  { "Nobundo's Battlegear"                       ,    9,   4,   7,           { 263, 0 },    0,  67221, {  48846,  48847,  48848,  48849,  48850,  0 } },
-  { "Thrall's Battlegear"                        ,    9,   4,   7,           { 263, 0 },    0,  67221, {  48854,  48855,  48852,  48853,  48851,  0 } },
-  { "Nobundo's Garb"                             ,    9,   2,   7,           { 264, 0 },    0,  67225, {  48824,  48825,  48826,  48827,  48828,  0 } },
-  { "Thrall's Garb"                              ,    9,   2,   7,           { 264, 0 },    0,  67225, {  48829,  48830,  48831,  48832,  48833,  0 } },
-  { "Nobundo's Garb"                             ,    9,   4,   7,           { 264, 0 },    0,  67226, {  48824,  48825,  48826,  48827,  48828,  0 } },
-  { "Thrall's Garb"                              ,    9,   4,   7,           { 264, 0 },    0,  67226, {  48829,  48830,  48831,  48832,  48833,  0 } },
-  { "Khadgar's Regalia"                          ,    9,   2,   8, {  62,  63,  64, 0 },    0,  67164, {  48725,  48726,  48727,  48728,  48729,  0 } },
-  { "Sunstrider's Regalia"                       ,    9,   2,   8, {  62,  63,  64, 0 },    0,  67164, {  48730,  48731,  48732,  48733,  48734,  0 } },
-  { "Khadgar's Regalia"                          ,    9,   4,   8, {  62,  63,  64, 0 },    0,  67185, {  48725,  48726,  48727,  48728,  48729,  0 } },
-  { "Sunstrider's Regalia"                       ,    9,   4,   8, {  62,  63,  64, 0 },    0,  67185, {  48730,  48731,  48732,  48733,  48734,  0 } },
-  { "Gul'dan's Regalia"                          ,    9,   2,   9, { 265, 266, 267, 0 },    0,  67230, {  48735,  48736,  48737,  48738,  48739,  0 } },
-  { "Kel'Thuzad's Regalia"                       ,    9,   2,   9, { 265, 266, 267, 0 },    0,  67230, {  48740,  48741,  48742,  48743,  48744,  0 } },
-  //                                    Tier name, Tier, Bns, Cls,         Derived Spec, Spec,  Spell, Items
-  { "Gul'dan's Regalia"                          ,    9,   4,   9, { 265, 266, 267, 0 },    0,  67231, {  48735,  48736,  48737,  48738,  48739,  0 } },
-  { "Kel'Thuzad's Regalia"                       ,    9,   4,   9, { 265, 266, 267, 0 },    0,  67231, {  48740,  48741,  48742,  48743,  48744,  0 } },
-  { "Malfurion's Regalia"                        ,    9,   2,  11,           { 102, 0 },    0,  67125, {  48786,  48787,  48788,  48789,  48790,  0 } },
-  { "Runetotem's Regalia"                        ,    9,   2,  11,           { 102, 0 },    0,  67125, {  48781,  48782,  48783,  48784,  48785,  0 } },
-  { "Malfurion's Regalia"                        ,    9,   4,  11,           { 102, 0 },    0,  67126, {  48786,  48787,  48788,  48789,  48790,  0 } },
-  { "Runetotem's Regalia"                        ,    9,   4,  11,           { 102, 0 },    0,  67126, {  48781,  48782,  48783,  48784,  48785,  0 } },
-  { "Runetotem's Battlegear"                     ,    9,   2,  11,           { 103, 0 },    0,  67121, {  48794,  48795,  48796,  48797,  48798,  0 } },
-  { "Malfurion's Battlegear"                     ,    9,   2,  11,           { 103, 0 },    0,  67121, {  48799,  48800,  48801,  48802,  48803,  0 } },
-  { "Runetotem's Battlegear"                     ,    9,   4,  11,           { 103, 0 },    0,  67123, {  48794,  48795,  48796,  48797,  48798,  0 } },
-  { "Malfurion's Battlegear"                     ,    9,   4,  11,           { 103, 0 },    0,  67123, {  48799,  48800,  48801,  48802,  48803,  0 } },
-  { "Runetotem's Garb"                           ,    9,   2,  11,           { 105, 0 },    0,  67127, {  48769,  48770,  48771,  48772,  48773,  0 } },
-  { "Malfurion's Garb"                           ,    9,   2,  11,           { 105, 0 },    0,  67127, {  48774,  48775,  48776,  48777,  48778,  0 } },
-  { "Runetotem's Garb"                           ,    9,   4,  11,           { 105, 0 },    0,  67128, {  48769,  48770,  48771,  48772,  48773,  0 } },
-  { "Malfurion's Garb"                           ,    9,   4,  11,           { 105, 0 },    0,  67128, {  48774,  48775,  48776,  48777,  48778,  0 } },
-  { "Ymirjar Lord's Battlegear"                  ,   10,   2,   1,      {  71,  72, 0 },    0,  70854, {  51771,  51770,  51769,  51768,  51767,  0 } },
-  { "Ymirjar Lord's Battlegear"                  ,   10,   4,   1,      {  71,  72, 0 },    0,  70847, {  51771,  51770,  51769,  51768,  51767,  0 } },
-  { "Ymirjar Lord's Plate"                       ,   10,   2,   1,           {  73, 0 },    0,  70843, {  51776,  51775,  51774,  51773,  51772,  0 } },
-  { "Ymirjar Lord's Plate"                       ,   10,   4,   1,           {  73, 0 },    0,  70844, {  51776,  51775,  51774,  51773,  51772,  0 } },
-  { "Lightsworn Garb"                            ,   10,   2,   2,           {  65, 0 },    0,  70755, {  51726,  51725,  51724,  51723,  51722,  0 } },
-  { "Lightsworn Garb"                            ,   10,   4,   2,           {  65, 0 },    0,  70756, {  51726,  51725,  51724,  51723,  51722,  0 } },
-  { "Lightsworn Plate"                           ,   10,   2,   2,           {  66, 0 },    0,  70758, {  51731,  51730,  51729,  51728,  51727,  0 } },
-  { "Lightsworn Plate"                           ,   10,   4,   2,           {  66, 0 },    0,  70761, {  51731,  51730,  51729,  51728,  51727,  0 } },
-  { "Lightsworn Battlegear"                      ,   10,   2,   2,           {  70, 0 },    0,  70765, {  51721,  51720,  51719,  51718,  51717,  0 } },
-  { "Lightsworn Battlegear"                      ,   10,   4,   2,           {  70, 0 },    0,  70762, {  51721,  51720,  51719,  51718,  51717,  0 } },
-  { "Ahn'Kahar Blood Hunter's Battlegear"        ,   10,   2,   3, { 253, 254, 255, 0 },    0,  70727, {  51711,  51710,  51709,  51708,  51707,  0 } },
-  //                                    Tier name, Tier, Bns, Cls,         Derived Spec, Spec,  Spell, Items
-  { "Ahn'Kahar Blood Hunter's Battlegear"        ,   10,   4,   3, { 253, 254, 255, 0 },    0,  70730, {  51711,  51710,  51709,  51708,  51707,  0 } },
-  { "Shadowblade's Battlegear"                   ,   10,   2,   4, { 259, 260, 261, 0 },    0,  70805, {  51746,  51745,  51744,  51743,  51742,  0 } },
-  { "Shadowblade's Battlegear"                   ,   10,   4,   4, { 259, 260, 261, 0 },    0,  70803, {  51746,  51745,  51744,  51743,  51742,  0 } },
-  { "Crimson Acolyte's Raiment"                  ,   10,   2,   5,      { 256, 257, 0 },    0,  70770, {  51732,  51733,  51734,  51735,  51736,  0 } },
-  { "Crimson Acolyte's Raiment"                  ,   10,   4,   5,      { 256, 257, 0 },    0,  70798, {  51732,  51733,  51734,  51735,  51736,  0 } },
-  { "Crimson Acolyte's Regalia"                  ,   10,   2,   5,           { 258, 0 },    0,  70800, {  51741,  51740,  51739,  51738,  51737,  0 } },
-  { "Crimson Acolyte's Regalia"                  ,   10,   4,   5,           { 258, 0 },    0,  70801, {  51741,  51740,  51739,  51738,  51737,  0 } },
-  { "Scourgelord's Plate"                        ,   10,   2,   6,           { 250, 0 },    0,  70650, {  51691,  51690,  51689,  51688,  51687,  0 } },
-  { "Scourgelord's Plate"                        ,   10,   4,   6,           { 250, 0 },    0,  70652, {  51691,  51690,  51689,  51688,  51687,  0 } },
-  { "Scourgelord's Battlegear"                   ,   10,   2,   6,      { 251, 252, 0 },    0,  70655, {  51686,  51685,  51684,  51683,  51682,  0 } },
-  { "Scourgelord's Battlegear"                   ,   10,   4,   6,      { 251, 252, 0 },    0,  70656, {  51686,  51685,  51684,  51683,  51682,  0 } },
-  { "Frost Witch's Regalia"                      ,   10,   2,   7,           { 262, 0 },    0,  70811, {  51757,  51758,  51759,  51760,  51761,  0 } },
-  { "Frost Witch's Regalia"                      ,   10,   4,   7,           { 262, 0 },    0,  70817, {  51757,  51758,  51759,  51760,  51761,  0 } },
-  { "Frost Witch's Battlegear"                   ,   10,   2,   7,           { 263, 0 },    0,  70830, {  51752,  51753,  51754,  51755,  51756,  0 } },
-  { "Frost Witch's Battlegear"                   ,   10,   4,   7,           { 263, 0 },    0,  70832, {  51752,  51753,  51754,  51755,  51756,  0 } },
-  { "Frost Witch's Garb"                         ,   10,   2,   7,           { 264, 0 },    0,  70807, {  51747,  51748,  51749,  51750,  51751,  0 } },
-  { "Frost Witch's Garb"                         ,   10,   4,   7,           { 264, 0 },    0,  70808, {  51747,  51748,  51749,  51750,  51751,  0 } },
-  { "Bloodmage's Regalia"                        ,   10,   2,   8, {  62,  63,  64, 0 },    0,  70752, {  51716,  51715,  51714,  51713,  51712,  0 } },
-  { "Bloodmage's Regalia"                        ,   10,   4,   8, {  62,  63,  64, 0 },    0,  70748, {  51716,  51715,  51714,  51713,  51712,  0 } },
-  { "Dark Coven's Regalia"                       ,   10,   2,   9, { 265, 266, 267, 0 },    0,  70839, {  51766,  51765,  51764,  51763,  51762,  0 } },
-  { "Dark Coven's Regalia"                       ,   10,   4,   9, { 265, 266, 267, 0 },    0,  70841, {  51766,  51765,  51764,  51763,  51762,  0 } },
-  { "Lasherweave Regalia"                        ,   10,   2,  11,           { 102, 0 },    0,  70718, {  51706,  51705,  51704,  51703,  51702,  0 } },
-  { "Lasherweave Regalia"                        ,   10,   4,  11,           { 102, 0 },    0,  70723, {  51706,  51705,  51704,  51703,  51702,  0 } },
-  { "Lasherweave Battlegear"                     ,   10,   2,  11,           { 103, 0 },    0,  70724, {  51701,  51700,  51699,  51698,  51697,  0 } },
-  { "Lasherweave Battlegear"                     ,   10,   4,  11,           { 103, 0 },    0,  70726, {  51701,  51700,  51699,  51698,  51697,  0 } },
-  //                                    Tier name, Tier, Bns, Cls,         Derived Spec, Spec,  Spell, Items
-  { "Lasherweave Garb"                           ,   10,   2,  11,           { 105, 0 },    0,  70658, {  51696,  51695,  51694,  51693,  51692,  0 } },
-  { "Lasherweave Garb"                           ,   10,   4,  11,           { 105, 0 },    0,  70664, {  51696,  51695,  51694,  51693,  51692,  0 } },
-  { "Earthen Warplate"                           ,   11,   2,   1,      {  71,  72, 0 },    0,  90293, {  60327,  60324,  60325,  60326,  60323,  0 } },
-  { "Earthen Warplate"                           ,   11,   4,   1,      {  71,  72, 0 },    0,  90295, {  60327,  60324,  60325,  60326,  60323,  0 } },
-  { "Earthen Battleplate"                        ,   11,   2,   1,           {  73, 0 },    0,  90296, {  60331,  60330,  60328,  60332,  60329,  0 } },
-  { "Earthen Battleplate"                        ,   11,   4,   1,           {  73, 0 },    0,  90297, {  60331,  60330,  60328,  60332,  60329,  0 } },
-  { "Reinforced Sapphirium Regalia"              ,   11,   2,   2,           {  65, 0 },    0,  90310, {  60362,  60361,  60359,  60363,  60360,  0 } },
-  { "Reinforced Sapphirium Regalia"              ,   11,   4,   2,           {  65, 0 },    0,  90313, {  60362,  60361,  60359,  60363,  60360,  0 } },
-  { "Reinforced Sapphirium Battlearmor"          ,   11,   2,   2,           {  66, 0 },    0,  90301, {  60358,  60357,  60356,  60355,  60354,  0 } },
-  { "Reinforced Sapphirium Battlearmor"          ,   11,   4,   2,           {  66, 0 },    0,  90306, {  60358,  60357,  60356,  60355,  60354,  0 } },
-  { "Reinforced Sapphirium Battleplate"          ,   11,   2,   2,           {  70, 0 },    0,  90298, {  60348,  60347,  60346,  60345,  60344,  0 } },
-  { "Reinforced Sapphirium Battleplate"          ,   11,   4,   2,           {  70, 0 },    0,  90299, {  60348,  60347,  60346,  60345,  60344,  0 } },
-  { "Lightning-Charged Battlegear"               ,   11,   2,   3, { 253, 254, 255, 0 },    0,  89923, {  60306,  60305,  60303,  60307,  60304,  0 } },
-  { "Lightning-Charged Battlegear"               ,   11,   4,   3, { 253, 254, 255, 0 },    0,  96411, {  60306,  60305,  60303,  60307,  60304,  0 } },
-  { "Wind Dancer's Regalia"                      ,   11,   2,   4, { 259, 260, 261, 0 },    0,  90460, {  60302,  60300,  60299,  60298,  60301,  0 } },
-  { "Wind Dancer's Regalia"                      ,   11,   4,   4, { 259, 260, 261, 0 },    0,  90473, {  60302,  60300,  60299,  60298,  60301,  0 } },
-  { "Mercurial Vestments"                        ,   11,   2,   5,      { 256, 257, 0 },    0,  89910, {  60262,  60259,  60261,  60258,  60275,  0 } },
-  { "Mercurial Vestments"                        ,   11,   4,   5,      { 256, 257, 0 },    0,  89911, {  60262,  60259,  60261,  60258,  60275,  0 } },
-  { "Mercurial Regalia"                          ,   11,   2,   5,           { 258, 0 },    0,  89915, {  60253,  60254,  60255,  60256,  60257,  0 } },
-  { "Mercurial Regalia"                          ,   11,   4,   5,           { 258, 0 },    0,  89922, {  60253,  60254,  60255,  60256,  60257,  0 } },
-  { "Magma Plated Battlearmor"                   ,   11,   2,   6,           { 250, 0 },    0,  90454, {  60349,  60350,  60351,  60352,  60353,  0 } },
-  { "Magma Plated Battlearmor"                   ,   11,   4,   6,           { 250, 0 },    0,  90456, {  60349,  60350,  60351,  60352,  60353,  0 } },
-  { "Magma Plated Battlegear"                    ,   11,   2,   6,      { 251, 252, 0 },    0,  90457, {  60339,  60340,  60341,  60342,  60343,  0 } },
-  { "Magma Plated Battlegear"                    ,   11,   4,   6,      { 251, 252, 0 },    0,  90459, {  60339,  60340,  60341,  60342,  60343,  0 } },
-  { "Regalia of the Raging Elements"             ,   11,   2,   7,           { 262, 0 },    0,  90503, {  60317,  60316,  60315,  60314,  60313,  0 } },
-  //                                    Tier name, Tier, Bns, Cls,         Derived Spec, Spec,  Spell, Items
-  { "Regalia of the Raging Elements"             ,   11,   4,   7,           { 262, 0 },    0,  90505, {  60317,  60316,  60315,  60314,  60313,  0 } },
-  { "Battlegear of the Raging Elements"          ,   11,   2,   7,           { 263, 0 },    0,  90501, {  60322,  60321,  60320,  60319,  60318,  0 } },
-  { "Battlegear of the Raging Elements"          ,   11,   4,   7,           { 263, 0 },    0,  90502, {  60322,  60321,  60320,  60319,  60318,  0 } },
-  { "Vestments of the Raging Elements"           ,   11,   2,   7,           { 264, 0 },    0,  90494, {  60311,  60310,  60308,  60312,  60309,  0 } },
-  { "Vestments of the Raging Elements"           ,   11,   4,   7,           { 264, 0 },    0,  90499, {  60311,  60310,  60308,  60312,  60309,  0 } },
-  { "Firelord's Vestments"                       ,   11,   2,   8, {  62,  63,  64, 0 },    0,  90290, {  60246,  60244,  60245,  60243,  60247,  0 } },
-  { "Firelord's Vestments"                       ,   11,   4,   8, {  62,  63,  64, 0 },    0,  90291, {  60246,  60244,  60245,  60243,  60247,  0 } },
-  { "Shadowflame Regalia"                        ,   11,   2,   9, { 265, 266, 267, 0 },    0,  89934, {  60252,  60251,  60250,  60249,  60248,  0 } },
-  { "Shadowflame Regalia"                        ,   11,   4,   9, { 265, 266, 267, 0 },    0,  89935, {  60252,  60251,  60250,  60249,  60248,  0 } },
-  { "Stormrider's Regalia"                       ,   11,   2,  11,           { 102, 0 },    0,  90160, {  60284,  60281,  60283,  60282,  60285,  0 } },
-  { "Stormrider's Regalia"                       ,   11,   4,  11,           { 102, 0 },    0,  90163, {  60284,  60281,  60283,  60282,  60285,  0 } },
-  { "Stormrider's Battlegarb"                    ,   11,   2,  11,           { 103, 0 },    0,  90162, {  60290,  60286,  60288,  60287,  60289,  0 } },
-  { "Stormrider's Battlegarb"                    ,   11,   4,  11,           { 103, 0 },    0,  90165, {  60290,  60286,  60288,  60287,  60289,  0 } },
-  { "Stormrider's Vestments"                     ,   11,   2,  11,           { 105, 0 },    0,  90157, {  60280,  60277,  60278,  60276,  60279,  0 } },
-  { "Stormrider's Vestments"                     ,   11,   4,  11,           { 105, 0 },    0,  90158, {  60280,  60277,  60278,  60276,  60279,  0 } },
-  { "Molten Giant Warplate"                      ,   12,   2,   1,      {  71,  72, 0 },    0,  99234, {  71072,  71071,  71069,  71068,  71070,  0 } },
-  { "Molten Giant Warplate"                      ,   12,   4,   1,      {  71,  72, 0 },    0,  99238, {  71072,  71071,  71069,  71068,  71070,  0 } },
-  { "Molten Giant Battleplate"                   ,   12,   2,   1,           {  73, 0 },    0,  99239, {  70941,  70942,  70944,  70943,  70945,  0 } },
-  { "Molten Giant Battleplate"                   ,   12,   4,   1,           {  73, 0 },    0,  99242, {  70941,  70942,  70944,  70943,  70945,  0 } },
-  { "Regalia of Immolation"                      ,   12,   2,   2,           {  65, 0 },    0,  99067, {  71095,  71094,  71093,  71092,  71091,  0 } },
-  { "Regalia of Immolation"                      ,   12,   4,   2,           {  65, 0 },    0,  99070, {  71095,  71094,  71093,  71092,  71091,  0 } },
-  { "Battlearmor of Immolation"                  ,   12,   2,   2,           {  66, 0 },    0,  99074, {  70946,  70947,  70948,  70949,  70950,  0 } },
-  { "Battlearmor of Immolation"                  ,   12,   4,   2,           {  66, 0 },    0,  99091, {  70946,  70947,  70948,  70949,  70950,  0 } },
-  { "Battleplate of Immolation"                  ,   12,   2,   2,           {  70, 0 },    0,  99093, {  71067,  71066,  71065,  71064,  71063,  0 } },
-  { "Battleplate of Immolation"                  ,   12,   4,   2,           {  70, 0 },    0,  99116, {  71067,  71066,  71065,  71064,  71063,  0 } },
-  //                                    Tier name, Tier, Bns, Cls,         Derived Spec, Spec,  Spell, Items
-  { "Flamewaker's Battlegear"                    ,   12,   2,   3, { 253, 254, 255, 0 },    0,  99057, {  71050,  71051,  71052,  71053,  71054,  0 } },
-  { "Flamewaker's Battlegear"                    ,   12,   4,   3, { 253, 254, 255, 0 },    0,  99059, {  71050,  71051,  71052,  71053,  71054,  0 } },
-  { "Vestments of the Dark Phoenix"              ,   12,   2,   4, { 259, 260, 261, 0 },    0,  99174, {  71045,  71046,  71047,  71048,  71049,  0 } },
-  { "Vestments of the Dark Phoenix"              ,   12,   4,   4, { 259, 260, 261, 0 },    0,  99175, {  71045,  71046,  71047,  71048,  71049,  0 } },
-  { "Vestments of the Cleansing Flame"           ,   12,   2,   5,      { 256, 257, 0 },    0,  99134, {  71271,  71272,  71273,  71274,  71275,  0 } },
-  { "Vestments of the Cleansing Flame"           ,   12,   4,   5,      { 256, 257, 0 },    0,  99135, {  71271,  71272,  71273,  71274,  71275,  0 } },
-  { "Regalia of the Cleansing Flame"             ,   12,   2,   5,           { 258, 0 },    0,  99154, {  71280,  71279,  71278,  71277,  71276,  0 } },
-  { "Regalia of the Cleansing Flame"             ,   12,   4,   5,           { 258, 0 },    0,  99157, {  71280,  71279,  71278,  71277,  71276,  0 } },
-  { "Elementium Deathplate Battlearmor"          ,   12,   2,   6,           { 250, 0 },    0,  98956, {  70951,  70952,  70953,  70954,  70955,  0 } },
-  { "Elementium Deathplate Battlearmor"          ,   12,   4,   6,           { 250, 0 },    0,  98966, {  70951,  70952,  70953,  70954,  70955,  0 } },
-  { "Elementium Deathplate Battlegear"           ,   12,   2,   6,      { 251, 252, 0 },    0,  98970, {  71058,  71059,  71060,  71061,  71062,  0 } },
-  { "Elementium Deathplate Battlegear"           ,   12,   4,   6,      { 251, 252, 0 },    0,  98996, {  71058,  71059,  71060,  71061,  71062,  0 } },
-  { "Volcanic Regalia"                           ,   12,   2,   7,           { 262, 0 },    0,  99204, {  71295,  71294,  71293,  71292,  71291,  0 } },
-  { "Volcanic Regalia"                           ,   12,   4,   7,           { 262, 0 },    0,  99206, {  71295,  71294,  71293,  71292,  71291,  0 } },
-  { "Volcanic Battlegear"                        ,   12,   2,   7,           { 263, 0 },    0,  99209, {  71305,  71304,  71303,  71302,  71301,  0 } },
-  { "Volcanic Battlegear"                        ,   12,   4,   7,           { 263, 0 },    0,  99213, {  71305,  71304,  71303,  71302,  71301,  0 } },
-  { "Volcanic Vestments"                         ,   12,   2,   7,           { 264, 0 },    0,  99190, {  71300,  71299,  71298,  71297,  71296,  0 } },
-  { "Volcanic Vestments"                         ,   12,   4,   7,           { 264, 0 },    0,  99195, {  71300,  71299,  71298,  71297,  71296,  0 } },
-  { "Firehawk Robes of Conflagration"            ,   12,   2,   8, {  62,  63,  64, 0 },    0,  99061, {  71290,  71286,  71287,  71288,  71289,  0 } },
-  { "Firehawk Robes of Conflagration"            ,   12,   4,   8, {  62,  63,  64, 0 },    0,  99064, {  71290,  71286,  71287,  71288,  71289,  0 } },
-  { "Balespider's Burning Vestments"             ,   12,   2,   9, { 265, 266, 267, 0 },    0,  99220, {  71281,  71283,  71282,  71284,  71285,  0 } },
-  { "Balespider's Burning Vestments"             ,   12,   4,   9, { 265, 266, 267, 0 },    0,  99229, {  71281,  71283,  71282,  71284,  71285,  0 } },
-  { "Obsidian Arborweave Regalia"                ,   12,   2,  11,           { 102, 0 },    0,  99019, {  71107,  71108,  71109,  71110,  71111,  0 } },
-  { "Obsidian Arborweave Regalia"                ,   12,   4,  11,           { 102, 0 },    0,  99049, {  71107,  71108,  71109,  71110,  71111,  0 } },
-  { "Obsidian Arborweave Battlegarb"             ,   12,   2,  11,           { 103, 0 },    0,  99001, {  71097,  71098,  71099,  71100,  71101,  0 } },
-  //                                    Tier name, Tier, Bns, Cls,         Derived Spec, Spec,  Spell, Items
-  { "Obsidian Arborweave Battlegarb"             ,   12,   4,  11,           { 103, 0 },    0,  99009, {  71097,  71098,  71099,  71100,  71101,  0 } },
-  { "Obsidian Arborweave Vestments"              ,   12,   2,  11,           { 105, 0 },    0,  99013, {  71102,  71103,  71104,  71105,  71106,  0 } },
-  { "Obsidian Arborweave Vestments"              ,   12,   4,  11,           { 105, 0 },    0,  99015, {  71102,  71103,  71104,  71105,  71106,  0 } },
-  { "Colossal Dragonplate Battlegear"            ,   13,   2,   1,      {  71,  72, 0 },    0, 105797, {  76983,  76984,  76985,  76986,  76987,  0 } },
-  { "Colossal Dragonplate Battlegear"            ,   13,   4,   1,      {  71,  72, 0 },    0, 105907, {  76983,  76984,  76985,  76986,  76987,  0 } },
-  { "Colossal Dragonplate Armor"                 ,   13,   2,   1,           {  73, 0 },    0, 105908, {  76988,  76989,  76990,  76991,  76992,  0 } },
-  { "Colossal Dragonplate Armor"                 ,   13,   4,   1,           {  73, 0 },    0, 105911, {  76988,  76989,  76990,  76991,  76992,  0 } },
-  { "Regalia of Radiant Glory"                   ,   13,   2,   2,           {  65, 0 },    0, 105743, {  76765,  76766,  76767,  76768,  76769,  0 } },
-  { "Regalia of Radiant Glory"                   ,   13,   4,   2,           {  65, 0 },    0, 105798, {  76765,  76766,  76767,  76768,  76769,  0 } },
-  { "Armor of Radiant Glory"                     ,   13,   2,   2,           {  66, 0 },    0, 105800, {  77003,  77004,  77005,  77006,  77007,  0 } },
-  { "Armor of Radiant Glory"                     ,   13,   4,   2,           {  66, 0 },    0, 105744, {  77003,  77004,  77005,  77006,  77007,  0 } },
-  { "Battleplate of Radiant Glory"               ,   13,   2,   2,           {  70, 0 },    0, 105765, {  76874,  76875,  76876,  76877,  76878,  0 } },
-  { "Battleplate of Radiant Glory"               ,   13,   4,   2,           {  70, 0 },    0, 105820, {  76874,  76875,  76876,  76877,  76878,  0 } },
-  { "Wyrmstalker Battlegear"                     ,   13,   2,   3, { 253, 254, 255, 0 },    0, 105732, {  77028,  77029,  77030,  77031,  77032,  0 } },
-  { "Wyrmstalker Battlegear"                     ,   13,   4,   3, { 253, 254, 255, 0 },    0, 105921, {  77028,  77029,  77030,  77031,  77032,  0 } },
-  { "Blackfang Battleweave"                      ,   13,   2,   4, { 259, 260, 261, 0 },    0, 105849, {  77023,  77024,  77025,  77026,  77027,  0 } },
-  { "Blackfang Battleweave"                      ,   13,   4,   4, { 259, 260, 261, 0 },    0, 105865, {  77023,  77024,  77025,  77026,  77027,  0 } },
-  { "Vestments of Dying Light"                   ,   13,   2,   5,      { 256, 257, 0 },    0, 105827, {  76357,  76358,  76359,  76360,  76361,  0 } },
-  { "Vestments of Dying Light"                   ,   13,   4,   5,      { 256, 257, 0 },    0, 105832, {  76357,  76358,  76359,  76360,  76361,  0 } },
-  { "Regalia of Dying Light"                     ,   13,   2,   5,           { 258, 0 },    0, 105843, {  76348,  76347,  76346,  76345,  76344,  0 } },
-  { "Regalia of Dying Light"                     ,   13,   4,   5,           { 258, 0 },    0, 105844, {  76348,  76347,  76346,  76345,  76344,  0 } },
-  { "Necrotic Boneplate Armor"                   ,   13,   2,   6,           { 250, 0 },    0, 105552, {  77008,  77009,  77010,  77011,  77012,  0 } },
-  { "Necrotic Boneplate Armor"                   ,   13,   4,   6,           { 250, 0 },    0, 105587, {  77008,  77009,  77010,  77011,  77012,  0 } },
-  { "Necrotic Boneplate Battlegear"              ,   13,   2,   6,      { 251, 252, 0 },    0, 105609, {  76974,  76975,  76976,  76977,  76978,  0 } },
-  { "Necrotic Boneplate Battlegear"              ,   13,   4,   6,      { 251, 252, 0 },    0, 105646, {  76974,  76975,  76976,  76977,  76978,  0 } },
-  //                                    Tier name, Tier, Bns, Cls,         Derived Spec, Spec,  Spell, Items
-  { "Spiritwalker's Regalia"                     ,   13,   2,   7,           { 262, 0 },    0, 105780, {  77039,  77038,  77037,  77036,  77035,  0 } },
-  { "Spiritwalker's Regalia"                     ,   13,   4,   7,           { 262, 0 },    0, 105816, {  77039,  77038,  77037,  77036,  77035,  0 } },
-  { "Spiritwalker's Battlegear"                  ,   13,   2,   7,           { 263, 0 },    0, 105866, {  77040,  77041,  77042,  77043,  77044,  0 } },
-  { "Spiritwalker's Battlegear"                  ,   13,   4,   7,           { 263, 0 },    0, 105872, {  77040,  77041,  77042,  77043,  77044,  0 } },
-  { "Spiritwalker's Vestments"                   ,   13,   2,   7,           { 264, 0 },    0, 105764, {  76756,  76757,  76758,  76759,  76760,  0 } },
-  { "Spiritwalker's Vestments"                   ,   13,   4,   7,           { 264, 0 },    0, 105876, {  76756,  76757,  76758,  76759,  76760,  0 } },
-  { "Time Lord's Regalia"                        ,   13,   2,   8, {  62,  63,  64, 0 },    0, 105788, {  76212,  76213,  76214,  76215,  76216,  0 } },
-  { "Time Lord's Regalia"                        ,   13,   4,   8, {  62,  63,  64, 0 },    0, 105790, {  76212,  76213,  76214,  76215,  76216,  0 } },
-  { "Vestments of the Faceless Shroud"           ,   13,   2,   9, { 265, 266, 267, 0 },    0, 105888, {  76343,  76342,  76341,  76340,  76339,  0 } },
-  { "Vestments of the Faceless Shroud"           ,   13,   4,   9, { 265, 266, 267, 0 },    0, 105787, {  76343,  76342,  76341,  76340,  76339,  0 } },
-  { "Deep Earth Regalia"                         ,   13,   2,  11,           { 102, 0 },    0, 105722, {  77018,  77019,  77020,  77021,  77022,  0 } },
-  { "Deep Earth Regalia"                         ,   13,   4,  11,           { 102, 0 },    0, 105717, {  77018,  77019,  77020,  77021,  77022,  0 } },
-  { "Deep Earth Battlegarb"                      ,   13,   2,  11,           { 103, 0 },    0, 105725, {  77013,  77014,  77015,  77016,  77017,  0 } },
-  { "Deep Earth Battlegarb"                      ,   13,   4,  11,           { 103, 0 },    0, 105735, {  77013,  77014,  77015,  77016,  77017,  0 } },
-  { "Deep Earth Vestments"                       ,   13,   2,  11,           { 105, 0 },    0, 105715, {  76749,  76750,  76751,  76752,  76753,  0 } },
-  { "Deep Earth Vestments"                       ,   13,   4,  11,           { 105, 0 },    0, 105770, {  76749,  76750,  76751,  76752,  76753,  0 } },
-  { "Battleplate of Resounding Rings"            ,   14,   2,   1,      {  71,  72, 0 },    0, 123142, {  85329,  85330,  85331,  85332,  85333,  0 } },
-  { "Battleplate of Resounding Rings"            ,   14,   4,   1,      {  71,  72, 0 },    0, 123144, {  85329,  85330,  85331,  85332,  85333,  0 } },
-  { "Plate of Resounding Rings"                  ,   14,   2,   1,           {  73, 0 },    0, 123146, {  85324,  85325,  85326,  85327,  85328,  0 } },
-  { "Plate of Resounding Rings"                  ,   14,   4,   1,           {  73, 0 },    0, 123147, {  85324,  85325,  85326,  85327,  85328,  0 } },
-  { "White Tiger Vestments"                      ,   14,   2,   2,           {  65, 0 },    0, 123102, {  85344,  85345,  85346,  85347,  85348,  0 } },
-  { "White Tiger Vestments"                      ,   14,   4,   2,           {  65, 0 },    0, 123103, {  85344,  85345,  85346,  85347,  85348,  0 } },
-  { "White Tiger Plate"                          ,   14,   2,   2,           {  66, 0 },    0, 123104, {  85319,  85320,  85321,  85322,  85323,  0 } },
-  { "White Tiger Plate"                          ,   14,   4,   2,           {  66, 0 },    0, 123107, {  85319,  85320,  85321,  85322,  85323,  0 } },
-  { "White Tiger Battlegear"                     ,   14,   2,   2,           {  70, 0 },    0, 123108, {  85339,  85340,  85341,  85342,  85343,  0 } },
-  //                                    Tier name, Tier, Bns, Cls,         Derived Spec, Spec,  Spell, Items
-  { "White Tiger Battlegear"                     ,   14,   4,   2,           {  70, 0 },    0,  70762, {  85339,  85340,  85341,  85342,  85343,  0 } },
-  { "Yaungol Slayer Battlegear"                  ,   14,   2,   3, { 253, 254, 255, 0 },    0, 123090, {  85294,  85295,  85296,  85297,  85298,  0 } },
-  { "Yaungol Slayer Battlegear"                  ,   14,   4,   3, { 253, 254, 255, 0 },    0, 123091, {  85294,  85295,  85296,  85297,  85298,  0 } },
-  { "Battlegear of the Thousandfold Blades"      ,   14,   2,   4, { 259, 260, 261, 0 },    0, 123116, {  85299,  85300,  85301,  85302,  85303,  0 } },
-  { "Battlegear of the Thousandfold Blades"      ,   14,   4,   4, { 259, 260, 261, 0 },    0, 123122, {  85299,  85300,  85301,  85302,  85303,  0 } },
-  { "Vestments of the Guardian Serpent"          ,   14,   2,   5,      { 256, 257, 0 },    0, 123111, {  85359,  85360,  85361,  85362,  85363,  0 } },
-  { "Vestments of the Guardian Serpent"          ,   14,   4,   5,      { 256, 257, 0 },    0, 123113, {  85359,  85360,  85361,  85362,  85363,  0 } },
-  { "Regalia of the Guardian Serpent"            ,   14,   2,   5,           { 258, 0 },    0, 123114, {  85368,  85367,  85366,  85365,  85364,  0 } },
-  { "Regalia of the Guardian Serpent"            ,   14,   4,   5,           { 258, 0 },    0, 123115, {  85368,  85367,  85366,  85365,  85364,  0 } },
-  { "Plate of the Lost Catacomb"                 ,   14,   2,   6,           { 250, 0 },    0, 123079, {  85314,  85315,  85316,  85317,  85318,  0 } },
-  { "Plate of the Lost Catacomb"                 ,   14,   4,   6,           { 250, 0 },    0, 123080, {  85314,  85315,  85316,  85317,  85318,  0 } },
-  { "Battlegear of the Lost Catacomb"            ,   14,   2,   6,      { 251, 252, 0 },    0, 123077, {  85334,  85335,  85336,  85337,  85338,  0 } },
-  { "Battlegear of the Lost Catacomb"            ,   14,   4,   6,      { 251, 252, 0 },    0, 123078, {  85334,  85335,  85336,  85337,  85338,  0 } },
-  { "Regalia of the Firebird"                    ,   14,   2,   7,           { 262, 0 },    0, 123123, {  85293,  85292,  85291,  85290,  85289,  0 } },
-  { "Regalia of the Firebird"                    ,   14,   4,   7,           { 262, 0 },    0, 123124, {  85293,  85292,  85291,  85290,  85289,  0 } },
-  { "Battlegear of the Firebird"                 ,   14,   2,   7,           { 263, 0 },    0, 123132, {  85284,  85285,  85286,  85287,  85288,  0 } },
-  { "Battlegear of the Firebird"                 ,   14,   4,   7,           { 263, 0 },    0, 123133, {  85284,  85285,  85286,  85287,  85288,  0 } },
-  { "Vestments of the Firebird"                  ,   14,   2,   7,           { 264, 0 },    0, 123134, {  85349,  85350,  85351,  85352,  85353,  0 } },
-  { "Vestments of the Firebird"                  ,   14,   4,   7,           { 264, 0 },    0, 123135, {  85349,  85350,  85351,  85352,  85353,  0 } },
-  { "Regalia of the Burning Scroll"              ,   14,   2,   8, {  62,  63,  64, 0 },    0, 123097, {  85374,  85375,  85376,  85377,  85378,  0 } },
-  { "Regalia of the Burning Scroll"              ,   14,   4,   8, {  62,  63,  64, 0 },    0, 123101, {  85374,  85375,  85376,  85377,  85378,  0 } },
-  { "Sha-Skin Regalia"                           ,   14,   2,   9, { 265, 266, 267, 0 },    0, 123136, {  85373,  85372,  85371,  85370,  85369,  0 } },
-  { "Sha-Skin Regalia"                           ,   14,   4,   9, { 265, 266, 267, 0 },    0, 123141, {  85373,  85372,  85371,  85370,  85369,  0 } },
-  { "Armor of the Red Crane"                     ,   14,   2,  10,           { 268, 0 },    0, 123157, {  85384,  85385,  85386,  85387,  85388,  0 } },
-  { "Armor of the Red Crane"                     ,   14,   4,  10,           { 268, 0 },    0, 123159, {  85384,  85385,  85386,  85387,  85388,  0 } },
-  //                                    Tier name, Tier, Bns, Cls,         Derived Spec, Spec,  Spell, Items
-  { "Battlegear of the Red Crane"                ,   14,   2,  10,           { 269, 0 },    0, 123149, {  85398,  85397,  85396,  85395,  85394,  0 } },
-  { "Battlegear of the Red Crane"                ,   14,   4,  10,           { 269, 0 },    0, 123150, {  85398,  85397,  85396,  85395,  85394,  0 } },
-  { "Vestments of the Red Crane"                 ,   14,   2,  10,           { 270, 0 },    0, 123152, {  85393,  85392,  85391,  85390,  85389,  0 } },
-  { "Vestments of the Red Crane"                 ,   14,   4,  10,           { 270, 0 },    0, 123153, {  85393,  85392,  85391,  85390,  85389,  0 } },
-  { "Regalia of the Eternal Blossom"             ,   14,   2,  11,           { 102, 0 },    0, 123082, {  85304,  85305,  85306,  85307,  85308,  0 } },
-  { "Regalia of the Eternal Blossom"             ,   14,   4,  11,           { 102, 0 },    0, 123083, {  85304,  85305,  85306,  85307,  85308,  0 } },
-  { "Battlegear of the Eternal Blossom"          ,   14,   2,  11,           { 103, 0 },    0, 123084, {  85309,  85310,  85311,  85312,  85313,  0 } },
-  { "Battlegear of the Eternal Blossom"          ,   14,   4,  11,           { 103, 0 },    0, 123085, {  85309,  85310,  85311,  85312,  85313,  0 } },
-  { "Armor of the Eternal Blossom"               ,   14,   2,  11,           { 104, 0 },    0, 123086, {  85383,  85382,  85381,  85380,  85379,  0 } },
-  { "Armor of the Eternal Blossom"               ,   14,   4,  11,           { 104, 0 },    0, 123087, {  85383,  85382,  85381,  85380,  85379,  0 } },
-  { "Vestments of the Eternal Blossom"           ,   14,   2,  11,           { 105, 0 },    0, 123088, {  85354,  85355,  85356,  85357,  85358,  0 } },
-  { "Vestments of the Eternal Blossom"           ,   14,   4,  11,           { 105, 0 },    0, 123089, {  85354,  85355,  85356,  85357,  85358,  0 } },
-  { "Battleplate of the Last Mogu"               ,   15,   2,   1,      {  71,  72, 0 },    0, 138120, {  95330,  95331,  95332,  95333,  95334,  0 } },
-  { "Battleplate of the Last Mogu"               ,   15,   4,   1,      {  71,  72, 0 },    0, 138126, {  95330,  95331,  95332,  95333,  95334,  0 } },
-  { "Plate of the Last Mogu"                     ,   15,   2,   1,           {  73, 0 },    0, 138280, {  95335,  95336,  95337,  95338,  95339,  0 } },
-  { "Plate of the Last Mogu"                     ,   15,   4,   1,           {  73, 0 },    0, 138281, {  95335,  95336,  95337,  95338,  95339,  0 } },
-  { "Vestments of the Lightning Emperor"         ,   15,   2,   2,           {  65, 0 },    0, 138291, {  95285,  95286,  95287,  95288,  95289,  0 } },
-  { "Vestments of the Lightning Emperor"         ,   15,   4,   2,           {  65, 0 },    0, 138292, {  95285,  95286,  95287,  95288,  95289,  0 } },
-  { "Plate of the Lightning Emperor"             ,   15,   2,   2,           {  66, 0 },    0, 138238, {  95290,  95291,  95292,  95293,  95294,  0 } },
-  { "Plate of the Lightning Emperor"             ,   15,   4,   2,           {  66, 0 },    0, 138244, {  95290,  95291,  95292,  95293,  95294,  0 } },
-  { "Battlegear of the Lightning Emperor"        ,   15,   2,   2,           {  70, 0 },    0, 138159, {  95280,  95281,  95282,  95283,  95284,  0 } },
-  { "Battlegear of the Lightning Emperor"        ,   15,   4,   2,           {  70, 0 },    0, 138164, {  95280,  95281,  95282,  95283,  95284,  0 } },
-  { "Battlegear of the Saurok Stalker"           ,   15,   2,   3, { 253, 254, 255, 0 },    0, 138365, {  95255,  95256,  95257,  95258,  95259,  0 } },
-  { "Battlegear of the Saurok Stalker"           ,   15,   4,   3, { 253, 254, 255, 0 },    0, 138367, {  95255,  95256,  95257,  95258,  95259,  0 } },
-  { "Nine-Tail Battlegear"                       ,   15,   2,   4, { 259, 260, 261, 0 },    0, 138148, {  95305,  95306,  95307,  95308,  95309,  0 } },
-  //                                    Tier name, Tier, Bns, Cls,         Derived Spec, Spec,  Spell, Items
-  { "Nine-Tail Battlegear"                       ,   15,   4,   4, { 259, 260, 261, 0 },    0, 138150, {  95305,  95306,  95307,  95308,  95309,  0 } },
-  { "Vestments of the Exorcist"                  ,   15,   2,   5,      { 256, 257, 0 },    0, 138293, {  95295,  95296,  95297,  95298,  95299,  0 } },
-  { "Vestments of the Exorcist"                  ,   15,   4,   5,      { 256, 257, 0 },    0, 138301, {  95295,  95296,  95297,  95298,  95299,  0 } },
-  { "Regalia of the Exorcist"                    ,   15,   2,   5,           { 258, 0 },    0, 138156, {  95300,  95301,  95302,  95303,  95304,  0 } },
-  { "Regalia of the Exorcist"                    ,   15,   4,   5,           { 258, 0 },    0, 138158, {  95300,  95301,  95302,  95303,  95304,  0 } },
-  { "Plate of the All-Consuming Maw"             ,   15,   2,   6,           { 250, 0 },    0, 138195, {  95230,  95231,  95232,  95233,  95234,  0 } },
-  { "Plate of the All-Consuming Maw"             ,   15,   4,   6,           { 250, 0 },    0, 138197, {  95230,  95231,  95232,  95233,  95234,  0 } },
-  { "Battleplate of the All-Consuming Maw"       ,   15,   2,   6,      { 251, 252, 0 },    0, 138343, {  95225,  95226,  95227,  95228,  95229,  0 } },
-  { "Battleplate of the All-Consuming Maw"       ,   15,   4,   6,      { 251, 252, 0 },    0, 138347, {  95225,  95226,  95227,  95228,  95229,  0 } },
-  { "Regalia of the Witch Doctor"                ,   15,   2,   7,           { 262, 0 },    0, 138145, {  95320,  95321,  95322,  95323,  95324,  0 } },
-  { "Regalia of the Witch Doctor"                ,   15,   4,   7,           { 262, 0 },    0, 138144, {  95320,  95321,  95322,  95323,  95324,  0 } },
-  { "Battlegear of the Witch Doctor"             ,   15,   2,   7,           { 263, 0 },    0, 138136, {  95315,  95316,  95317,  95318,  95319,  0 } },
-  { "Battlegear of the Witch Doctor"             ,   15,   4,   7,           { 263, 0 },    0, 138141, {  95315,  95316,  95317,  95318,  95319,  0 } },
-  { "Vestments of the Witch Doctor"              ,   15,   2,   7,           { 264, 0 },    0, 138303, {  95310,  95311,  95312,  95313,  95314,  0 } },
-  { "Vestments of the Witch Doctor"              ,   15,   4,   7,           { 264, 0 },    0, 138305, {  95310,  95311,  95312,  95313,  95314,  0 } },
-  { "Regalia of the Chromatic Hydra"             ,   15,   2,   8, {  62,  63,  64, 0 },    0, 138316, {  95260,  95261,  95262,  95263,  95264,  0 } },
-  { "Regalia of the Chromatic Hydra"             ,   15,   4,   8, {  62,  63,  64, 0 },    0, 138376, {  95260,  95261,  95262,  95263,  95264,  0 } },
-  { "Regalia of the Thousandfold Hells"          ,   15,   2,   9, { 265, 266, 267, 0 },    0, 138129, {  95325,  95326,  95327,  95328,  95329,  0 } },
-  { "Regalia of the Thousandfold Hells"          ,   15,   4,   9, { 265, 266, 267, 0 },    0, 138134, {  95325,  95326,  95327,  95328,  95329,  0 } },
-  { "Fire-Charm Armor"                           ,   15,   2,  10,           { 268, 0 },    0, 138231, {  95275,  95276,  95277,  95278,  95279,  0 } },
-  { "Fire-Charm Armor"                           ,   15,   4,  10,           { 268, 0 },    0, 138236, {  95275,  95276,  95277,  95278,  95279,  0 } },
-  { "Fire-Charm Battlegear"                      ,   15,   2,  10,           { 269, 0 },    0, 138177, {  95265,  95266,  95267,  95268,  95269,  0 } },
-  { "Fire-Charm Battlegear"                      ,   15,   4,  10,           { 269, 0 },    0, 138315, {  95265,  95266,  95267,  95268,  95269,  0 } },
-  { "Fire-Charm Vestments"                       ,   15,   2,  10,           { 270, 0 },    0, 138290, {  95270,  95271,  95272,  95273,  95274,  0 } },
-  { "Fire-Charm Vestments"                       ,   15,   4,  10,           { 270, 0 },    0, 138289, {  95270,  95271,  95272,  95273,  95274,  0 } },
-  //                                    Tier name, Tier, Bns, Cls,         Derived Spec, Spec,  Spell, Items
-  { "Regalia of the Haunted Forest"              ,   15,   2,  11,           { 102, 0 },    0, 138348, {  95245,  95246,  95247,  95248,  95249,  0 } },
-  { "Regalia of the Haunted Forest"              ,   15,   4,  11,           { 102, 0 },    0, 138350, {  95245,  95246,  95247,  95248,  95249,  0 } },
-  { "Battlegear of the Haunted Forest"           ,   15,   2,  11,           { 103, 0 },    0, 138352, {  95235,  95236,  95237,  95238,  95239,  0 } },
-  { "Battlegear of the Haunted Forest"           ,   15,   4,  11,           { 103, 0 },    0, 138357, {  95235,  95236,  95237,  95238,  95239,  0 } },
-  { "Armor of the Haunted Forest"                ,   15,   2,  11,           { 104, 0 },    0, 138216, {  95250,  95251,  95252,  95253,  95254,  0 } },
-  { "Armor of the Haunted Forest"                ,   15,   4,  11,           { 104, 0 },    0, 138222, {  95250,  95251,  95252,  95253,  95254,  0 } },
-  { "Vestments of the Haunted Forest"            ,   15,   2,  11,           { 105, 0 },    0, 138284, {  95240,  95241,  95242,  95243,  95244,  0 } },
-  { "Vestments of the Haunted Forest"            ,   15,   4,  11,           { 105, 0 },    0, 138286, {  95240,  95241,  95242,  95243,  95244,  0 } },
-  { "Battleplate of the Prehistoric Marauder"    ,   16,   2,   1,      {  71,  72, 0 },    0, 144436, {  99197,  99198,  99199,  99200,  99206,  0 } },
-  { "Battleplate of the Prehistoric Marauder"    ,   16,   4,   1,      {  71,  72, 0 },    0, 144441, {  99197,  99198,  99199,  99200,  99206,  0 } },
-  { "Plate of the Prehistoric Marauder"          ,   16,   2,   1,           {  73, 0 },    0, 144503, {  99195,  99196,  99201,  99202,  99203,  0 } },
-  { "Plate of the Prehistoric Marauder"          ,   16,   4,   1,           {  73, 0 },    0, 144502, {  99195,  99196,  99201,  99202,  99203,  0 } },
-  { "Vestments of Winged Triumph"                ,   16,   2,   2,           {  65, 0 },    0, 144625, {  99133,  99124,  99125,  99134,  99135,  0 } },
-  { "Vestments of Winged Triumph"                ,   16,   4,   2,           {  65, 0 },    0, 144613, {  99133,  99124,  99125,  99134,  99135,  0 } },
-  { "Plate of Winged Triumph"                    ,   16,   2,   2,           {  66, 0 },    0, 144580, {  99126,  99127,  99128,  99129,  99130,  0 } },
-  { "Plate of Winged Triumph"                    ,   16,   4,   2,           {  66, 0 },    0, 144566, {  99126,  99127,  99128,  99129,  99130,  0 } },
-  { "Battlegear of Winged Triumph"               ,   16,   2,   2,           {  70, 0 },    0, 144586, {  99132,  99136,  99137,  99138,  99139,  0 } },
-  { "Battlegear of Winged Triumph"               ,   16,   4,   2,           {  70, 0 },    0, 144593, {  99132,  99136,  99137,  99138,  99139,  0 } },
-  { "Battlegear of the Unblinking Vigil"         ,   16,   2,   3, { 253, 254, 255, 0 },    0, 144637, {  99157,  99158,  99159,  99167,  99168,  0 } },
-  { "Battlegear of the Unblinking Vigil"         ,   16,   4,   3, { 253, 254, 255, 0 },    0, 144641, {  99157,  99158,  99159,  99167,  99168,  0 } },
-  { "Barbed Assassin Battlegear"                 ,   16,   2,   4, { 259, 260, 261, 0 },    0, 145185, {  99113,  99112,  99114,  99115,  99116,  0 } },
-  { "Barbed Assassin Battlegear"                 ,   16,   4,   4, { 259, 260, 261, 0 },    0, 145210, {  99113,  99112,  99114,  99115,  99116,  0 } },
-  { "Vestments of Ternion Glory"                 ,   16,   2,   5,      { 256, 257, 0 },    0, 145306, {  99117,  99118,  99119,  99120,  99131,  0 } },
-  { "Vestments of Ternion Glory"                 ,   16,   4,   5,      { 256, 257, 0 },    0, 145334, {  99117,  99118,  99119,  99120,  99131,  0 } },
-  { "Regalia of Ternion Glory"                   ,   16,   2,   5,           { 258, 0 },    0, 145174, {  99123,  99110,  99111,  99121,  99122,  0 } },
-  //                                    Tier name, Tier, Bns, Cls,         Derived Spec, Spec,  Spell, Items
-  { "Regalia of Ternion Glory"                   ,   16,   4,   5,           { 258, 0 },    0, 145179, {  99123,  99110,  99111,  99121,  99122,  0 } },
-  { "6.0 test set"                               ,   16,   2,   5,                { 0 },  256, 145306, { 109278, 109379,  0 } },
-  { "6.0 test set"                               ,   16,   2,   5,                { 0 },  257, 145174, { 109278, 109379,  0 } },
-  { "6.0 test set"                               ,   16,   2,   5,                { 0 },  258, 145251, { 109278, 109379,  0 } },
-  { "Plate of Cyclopean Dread"                   ,   16,   2,   6,           { 250, 0 },    0, 144934, {  99179,  99188,  99189,  99190,  99191,  0 } },
-  { "Plate of Cyclopean Dread"                   ,   16,   4,   6,           { 250, 0 },    0, 144950, {  99179,  99188,  99189,  99190,  99191,  0 } },
-  { "Battleplate of Cyclopean Dread"             ,   16,   2,   6,      { 251, 252, 0 },    0, 144899, {  99186,  99187,  99192,  99193,  99194,  0 } },
-  { "Battleplate of Cyclopean Dread"             ,   16,   4,   6,      { 251, 252, 0 },    0, 144907, {  99186,  99187,  99192,  99193,  99194,  0 } },
-  { "Celestial Harmony Regalia"                  ,   16,   2,   7,           { 262, 0 },    0, 144998, {  99092,  99093,  99094,  99095,  99106,  0 } },
-  { "Celestial Harmony Regalia"                  ,   16,   4,   7,           { 262, 0 },    0, 145003, {  99092,  99093,  99094,  99095,  99106,  0 } },
-  { "Celestial Harmony Battlegear"               ,   16,   2,   7,           { 263, 0 },    0, 144962, {  99101,  99102,  99103,  99104,  99105,  0 } },
-  { "Celestial Harmony Battlegear"               ,   16,   4,   7,           { 263, 0 },    0, 144966, {  99101,  99102,  99103,  99104,  99105,  0 } },
-  { "Celestial Harmony Vestment"                 ,   16,   2,   7,           { 264, 0 },    0, 145378, {  99099,  99100,  99107,  99108,  99109,  0 } },
-  { "Celestial Harmony Vestment"                 ,   16,   4,   7,           { 264, 0 },    0, 145380, {  99099,  99100,  99107,  99108,  99109,  0 } },
-  { "Chronomancer Regalia"                       ,   16,   2,   8, {  62,  63,  64, 0 },    0, 145251, {  99152,  99153,  99160,  99161,  99162,  0 } },
-  { "Chronomancer Regalia"                       ,   16,   4,   8, {  62,  63,  64, 0 },    0, 145257, {  99152,  99153,  99160,  99161,  99162,  0 } },
-  { "Regalia of the Horned Nightmare"            ,   16,   2,   9, { 265, 266, 267, 0 },    0, 145072, {  99096,  99097,  99098,  99204,  99205,  0 } },
-  { "Regalia of the Horned Nightmare"            ,   16,   4,   9, { 265, 266, 267, 0 },    0, 145091, {  99096,  99097,  99098,  99204,  99205,  0 } },
-  { "Armor of Seven Sacred Seals"                ,   16,   2,  10,           { 268, 0 },    0, 145049, {  99142,  99143,  99144,  99140,  99141,  0 } },
-  { "Armor of Seven Sacred Seals"                ,   16,   4,  10,           { 268, 0 },    0, 145055, {  99142,  99143,  99144,  99140,  99141,  0 } },
-  { "Battlegear of Seven Sacred Seals"           ,   16,   2,  10,           { 269, 0 },    0, 145004, {  99154,  99155,  99156,  99145,  99146,  0 } },
-  { "Battlegear of Seven Sacred Seals"           ,   16,   4,  10,           { 269, 0 },    0, 145022, {  99154,  99155,  99156,  99145,  99146,  0 } },
-  { "Vestments of Seven Sacred Seals"            ,   16,   2,  10,           { 270, 0 },    0, 145439, {  99151,  99147,  99148,  99149,  99150,  0 } },
-  { "Vestments of Seven Sacred Seals"            ,   16,   4,  10,           { 270, 0 },    0, 145449, {  99151,  99147,  99148,  99149,  99150,  0 } },
-  { "Regalia of the Shattered Vale"              ,   16,   2,  11,           { 102, 0 },    0, 144767, {  99169,  99174,  99175,  99176,  99177,  0 } },
-  //                                    Tier name, Tier, Bns, Cls,         Derived Spec, Spec,  Spell, Items
-  { "Regalia of the Shattered Vale"              ,   16,   4,  11,           { 102, 0 },    0, 144756, {  99169,  99174,  99175,  99176,  99177,  0 } },
-  { "Battlegear of the Shattered Vale"           ,   16,   2,  11,           { 103, 0 },    0, 144864, {  99180,  99181,  99182,  99183,  99184,  0 } },
-  { "Battlegear of the Shattered Vale"           ,   16,   4,  11,           { 103, 0 },    0, 144841, {  99180,  99181,  99182,  99183,  99184,  0 } },
-  { "Armor of the Shattered Vale"                ,   16,   2,  11,           { 104, 0 },    0, 144879, {  99163,  99164,  99165,  99166,  99170,  0 } },
-  { "Armor of the Shattered Vale"                ,   16,   4,  11,           { 104, 0 },    0, 144887, {  99163,  99164,  99165,  99166,  99170,  0 } },
-  { "Vestments of the Shattered Vale"            ,   16,   2,  11,           { 105, 0 },    0, 144869, {  99171,  99172,  99173,  99178,  99185,  0 } },
-  { "Vestments of the Shattered Vale"            ,   16,   4,  11,           { 105, 0 },    0, 144875, {  99171,  99172,  99173,  99178,  99185,  0 } },
+  //                                    Tier name, SetID, Tier, Bns, Cls,         Derived Spec, Role, Spec,  Spell, Items
+  { "Gladiator's Battlegear"                     ,  1230,    0,   2,   1,                { 0 },    3,   71, 165636, { 111239, 111240, 111241, 111242, 111243,  0 } },
+  { "Gladiator's Battlegear"                     ,  1230,    0,   4,   1,                { 0 },    3,   71, 165670, { 111239, 111240, 111241, 111242, 111243,  0 } },
+  { "Gladiator's Battlegear"                     ,  1230,    0,   2,   1,                { 0 },    3,   72, 165639, { 111239, 111240, 111241, 111242, 111243,  0 } },
+  { "Gladiator's Battlegear"                     ,  1230,    0,   4,   1,                { 0 },    3,   72, 165670, { 111239, 111240, 111241, 111242, 111243,  0 } },
+  { "Gladiator's Battlegear"                     ,  1230,    0,   2,   1,                { 0 },    3,   73, 165641, { 111239, 111240, 111241, 111242, 111243,  0 } },
+  { "Gladiator's Battlegear"                     ,  1230,    0,   4,   1,                { 0 },    3,   73, 165670, { 111239, 111240, 111241, 111242, 111243,  0 } },
+  { "Gladiator's Vindication"                    ,  1225,    0,   2,   2,                { 0 },    3,   65, 170860, { 111169, 111170, 111171, 111172, 111173,  0 } },
+  { "Gladiator's Vindication"                    ,  1225,    0,   4,   2,                { 0 },    3,   65, 165881, { 111169, 111170, 111171, 111172, 111173,  0 } },
+  { "Gladiator's Vindication"                    ,  1225,    0,   2,   2,                { 0 },    3,   66, 165905, { 111169, 111170, 111171, 111172, 111173,  0 } },
+  { "Gladiator's Vindication"                    ,  1225,    0,   4,   2,                { 0 },    3,   66, 171427, { 111169, 111170, 111171, 111172, 111173,  0 } },
+  { "Gladiator's Vindication"                    ,  1225,    0,   2,   2,                { 0 },    3,   70, 165886, { 111169, 111170, 111171, 111172, 111173,  0 } },
+  { "Gladiator's Vindication"                    ,  1225,    0,   4,   2,                { 0 },    3,   70, 165895, { 111169, 111170, 111171, 111172, 111173,  0 } },
+  { "Gladiator's Pursuit"                        ,  1222,    0,   2,   3,                { 0 },    3,  253, 166005, { 111112, 111113, 111114, 111115, 111116,  0 } },
+  { "Gladiator's Pursuit"                        ,  1222,    0,   4,   3,                { 0 },    3,  253, 171478, { 111112, 111113, 111114, 111115, 111116,  0 } },
+  { "Gladiator's Pursuit"                        ,  1222,    0,   2,   3,                { 0 },    3,  254, 166005, { 111112, 111113, 111114, 111115, 111116,  0 } },
+  { "Gladiator's Pursuit"                        ,  1222,    0,   4,   3,                { 0 },    3,  254, 170884, { 111112, 111113, 111114, 111115, 111116,  0 } },
+  { "Gladiator's Pursuit"                        ,  1222,    0,   2,   3,                { 0 },    3,  255, 166005, { 111112, 111113, 111114, 111115, 111116,  0 } },
+  { "Gladiator's Pursuit"                        ,  1222,    0,   4,   3,                { 0 },    3,  255, 166012, { 111112, 111113, 111114, 111115, 111116,  0 } },
+  { "Gladiator's Vestments"                      ,  1227,    0,   2,   4,                { 0 },    3,  259, 165995, { 111188, 111189, 111190, 111191, 111192,  0 } },
+  { "Gladiator's Vestments"                      ,  1227,    0,   4,   4,                { 0 },    3,  259, 170883, { 111188, 111189, 111190, 111191, 111192,  0 } },
+  { "Gladiator's Vestments"                      ,  1227,    0,   2,   4,                { 0 },    3,  260, 165995, { 111188, 111189, 111190, 111191, 111192,  0 } },
+  { "Gladiator's Vestments"                      ,  1227,    0,   4,   4,                { 0 },    3,  260, 165997, { 111188, 111189, 111190, 111191, 111192,  0 } },
+  { "Gladiator's Vestments"                      ,  1227,    0,   2,   4,                { 0 },    3,  261, 165995, { 111188, 111189, 111190, 111191, 111192,  0 } },
+  { "Gladiator's Vestments"                      ,  1227,    0,   4,   4,                { 0 },    3,  261, 170877, { 111188, 111189, 111190, 111191, 111192,  0 } },
+  { "Gladiator's Investiture"                    ,  1226,    0,   2,   5,                { 0 },    3,  256, 171124, { 111183, 111184, 111185, 111186, 111187,  0 } },
+  //                                    Tier name, SetID, Tier, Bns, Cls,         Derived Spec, Role, Spec,  Spell, Items
+  { "Gladiator's Investiture"                    ,  1226,    0,   4,   5,                { 0 },    3,  256, 171141, { 111183, 111184, 111185, 111186, 111187,  0 } },
+  { "Gladiator's Investiture"                    ,  1226,    0,   2,   5,                { 0 },    3,  257, 171158, { 111183, 111184, 111185, 111186, 111187,  0 } },
+  { "Gladiator's Investiture"                    ,  1226,    0,   4,   5,                { 0 },    3,  257, 171142, { 111183, 111184, 111185, 111186, 111187,  0 } },
+  { "Gladiator's Investiture"                    ,  1226,    0,   2,   5,                { 0 },    3,  258, 171146, { 111183, 111184, 111185, 111186, 111187,  0 } },
+  { "Gladiator's Investiture"                    ,  1226,    0,   4,   5,                { 0 },    3,  258, 171151, { 111183, 111184, 111185, 111186, 111187,  0 } },
+  { "Gladiator's Desecration"                    ,  1220,    0,   2,   6,                { 0 },    3,  250, 166020, { 111102, 111103, 111104, 111105, 111106,  0 } },
+  { "Gladiator's Desecration"                    ,  1220,    0,   4,   6,                { 0 },    3,  250, 171456, { 111102, 111103, 111104, 111105, 111106,  0 } },
+  { "Gladiator's Desecration"                    ,  1220,    0,   2,   6,                { 0 },    3,  251, 166020, { 111102, 111103, 111104, 111105, 111106,  0 } },
+  { "Gladiator's Desecration"                    ,  1220,    0,   4,   6,                { 0 },    3,  251, 166056, { 111102, 111103, 111104, 111105, 111106,  0 } },
+  { "Gladiator's Desecration"                    ,  1220,    0,   2,   6,                { 0 },    3,  252, 166020, { 111102, 111103, 111104, 111105, 111106,  0 } },
+  { "Gladiator's Desecration"                    ,  1220,    0,   4,   6,                { 0 },    3,  252, 166061, { 111102, 111103, 111104, 111105, 111106,  0 } },
+  { "Gladiator's Wartide"                        ,  1228,    0,   2,   7,                { 0 },    3,  262, 166096, { 111193, 111194, 111195, 111196, 111197,  0 } },
+  { "Gladiator's Wartide"                        ,  1228,    0,   4,   7,                { 0 },    3,  262, 171109, { 111193, 111194, 111195, 111196, 111197,  0 } },
+  { "Gladiator's Wartide"                        ,  1228,    0,   2,   7,                { 0 },    3,  263, 166103, { 111193, 111194, 111195, 111196, 111197,  0 } },
+  { "Gladiator's Wartide"                        ,  1228,    0,   4,   7,                { 0 },    3,  263, 171121, { 111193, 111194, 111195, 111196, 111197,  0 } },
+  { "Gladiator's Wartide"                        ,  1228,    0,   2,   7,                { 0 },    3,  264, 171381, { 111193, 111194, 111195, 111196, 111197,  0 } },
+  { "Gladiator's Wartide"                        ,  1228,    0,   4,   7,                { 0 },    3,  264, 166063, { 111193, 111194, 111195, 111196, 111197,  0 } },
+  { "Gladiator's Regalia"                        ,  1223,    0,   2,   8,                { 0 },    3,   62, 171349, { 111150, 111151, 111152, 111153, 111154,  0 } },
+  { "Gladiator's Regalia"                        ,  1223,    0,   4,   8,                { 0 },    3,   62, 171351, { 111150, 111151, 111152, 111153, 111154,  0 } },
+  { "Gladiator's Regalia"                        ,  1223,    0,   2,   8,                { 0 },    3,   63, 165977, { 111150, 111151, 111152, 111153, 111154,  0 } },
+  { "Gladiator's Regalia"                        ,  1223,    0,   4,   8,                { 0 },    3,   63, 171169, { 111150, 111151, 111152, 111153, 111154,  0 } },
+  { "Gladiator's Regalia"                        ,  1223,    0,   2,   8,                { 0 },    3,   64, 165981, { 111150, 111151, 111152, 111153, 111154,  0 } },
+  { "Gladiator's Regalia"                        ,  1223,    0,   4,   8,                { 0 },    3,   64, 171178, { 111150, 111151, 111152, 111153, 111154,  0 } },
+  { "Gladiator's Felshroud"                      ,  1229,    0,   2,   9,                { 0 },    3,  265, 171377, { 111234, 111235, 111236, 111237, 111238,  0 } },
+  { "Gladiator's Felshroud"                      ,  1229,    0,   4,   9,                { 0 },    3,  265, 171379, { 111234, 111235, 111236, 111237, 111238,  0 } },
+  //                                    Tier name, SetID, Tier, Bns, Cls,         Derived Spec, Role, Spec,  Spell, Items
+  { "Gladiator's Felshroud"                      ,  1229,    0,   2,   9,                { 0 },    3,  266, 171393, { 111234, 111235, 111236, 111237, 111238,  0 } },
+  { "Gladiator's Felshroud"                      ,  1229,    0,   4,   9,                { 0 },    3,  266, 165967, { 111234, 111235, 111236, 111237, 111238,  0 } },
+  { "Gladiator's Felshroud"                      ,  1229,    0,   2,   9,                { 0 },    3,  267, 171383, { 111234, 111235, 111236, 111237, 111238,  0 } },
+  { "Gladiator's Felshroud"                      ,  1229,    0,   4,   9,                { 0 },    3,  267, 165970, { 111234, 111235, 111236, 111237, 111238,  0 } },
+  { "Gladiator's Ironskin"                       ,  1224,    0,   2,  10,                { 0 },    3,  268, 165691, { 111168, 111164, 111165, 111166, 111167,  0 } },
+  { "Gladiator's Ironskin"                       ,  1224,    0,   4,  10,                { 0 },    3,  268, 171445, { 111168, 111164, 111165, 111166, 111167,  0 } },
+  { "Gladiator's Ironskin"                       ,  1224,    0,   2,  10,                { 0 },    3,  269, 165691, { 111168, 111164, 111165, 111166, 111167,  0 } },
+  { "Gladiator's Ironskin"                       ,  1224,    0,   4,  10,                { 0 },    3,  269, 165696, { 111168, 111164, 111165, 111166, 111167,  0 } },
+  { "Gladiator's Ironskin"                       ,  1224,    0,   2,  10,                { 0 },    3,  270, 170799, { 111168, 111164, 111165, 111166, 111167,  0 } },
+  { "Gladiator's Ironskin"                       ,  1224,    0,   4,  10,                { 0 },    3,  270, 165697, { 111168, 111164, 111165, 111166, 111167,  0 } },
+  { "Gladiator's Sanctuary"                      ,  1221,    0,   2,  11,                { 0 },    3,  102, 165701, { 111107, 111108, 111109, 111110, 111111,  0 } },
+  { "Gladiator's Sanctuary"                      ,  1221,    0,   4,  11,                { 0 },    3,  102, 165705, { 111107, 111108, 111109, 111110, 111111,  0 } },
+  { "Gladiator's Sanctuary"                      ,  1221,    0,   2,  11,                { 0 },    3,  103, 170848, { 111107, 111108, 111109, 111110, 111111,  0 } },
+  { "Gladiator's Sanctuary"                      ,  1221,    0,   4,  11,                { 0 },    3,  103, 165698, { 111107, 111108, 111109, 111110, 111111,  0 } },
+  { "Gladiator's Sanctuary"                      ,  1221,    0,   2,  11,                { 0 },    3,  104, 171408, { 111107, 111108, 111109, 111110, 111111,  0 } },
+  { "Gladiator's Sanctuary"                      ,  1221,    0,   4,  11,                { 0 },    3,  104, 171489, { 111107, 111108, 111109, 111110, 111111,  0 } },
+  { "Gladiator's Sanctuary"                      ,  1221,    0,   2,  11,                { 0 },    3,  105, 170853, { 111107, 111108, 111109, 111110, 111111,  0 } },
+  { "Gladiator's Sanctuary"                      ,  1221,    0,   4,  11,                { 0 },    3,  105, 165707, { 111107, 111108, 111109, 111110, 111111,  0 } },
+  { "Siegebreaker Battlegear"                    ,   830,    8,   2,   1,      {  71,  72, 0 },    2,    0,  64938, {  46278,  46280,  46282,  46285,  46287,  0 } },
+  { "Siegebreaker Battlegear"                    ,   830,    8,   4,   1,      {  71,  72, 0 },    2,    0,  64939, {  46278,  46280,  46282,  46285,  46287,  0 } },
+  { "Siegebreaker Plate"                         ,   831,    8,   2,   1,           {  73, 0 },    0,    0,  64933, {  46279,  46281,  46283,  46284,  46286,  0 } },
+  { "Siegebreaker Plate"                         ,   831,    8,   4,   1,           {  73, 0 },    0,    0,  64936, {  46279,  46281,  46283,  46284,  46286,  0 } },
+  { "Aegis Regalia"                              ,   822,    8,   2,   2,           {  65, 0 },    1,    0,  64890, {  46217,  46218,  46220,  46227,  46228,  0 } },
+  { "Aegis Regalia"                              ,   822,    8,   4,   2,           {  65, 0 },    1,    0,  64895, {  46217,  46218,  46220,  46227,  46228,  0 } },
+  { "Aegis Plate"                                ,   821,    8,   2,   2,           {  66, 0 },    0,    0,  64881, {  46214,  46215,  46219,  46222,  46225,  0 } },
+  //                                    Tier name, SetID, Tier, Bns, Cls,         Derived Spec, Role, Spec,  Spell, Items
+  { "Aegis Plate"                                ,   821,    8,   4,   2,           {  66, 0 },    0,    0,  64882, {  46214,  46215,  46219,  46222,  46225,  0 } },
+  { "Aegis Battlegear"                           ,   820,    8,   2,   2,           {  70, 0 },    2,    0,  64878, {  46213,  46216,  46221,  46224,  46226,  0 } },
+  { "Aegis Battlegear"                           ,   820,    8,   4,   2,           {  70, 0 },    2,    0,  64879, {  46213,  46216,  46221,  46224,  46226,  0 } },
+  { "Scourgestalker Battlegear"                  ,   838,    8,   2,   3, { 253, 254, 255, 0 },    2,    0,  64854, {  46273,  46274,  46275,  46276,  46277,  0 } },
+  { "Scourgestalker Battlegear"                  ,   838,    8,   4,   3, { 253, 254, 255, 0 },    2,    0,  64860, {  46273,  46274,  46275,  46276,  46277,  0 } },
+  { "Terrorblade Battlegear"                     ,   826,    8,   2,   4, { 259, 260, 261, 0 },    2,    0,  64914, {  46288,  46289,  46290,  46291,  46292,  0 } },
+  { "Terrorblade Battlegear"                     ,   826,    8,   4,   4, { 259, 260, 261, 0 },    2,    0,  64915, {  46288,  46289,  46290,  46291,  46292,  0 } },
+  { "Sanctification Regalia"                     ,   833,    8,   2,   5,      { 256, 257, 0 },    1,    0,  64910, {  46231,  46247,  46254,  46258,  46259,  0 } },
+  { "Sanctification Regalia"                     ,   833,    8,   4,   5,      { 256, 257, 0 },    1,    0,  64912, {  46231,  46247,  46254,  46258,  46259,  0 } },
+  { "Sanctification Garb"                        ,   832,    8,   2,   5,           { 258, 0 },    3,    0,  64906, {  46230,  46248,  46255,  46256,  46257,  0 } },
+  { "Sanctification Garb"                        ,   832,    8,   4,   5,           { 258, 0 },    3,    0,  64908, {  46230,  46248,  46255,  46256,  46257,  0 } },
+  { "Darkruned Plate"                            ,   835,    8,   2,   6,           { 250, 0 },    0,    0,  64744, {  46233,  46234,  46236,  46238,  46240,  0 } },
+  { "Darkruned Plate"                            ,   835,    8,   4,   6,           { 250, 0 },    0,    0,  64745, {  46233,  46234,  46236,  46238,  46240,  0 } },
+  { "Darkruned Battlegear"                       ,   834,    8,   2,   6,      { 251, 252, 0 },    2,    0,  64735, {  46232,  46235,  46237,  46239,  46241,  0 } },
+  { "Darkruned Battlegear"                       ,   834,    8,   4,   6,      { 251, 252, 0 },    2,    0,  64736, {  46232,  46235,  46237,  46239,  46241,  0 } },
+  { "Worldbreaker Garb"                          ,   824,    8,   2,   7,           { 262, 0 },    3,    0,  64925, {  46295,  46298,  46300,  46301,  46304,  0 } },
+  { "Worldbreaker Garb"                          ,   824,    8,   4,   7,           { 262, 0 },    3,    0,  64928, {  46295,  46298,  46300,  46301,  46304,  0 } },
+  { "Worldbreaker Battlegear"                    ,   823,    8,   2,   7,           { 263, 0 },    2,    0,  64916, {  46293,  46294,  46296,  46303,  46307,  0 } },
+  { "Worldbreaker Battlegear"                    ,   823,    8,   4,   7,           { 263, 0 },    2,    0,  64917, {  46293,  46294,  46296,  46303,  46307,  0 } },
+  { "Worldbreaker Regalia"                       ,   825,    8,   2,   7,           { 264, 0 },    1,    0,  64921, {  46297,  46299,  46302,  46305,  46306,  0 } },
+  { "Worldbreaker Regalia"                       ,   825,    8,   4,   7,           { 264, 0 },    1,    0,  64922, {  46297,  46299,  46302,  46305,  46306,  0 } },
+  { "Kirin Tor Garb"                             ,   836,    8,   2,   8, {  62,  63,  64, 0 },    3,    0,  64867, {  46249,  46250,  46251,  46252,  46253,  0 } },
+  { "Kirin Tor Garb"                             ,   836,    8,   4,   8, {  62,  63,  64, 0 },    3,    0,  64869, {  46249,  46250,  46251,  46252,  46253,  0 } },
+  { "Deathbringer Garb"                          ,   837,    8,   2,   9, { 265, 266, 267, 0 },    3,    0,  64931, {  46242,  46243,  46244,  46245,  46246,  0 } },
+  { "Deathbringer Garb"                          ,   837,    8,   4,   9, { 265, 266, 267, 0 },    3,    0,  64932, {  46242,  46243,  46244,  46245,  46246,  0 } },
+  //                                    Tier name, SetID, Tier, Bns, Cls,         Derived Spec, Role, Spec,  Spell, Items
+  { "Nightsong Garb"                             ,   828,    8,   2,  11,           { 102, 0 },    3,    0,  64818, {  45350,  46309,  46266,  46271,  46272,  0 } },
+  { "Nightsong Garb"                             ,   828,    8,   4,  11,           { 102, 0 },    3,    0,  64824, {  45350,  46309,  46266,  46271,  46272,  0 } },
+  { "Nightsong Battlegear"                       ,   827,    8,   2,  11,           { 103, 0 },    2,    0,  64752, {  46260,  46262,  46265,  46267,  46269,  0 } },
+  { "Nightsong Battlegear"                       ,   827,    8,   4,  11,           { 103, 0 },    2,    0,  64754, {  46260,  46262,  46265,  46267,  46269,  0 } },
+  { "Nightsong Regalia"                          ,   829,    8,   2,  11,           { 105, 0 },    1,    0,  64756, {  46261,  46263,  46264,  46268,  46270,  0 } },
+  { "Nightsong Regalia"                          ,   829,    8,   4,  11,           { 105, 0 },    1,    0,  64760, {  46261,  46263,  46264,  46268,  46270,  0 } },
+  { "Hellscream's Battlegear"                    ,   868,    9,   2,   1,      {  71,  72, 0 },    2,    0,  67234, {  48860,  48861,  48862,  48863,  48864,  0 } },
+  { "Wrynn's Battlegear"                         ,   867,    9,   2,   1,      {  71,  72, 0 },    2,    0,  67234, {  48865,  48866,  48867,  48868,  48869,  0 } },
+  { "Hellscream's Battlegear"                    ,   868,    9,   4,   1,      {  71,  72, 0 },    2,    0,  67268, {  48860,  48861,  48862,  48863,  48864,  0 } },
+  { "Wrynn's Battlegear"                         ,   867,    9,   4,   1,      {  71,  72, 0 },    2,    0,  67268, {  48865,  48866,  48867,  48868,  48869,  0 } },
+  { "Wrynn's Plate"                              ,   869,    9,   2,   1,           {  73, 0 },    0,    0,  67269, {  48875,  48876,  48877,  48878,  48879,  0 } },
+  { "Hellscream's Plate"                         ,   870,    9,   2,   1,           {  73, 0 },    0,    0,  67269, {  48870,  48871,  48872,  48873,  48874,  0 } },
+  { "Wrynn's Plate"                              ,   869,    9,   4,   1,           {  73, 0 },    0,    0,  67273, {  48875,  48876,  48877,  48878,  48879,  0 } },
+  { "Hellscream's Plate"                         ,   870,    9,   4,   1,           {  73, 0 },    0,    0,  67273, {  48870,  48871,  48872,  48873,  48874,  0 } },
+  { "Liadrin's Garb"                             ,   876,    9,   2,   2,           {  65, 0 },    1,    0,  67190, {  48909,  48908,  48907,  48906,  48905,  0 } },
+  { "Turalyon's Garb"                            ,   875,    9,   2,   2,           {  65, 0 },    1,    0,  67190, {  48904,  48903,  48902,  48901,  48900,  0 } },
+  { "Liadrin's Garb"                             ,   876,    9,   4,   2,           {  65, 0 },    1,    0,  67191, {  48909,  48908,  48907,  48906,  48905,  0 } },
+  { "Turalyon's Garb"                            ,   875,    9,   4,   2,           {  65, 0 },    1,    0,  67191, {  48904,  48903,  48902,  48901,  48900,  0 } },
+  { "Turalyon's Plate"                           ,   879,    9,   2,   2,           {  66, 0 },    0,    0,  67186, {  48927,  48928,  48929,  48930,  48931,  0 } },
+  { "Liadrin's Plate"                            ,   880,    9,   2,   2,           {  66, 0 },    0,    0,  67186, {  48922,  48923,  48924,  48925,  48926,  0 } },
+  { "Turalyon's Plate"                           ,   879,    9,   4,   2,           {  66, 0 },    0,    0,  67187, {  48927,  48928,  48929,  48930,  48931,  0 } },
+  { "Liadrin's Plate"                            ,   880,    9,   4,   2,           {  66, 0 },    0,    0,  67187, {  48922,  48923,  48924,  48925,  48926,  0 } },
+  { "Turalyon's Battlegear"                      ,   877,    9,   2,   2,           {  70, 0 },    2,    0,  67188, {  48915,  48916,  48917,  48918,  48919,  0 } },
+  { "Liadrin's Battlegear"                       ,   878,    9,   2,   2,           {  70, 0 },    2,    0,  67188, {  48910,  48911,  48912,  48913,  48914,  0 } },
+  { "Turalyon's Battlegear"                      ,   877,    9,   4,   2,           {  70, 0 },    2,    0,  67189, {  48915,  48916,  48917,  48918,  48919,  0 } },
+  //                                    Tier name, SetID, Tier, Bns, Cls,         Derived Spec, Role, Spec,  Spell, Items
+  { "Liadrin's Battlegear"                       ,   878,    9,   4,   2,           {  70, 0 },    2,    0,  67189, {  48910,  48911,  48912,  48913,  48914,  0 } },
+  { "Windrunner's Battlegear"                    ,   859,    9,   2,   3, { 253, 254, 255, 0 },    2,    0,  67150, {  48819,  48820,  48821,  48822,  48823,  0 } },
+  { "Windrunner's Pursuit"                       ,   860,    9,   2,   3, { 253, 254, 255, 0 },    2,    0,  67150, {  48814,  48815,  48816,  48817,  48818,  0 } },
+  { "Windrunner's Battlegear"                    ,   859,    9,   4,   3, { 253, 254, 255, 0 },    2,    0,  67151, {  48819,  48820,  48821,  48822,  48823,  0 } },
+  { "Windrunner's Pursuit"                       ,   860,    9,   4,   3, { 253, 254, 255, 0 },    2,    0,  67151, {  48814,  48815,  48816,  48817,  48818,  0 } },
+  { "VanCleef's Battlegear"                      ,   857,    9,   2,   4, { 259, 260, 261, 0 },    2,    0,  67209, {  48809,  48810,  48811,  48812,  48813,  0 } },
+  { "Garona's Battlegear"                        ,   858,    9,   2,   4, { 259, 260, 261, 0 },    2,    0,  67209, {  48804,  48805,  48806,  48807,  48808,  0 } },
+  { "VanCleef's Battlegear"                      ,   857,    9,   4,   4, { 259, 260, 261, 0 },    2,    0,  67211, {  48809,  48810,  48811,  48812,  48813,  0 } },
+  { "Garona's Battlegear"                        ,   858,    9,   4,   4, { 259, 260, 261, 0 },    2,    0,  67211, {  48804,  48805,  48806,  48807,  48808,  0 } },
+  { "Zabra's Raiment"                            ,   848,    9,   2,   5,      { 256, 257, 0 },    1,    0,  67201, {  48750,  48751,  48752,  48753,  48754,  0 } },
+  { "Velen's Raiment"                            ,   847,    9,   2,   5,      { 256, 257, 0 },    1,    0,  67201, {  48745,  48746,  48747,  48748,  48749,  0 } },
+  { "Zabra's Raiment"                            ,   848,    9,   4,   5,      { 256, 257, 0 },    1,    0,  67202, {  48750,  48751,  48752,  48753,  48754,  0 } },
+  { "Velen's Raiment"                            ,   847,    9,   4,   5,      { 256, 257, 0 },    1,    0,  67202, {  48745,  48746,  48747,  48748,  48749,  0 } },
+  { "Zabra's Regalia"                            ,   850,    9,   2,   5,           { 258, 0 },    3,    0,  67193, {  48760,  48761,  48762,  48763,  48764,  0 } },
+  { "Velen's Regalia"                            ,   849,    9,   2,   5,           { 258, 0 },    3,    0,  67193, {  48755,  48756,  48757,  48758,  48759,  0 } },
+  { "Zabra's Regalia"                            ,   850,    9,   4,   5,           { 258, 0 },    3,    0,  67198, {  48760,  48761,  48762,  48763,  48764,  0 } },
+  { "Velen's Regalia"                            ,   849,    9,   4,   5,           { 258, 0 },    3,    0,  67198, {  48755,  48756,  48757,  48758,  48759,  0 } },
+  { "Thassarian's Plate"                         ,   873,    9,   2,   6,           { 250, 0 },    0,    0,  67119, {  48895,  48896,  48897,  48898,  48899,  0 } },
+  { "Koltira's Plate"                            ,   874,    9,   2,   6,           { 250, 0 },    0,    0,  67119, {  48890,  48891,  48892,  48893,  48894,  0 } },
+  { "Thassarian's Plate"                         ,   873,    9,   4,   6,           { 250, 0 },    0,    0,  67120, {  48895,  48896,  48897,  48898,  48899,  0 } },
+  { "Koltira's Plate"                            ,   874,    9,   4,   6,           { 250, 0 },    0,    0,  67120, {  48890,  48891,  48892,  48893,  48894,  0 } },
+  { "Thassarian's Battlegear"                    ,   871,    9,   2,   6,      { 251, 252, 0 },    2,    0,  67115, {  48885,  48886,  48887,  48888,  48889,  0 } },
+  { "Koltira's Battlegear"                       ,   872,    9,   2,   6,      { 251, 252, 0 },    2,    0,  67115, {  48880,  48881,  48882,  48883,  48884,  0 } },
+  { "Thassarian's Battlegear"                    ,   871,    9,   4,   6,      { 251, 252, 0 },    2,    0,  67118, {  48885,  48886,  48887,  48888,  48889,  0 } },
+  { "Koltira's Battlegear"                       ,   872,    9,   4,   6,      { 251, 252, 0 },    2,    0,  67118, {  48880,  48881,  48882,  48883,  48884,  0 } },
+  //                                    Tier name, SetID, Tier, Bns, Cls,         Derived Spec, Role, Spec,  Spell, Items
+  { "Thrall's Regalia"                           ,   863,    9,   2,   7,           { 262, 0 },    3,    0,  67227, {  48841,  48842,  48843,  48844,  48845,  0 } },
+  { "Nobundo's Regalia"                          ,   864,    9,   2,   7,           { 262, 0 },    3,    0,  67227, {  48836,  48837,  48838,  48839,  48840,  0 } },
+  { "Thrall's Regalia"                           ,   863,    9,   4,   7,           { 262, 0 },    3,    0,  67228, {  48841,  48842,  48843,  48844,  48845,  0 } },
+  { "Nobundo's Regalia"                          ,   864,    9,   4,   7,           { 262, 0 },    3,    0,  67228, {  48836,  48837,  48838,  48839,  48840,  0 } },
+  { "Nobundo's Battlegear"                       ,   865,    9,   2,   7,           { 263, 0 },    2,    0,  67220, {  48846,  48847,  48848,  48849,  48850,  0 } },
+  { "Thrall's Battlegear"                        ,   866,    9,   2,   7,           { 263, 0 },    2,    0,  67220, {  48854,  48855,  48852,  48853,  48851,  0 } },
+  { "Nobundo's Battlegear"                       ,   865,    9,   4,   7,           { 263, 0 },    2,    0,  67221, {  48846,  48847,  48848,  48849,  48850,  0 } },
+  { "Thrall's Battlegear"                        ,   866,    9,   4,   7,           { 263, 0 },    2,    0,  67221, {  48854,  48855,  48852,  48853,  48851,  0 } },
+  { "Nobundo's Garb"                             ,   861,    9,   2,   7,           { 264, 0 },    1,    0,  67225, {  48824,  48825,  48826,  48827,  48828,  0 } },
+  { "Thrall's Garb"                              ,   862,    9,   2,   7,           { 264, 0 },    1,    0,  67225, {  48829,  48830,  48831,  48832,  48833,  0 } },
+  { "Nobundo's Garb"                             ,   861,    9,   4,   7,           { 264, 0 },    1,    0,  67226, {  48824,  48825,  48826,  48827,  48828,  0 } },
+  { "Thrall's Garb"                              ,   862,    9,   4,   7,           { 264, 0 },    1,    0,  67226, {  48829,  48830,  48831,  48832,  48833,  0 } },
+  { "Khadgar's Regalia"                          ,   843,    9,   2,   8, {  62,  63,  64, 0 },    3,    0,  67164, {  48725,  48726,  48727,  48728,  48729,  0 } },
+  { "Sunstrider's Regalia"                       ,   844,    9,   2,   8, {  62,  63,  64, 0 },    3,    0,  67164, {  48730,  48731,  48732,  48733,  48734,  0 } },
+  { "Khadgar's Regalia"                          ,   843,    9,   4,   8, {  62,  63,  64, 0 },    3,    0,  67185, {  48725,  48726,  48727,  48728,  48729,  0 } },
+  { "Sunstrider's Regalia"                       ,   844,    9,   4,   8, {  62,  63,  64, 0 },    3,    0,  67185, {  48730,  48731,  48732,  48733,  48734,  0 } },
+  { "Gul'dan's Regalia"                          ,   845,    9,   2,   9, { 265, 266, 267, 0 },    3,    0,  67230, {  48735,  48736,  48737,  48738,  48739,  0 } },
+  { "Kel'Thuzad's Regalia"                       ,   846,    9,   2,   9, { 265, 266, 267, 0 },    3,    0,  67230, {  48740,  48741,  48742,  48743,  48744,  0 } },
+  { "Gul'dan's Regalia"                          ,   845,    9,   4,   9, { 265, 266, 267, 0 },    3,    0,  67231, {  48735,  48736,  48737,  48738,  48739,  0 } },
+  { "Kel'Thuzad's Regalia"                       ,   846,    9,   4,   9, { 265, 266, 267, 0 },    3,    0,  67231, {  48740,  48741,  48742,  48743,  48744,  0 } },
+  { "Malfurion's Regalia"                        ,   853,    9,   2,  11,           { 102, 0 },    3,    0,  67125, {  48786,  48787,  48788,  48789,  48790,  0 } },
+  { "Runetotem's Regalia"                        ,   854,    9,   2,  11,           { 102, 0 },    3,    0,  67125, {  48781,  48782,  48783,  48784,  48785,  0 } },
+  { "Malfurion's Regalia"                        ,   853,    9,   4,  11,           { 102, 0 },    3,    0,  67126, {  48786,  48787,  48788,  48789,  48790,  0 } },
+  { "Runetotem's Regalia"                        ,   854,    9,   4,  11,           { 102, 0 },    3,    0,  67126, {  48781,  48782,  48783,  48784,  48785,  0 } },
+  { "Runetotem's Battlegear"                     ,   856,    9,   2,  11,           { 103, 0 },    2,    0,  67121, {  48794,  48795,  48796,  48797,  48798,  0 } },
+  //                                    Tier name, SetID, Tier, Bns, Cls,         Derived Spec, Role, Spec,  Spell, Items
+  { "Malfurion's Battlegear"                     ,   855,    9,   2,  11,           { 103, 0 },    2,    0,  67121, {  48799,  48800,  48801,  48802,  48803,  0 } },
+  { "Runetotem's Battlegear"                     ,   856,    9,   4,  11,           { 103, 0 },    2,    0,  67123, {  48794,  48795,  48796,  48797,  48798,  0 } },
+  { "Malfurion's Battlegear"                     ,   855,    9,   4,  11,           { 103, 0 },    2,    0,  67123, {  48799,  48800,  48801,  48802,  48803,  0 } },
+  { "Runetotem's Garb"                           ,   852,    9,   2,  11,           { 105, 0 },    1,    0,  67127, {  48769,  48770,  48771,  48772,  48773,  0 } },
+  { "Malfurion's Garb"                           ,   851,    9,   2,  11,           { 105, 0 },    1,    0,  67127, {  48774,  48775,  48776,  48777,  48778,  0 } },
+  { "Runetotem's Garb"                           ,   852,    9,   4,  11,           { 105, 0 },    1,    0,  67128, {  48769,  48770,  48771,  48772,  48773,  0 } },
+  { "Malfurion's Garb"                           ,   851,    9,   4,  11,           { 105, 0 },    1,    0,  67128, {  48774,  48775,  48776,  48777,  48778,  0 } },
+  { "Ymirjar Lord's Battlegear"                  ,   895,   10,   2,   1,      {  71,  72, 0 },    2,    0,  70854, {  51771,  51770,  51769,  51768,  51767,  0 } },
+  { "Ymirjar Lord's Battlegear"                  ,   895,   10,   4,   1,      {  71,  72, 0 },    2,    0,  70847, {  51771,  51770,  51769,  51768,  51767,  0 } },
+  { "Ymirjar Lord's Plate"                       ,   896,   10,   2,   1,           {  73, 0 },    0,    0,  70843, {  51776,  51775,  51774,  51773,  51772,  0 } },
+  { "Ymirjar Lord's Plate"                       ,   896,   10,   4,   1,           {  73, 0 },    0,    0,  70844, {  51776,  51775,  51774,  51773,  51772,  0 } },
+  { "Lightsworn Garb"                            ,   899,   10,   2,   2,           {  65, 0 },    1,    0,  70755, {  51726,  51725,  51724,  51723,  51722,  0 } },
+  { "Lightsworn Garb"                            ,   899,   10,   4,   2,           {  65, 0 },    1,    0,  70756, {  51726,  51725,  51724,  51723,  51722,  0 } },
+  { "Lightsworn Plate"                           ,   901,   10,   2,   2,           {  66, 0 },    0,    0,  70758, {  51731,  51730,  51729,  51728,  51727,  0 } },
+  { "Lightsworn Plate"                           ,   901,   10,   4,   2,           {  66, 0 },    0,    0,  70761, {  51731,  51730,  51729,  51728,  51727,  0 } },
+  { "Lightsworn Battlegear"                      ,   900,   10,   2,   2,           {  70, 0 },    2,    0,  70765, {  51721,  51720,  51719,  51718,  51717,  0 } },
+  { "Lightsworn Battlegear"                      ,   900,   10,   4,   2,           {  70, 0 },    2,    0,  70762, {  51721,  51720,  51719,  51718,  51717,  0 } },
+  { "Ahn'Kahar Blood Hunter's Battlegear"        ,   891,   10,   2,   3, { 253, 254, 255, 0 },    2,    0,  70727, {  51711,  51710,  51709,  51708,  51707,  0 } },
+  { "Ahn'Kahar Blood Hunter's Battlegear"        ,   891,   10,   4,   3, { 253, 254, 255, 0 },    2,    0,  70730, {  51711,  51710,  51709,  51708,  51707,  0 } },
+  { "Shadowblade's Battlegear"                   ,   890,   10,   2,   4, { 259, 260, 261, 0 },    2,    0,  70805, {  51746,  51745,  51744,  51743,  51742,  0 } },
+  { "Shadowblade's Battlegear"                   ,   890,   10,   4,   4, { 259, 260, 261, 0 },    2,    0,  70803, {  51746,  51745,  51744,  51743,  51742,  0 } },
+  { "Crimson Acolyte's Raiment"                  ,   885,   10,   2,   5,      { 256, 257, 0 },    1,    0,  70770, {  51732,  51733,  51734,  51735,  51736,  0 } },
+  { "Crimson Acolyte's Raiment"                  ,   885,   10,   4,   5,      { 256, 257, 0 },    1,    0,  70798, {  51732,  51733,  51734,  51735,  51736,  0 } },
+  { "Crimson Acolyte's Regalia"                  ,   886,   10,   2,   5,           { 258, 0 },    3,    0,  70800, {  51741,  51740,  51739,  51738,  51737,  0 } },
+  { "Crimson Acolyte's Regalia"                  ,   886,   10,   4,   5,           { 258, 0 },    3,    0,  70801, {  51741,  51740,  51739,  51738,  51737,  0 } },
+  //                                    Tier name, SetID, Tier, Bns, Cls,         Derived Spec, Role, Spec,  Spell, Items
+  { "Scourgelord's Plate"                        ,   898,   10,   2,   6,           { 250, 0 },    0,    0,  70650, {  51691,  51690,  51689,  51688,  51687,  0 } },
+  { "Scourgelord's Plate"                        ,   898,   10,   4,   6,           { 250, 0 },    0,    0,  70652, {  51691,  51690,  51689,  51688,  51687,  0 } },
+  { "Scourgelord's Battlegear"                   ,   897,   10,   2,   6,      { 251, 252, 0 },    2,    0,  70655, {  51686,  51685,  51684,  51683,  51682,  0 } },
+  { "Scourgelord's Battlegear"                   ,   897,   10,   4,   6,      { 251, 252, 0 },    2,    0,  70656, {  51686,  51685,  51684,  51683,  51682,  0 } },
+  { "Frost Witch's Regalia"                      ,   893,   10,   2,   7,           { 262, 0 },    3,    0,  70811, {  51757,  51758,  51759,  51760,  51761,  0 } },
+  { "Frost Witch's Regalia"                      ,   893,   10,   4,   7,           { 262, 0 },    3,    0,  70817, {  51757,  51758,  51759,  51760,  51761,  0 } },
+  { "Frost Witch's Battlegear"                   ,   894,   10,   2,   7,           { 263, 0 },    2,    0,  70830, {  51752,  51753,  51754,  51755,  51756,  0 } },
+  { "Frost Witch's Battlegear"                   ,   894,   10,   4,   7,           { 263, 0 },    2,    0,  70832, {  51752,  51753,  51754,  51755,  51756,  0 } },
+  { "Frost Witch's Garb"                         ,   892,   10,   2,   7,           { 264, 0 },    1,    0,  70807, {  51747,  51748,  51749,  51750,  51751,  0 } },
+  { "Frost Witch's Garb"                         ,   892,   10,   4,   7,           { 264, 0 },    1,    0,  70808, {  51747,  51748,  51749,  51750,  51751,  0 } },
+  { "Bloodmage's Regalia"                        ,   883,   10,   2,   8, {  62,  63,  64, 0 },    3,    0,  70752, {  51716,  51715,  51714,  51713,  51712,  0 } },
+  { "Bloodmage's Regalia"                        ,   883,   10,   4,   8, {  62,  63,  64, 0 },    3,    0,  70748, {  51716,  51715,  51714,  51713,  51712,  0 } },
+  { "Dark Coven's Regalia"                       ,   884,   10,   2,   9, { 265, 266, 267, 0 },    3,    0,  70839, {  51766,  51765,  51764,  51763,  51762,  0 } },
+  { "Dark Coven's Regalia"                       ,   884,   10,   4,   9, { 265, 266, 267, 0 },    3,    0,  70841, {  51766,  51765,  51764,  51763,  51762,  0 } },
+  { "Lasherweave Regalia"                        ,   888,   10,   2,  11,           { 102, 0 },    3,    0,  70718, {  51706,  51705,  51704,  51703,  51702,  0 } },
+  { "Lasherweave Regalia"                        ,   888,   10,   4,  11,           { 102, 0 },    3,    0,  70723, {  51706,  51705,  51704,  51703,  51702,  0 } },
+  { "Lasherweave Battlegear"                     ,   889,   10,   2,  11,           { 103, 0 },    2,    0,  70724, {  51701,  51700,  51699,  51698,  51697,  0 } },
+  { "Lasherweave Battlegear"                     ,   889,   10,   4,  11,           { 103, 0 },    2,    0,  70726, {  51701,  51700,  51699,  51698,  51697,  0 } },
+  { "Lasherweave Garb"                           ,   887,   10,   2,  11,           { 105, 0 },    1,    0,  70658, {  51696,  51695,  51694,  51693,  51692,  0 } },
+  { "Lasherweave Garb"                           ,   887,   10,   4,  11,           { 105, 0 },    1,    0,  70664, {  51696,  51695,  51694,  51693,  51692,  0 } },
+  { "Earthen Warplate"                           ,   942,   11,   2,   1,      {  71,  72, 0 },    2,    0,  90293, {  60327,  60324,  60325,  60326,  60323,  0 } },
+  { "Earthen Warplate"                           ,   942,   11,   4,   1,      {  71,  72, 0 },    2,    0,  90295, {  60327,  60324,  60325,  60326,  60323,  0 } },
+  { "Earthen Battleplate"                        ,   943,   11,   2,   1,           {  73, 0 },    0,    0,  90296, {  60331,  60330,  60328,  60332,  60329,  0 } },
+  { "Earthen Battleplate"                        ,   943,   11,   4,   1,           {  73, 0 },    0,    0,  90297, {  60331,  60330,  60328,  60332,  60329,  0 } },
+  { "Reinforced Sapphirium Regalia"              ,   933,   11,   2,   2,           {  65, 0 },    1,    0,  90310, {  60362,  60361,  60359,  60363,  60360,  0 } },
+  //                                    Tier name, SetID, Tier, Bns, Cls,         Derived Spec, Role, Spec,  Spell, Items
+  { "Reinforced Sapphirium Regalia"              ,   933,   11,   4,   2,           {  65, 0 },    1,    0,  90313, {  60362,  60361,  60359,  60363,  60360,  0 } },
+  { "Reinforced Sapphirium Battlearmor"          ,   934,   11,   2,   2,           {  66, 0 },    0,    0,  90301, {  60358,  60357,  60356,  60355,  60354,  0 } },
+  { "Reinforced Sapphirium Battlearmor"          ,   934,   11,   4,   2,           {  66, 0 },    0,    0,  90306, {  60358,  60357,  60356,  60355,  60354,  0 } },
+  { "Reinforced Sapphirium Battleplate"          ,   932,   11,   2,   2,           {  70, 0 },    2,    0,  90298, {  60348,  60347,  60346,  60345,  60344,  0 } },
+  { "Reinforced Sapphirium Battleplate"          ,   932,   11,   4,   2,           {  70, 0 },    2,    0,  90299, {  60348,  60347,  60346,  60345,  60344,  0 } },
+  { "Lightning-Charged Battlegear"               ,   930,   11,   2,   3, { 253, 254, 255, 0 },    2,    0,  89923, {  60306,  60305,  60303,  60307,  60304,  0 } },
+  { "Lightning-Charged Battlegear"               ,   930,   11,   4,   3, { 253, 254, 255, 0 },    2,    0,  96411, {  60306,  60305,  60303,  60307,  60304,  0 } },
+  { "Wind Dancer's Regalia"                      ,   937,   11,   2,   4, { 259, 260, 261, 0 },    2,    0,  90460, {  60302,  60300,  60299,  60298,  60301,  0 } },
+  { "Wind Dancer's Regalia"                      ,   937,   11,   4,   4, { 259, 260, 261, 0 },    2,    0,  90473, {  60302,  60300,  60299,  60298,  60301,  0 } },
+  { "Mercurial Vestments"                        ,   935,   11,   2,   5,      { 256, 257, 0 },    1,    0,  89910, {  60262,  60259,  60261,  60258,  60275,  0 } },
+  { "Mercurial Vestments"                        ,   935,   11,   4,   5,      { 256, 257, 0 },    1,    0,  89911, {  60262,  60259,  60261,  60258,  60275,  0 } },
+  { "Mercurial Regalia"                          ,   936,   11,   2,   5,           { 258, 0 },    3,    0,  89915, {  60253,  60254,  60255,  60256,  60257,  0 } },
+  { "Mercurial Regalia"                          ,   936,   11,   4,   5,           { 258, 0 },    3,    0,  89922, {  60253,  60254,  60255,  60256,  60257,  0 } },
+  { "Magma Plated Battlearmor"                   ,   926,   11,   2,   6,           { 250, 0 },    0,    0,  90454, {  60349,  60350,  60351,  60352,  60353,  0 } },
+  { "Magma Plated Battlearmor"                   ,   926,   11,   4,   6,           { 250, 0 },    0,    0,  90456, {  60349,  60350,  60351,  60352,  60353,  0 } },
+  { "Magma Plated Battlegear"                    ,   925,   11,   2,   6,      { 251, 252, 0 },    2,    0,  90457, {  60339,  60340,  60341,  60342,  60343,  0 } },
+  { "Magma Plated Battlegear"                    ,   925,   11,   4,   6,      { 251, 252, 0 },    2,    0,  90459, {  60339,  60340,  60341,  60342,  60343,  0 } },
+  { "Regalia of the Raging Elements"             ,   940,   11,   2,   7,           { 262, 0 },    3,    0,  90503, {  60317,  60316,  60315,  60314,  60313,  0 } },
+  { "Regalia of the Raging Elements"             ,   940,   11,   4,   7,           { 262, 0 },    3,    0,  90505, {  60317,  60316,  60315,  60314,  60313,  0 } },
+  { "Battlegear of the Raging Elements"          ,   939,   11,   2,   7,           { 263, 0 },    2,    0,  90501, {  60322,  60321,  60320,  60319,  60318,  0 } },
+  { "Battlegear of the Raging Elements"          ,   939,   11,   4,   7,           { 263, 0 },    2,    0,  90502, {  60322,  60321,  60320,  60319,  60318,  0 } },
+  { "Vestments of the Raging Elements"           ,   938,   11,   2,   7,           { 264, 0 },    1,    0,  90494, {  60311,  60310,  60308,  60312,  60309,  0 } },
+  { "Vestments of the Raging Elements"           ,   938,   11,   4,   7,           { 264, 0 },    1,    0,  90499, {  60311,  60310,  60308,  60312,  60309,  0 } },
+  { "Firelord's Vestments"                       ,   931,   11,   2,   8, {  62,  63,  64, 0 },    3,    0,  90290, {  60246,  60244,  60245,  60243,  60247,  0 } },
+  { "Firelord's Vestments"                       ,   931,   11,   4,   8, {  62,  63,  64, 0 },    3,    0,  90291, {  60246,  60244,  60245,  60243,  60247,  0 } },
+  //                                    Tier name, SetID, Tier, Bns, Cls,         Derived Spec, Role, Spec,  Spell, Items
+  { "Shadowflame Regalia"                        ,   941,   11,   2,   9, { 265, 266, 267, 0 },    3,    0,  89934, {  60252,  60251,  60250,  60249,  60248,  0 } },
+  { "Shadowflame Regalia"                        ,   941,   11,   4,   9, { 265, 266, 267, 0 },    3,    0,  89935, {  60252,  60251,  60250,  60249,  60248,  0 } },
+  { "Stormrider's Regalia"                       ,   929,   11,   2,  11,           { 102, 0 },    3,    0,  90160, {  60284,  60281,  60283,  60282,  60285,  0 } },
+  { "Stormrider's Regalia"                       ,   929,   11,   4,  11,           { 102, 0 },    3,    0,  90163, {  60284,  60281,  60283,  60282,  60285,  0 } },
+  { "Stormrider's Battlegarb"                    ,   927,   11,   2,  11,           { 103, 0 },    2,    0,  90162, {  60290,  60286,  60288,  60287,  60289,  0 } },
+  { "Stormrider's Battlegarb"                    ,   927,   11,   4,  11,           { 103, 0 },    2,    0,  90165, {  60290,  60286,  60288,  60287,  60289,  0 } },
+  { "Stormrider's Vestments"                     ,   928,   11,   2,  11,           { 105, 0 },    1,    0,  90157, {  60280,  60277,  60278,  60276,  60279,  0 } },
+  { "Stormrider's Vestments"                     ,   928,   11,   4,  11,           { 105, 0 },    1,    0,  90158, {  60280,  60277,  60278,  60276,  60279,  0 } },
+  { "Molten Giant Warplate"                      ,  1017,   12,   2,   1,      {  71,  72, 0 },    2,    0,  99234, {  71072,  71071,  71069,  71068,  71070,  0 } },
+  { "Molten Giant Warplate"                      ,  1017,   12,   4,   1,      {  71,  72, 0 },    2,    0,  99238, {  71072,  71071,  71069,  71068,  71070,  0 } },
+  { "Molten Giant Battleplate"                   ,  1018,   12,   2,   1,           {  73, 0 },    0,    0,  99239, {  70941,  70942,  70944,  70943,  70945,  0 } },
+  { "Molten Giant Battleplate"                   ,  1018,   12,   4,   1,           {  73, 0 },    0,    0,  99242, {  70941,  70942,  70944,  70943,  70945,  0 } },
+  { "Regalia of Immolation"                      ,  1011,   12,   2,   2,           {  65, 0 },    1,    0,  99067, {  71095,  71094,  71093,  71092,  71091,  0 } },
+  { "Regalia of Immolation"                      ,  1011,   12,   4,   2,           {  65, 0 },    1,    0,  99070, {  71095,  71094,  71093,  71092,  71091,  0 } },
+  { "Battlearmor of Immolation"                  ,  1013,   12,   2,   2,           {  66, 0 },    0,    0,  99074, {  70946,  70947,  70948,  70949,  70950,  0 } },
+  { "Battlearmor of Immolation"                  ,  1013,   12,   4,   2,           {  66, 0 },    0,    0,  99091, {  70946,  70947,  70948,  70949,  70950,  0 } },
+  { "Battleplate of Immolation"                  ,  1012,   12,   2,   2,           {  70, 0 },    2,    0,  99093, {  71067,  71066,  71065,  71064,  71063,  0 } },
+  { "Battleplate of Immolation"                  ,  1012,   12,   4,   2,           {  70, 0 },    2,    0,  99116, {  71067,  71066,  71065,  71064,  71063,  0 } },
+  { "Flamewaker's Battlegear"                    ,  1005,   12,   2,   3, { 253, 254, 255, 0 },    2,    0,  99057, {  71050,  71051,  71052,  71053,  71054,  0 } },
+  { "Flamewaker's Battlegear"                    ,  1005,   12,   4,   3, { 253, 254, 255, 0 },    2,    0,  99059, {  71050,  71051,  71052,  71053,  71054,  0 } },
+  { "Vestments of the Dark Phoenix"              ,  1006,   12,   2,   4, { 259, 260, 261, 0 },    2,    0,  99174, {  71045,  71046,  71047,  71048,  71049,  0 } },
+  { "Vestments of the Dark Phoenix"              ,  1006,   12,   4,   4, { 259, 260, 261, 0 },    2,    0,  99175, {  71045,  71046,  71047,  71048,  71049,  0 } },
+  { "Vestments of the Cleansing Flame"           ,  1009,   12,   2,   5,      { 256, 257, 0 },    1,    0,  99134, {  71271,  71272,  71273,  71274,  71275,  0 } },
+  { "Vestments of the Cleansing Flame"           ,  1009,   12,   4,   5,      { 256, 257, 0 },    1,    0,  99135, {  71271,  71272,  71273,  71274,  71275,  0 } },
+  { "Regalia of the Cleansing Flame"             ,  1010,   12,   2,   5,           { 258, 0 },    3,    0,  99154, {  71280,  71279,  71278,  71277,  71276,  0 } },
+  //                                    Tier name, SetID, Tier, Bns, Cls,         Derived Spec, Role, Spec,  Spell, Items
+  { "Regalia of the Cleansing Flame"             ,  1010,   12,   4,   5,           { 258, 0 },    3,    0,  99157, {  71280,  71279,  71278,  71277,  71276,  0 } },
+  { "Elementium Deathplate Battlearmor"          ,  1001,   12,   2,   6,           { 250, 0 },    0,    0,  98956, {  70951,  70952,  70953,  70954,  70955,  0 } },
+  { "Elementium Deathplate Battlearmor"          ,  1001,   12,   4,   6,           { 250, 0 },    0,    0,  98966, {  70951,  70952,  70953,  70954,  70955,  0 } },
+  { "Elementium Deathplate Battlegear"           ,  1000,   12,   2,   6,      { 251, 252, 0 },    2,    0,  98970, {  71058,  71059,  71060,  71061,  71062,  0 } },
+  { "Elementium Deathplate Battlegear"           ,  1000,   12,   4,   6,      { 251, 252, 0 },    2,    0,  98996, {  71058,  71059,  71060,  71061,  71062,  0 } },
+  { "Volcanic Regalia"                           ,  1016,   12,   2,   7,           { 262, 0 },    3,    0,  99204, {  71295,  71294,  71293,  71292,  71291,  0 } },
+  { "Volcanic Regalia"                           ,  1016,   12,   4,   7,           { 262, 0 },    3,    0,  99206, {  71295,  71294,  71293,  71292,  71291,  0 } },
+  { "Volcanic Battlegear"                        ,  1015,   12,   2,   7,           { 263, 0 },    2,    0,  99209, {  71305,  71304,  71303,  71302,  71301,  0 } },
+  { "Volcanic Battlegear"                        ,  1015,   12,   4,   7,           { 263, 0 },    2,    0,  99213, {  71305,  71304,  71303,  71302,  71301,  0 } },
+  { "Volcanic Vestments"                         ,  1014,   12,   2,   7,           { 264, 0 },    1,    0,  99190, {  71300,  71299,  71298,  71297,  71296,  0 } },
+  { "Volcanic Vestments"                         ,  1014,   12,   4,   7,           { 264, 0 },    1,    0,  99195, {  71300,  71299,  71298,  71297,  71296,  0 } },
+  { "Firehawk Robes of Conflagration"            ,  1007,   12,   2,   8, {  62,  63,  64, 0 },    3,    0,  99061, {  71290,  71286,  71287,  71288,  71289,  0 } },
+  { "Firehawk Robes of Conflagration"            ,  1007,   12,   4,   8, {  62,  63,  64, 0 },    3,    0,  99064, {  71290,  71286,  71287,  71288,  71289,  0 } },
+  { "Balespider's Burning Vestments"             ,  1008,   12,   2,   9, { 265, 266, 267, 0 },    3,    0,  99220, {  71281,  71283,  71282,  71284,  71285,  0 } },
+  { "Balespider's Burning Vestments"             ,  1008,   12,   4,   9, { 265, 266, 267, 0 },    3,    0,  99229, {  71281,  71283,  71282,  71284,  71285,  0 } },
+  { "Obsidian Arborweave Regalia"                ,  1003,   12,   2,  11,           { 102, 0 },    3,    0,  99019, {  71107,  71108,  71109,  71110,  71111,  0 } },
+  { "Obsidian Arborweave Regalia"                ,  1003,   12,   4,  11,           { 102, 0 },    3,    0,  99049, {  71107,  71108,  71109,  71110,  71111,  0 } },
+  { "Obsidian Arborweave Battlegarb"             ,  1002,   12,   2,  11,           { 103, 0 },    2,    0,  99001, {  71097,  71098,  71099,  71100,  71101,  0 } },
+  { "Obsidian Arborweave Battlegarb"             ,  1002,   12,   4,  11,           { 103, 0 },    2,    0,  99009, {  71097,  71098,  71099,  71100,  71101,  0 } },
+  { "Obsidian Arborweave Vestments"              ,  1004,   12,   2,  11,           { 105, 0 },    1,    0,  99013, {  71102,  71103,  71104,  71105,  71106,  0 } },
+  { "Obsidian Arborweave Vestments"              ,  1004,   12,   4,  11,           { 105, 0 },    1,    0,  99015, {  71102,  71103,  71104,  71105,  71106,  0 } },
+  { "Colossal Dragonplate Battlegear"            ,  1073,   13,   2,   1,      {  71,  72, 0 },    2,    0, 105797, {  76983,  76984,  76985,  76986,  76987,  0 } },
+  { "Colossal Dragonplate Battlegear"            ,  1073,   13,   4,   1,      {  71,  72, 0 },    2,    0, 105907, {  76983,  76984,  76985,  76986,  76987,  0 } },
+  { "Colossal Dragonplate Armor"                 ,  1074,   13,   2,   1,           {  73, 0 },    0,    0, 105908, {  76988,  76989,  76990,  76991,  76992,  0 } },
+  { "Colossal Dragonplate Armor"                 ,  1074,   13,   4,   1,           {  73, 0 },    0,    0, 105911, {  76988,  76989,  76990,  76991,  76992,  0 } },
+  //                                    Tier name, SetID, Tier, Bns, Cls,         Derived Spec, Role, Spec,  Spell, Items
+  { "Regalia of Radiant Glory"                   ,  1063,   13,   2,   2,           {  65, 0 },    1,    0, 105743, {  76765,  76766,  76767,  76768,  76769,  0 } },
+  { "Regalia of Radiant Glory"                   ,  1063,   13,   4,   2,           {  65, 0 },    1,    0, 105798, {  76765,  76766,  76767,  76768,  76769,  0 } },
+  { "Armor of Radiant Glory"                     ,  1065,   13,   2,   2,           {  66, 0 },    0,    0, 105800, {  77003,  77004,  77005,  77006,  77007,  0 } },
+  { "Armor of Radiant Glory"                     ,  1065,   13,   4,   2,           {  66, 0 },    0,    0, 105744, {  77003,  77004,  77005,  77006,  77007,  0 } },
+  { "Battleplate of Radiant Glory"               ,  1064,   13,   2,   2,           {  70, 0 },    2,    0, 105765, {  76874,  76875,  76876,  76877,  76878,  0 } },
+  { "Battleplate of Radiant Glory"               ,  1064,   13,   4,   2,           {  70, 0 },    2,    0, 105820, {  76874,  76875,  76876,  76877,  76878,  0 } },
+  { "Wyrmstalker Battlegear"                     ,  1061,   13,   2,   3, { 253, 254, 255, 0 },    2,    0, 105732, {  77028,  77029,  77030,  77031,  77032,  0 } },
+  { "Wyrmstalker Battlegear"                     ,  1061,   13,   4,   3, { 253, 254, 255, 0 },    2,    0, 105921, {  77028,  77029,  77030,  77031,  77032,  0 } },
+  { "Blackfang Battleweave"                      ,  1068,   13,   2,   4, { 259, 260, 261, 0 },    2,    0, 105849, {  77023,  77024,  77025,  77026,  77027,  0 } },
+  { "Blackfang Battleweave"                      ,  1068,   13,   4,   4, { 259, 260, 261, 0 },    2,    0, 105865, {  77023,  77024,  77025,  77026,  77027,  0 } },
+  { "Vestments of Dying Light"                   ,  1066,   13,   2,   5,      { 256, 257, 0 },    1,    0, 105827, {  76357,  76358,  76359,  76360,  76361,  0 } },
+  { "Vestments of Dying Light"                   ,  1066,   13,   4,   5,      { 256, 257, 0 },    1,    0, 105832, {  76357,  76358,  76359,  76360,  76361,  0 } },
+  { "Regalia of Dying Light"                     ,  1067,   13,   2,   5,           { 258, 0 },    3,    0, 105843, {  76348,  76347,  76346,  76345,  76344,  0 } },
+  { "Regalia of Dying Light"                     ,  1067,   13,   4,   5,           { 258, 0 },    3,    0, 105844, {  76348,  76347,  76346,  76345,  76344,  0 } },
+  { "Necrotic Boneplate Armor"                   ,  1056,   13,   2,   6,           { 250, 0 },    0,    0, 105552, {  77008,  77009,  77010,  77011,  77012,  0 } },
+  { "Necrotic Boneplate Armor"                   ,  1056,   13,   4,   6,           { 250, 0 },    0,    0, 105587, {  77008,  77009,  77010,  77011,  77012,  0 } },
+  { "Necrotic Boneplate Battlegear"              ,  1057,   13,   2,   6,      { 251, 252, 0 },    2,    0, 105609, {  76974,  76975,  76976,  76977,  76978,  0 } },
+  { "Necrotic Boneplate Battlegear"              ,  1057,   13,   4,   6,      { 251, 252, 0 },    2,    0, 105646, {  76974,  76975,  76976,  76977,  76978,  0 } },
+  { "Spiritwalker's Regalia"                     ,  1070,   13,   2,   7,           { 262, 0 },    3,    0, 105780, {  77039,  77038,  77037,  77036,  77035,  0 } },
+  { "Spiritwalker's Regalia"                     ,  1070,   13,   4,   7,           { 262, 0 },    3,    0, 105816, {  77039,  77038,  77037,  77036,  77035,  0 } },
+  { "Spiritwalker's Battlegear"                  ,  1071,   13,   2,   7,           { 263, 0 },    2,    0, 105866, {  77040,  77041,  77042,  77043,  77044,  0 } },
+  { "Spiritwalker's Battlegear"                  ,  1071,   13,   4,   7,           { 263, 0 },    2,    0, 105872, {  77040,  77041,  77042,  77043,  77044,  0 } },
+  { "Spiritwalker's Vestments"                   ,  1069,   13,   2,   7,           { 264, 0 },    1,    0, 105764, {  76756,  76757,  76758,  76759,  76760,  0 } },
+  { "Spiritwalker's Vestments"                   ,  1069,   13,   4,   7,           { 264, 0 },    1,    0, 105876, {  76756,  76757,  76758,  76759,  76760,  0 } },
+  { "Time Lord's Regalia"                        ,  1062,   13,   2,   8, {  62,  63,  64, 0 },    3,    0, 105788, {  76212,  76213,  76214,  76215,  76216,  0 } },
+  //                                    Tier name, SetID, Tier, Bns, Cls,         Derived Spec, Role, Spec,  Spell, Items
+  { "Time Lord's Regalia"                        ,  1062,   13,   4,   8, {  62,  63,  64, 0 },    3,    0, 105790, {  76212,  76213,  76214,  76215,  76216,  0 } },
+  { "Vestments of the Faceless Shroud"           ,  1072,   13,   2,   9, { 265, 266, 267, 0 },    3,    0, 105888, {  76343,  76342,  76341,  76340,  76339,  0 } },
+  { "Vestments of the Faceless Shroud"           ,  1072,   13,   4,   9, { 265, 266, 267, 0 },    3,    0, 105787, {  76343,  76342,  76341,  76340,  76339,  0 } },
+  { "Deep Earth Regalia"                         ,  1059,   13,   2,  11,           { 102, 0 },    3,    0, 105722, {  77018,  77019,  77020,  77021,  77022,  0 } },
+  { "Deep Earth Regalia"                         ,  1059,   13,   4,  11,           { 102, 0 },    3,    0, 105717, {  77018,  77019,  77020,  77021,  77022,  0 } },
+  { "Deep Earth Battlegarb"                      ,  1058,   13,   2,  11,           { 103, 0 },    2,    0, 105725, {  77013,  77014,  77015,  77016,  77017,  0 } },
+  { "Deep Earth Battlegarb"                      ,  1058,   13,   4,  11,           { 103, 0 },    2,    0, 105735, {  77013,  77014,  77015,  77016,  77017,  0 } },
+  { "Deep Earth Vestments"                       ,  1060,   13,   2,  11,           { 105, 0 },    1,    0, 105715, {  76749,  76750,  76751,  76752,  76753,  0 } },
+  { "Deep Earth Vestments"                       ,  1060,   13,   4,  11,           { 105, 0 },    1,    0, 105770, {  76749,  76750,  76751,  76752,  76753,  0 } },
+  { "Battleplate of Resounding Rings"            ,  1144,   14,   2,   1,      {  71,  72, 0 },    2,    0, 123142, {  85329,  85330,  85331,  85332,  85333,  0 } },
+  { "Battleplate of Resounding Rings"            ,  1144,   14,   4,   1,      {  71,  72, 0 },    2,    0, 123144, {  85329,  85330,  85331,  85332,  85333,  0 } },
+  { "Plate of Resounding Rings"                  ,  1145,   14,   2,   1,           {  73, 0 },    0,    0, 123146, {  85324,  85325,  85326,  85327,  85328,  0 } },
+  { "Plate of Resounding Rings"                  ,  1145,   14,   4,   1,           {  73, 0 },    0,    0, 123147, {  85324,  85325,  85326,  85327,  85328,  0 } },
+  { "White Tiger Vestments"                      ,  1134,   14,   2,   2,           {  65, 0 },    1,    0, 123102, {  85344,  85345,  85346,  85347,  85348,  0 } },
+  { "White Tiger Vestments"                      ,  1134,   14,   4,   2,           {  65, 0 },    1,    0, 123103, {  85344,  85345,  85346,  85347,  85348,  0 } },
+  { "White Tiger Plate"                          ,  1136,   14,   2,   2,           {  66, 0 },    0,    0, 123104, {  85319,  85320,  85321,  85322,  85323,  0 } },
+  { "White Tiger Plate"                          ,  1136,   14,   4,   2,           {  66, 0 },    0,    0, 123107, {  85319,  85320,  85321,  85322,  85323,  0 } },
+  { "White Tiger Battlegear"                     ,  1135,   14,   2,   2,           {  70, 0 },    2,    0, 123108, {  85339,  85340,  85341,  85342,  85343,  0 } },
+  { "White Tiger Battlegear"                     ,  1135,   14,   4,   2,           {  70, 0 },    2,    0,  70762, {  85339,  85340,  85341,  85342,  85343,  0 } },
+  { "Yaungol Slayer Battlegear"                  ,  1129,   14,   2,   3, { 253, 254, 255, 0 },    2,    0, 123090, {  85294,  85295,  85296,  85297,  85298,  0 } },
+  { "Yaungol Slayer Battlegear"                  ,  1129,   14,   4,   3, { 253, 254, 255, 0 },    2,    0, 123091, {  85294,  85295,  85296,  85297,  85298,  0 } },
+  { "Battlegear of the Thousandfold Blades"      ,  1139,   14,   2,   4, { 259, 260, 261, 0 },    2,    0, 123116, {  85299,  85300,  85301,  85302,  85303,  0 } },
+  { "Battlegear of the Thousandfold Blades"      ,  1139,   14,   4,   4, { 259, 260, 261, 0 },    2,    0, 123122, {  85299,  85300,  85301,  85302,  85303,  0 } },
+  { "Vestments of the Guardian Serpent"          ,  1137,   14,   2,   5,      { 256, 257, 0 },    1,    0, 123111, {  85359,  85360,  85361,  85362,  85363,  0 } },
+  { "Vestments of the Guardian Serpent"          ,  1137,   14,   4,   5,      { 256, 257, 0 },    1,    0, 123113, {  85359,  85360,  85361,  85362,  85363,  0 } },
+  //                                    Tier name, SetID, Tier, Bns, Cls,         Derived Spec, Role, Spec,  Spell, Items
+  { "Regalia of the Guardian Serpent"            ,  1138,   14,   2,   5,           { 258, 0 },    3,    0, 123114, {  85368,  85367,  85366,  85365,  85364,  0 } },
+  { "Regalia of the Guardian Serpent"            ,  1138,   14,   4,   5,           { 258, 0 },    3,    0, 123115, {  85368,  85367,  85366,  85365,  85364,  0 } },
+  { "Plate of the Lost Catacomb"                 ,  1124,   14,   2,   6,           { 250, 0 },    0,    0, 123079, {  85314,  85315,  85316,  85317,  85318,  0 } },
+  { "Plate of the Lost Catacomb"                 ,  1124,   14,   4,   6,           { 250, 0 },    0,    0, 123080, {  85314,  85315,  85316,  85317,  85318,  0 } },
+  { "Battlegear of the Lost Catacomb"            ,  1123,   14,   2,   6,      { 251, 252, 0 },    2,    0, 123077, {  85334,  85335,  85336,  85337,  85338,  0 } },
+  { "Battlegear of the Lost Catacomb"            ,  1123,   14,   4,   6,      { 251, 252, 0 },    2,    0, 123078, {  85334,  85335,  85336,  85337,  85338,  0 } },
+  { "Regalia of the Firebird"                    ,  1141,   14,   2,   7,           { 262, 0 },    3,    0, 123123, {  85293,  85292,  85291,  85290,  85289,  0 } },
+  { "Regalia of the Firebird"                    ,  1141,   14,   4,   7,           { 262, 0 },    3,    0, 123124, {  85293,  85292,  85291,  85290,  85289,  0 } },
+  { "Battlegear of the Firebird"                 ,  1142,   14,   2,   7,           { 263, 0 },    2,    0, 123132, {  85284,  85285,  85286,  85287,  85288,  0 } },
+  { "Battlegear of the Firebird"                 ,  1142,   14,   4,   7,           { 263, 0 },    2,    0, 123133, {  85284,  85285,  85286,  85287,  85288,  0 } },
+  { "Vestments of the Firebird"                  ,  1140,   14,   2,   7,           { 264, 0 },    1,    0, 123134, {  85349,  85350,  85351,  85352,  85353,  0 } },
+  { "Vestments of the Firebird"                  ,  1140,   14,   4,   7,           { 264, 0 },    1,    0, 123135, {  85349,  85350,  85351,  85352,  85353,  0 } },
+  { "Regalia of the Burning Scroll"              ,  1130,   14,   2,   8, {  62,  63,  64, 0 },    3,    0, 123097, {  85374,  85375,  85376,  85377,  85378,  0 } },
+  { "Regalia of the Burning Scroll"              ,  1130,   14,   4,   8, {  62,  63,  64, 0 },    3,    0, 123101, {  85374,  85375,  85376,  85377,  85378,  0 } },
+  { "Sha-Skin Regalia"                           ,  1143,   14,   2,   9, { 265, 266, 267, 0 },    3,    0, 123136, {  85373,  85372,  85371,  85370,  85369,  0 } },
+  { "Sha-Skin Regalia"                           ,  1143,   14,   4,   9, { 265, 266, 267, 0 },    3,    0, 123141, {  85373,  85372,  85371,  85370,  85369,  0 } },
+  { "Armor of the Red Crane"                     ,  1133,   14,   2,  10,           { 268, 0 },    0,    0, 123157, {  85384,  85385,  85386,  85387,  85388,  0 } },
+  { "Armor of the Red Crane"                     ,  1133,   14,   4,  10,           { 268, 0 },    0,    0, 123159, {  85384,  85385,  85386,  85387,  85388,  0 } },
+  { "Battlegear of the Red Crane"                ,  1132,   14,   2,  10,           { 269, 0 },    2,    0, 123149, {  85398,  85397,  85396,  85395,  85394,  0 } },
+  { "Battlegear of the Red Crane"                ,  1132,   14,   4,  10,           { 269, 0 },    2,    0, 123150, {  85398,  85397,  85396,  85395,  85394,  0 } },
+  { "Vestments of the Red Crane"                 ,  1131,   14,   2,  10,           { 270, 0 },    1,    0, 123152, {  85393,  85392,  85391,  85390,  85389,  0 } },
+  { "Vestments of the Red Crane"                 ,  1131,   14,   4,  10,           { 270, 0 },    1,    0, 123153, {  85393,  85392,  85391,  85390,  85389,  0 } },
+  { "Regalia of the Eternal Blossom"             ,  1126,   14,   2,  11,           { 102, 0 },    3,    0, 123082, {  85304,  85305,  85306,  85307,  85308,  0 } },
+  { "Regalia of the Eternal Blossom"             ,  1126,   14,   4,  11,           { 102, 0 },    3,    0, 123083, {  85304,  85305,  85306,  85307,  85308,  0 } },
+  { "Battlegear of the Eternal Blossom"          ,  1127,   14,   2,  11,           { 103, 0 },    2,    0, 123084, {  85309,  85310,  85311,  85312,  85313,  0 } },
+  //                                    Tier name, SetID, Tier, Bns, Cls,         Derived Spec, Role, Spec,  Spell, Items
+  { "Battlegear of the Eternal Blossom"          ,  1127,   14,   4,  11,           { 103, 0 },    2,    0, 123085, {  85309,  85310,  85311,  85312,  85313,  0 } },
+  { "Armor of the Eternal Blossom"               ,  1128,   14,   2,  11,           { 104, 0 },    0,    0, 123086, {  85383,  85382,  85381,  85380,  85379,  0 } },
+  { "Armor of the Eternal Blossom"               ,  1128,   14,   4,  11,           { 104, 0 },    0,    0, 123087, {  85383,  85382,  85381,  85380,  85379,  0 } },
+  { "Vestments of the Eternal Blossom"           ,  1125,   14,   2,  11,           { 105, 0 },    1,    0, 123088, {  85354,  85355,  85356,  85357,  85358,  0 } },
+  { "Vestments of the Eternal Blossom"           ,  1125,   14,   4,  11,           { 105, 0 },    1,    0, 123089, {  85354,  85355,  85356,  85357,  85358,  0 } },
+  { "Battleplate of the Last Mogu"               ,  1172,   15,   2,   1,      {  71,  72, 0 },    2,    0, 138120, {  95330,  95331,  95332,  95333,  95334,  0 } },
+  { "Battleplate of the Last Mogu"               ,  1172,   15,   4,   1,      {  71,  72, 0 },    2,    0, 138126, {  95330,  95331,  95332,  95333,  95334,  0 } },
+  { "Plate of the Last Mogu"                     ,  1173,   15,   2,   1,           {  73, 0 },    0,    0, 138280, {  95335,  95336,  95337,  95338,  95339,  0 } },
+  { "Plate of the Last Mogu"                     ,  1173,   15,   4,   1,           {  73, 0 },    0,    0, 138281, {  95335,  95336,  95337,  95338,  95339,  0 } },
+  { "Vestments of the Lightning Emperor"         ,  1163,   15,   2,   2,           {  65, 0 },    1,    0, 138291, {  95285,  95286,  95287,  95288,  95289,  0 } },
+  { "Vestments of the Lightning Emperor"         ,  1163,   15,   4,   2,           {  65, 0 },    1,    0, 138292, {  95285,  95286,  95287,  95288,  95289,  0 } },
+  { "Plate of the Lightning Emperor"             ,  1164,   15,   2,   2,           {  66, 0 },    0,    0, 138238, {  95290,  95291,  95292,  95293,  95294,  0 } },
+  { "Plate of the Lightning Emperor"             ,  1164,   15,   4,   2,           {  66, 0 },    0,    0, 138244, {  95290,  95291,  95292,  95293,  95294,  0 } },
+  { "Battlegear of the Lightning Emperor"        ,  1162,   15,   2,   2,           {  70, 0 },    2,    0, 138159, {  95280,  95281,  95282,  95283,  95284,  0 } },
+  { "Battlegear of the Lightning Emperor"        ,  1162,   15,   4,   2,           {  70, 0 },    2,    0, 138164, {  95280,  95281,  95282,  95283,  95284,  0 } },
+  { "Battlegear of the Saurok Stalker"           ,  1157,   15,   2,   3, { 253, 254, 255, 0 },    2,    0, 138365, {  95255,  95256,  95257,  95258,  95259,  0 } },
+  { "Battlegear of the Saurok Stalker"           ,  1157,   15,   4,   3, { 253, 254, 255, 0 },    2,    0, 138367, {  95255,  95256,  95257,  95258,  95259,  0 } },
+  { "Nine-Tail Battlegear"                       ,  1167,   15,   2,   4, { 259, 260, 261, 0 },    2,    0, 138148, {  95305,  95306,  95307,  95308,  95309,  0 } },
+  { "Nine-Tail Battlegear"                       ,  1167,   15,   4,   4, { 259, 260, 261, 0 },    2,    0, 138150, {  95305,  95306,  95307,  95308,  95309,  0 } },
+  { "Vestments of the Exorcist"                  ,  1165,   15,   2,   5,      { 256, 257, 0 },    1,    0, 138293, {  95295,  95296,  95297,  95298,  95299,  0 } },
+  { "Vestments of the Exorcist"                  ,  1165,   15,   4,   5,      { 256, 257, 0 },    1,    0, 138301, {  95295,  95296,  95297,  95298,  95299,  0 } },
+  { "Regalia of the Exorcist"                    ,  1166,   15,   2,   5,           { 258, 0 },    3,    0, 138156, {  95300,  95301,  95302,  95303,  95304,  0 } },
+  { "Regalia of the Exorcist"                    ,  1166,   15,   4,   5,           { 258, 0 },    3,    0, 138158, {  95300,  95301,  95302,  95303,  95304,  0 } },
+  { "Plate of the All-Consuming Maw"             ,  1151,   15,   2,   6,           { 250, 0 },    0,    0, 138195, {  95230,  95231,  95232,  95233,  95234,  0 } },
+  { "Plate of the All-Consuming Maw"             ,  1151,   15,   4,   6,           { 250, 0 },    0,    0, 138197, {  95230,  95231,  95232,  95233,  95234,  0 } },
+  //                                    Tier name, SetID, Tier, Bns, Cls,         Derived Spec, Role, Spec,  Spell, Items
+  { "Battleplate of the All-Consuming Maw"       ,  1152,   15,   2,   6,      { 251, 252, 0 },    2,    0, 138343, {  95225,  95226,  95227,  95228,  95229,  0 } },
+  { "Battleplate of the All-Consuming Maw"       ,  1152,   15,   4,   6,      { 251, 252, 0 },    2,    0, 138347, {  95225,  95226,  95227,  95228,  95229,  0 } },
+  { "Regalia of the Witch Doctor"                ,  1170,   15,   2,   7,           { 262, 0 },    3,    0, 138145, {  95320,  95321,  95322,  95323,  95324,  0 } },
+  { "Regalia of the Witch Doctor"                ,  1170,   15,   4,   7,           { 262, 0 },    3,    0, 138144, {  95320,  95321,  95322,  95323,  95324,  0 } },
+  { "Battlegear of the Witch Doctor"             ,  1169,   15,   2,   7,           { 263, 0 },    2,    0, 138136, {  95315,  95316,  95317,  95318,  95319,  0 } },
+  { "Battlegear of the Witch Doctor"             ,  1169,   15,   4,   7,           { 263, 0 },    2,    0, 138141, {  95315,  95316,  95317,  95318,  95319,  0 } },
+  { "Vestments of the Witch Doctor"              ,  1168,   15,   2,   7,           { 264, 0 },    1,    0, 138303, {  95310,  95311,  95312,  95313,  95314,  0 } },
+  { "Vestments of the Witch Doctor"              ,  1168,   15,   4,   7,           { 264, 0 },    1,    0, 138305, {  95310,  95311,  95312,  95313,  95314,  0 } },
+  { "Regalia of the Chromatic Hydra"             ,  1158,   15,   2,   8, {  62,  63,  64, 0 },    3,    0, 138316, {  95260,  95261,  95262,  95263,  95264,  0 } },
+  { "Regalia of the Chromatic Hydra"             ,  1158,   15,   4,   8, {  62,  63,  64, 0 },    3,    0, 138376, {  95260,  95261,  95262,  95263,  95264,  0 } },
+  { "Regalia of the Thousandfold Hells"          ,  1171,   15,   2,   9, { 265, 266, 267, 0 },    3,    0, 138129, {  95325,  95326,  95327,  95328,  95329,  0 } },
+  { "Regalia of the Thousandfold Hells"          ,  1171,   15,   4,   9, { 265, 266, 267, 0 },    3,    0, 138134, {  95325,  95326,  95327,  95328,  95329,  0 } },
+  { "Fire-Charm Armor"                           ,  1161,   15,   2,  10,           { 268, 0 },    0,    0, 138231, {  95275,  95276,  95277,  95278,  95279,  0 } },
+  { "Fire-Charm Armor"                           ,  1161,   15,   4,  10,           { 268, 0 },    0,    0, 138236, {  95275,  95276,  95277,  95278,  95279,  0 } },
+  { "Fire-Charm Battlegear"                      ,  1159,   15,   2,  10,           { 269, 0 },    2,    0, 138177, {  95265,  95266,  95267,  95268,  95269,  0 } },
+  { "Fire-Charm Battlegear"                      ,  1159,   15,   4,  10,           { 269, 0 },    2,    0, 138315, {  95265,  95266,  95267,  95268,  95269,  0 } },
+  { "Fire-Charm Vestments"                       ,  1160,   15,   2,  10,           { 270, 0 },    1,    0, 138290, {  95270,  95271,  95272,  95273,  95274,  0 } },
+  { "Fire-Charm Vestments"                       ,  1160,   15,   4,  10,           { 270, 0 },    1,    0, 138289, {  95270,  95271,  95272,  95273,  95274,  0 } },
+  { "Regalia of the Haunted Forest"              ,  1155,   15,   2,  11,           { 102, 0 },    3,    0, 138348, {  95245,  95246,  95247,  95248,  95249,  0 } },
+  { "Regalia of the Haunted Forest"              ,  1155,   15,   4,  11,           { 102, 0 },    3,    0, 138350, {  95245,  95246,  95247,  95248,  95249,  0 } },
+  { "Battlegear of the Haunted Forest"           ,  1153,   15,   2,  11,           { 103, 0 },    2,    0, 138352, {  95235,  95236,  95237,  95238,  95239,  0 } },
+  { "Battlegear of the Haunted Forest"           ,  1153,   15,   4,  11,           { 103, 0 },    2,    0, 138357, {  95235,  95236,  95237,  95238,  95239,  0 } },
+  { "Armor of the Haunted Forest"                ,  1156,   15,   2,  11,           { 104, 0 },    0,    0, 138216, {  95250,  95251,  95252,  95253,  95254,  0 } },
+  { "Armor of the Haunted Forest"                ,  1156,   15,   4,  11,           { 104, 0 },    0,    0, 138222, {  95250,  95251,  95252,  95253,  95254,  0 } },
+  { "Vestments of the Haunted Forest"            ,  1154,   15,   2,  11,           { 105, 0 },    1,    0, 138284, {  95240,  95241,  95242,  95243,  95244,  0 } },
+  //                                    Tier name, SetID, Tier, Bns, Cls,         Derived Spec, Role, Spec,  Spell, Items
+  { "Vestments of the Haunted Forest"            ,  1154,   15,   4,  11,           { 105, 0 },    1,    0, 138286, {  95240,  95241,  95242,  95243,  95244,  0 } },
+  { "Battleplate of the Prehistoric Marauder"    ,  1180,   16,   2,   1,      {  71,  72, 0 },    2,    0, 144436, {  99197,  99198,  99199,  99200,  99206,  0 } },
+  { "Battleplate of the Prehistoric Marauder"    ,  1180,   16,   4,   1,      {  71,  72, 0 },    2,    0, 144441, {  99197,  99198,  99199,  99200,  99206,  0 } },
+  { "Plate of the Prehistoric Marauder"          ,  1179,   16,   2,   1,           {  73, 0 },    0,    0, 144503, {  99195,  99196,  99201,  99202,  99203,  0 } },
+  { "Plate of the Prehistoric Marauder"          ,  1179,   16,   4,   1,           {  73, 0 },    0,    0, 144502, {  99195,  99196,  99201,  99202,  99203,  0 } },
+  { "Vestments of Winged Triumph"                ,  1189,   16,   2,   2,           {  65, 0 },    1,    0, 144625, {  99133,  99124,  99125,  99134,  99135,  0 } },
+  { "Vestments of Winged Triumph"                ,  1189,   16,   4,   2,           {  65, 0 },    1,    0, 144613, {  99133,  99124,  99125,  99134,  99135,  0 } },
+  { "Plate of Winged Triumph"                    ,  1188,   16,   2,   2,           {  66, 0 },    0,    0, 144580, {  99126,  99127,  99128,  99129,  99130,  0 } },
+  { "Plate of Winged Triumph"                    ,  1188,   16,   4,   2,           {  66, 0 },    0,    0, 144566, {  99126,  99127,  99128,  99129,  99130,  0 } },
+  { "Battlegear of Winged Triumph"               ,  1190,   16,   2,   2,           {  70, 0 },    2,    0, 144586, {  99132,  99136,  99137,  99138,  99139,  0 } },
+  { "Battlegear of Winged Triumph"               ,  1190,   16,   4,   2,           {  70, 0 },    2,    0, 144593, {  99132,  99136,  99137,  99138,  99139,  0 } },
+  { "Battlegear of the Unblinking Vigil"         ,  1195,   16,   2,   3, { 253, 254, 255, 0 },    2,    0, 144637, {  99157,  99158,  99159,  99167,  99168,  0 } },
+  { "Battlegear of the Unblinking Vigil"         ,  1195,   16,   4,   3, { 253, 254, 255, 0 },    2,    0, 144641, {  99157,  99158,  99159,  99167,  99168,  0 } },
+  { "Barbed Assassin Battlegear"                 ,  1185,   16,   2,   4, { 259, 260, 261, 0 },    2,    0, 145185, {  99113,  99112,  99114,  99115,  99116,  0 } },
+  { "Barbed Assassin Battlegear"                 ,  1185,   16,   4,   4, { 259, 260, 261, 0 },    2,    0, 145210, {  99113,  99112,  99114,  99115,  99116,  0 } },
+  { "Vestments of Ternion Glory"                 ,  1187,   16,   2,   5,      { 256, 257, 0 },    1,    0, 145306, {  99117,  99118,  99119,  99120,  99131,  0 } },
+  { "Vestments of Ternion Glory"                 ,  1187,   16,   4,   5,      { 256, 257, 0 },    1,    0, 145334, {  99117,  99118,  99119,  99120,  99131,  0 } },
+  { "Regalia of Ternion Glory"                   ,  1186,   16,   2,   5,           { 258, 0 },    3,    0, 145174, {  99123,  99110,  99111,  99121,  99122,  0 } },
+  { "Regalia of Ternion Glory"                   ,  1186,   16,   4,   5,           { 258, 0 },    3,    0, 145179, {  99123,  99110,  99111,  99121,  99122,  0 } },
+  { "6.0 test set"                               ,  1219,   16,   2,   5,                { 0 },    1,  256, 145306, { 109278, 109379,  0 } },
+  { "6.0 test set"                               ,  1219,   16,   2,   5,                { 0 },    1,  257, 145174, { 109278, 109379,  0 } },
+  { "6.0 test set"                               ,  1219,   16,   2,   5,                { 0 },    3,  258, 145251, { 109278, 109379,  0 } },
+  { "Plate of Cyclopean Dread"                   ,  1201,   16,   2,   6,           { 250, 0 },    0,    0, 144934, {  99179,  99188,  99189,  99190,  99191,  0 } },
+  { "Plate of Cyclopean Dread"                   ,  1201,   16,   4,   6,           { 250, 0 },    0,    0, 144950, {  99179,  99188,  99189,  99190,  99191,  0 } },
+  { "Battleplate of Cyclopean Dread"             ,  1200,   16,   2,   6,      { 251, 252, 0 },    2,    0, 144899, {  99186,  99187,  99192,  99193,  99194,  0 } },
+  //                                    Tier name, SetID, Tier, Bns, Cls,         Derived Spec, Role, Spec,  Spell, Items
+  { "Battleplate of Cyclopean Dread"             ,  1200,   16,   4,   6,      { 251, 252, 0 },    2,    0, 144907, {  99186,  99187,  99192,  99193,  99194,  0 } },
+  { "Celestial Harmony Regalia"                  ,  1182,   16,   2,   7,           { 262, 0 },    3,    0, 144998, {  99092,  99093,  99094,  99095,  99106,  0 } },
+  { "Celestial Harmony Regalia"                  ,  1182,   16,   4,   7,           { 262, 0 },    3,    0, 145003, {  99092,  99093,  99094,  99095,  99106,  0 } },
+  { "Celestial Harmony Battlegear"               ,  1183,   16,   2,   7,           { 263, 0 },    2,    0, 144962, {  99101,  99102,  99103,  99104,  99105,  0 } },
+  { "Celestial Harmony Battlegear"               ,  1183,   16,   4,   7,           { 263, 0 },    2,    0, 144966, {  99101,  99102,  99103,  99104,  99105,  0 } },
+  { "Celestial Harmony Vestment"                 ,  1184,   16,   2,   7,           { 264, 0 },    1,    0, 145378, {  99099,  99100,  99107,  99108,  99109,  0 } },
+  { "Celestial Harmony Vestment"                 ,  1184,   16,   4,   7,           { 264, 0 },    1,    0, 145380, {  99099,  99100,  99107,  99108,  99109,  0 } },
+  { "Chronomancer Regalia"                       ,  1194,   16,   2,   8, {  62,  63,  64, 0 },    3,    0, 145251, {  99152,  99153,  99160,  99161,  99162,  0 } },
+  { "Chronomancer Regalia"                       ,  1194,   16,   4,   8, {  62,  63,  64, 0 },    3,    0, 145257, {  99152,  99153,  99160,  99161,  99162,  0 } },
+  { "Regalia of the Horned Nightmare"            ,  1181,   16,   2,   9, { 265, 266, 267, 0 },    3,    0, 145072, {  99096,  99097,  99098,  99204,  99205,  0 } },
+  { "Regalia of the Horned Nightmare"            ,  1181,   16,   4,   9, { 265, 266, 267, 0 },    3,    0, 145091, {  99096,  99097,  99098,  99204,  99205,  0 } },
+  { "Armor of Seven Sacred Seals"                ,  1191,   16,   2,  10,           { 268, 0 },    0,    0, 145049, {  99142,  99143,  99144,  99140,  99141,  0 } },
+  { "Armor of Seven Sacred Seals"                ,  1191,   16,   4,  10,           { 268, 0 },    0,    0, 145055, {  99142,  99143,  99144,  99140,  99141,  0 } },
+  { "Battlegear of Seven Sacred Seals"           ,  1193,   16,   2,  10,           { 269, 0 },    2,    0, 145004, {  99154,  99155,  99156,  99145,  99146,  0 } },
+  { "Battlegear of Seven Sacred Seals"           ,  1193,   16,   4,  10,           { 269, 0 },    2,    0, 145022, {  99154,  99155,  99156,  99145,  99146,  0 } },
+  { "Vestments of Seven Sacred Seals"            ,  1192,   16,   2,  10,           { 270, 0 },    1,    0, 145439, {  99151,  99147,  99148,  99149,  99150,  0 } },
+  { "Vestments of Seven Sacred Seals"            ,  1192,   16,   4,  10,           { 270, 0 },    1,    0, 145449, {  99151,  99147,  99148,  99149,  99150,  0 } },
+  { "Regalia of the Shattered Vale"              ,  1197,   16,   2,  11,           { 102, 0 },    3,    0, 144767, {  99169,  99174,  99175,  99176,  99177,  0 } },
+  { "Regalia of the Shattered Vale"              ,  1197,   16,   4,  11,           { 102, 0 },    3,    0, 144756, {  99169,  99174,  99175,  99176,  99177,  0 } },
+  { "Battlegear of the Shattered Vale"           ,  1199,   16,   2,  11,           { 103, 0 },    2,    0, 144864, {  99180,  99181,  99182,  99183,  99184,  0 } },
+  { "Battlegear of the Shattered Vale"           ,  1199,   16,   4,  11,           { 103, 0 },    2,    0, 144841, {  99180,  99181,  99182,  99183,  99184,  0 } },
+  { "Armor of the Shattered Vale"                ,  1196,   16,   2,  11,           { 104, 0 },    0,    0, 144879, {  99163,  99164,  99165,  99166,  99170,  0 } },
+  { "Armor of the Shattered Vale"                ,  1196,   16,   4,  11,           { 104, 0 },    0,    0, 144887, {  99163,  99164,  99165,  99166,  99170,  0 } },
+  { "Vestments of the Shattered Vale"            ,  1198,   16,   2,  11,           { 105, 0 },    1,    0, 144869, {  99171,  99172,  99173,  99178,  99185,  0 } },
+  { "Vestments of the Shattered Vale"            ,  1198,   16,   4,  11,           { 105, 0 },    1,    0, 144875, {  99171,  99172,  99173,  99178,  99185,  0 } },
+  //                                    Tier name, SetID, Tier, Bns, Cls,         Derived Spec, Role, Spec,  Spell, Items
+  { "Blackhand's Battlegear"                     ,  1242,   17,   2,   1,                { 0 },    2,   71, 165336, { 115580, 115581, 115582, 115583, 115584,  0 } },
+  { "Blackhand's Battlegear"                     ,  1242,   17,   4,   1,                { 0 },    2,   71, 165345, { 115580, 115581, 115582, 115583, 115584,  0 } },
+  { "Blackhand's Battlegear"                     ,  1242,   17,   2,   1,                { 0 },    2,   72, 165337, { 115580, 115581, 115582, 115583, 115584,  0 } },
+  { "Blackhand's Battlegear"                     ,  1242,   17,   4,   1,                { 0 },    2,   72, 165349, { 115580, 115581, 115582, 115583, 115584,  0 } },
+  { "Blackhand's Battlegear"                     ,  1242,   17,   2,   1,                { 0 },    0,   73, 165338, { 115580, 115581, 115582, 115583, 115584,  0 } },
+  { "Blackhand's Battlegear"                     ,  1242,   17,   4,   1,                { 0 },    0,   73, 165351, { 115580, 115581, 115582, 115583, 115584,  0 } },
+  { "Battlegear of Guiding Light"                ,  1238,   17,   2,   2,                { 0 },    1,   65, 165438, { 115565, 115566, 115567, 115568, 115569,  0 } },
+  { "Battlegear of Guiding Light"                ,  1238,   17,   4,   2,                { 0 },    1,   65, 167697, { 115565, 115566, 115567, 115568, 115569,  0 } },
+  { "Battlegear of Guiding Light"                ,  1238,   17,   2,   2,                { 0 },    0,   66, 165446, { 115565, 115566, 115567, 115568, 115569,  0 } },
+  { "Battlegear of Guiding Light"                ,  1238,   17,   4,   2,                { 0 },    0,   66, 167740, { 115565, 115566, 115567, 115568, 115569,  0 } },
+  { "Battlegear of Guiding Light"                ,  1238,   17,   2,   2,                { 0 },    2,   70, 165440, { 115565, 115566, 115567, 115568, 115569,  0 } },
+  { "Battlegear of Guiding Light"                ,  1238,   17,   4,   2,                { 0 },    2,   70, 165439, { 115565, 115566, 115567, 115568, 115569,  0 } },
+  { "Rylakstalker's Battlegear"                  ,  1236,   17,   2,   3,                { 0 },    2,  253, 165517, { 115545, 115546, 115547, 115548, 115549,  0 } },
+  { "Rylakstalker's Battlegear"                  ,  1236,   17,   4,   3,                { 0 },    2,  253, 165518, { 115545, 115546, 115547, 115548, 115549,  0 } },
+  { "Rylakstalker's Battlegear"                  ,  1236,   17,   2,   3,                { 0 },    2,  254, 165519, { 115545, 115546, 115547, 115548, 115549,  0 } },
+  { "Rylakstalker's Battlegear"                  ,  1236,   17,   4,   3,                { 0 },    2,  254, 165525, { 115545, 115546, 115547, 115548, 115549,  0 } },
+  { "Rylakstalker's Battlegear"                  ,  1236,   17,   2,   3,                { 0 },    2,  255, 165544, { 115545, 115546, 115547, 115548, 115549,  0 } },
+  { "Rylakstalker's Battlegear"                  ,  1236,   17,   4,   3,                { 0 },    2,  255, 165545, { 115545, 115546, 115547, 115548, 115549,  0 } },
+  { "Poisoner's Battlegear"                      ,  1240,   17,   2,   4,                { 0 },    2,  259, 165516, { 115570, 115571, 115572, 115573, 115574,  0 } },
+  { "Poisoner's Battlegear"                      ,  1240,   17,   4,   4,                { 0 },    2,  259, 166886, { 115570, 115571, 115572, 115573, 115574,  0 } },
+  { "Poisoner's Battlegear"                      ,  1240,   17,   2,   4,                { 0 },    2,  260, 165480, { 115570, 115571, 115572, 115573, 115574,  0 } },
+  { "Poisoner's Battlegear"                      ,  1240,   17,   4,   4,                { 0 },    2,  260, 165478, { 115570, 115571, 115572, 115573, 115574,  0 } },
+  { "Poisoner's Battlegear"                      ,  1240,   17,   2,   4,                { 0 },    2,  261, 165482, { 115570, 115571, 115572, 115573, 115574,  0 } },
+  { "Poisoner's Battlegear"                      ,  1240,   17,   4,   4,                { 0 },    2,  261, 165514, { 115570, 115571, 115572, 115573, 115574,  0 } },
+  { "Soul Priest's Raiment"                      ,  1239,   17,   2,   5,                { 0 },    1,  256, 165614, { 115560, 115561, 115562, 115563, 115564,  0 } },
+  //                                    Tier name, SetID, Tier, Bns, Cls,         Derived Spec, Role, Spec,  Spell, Items
+  { "Soul Priest's Raiment"                      ,  1239,   17,   4,   5,                { 0 },    1,  256, 167694, { 115560, 115561, 115562, 115563, 115564,  0 } },
+  { "Soul Priest's Raiment"                      ,  1239,   17,   2,   5,                { 0 },    1,  257, 165621, { 115560, 115561, 115562, 115563, 115564,  0 } },
+  { "Soul Priest's Raiment"                      ,  1239,   17,   4,   5,                { 0 },    1,  257, 167684, { 115560, 115561, 115562, 115563, 115564,  0 } },
+  { "Soul Priest's Raiment"                      ,  1239,   17,   2,   5,                { 0 },    3,  258, 165628, { 115560, 115561, 115562, 115563, 115564,  0 } },
+  { "Soul Priest's Raiment"                      ,  1239,   17,   4,   5,                { 0 },    3,  258, 165629, { 115560, 115561, 115562, 115563, 115564,  0 } },
+  { "Ogreskull Boneplate Battlegear"             ,  1234,   17,   2,   6,                { 0 },    0,  250, 167192, { 115535, 115536, 115537, 115538, 115539,  0 } },
+  { "Ogreskull Boneplate Battlegear"             ,  1234,   17,   4,   6,                { 0 },    0,  250, 165571, { 115535, 115536, 115537, 115538, 115539,  0 } },
+  { "Ogreskull Boneplate Battlegear"             ,  1234,   17,   2,   6,                { 0 },    2,  251, 165547, { 115535, 115536, 115537, 115538, 115539,  0 } },
+  { "Ogreskull Boneplate Battlegear"             ,  1234,   17,   4,   6,                { 0 },    2,  251, 165568, { 115535, 115536, 115537, 115538, 115539,  0 } },
+  { "Ogreskull Boneplate Battlegear"             ,  1234,   17,   2,   6,                { 0 },    2,  252, 165575, { 115535, 115536, 115537, 115538, 115539,  0 } },
+  { "Ogreskull Boneplate Battlegear"             ,  1234,   17,   4,   6,                { 0 },    2,  252, 165574, { 115535, 115536, 115537, 115538, 115539,  0 } },
+  { "Windspeaker's Regalia"                      ,  1241,   17,   2,   7,                { 0 },    3,  262, 165577, { 115575, 115576, 115577, 115578, 115579,  0 } },
+  { "Windspeaker's Regalia"                      ,  1241,   17,   4,   7,                { 0 },    3,  262, 165580, { 115575, 115576, 115577, 115578, 115579,  0 } },
+  { "Windspeaker's Regalia"                      ,  1241,   17,   2,   7,                { 0 },    2,  263, 165605, { 115575, 115576, 115577, 115578, 115579,  0 } },
+  { "Windspeaker's Regalia"                      ,  1241,   17,   4,   7,                { 0 },    2,  263, 165610, { 115575, 115576, 115577, 115578, 115579,  0 } },
+  { "Windspeaker's Regalia"                      ,  1241,   17,   2,   7,                { 0 },    1,  264, 165576, { 115575, 115576, 115577, 115578, 115579,  0 } },
+  { "Windspeaker's Regalia"                      ,  1241,   17,   4,   7,                { 0 },    1,  264, 167702, { 115575, 115576, 115577, 115578, 115579,  0 } },
+  { "Arcanoshatter Regalia"                      ,  1235,   17,   2,   8,                { 0 },    3,   62, 165475, { 115550, 115551, 115552, 115553, 115554,  0 } },
+  { "Arcanoshatter Regalia"                      ,  1235,   17,   4,   8,                { 0 },    3,   62, 165476, { 115550, 115551, 115552, 115553, 115554,  0 } },
+  { "Arcanoshatter Regalia"                      ,  1235,   17,   2,   8,                { 0 },    3,   63, 165458, { 115550, 115551, 115552, 115553, 115554,  0 } },
+  { "Arcanoshatter Regalia"                      ,  1235,   17,   4,   8,                { 0 },    3,   63, 165459, { 115550, 115551, 115552, 115553, 115554,  0 } },
+  { "Arcanoshatter Regalia"                      ,  1235,   17,   2,   8,                { 0 },    3,   64, 165470, { 115550, 115551, 115552, 115553, 115554,  0 } },
+  { "Arcanoshatter Regalia"                      ,  1235,   17,   4,   8,                { 0 },    3,   64, 165469, { 115550, 115551, 115552, 115553, 115554,  0 } },
+  { "Shadow Council's Garb"                      ,  1243,   17,   2,   9,                { 0 },    3,  265, 165448, { 115585, 115586, 115587, 115588, 115589,  0 } },
+  { "Shadow Council's Garb"                      ,  1243,   17,   4,   9,                { 0 },    3,  265, 165449, { 115585, 115586, 115587, 115588, 115589,  0 } },
+  //                                    Tier name, SetID, Tier, Bns, Cls,         Derived Spec, Role, Spec,  Spell, Items
+  { "Shadow Council's Garb"                      ,  1243,   17,   2,   9,                { 0 },    3,  266, 165451, { 115585, 115586, 115587, 115588, 115589,  0 } },
+  { "Shadow Council's Garb"                      ,  1243,   17,   4,   9,                { 0 },    3,  266, 165450, { 115585, 115586, 115587, 115588, 115589,  0 } },
+  { "Shadow Council's Garb"                      ,  1243,   17,   2,   9,                { 0 },    3,  267, 165455, { 115585, 115586, 115587, 115588, 115589,  0 } },
+  { "Shadow Council's Garb"                      ,  1243,   17,   4,   9,                { 0 },    3,  267, 165452, { 115585, 115586, 115587, 115588, 115589,  0 } },
+  { "Battlegear of the Somber Gaze"              ,  1237,   17,   2,  10,                { 0 },    0,  268, 165353, { 115555, 115556, 115557, 115558, 115559,  0 } },
+  { "Battlegear of the Somber Gaze"              ,  1237,   17,   4,  10,                { 0 },    0,  268, 165352, { 115555, 115556, 115557, 115558, 115559,  0 } },
+  { "Battlegear of the Somber Gaze"              ,  1237,   17,   2,  10,                { 0 },    2,  269, 165403, { 115555, 115556, 115557, 115558, 115559,  0 } },
+  { "Battlegear of the Somber Gaze"              ,  1237,   17,   4,  10,                { 0 },    2,  269, 165402, { 115555, 115556, 115557, 115558, 115559,  0 } },
+  { "Battlegear of the Somber Gaze"              ,  1237,   17,   2,  10,                { 0 },    1,  270, 165404, { 115555, 115556, 115557, 115558, 115559,  0 } },
+  { "Battlegear of the Somber Gaze"              ,  1237,   17,   4,  10,                { 0 },    1,  270, 167718, { 115555, 115556, 115557, 115558, 115559,  0 } },
+  { "Living Wood Battlegear"                     ,  1233,   17,   2,  11,                { 0 },    3,  102, 165433, { 115540, 115541, 115542, 115543, 115544,  0 } },
+  { "Living Wood Battlegear"                     ,  1233,   17,   4,  11,                { 0 },    3,  102, 166677, { 115540, 115541, 115542, 115543, 115544,  0 } },
+  { "Living Wood Battlegear"                     ,  1233,   17,   2,  11,                { 0 },    2,  103, 165431, { 115540, 115541, 115542, 115543, 115544,  0 } },
+  { "Living Wood Battlegear"                     ,  1233,   17,   4,  11,                { 0 },    2,  103, 165432, { 115540, 115541, 115542, 115543, 115544,  0 } },
+  { "Living Wood Battlegear"                     ,  1233,   17,   2,  11,                { 0 },    0,  104, 165410, { 115540, 115541, 115542, 115543, 115544,  0 } },
+  { "Living Wood Battlegear"                     ,  1233,   17,   4,  11,                { 0 },    0,  104, 165423, { 115540, 115541, 115542, 115543, 115544,  0 } },
+  { "Living Wood Battlegear"                     ,  1233,   17,   2,  11,                { 0 },    1,  105, 165437, { 115540, 115541, 115542, 115543, 115544,  0 } },
+  { "Living Wood Battlegear"                     ,  1233,   17,   4,  11,                { 0 },    1,  105, 167714, { 115540, 115541, 115542, 115543, 115544,  0 } },
 };
 
-#define PERK_SIZE (9)
+#define PERK_SIZE (4)
 
-// Perk specialization abilities, wow build 18546
+// Perk specialization abilities, wow build 18865
 static unsigned __perk_data[][MAX_SPECS_PER_CLASS][PERK_SIZE] = {
   {
     {
@@ -4412,39 +4547,24 @@ static unsigned __perk_data[][MAX_SPECS_PER_CLASS][PERK_SIZE] = {
   {
     // Arms
     {
-      157446, // 0: Improved Charge
-      157449, // 1: Improved Heroic Leap
-      157452, // 2: Improved Die by the Sword
-      157454, // 3: Empowered Execute
-      157457, // 4: Improved Colossus Smash
-      157461, // 5: Enhanced Sweeping Strikes
-      157464, // 6: Improved Mortal Strike
-      157466, // 7: Improved Thunderclap
-      157472, // 8: Improved Overpower
+      176051, // 0: Improved Recklessness
+      157452, // 1: Improved Die by the Sword
+      157461, // 2: Enhanced Sweeping Strikes
+      174737, // 3: Enhanced Rend
     },
     // Fury
     {
       157452, // 0: Improved Die by the Sword
-      157454, // 1: Empowered Execute
-      157457, // 2: Improved Colossus Smash
-      157473, // 3: Improved Meat Cleaver
-      157474, // 4: Improved Wild Strike
-      157475, // 5: Improved Bloodthirst
-      157477, // 6: Improved Raging Blow
-      157446, // 7: Improved Charge
-      157449, // 8: Improved Heroic Leap
+      157457, // 1: Improved Colossus Smash
+      157473, // 2: Enhanced Whirlwind
+      176051, // 3: Improved Recklessness
     },
     // Protection
     {
-      157446, // 0: Improved Charge
-      157449, // 1: Improved Heroic Leap
-      157497, // 2: Improved Bastion of Defense
-      157487, // 3: Improved Revenge
-      157479, // 4: Improved Heroic Throw
-      157492, // 5: Improved Shield Barrier
-      157481, // 6: Improved Shield Slam
-      157498, // 7: Improved Thunder Clap
-      157494, // 8: Improved Unwavering Sentinel
+      157449, // 0: Improved Heroic Leap
+      157497, // 1: Improved Block
+      157479, // 2: Improved Heroic Throw
+      157494, // 3: Improved Defensive Stance
     },
     {
            0,
@@ -4454,38 +4574,23 @@ static unsigned __perk_data[][MAX_SPECS_PER_CLASS][PERK_SIZE] = {
     // Holy
     {
       157453, // 0: Empowered Beacon of Light
-      157476, // 1: Empowered Holy Shock
-      157478, // 2: Enhanced Holy Shock
-      157455, // 3: Improved Daybreak
-      157462, // 4: Improved Denounce
-      157458, // 5: Improved Holy Light
-      157482, // 6: Improved Forbearance
-      157480, // 7: Improved Divine Protection
-      157460, // 8: Improved Flash of Light
+      157478, // 1: Enhanced Holy Shock
+      157455, // 2: Improved Daybreak
+      157482, // 3: Improved Forbearance
     },
     // Protection
     {
       157482, // 0: Improved Forbearance
-      157480, // 1: Improved Divine Protection
-      157485, // 2: Empowered Avenger's Shield
-      157488, // 3: Improved Block
-      157486, // 4: Improved Consecration
-      157483, // 5: Improved Hammer of the Righteous
-      157484, // 6: Improved Word of Glory
-      157489, // 7: Improved Crusader Strike
-      157490, // 8: Improved Judgment
+      157485, // 1: Empowered Avenger's Shield
+      157488, // 2: Improved Block
+      157486, // 3: Improved Consecration
     },
     // Retribution
     {
       157482, // 0: Improved Forbearance
-      157480, // 1: Improved Divine Protection
-      157460, // 2: Improved Flash of Light
-      157489, // 3: Improved Crusader Strike
-      157490, // 4: Improved Judgment
-      157491, // 5: Empowered Seal of Truth
-      157493, // 6: Enhanced Hand of Sacrifice
-      157495, // 7: Improved Exorcism
-      157496, // 8: Empowered Hammer of Wrath
+      157493, // 1: Enhanced Hand of Sacrifice
+      157496, // 2: Empowered Hammer of Wrath
+      174718, // 3: Empowered Divine Storm
     },
     {
            0,
@@ -4494,39 +4599,24 @@ static unsigned __perk_data[][MAX_SPECS_PER_CLASS][PERK_SIZE] = {
   {
     // Beast Mastery
     {
-      157713, // 0: Empowered Pets
-      157715, // 1: Enhanced Basic Attacks
-      157714, // 2: Improved Beast Cleave
-      157705, // 3: Improved Focus Fire
-      157709, // 4: Improved Kill Command
-      157707, // 5: Enhanced Kill Shot
-      157718, // 6: Enhanced Camouflage
-      157711, // 7: Improved Arcane Shot
-      157712, // 8: Improved Cobra Shot
+      157715, // 0: Enhanced Basic Attacks
+      157714, // 1: Improved Beast Cleave
+      157705, // 2: Improved Focus Fire
+      157718, // 3: Enhanced Camouflage
     },
     // Marksmanship
     {
       157707, // 0: Enhanced Kill Shot
       157718, // 1: Enhanced Camouflage
       157724, // 2: Enhanced Aimed Shot
-      157719, // 3: Enhanced Chimera Shot
-      157733, // 4: Improved Chimera Shot
-      157732, // 5: Enhanced Shots
-      157728, // 6: Improved Aimed Shot
-      157726, // 7: Improved Focus
-      157729, // 8: Improved Steady Shot
+      157726, // 3: Improved Focus
     },
     // Survival
     {
       157718, // 0: Enhanced Camouflage
-      157711, // 1: Improved Arcane Shot
-      157712, // 2: Improved Cobra Shot
-      157748, // 3: Empowered Explosive Shot
-      157752, // 4: Enhanced Entrapment
-      157751, // 5: Enhanced Traps
-      157749, // 6: Improved Black Arrow
-      157753, // 7: Improved Camouflage
-      157768, // 8: Improved Viper Venom
+      157748, // 1: Empowered Explosive Shot
+      157752, // 2: Enhanced Entrapment
+      157751, // 3: Enhanced Traps
     },
     {
            0,
@@ -4537,37 +4627,22 @@ static unsigned __perk_data[][MAX_SPECS_PER_CLASS][PERK_SIZE] = {
     {
       157513, // 0: Improved Slice and Dice
       157514, // 1: Enhanced Vendetta
-      157515, // 2: Improved Venomous Wounds
-      157560, // 3: Enhanced Poisons
-      157561, // 4: Enhanced Crimson Tempest
-      157569, // 5: Empowered Envenom
-      157570, // 6: Improved Rupture
-      157572, // 7: Enhanced Envenom
-      157576, // 8: Improved Recuperate
+      157561, // 2: Enhanced Crimson Tempest
+      157569, // 3: Empowered Envenom
     },
     // Combat
     {
-      157576, // 0: Improved Recuperate
-      157581, // 1: Empowered Bandit's Guile
-      157605, // 2: Instant Poison
-      157613, // 3: Enhanced Adrenaline Rush
-      157615, // 4: Enhanced Blade Flurry
-      157645, // 5: Empowered Crimson Tempest
-      157660, // 6: Improved Dual Wield
-      157661, // 7: Improved Sinister Strike
-      157662, // 8: Improved Eviscerate
+      157581, // 0: Empowered Bandit's Guile
+      157605, // 1: Swift Poison
+      157615, // 2: Enhanced Blade Flurry
+      157660, // 3: Improved Dual Wield
     },
     // Subtlety
     {
-      157576, // 0: Improved Recuperate
-      157663, // 1: Improved Backstab
-      157664, // 2: Improved Ambush
-      157665, // 3: Improved Hemorrhage
-      157666, // 4: Enhanced Vanish
-      157667, // 5: Enhanced Eviscerate
-      157669, // 6: Enhanced Shadow Dance
-      157671, // 7: Empowered Fan of Knives
-      157704, // 8: Enhanced Master of Subtlety
+      157666, // 0: Enhanced Vanish
+      157669, // 1: Enhanced Shadow Dance
+      157671, // 2: Empowered Fan of Knives
+      157704, // 3: Enhanced Stealth
     },
     {
            0,
@@ -4576,39 +4651,24 @@ static unsigned __perk_data[][MAX_SPECS_PER_CLASS][PERK_SIZE] = {
   {
     // Discipline
     {
-      157181, // 0: Improved Heal
-      157197, // 1: Enhanced Strength of Soul
-      157182, // 2: Improved Penance
-      157193, // 3: Enhanced Focused Will
-      157180, // 4: Enhanced Holy Fire
-      157145, // 5: Enhanced Leap of Faith
-      157156, // 6: Improved Smite
-      157129, // 7: Enhanced Power Word: Shield
-      157144, // 8: Improved Flash Heal
+      157197, // 0: Empowered Archangel
+      157193, // 1: Enhanced Focused Will
+      157145, // 2: Enhanced Leap of Faith
+      157129, // 3: Enhanced Power Word: Shield
     },
     // Holy
     {
-      157129, // 0: Enhanced Power Word: Shield
-      157144, // 1: Improved Flash Heal
-      157193, // 2: Enhanced Focused Will
-      157180, // 3: Enhanced Holy Fire
-      157145, // 4: Enhanced Leap of Faith
-      157156, // 5: Improved Smite
-      157206, // 6: Enhanced Chakras
-      157181, // 7: Improved Heal
-      157207, // 8: Enhanced Renew
+      157193, // 0: Enhanced Focused Will
+      157145, // 1: Enhanced Leap of Faith
+      157206, // 2: Enhanced Chakras
+      157207, // 3: Enhanced Renew
     },
     // Shadow
     {
       157129, // 0: Enhanced Power Word: Shield
-      157144, // 1: Improved Flash Heal
-      157221, // 2: Empowered Psychic Horror
-      157223, // 3: Enhanced Mind Flay
-      157217, // 4: Enhanced Shadow Orbs
-      157218, // 5: Enhanced Shadow Word: Death
-      157222, // 6: Improved Shadow Word: Pain
-      157219, // 7: Improved Vampiric Touch
-      157220, // 8: Improved Mind Spike
+      157223, // 1: Enhanced Mind Flay
+      157217, // 2: Enhanced Shadow Orbs
+      157218, // 3: Enhanced Shadow Word: Death
     },
     {
            0,
@@ -4621,35 +4681,20 @@ static unsigned __perk_data[][MAX_SPECS_PER_CLASS][PERK_SIZE] = {
       157337, // 1: Enhanced Death Grip
       157343, // 2: Enhanced Death Coil
       157336, // 3: Enhanced Rune Tap
-      157334, // 4: Enhanced Will of the Necropolis
-      157341, // 5: Improved Death Strike
-      157339, // 6: Improved Pestilence
-      157340, // 7: Improved Diseases
-      157342, // 8: Improved Soul Reaper
     },
     // Frost
     {
-      157340, // 0: Improved Diseases
-      157342, // 1: Improved Soul Reaper
-      157403, // 2: Empowered Icebound Fortitude
-      157389, // 3: Empowered Pillar of Frost
-      157409, // 4: Empowered Rime
-      157380, // 5: Improved Mind Freeze
-      157376, // 6: Improved Runeforges
-      157367, // 7: Improved Death Grip
-      157408, // 8: Enhanced Death Strike
+      157389, // 0: Empowered Pillar of Frost
+      157409, // 1: Empowered Obliterate
+      157376, // 2: Improved Razorice
+      157367, // 3: Improved Death Grip
     },
     // Unholy
     {
-      157340, // 0: Improved Diseases
-      157342, // 1: Improved Soul Reaper
-      157408, // 2: Enhanced Death Strike
-      157441, // 3: Empowered Gargoyle
-      157412, // 4: Enhanced Dark Transformation
-      157439, // 5: Improved Death Coil
-      157437, // 6: Enhanced Fallen Crusader
-      157414, // 7: Improved Festering Strike
-      157413, // 8: Improved Scourge Strike
+      157342, // 0: Improved Soul Reaper
+      157441, // 1: Empowered Gargoyle
+      157412, // 2: Enhanced Dark Transformation
+      157437, // 3: Enhanced Fallen Crusader
     },
     {
            0,
@@ -4658,39 +4703,24 @@ static unsigned __perk_data[][MAX_SPECS_PER_CLASS][PERK_SIZE] = {
   {
     // Elemental
     {
-      157765, // 0: Improved Chain Lightning
+      157765, // 0: Enhanced Chain Lightning
       157774, // 1: Improved Lightning Shield
       157764, // 2: Improved Reincarnation
-      157775, // 3: Improved Fire Totems
-      157776, // 4: Improved Critical Strikes
-      157777, // 5: Improved Lightning Bolt
-      157778, // 6: Improved Lava Burst
-      157779, // 7: Improved Shocks
-      157784, // 8: Enhanced Unleash Elements
+      157784, // 3: Enhanced Unleash
     },
     // Enhancement
     {
       157764, // 0: Improved Reincarnation
-      157775, // 1: Improved Fire Totems
-      157784, // 2: Enhanced Unleash Elements
-      157803, // 3: Improved Lava Lash
-      157804, // 4: Improved Flame Shock
-      157807, // 5: Improved Maelstrom Weapon
-      157808, // 6: Improved Stormstrike
-      157809, // 7: Improved Lava Lash
-      157810, // 8: Improved Feral Spirit
+      157784, // 1: Enhanced Unleash
+      157804, // 2: Improved Flame Shock
+      157807, // 3: Improved Maelstrom Weapon
     },
     // Restoration
     {
       157764, // 0: Improved Reincarnation
-      157777, // 1: Improved Lightning Bolt
-      157812, // 2: Improved Riptide
-      157813, // 3: Improved Chain Heal
-      157814, // 4: Improved Healing Wave
-      157816, // 5: Improved Healing Surge
-      157818, // 6: Improved Tidal Waves
-      157830, // 7: Improved Healing Rain
-      157784, // 8: Enhanced Unleash Elements
+      157812, // 1: Improved Riptide
+      157813, // 2: Improved Chain Heal
+      157784, // 3: Enhanced Unleash
     },
     {
            0,
@@ -4699,39 +4729,24 @@ static unsigned __perk_data[][MAX_SPECS_PER_CLASS][PERK_SIZE] = {
   {
     // Arcane
     {
-      157532, // 0: Improved Arcane Barrage
-      157616, // 1: Improved Arcane Blast
-      157619, // 2: Improved Arcane Explosion
-      157599, // 3: Enhanced Arcane Missiles
-      157617, // 4: Improved Arcane Missiles
-      157604, // 5: Improved Arcane Power
-      157606, // 6: Improved Blink
-      157595, // 7: Enhanced Arcane Blast
-      157614, // 8: Improved Evocation
+      157604, // 0: Improved Arcane Power
+      157606, // 1: Improved Blink
+      157595, // 2: Enhanced Arcane Blast
+      157614, // 3: Improved Evocation
     },
     // Fire
     {
-      157630, // 0: Improved Combustion
-      157640, // 1: Improved Dragon's Breath
-      157642, // 2: Enhanced Pyrotechnics
-      157622, // 3: Enhanced Inferno Blast
-      157637, // 4: Improved Fireball and Frostfire Bolt
-      157621, // 5: Improved Flamestrike
-      157629, // 6: Improved Inferno Blast
-      157624, // 7: Improved Pyroblast
-      157632, // 8: Improved Scorch
+      157642, // 0: Enhanced Pyrotechnics
+      157621, // 1: Improved Flamestrike
+      157629, // 2: Improved Inferno Blast
+      157632, // 3: Improved Scorch
     },
     // Frost
     {
       157727, // 0: Improved Blizzard
       157646, // 1: Enhanced Frostbolt
-      157668, // 2: Enhanced Fingers of Frost
-      157670, // 3: Improved Frost Nova
-      157723, // 4: Improved Frostbolt
-      157770, // 5: Improved Frostfire Bolt
-      157725, // 6: Improved Ice Lance
-      157721, // 7: Improved Icy Veins
-      157738, // 8: Improved Water Elemental
+      157721, // 2: Improved Icy Veins
+      157738, // 3: Improved Water Elemental
     },
     {
            0,
@@ -4740,39 +4755,24 @@ static unsigned __perk_data[][MAX_SPECS_PER_CLASS][PERK_SIZE] = {
   {
     // Affliction
     {
-      157070, // 0: Improved Life Tap
-      157071, // 1: Empowered Agony
-      157072, // 2: Enhanced Haunt
-      157073, // 3: Improved Corruption
-      157076, // 4: Improved Unstable Affliction
-      157077, // 5: Improved Drain Soul
-      157078, // 6: Enhanced Nightfall
-      157068, // 7: Improved Demons
-      157069, // 8: Empowered Drain Life
+      157072, // 0: Enhanced Haunt
+      157077, // 1: Improved Drain Soul
+      157078, // 2: Empowered Corruption
+      157069, // 3: Empowered Drain Life
     },
     // Demonology
     {
-      157068, // 0: Improved Demons
-      157069, // 1: Empowered Drain Life
-      157095, // 2: Improved Molten Core
-      157096, // 3: Empowered Demons
-      157097, // 4: Improved Shadow Bolt
-      157098, // 5: Enhanced Corruption
-      157100, // 6: Empowered Doom
-      157101, // 7: Enhanced Hand of Gul'dan
-      157102, // 8: Improved Touch of Chaos
+      157069, // 0: Empowered Drain Life
+      157096, // 1: Empowered Demons
+      157098, // 2: Enhanced Corruption
+      157100, // 3: Empowered Doom
     },
     // Destruction
     {
       157103, // 0: Enhanced Chaos Bolt
       157114, // 1: Empowered Immolate
-      157118, // 2: Improved Conflagrate
-      157120, // 3: Empowered Incinerate
-      157121, // 4: Improved Ember Tap
-      157125, // 5: Improved Shadowburn
-      157126, // 6: Enhanced Backlash
-      157068, // 7: Improved Demons
-      158362, // 8: Enhanced Drain Life
+      157121, // 2: Enhanced Ember Tap
+      157126, // 3: Enhanced Havoc
     },
     {
            0,
@@ -4781,39 +4781,24 @@ static unsigned __perk_data[][MAX_SPECS_PER_CLASS][PERK_SIZE] = {
   {
     // Brewmaster
     {
-      157365, // 0: Improved Dizzying Haze
-      157378, // 1: Improved Elusive Brew
-      157362, // 2: Improved Breath of Fire
-      157363, // 3: Improved Guard
-      157377, // 4: Empowered Keg Smash
-      157381, // 5: Improved Stance of the Sturdy Ox
-      157374, // 6: Empowered Blackout Kick
-      157361, // 7: Enhanced Roll
-      157366, // 8: Enhanced Transcendence
+      157362, // 0: Improved Breath of Fire
+      157363, // 1: Improved Guard
+      157361, // 2: Enhanced Roll
+      157366, // 3: Enhanced Transcendence
     },
     // Mistweaver
     {
-      157400, // 0: Empowered Surging Mist
-      157392, // 1: Improved Expel Harm
-      157401, // 2: Improved Life Cocoon
-      157398, // 3: Improved Renewing Mist
-      157399, // 4: Empowered Tiger Palm
-      157374, // 5: Empowered Blackout Kick
-      157361, // 6: Enhanced Roll
-      157366, // 7: Enhanced Transcendence
-      157771, // 8: Improved Soothing Mist
+      157401, // 0: Improved Life Cocoon
+      157398, // 1: Improved Renewing Mist
+      157361, // 2: Enhanced Roll
+      157366, // 3: Enhanced Transcendence
     },
     // Windwalker
     {
-      157399, // 0: Empowered Tiger Palm
-      157411, // 1: Empowered Chi
-      157415, // 2: Empowered Spinning Crane Kick
-      157404, // 3: Improved Energizing Brew
-      157427, // 4: Empowered Fists of Fury
-      157426, // 5: Empowered Rising Sun Kick
-      157374, // 6: Empowered Blackout Kick
-      157361, // 7: Enhanced Roll
-      157366, // 8: Enhanced Transcendence
+      157411, // 0: Empowered Chi
+      157415, // 1: Empowered Spinning Crane Kick
+      157361, // 2: Enhanced Roll
+      157366, // 3: Enhanced Transcendence
     },
     {
            0,
@@ -4822,61 +4807,40 @@ static unsigned __perk_data[][MAX_SPECS_PER_CLASS][PERK_SIZE] = {
   {
     // Balance
     {
-      157233, // 0: Empowered Starfall
-      157229, // 1: Enhanced Owlkin Frenzy
-      157227, // 2: Enhanced Moonkin Form
-      157225, // 3: Improved Nature's Swiftness
-      157232, // 4: Enhanced Starsurge
-      157226, // 5: Enhanced Storms
-      157230, // 6: Improved Starfire
-      157235, // 7: Improved Moonfire
-      157231, // 8: Improved Wrath
+      157229, // 0: Empowered Moonkin
+      157227, // 1: Enhanced Moonkin Form
+      157301, // 2: Enhanced Rebirth
+      157232, // 3: Enhanced Starsurge
     },
     // Feral
     {
       157269, // 0: Enhanced Berserk
-      157272, // 1: Enhanced Cat Form
-      157274, // 2: Enhanced Prowl
-      157280, // 3: Enhanced Rejuvenation
-      157273, // 4: Enhanced Tiger's Fury
-      157277, // 5: Improved Ferocious Bite
-      157276, // 6: Improved Rake
-      157275, // 7: Improved Shred
-      157279, // 8: Improved Healing Touch
+      157274, // 1: Enhanced Prowl
+      157280, // 2: Enhanced Rejuvenation
+      157276, // 3: Improved Rake
     },
     // Guardian
     {
       157292, // 0: Empowered Bear Form
       157284, // 1: Empowered Berserk
-      157290, // 2: Empowered Thrash
-      157286, // 3: Enhanced Bear Hug
-      157283, // 4: Enhanced Tooth and Claw
-      157296, // 5: Improved Barkskin
-      157298, // 6: Improved Frenzied Regeneration
-      157287, // 7: Improved Mangle
-      157288, // 8: Improved Maul
+      157286, // 2: Enhanced Faerie Fire
+      157283, // 3: Enhanced Tooth and Claw
     },
     // Restoration
     {
-      157235, // 0: Improved Moonfire
-      157231, // 1: Improved Wrath
-      157279, // 2: Improved Healing Touch
-      157305, // 3: Empowered Ironbark
-      157302, // 4: Empowered Regrowth
-      157300, // 5: Empowered Rejuvenation
-      157312, // 6: Enhanced Lifebloom
-      157301, // 7: Enhanced Rebirth
-      157309, // 8: Improved Living Seed
+      157305, // 0: Empowered Ironbark
+      157300, // 1: Empowered Rejuvenation
+      157312, // 2: Enhanced Lifebloom
+      157301, // 3: Enhanced Rebirth
     },
   },
 };
 
-// Glyph properties, wow build 18546
-static glyph_property_data_t __glyph_property_data[521] = {
+// Glyph properties, wow build 18865
+static glyph_property_data_t __glyph_property_data[503] = {
   {   162,  54811 },
   {   163,  54812 },
   {   164, 114338 },
-  {   166, 116186 },
   {   167,  54821 },
   {   170,  54733 },
   {   171, 116218 },
@@ -4963,7 +4927,6 @@ static glyph_property_data_t __glyph_property_data[521] = {
   {   285,  56226 },
   {   286,  56240 },
   {   289,  56231 },
-  {   290,  56250 },
   {   291,  56233 },
   {   292,  56247 },
   {   312,  56363 },
@@ -4990,6 +4953,7 @@ static glyph_property_data_t __glyph_property_data[521] = {
   {   358,  56844 },
   {   359,  56845 },
   {   360,  56847 },
+  {   361,  56829 },
   {   362, 119403 },
   {   363,  20895 },
   {   364,  53299 },
@@ -5002,7 +4966,6 @@ static glyph_property_data_t __glyph_property_data[521] = {
   {   392,  56813 },
   {   393,  56800 },
   {   394,  56818 },
-  {   395, 146628 },
   {   396,  56806 },
   {   397,  56799 },
   {   398, 146625 },
@@ -5028,11 +4991,7 @@ static glyph_property_data_t __glyph_property_data[521] = {
   {   441,  57903 },
   {   442,  57902 },
   {   443,  57904 },
-  {   445,  57924 },
-  {   447,  57927 },
   {   448, 126748 },
-  {   449,  58136 },
-  {   450,  52648 },
   {   451,  57925 },
   {   452, 125043 },
   {   453,  57958 },
@@ -5059,7 +5018,6 @@ static glyph_property_data_t __glyph_property_data[521] = {
   {   477,  58079 },
   {   478,  58070 },
   {   479,  58081 },
-  {   480,  58080 },
   {   481,  58107 },
   {   482,  58094 },
   {   483,  58095 },
@@ -5072,16 +5030,12 @@ static glyph_property_data_t __glyph_property_data[521] = {
   {   490,  58369 },
   {   491,  58355 },
   {   492,  58366 },
-  {   493,  58388 },
   {   494,  58367 },
   {   495,  58372 },
   {   496,  58357 },
   {   497,  58377 },
   {   499,  58386 },
-  {   500,  58385 },
-  {   501,  58364 },
   {   502,  58375 },
-  {   504,  58387 },
   {   505,  58384 },
   {   507,  58356 },
   {   508,  58382 },
@@ -5141,7 +5095,6 @@ static glyph_property_data_t __glyph_property_data[521] = {
   {   702,  63219 },
   {   703,  63220 },
   {   704,  63222 },
-  {   705,  63223 },
   {   706,  63224 },
   {   707,  63225 },
   {   708,  63229 },
@@ -5183,7 +5136,6 @@ static glyph_property_data_t __glyph_property_data[521] = {
   {   851,  68164 },
   {   871, 115703 },
   {   911, 148683 },
-  {   920,  57927 },
   {   923,  89749 },
   {   924,  89758 },
   {   926,  56805 },
@@ -5214,18 +5166,14 @@ static glyph_property_data_t __glyph_property_data[521] = {
   {   997, 146951 },
   {   998, 123401 },
   {   999, 120477 },
-  {  1000, 120479 },
   {  1001, 120483 },
-  {  1002, 120482 },
   {  1003, 120585 },
   {  1004, 120581 },
   {  1005, 120583 },
   {  1006, 120584 },
   {  1007, 120581 },
-  {  1008, 122013 },
   {  1009, 122028 },
   {  1011, 123023 },
-  {  1012, 120479 },
   {  1013, 123334 },
   {  1014, 123391 },
   {  1015, 123394 },
@@ -5235,7 +5183,6 @@ static glyph_property_data_t __glyph_property_data[521] = {
   {  1021, 125967 },
   {  1022, 125042 },
   {  1023, 109263 },
-  {  1024,  58136 },
   {  1025, 146953 },
   {  1026, 124989 },
   {  1028, 125151 },
@@ -5246,7 +5193,6 @@ static glyph_property_data_t __glyph_property_data[521] = {
   {  1033, 125660 },
   {  1034, 146950 },
   {  1035, 125671 },
-  {  1036, 125673 },
   {  1038, 125678 },
   {  1039, 125732 },
   {  1040, 125755 },
@@ -5263,7 +5209,6 @@ static glyph_property_data_t __glyph_property_data[521] = {
   {  1052, 126745 },
   {  1053, 126746 },
   {  1054, 131113 },
-  {  1055, 132005 },
   {  1058, 135557 },
   {  1060, 145722 },
   {  1061, 147707 },
@@ -5313,26 +5258,21 @@ static glyph_property_data_t __glyph_property_data[521] = {
   {  1110, 159416 },
   {  1111, 159418 },
   {  1112, 159421 },
-  {  1113, 159422 },
   {  1114, 159427 },
   {  1115, 159428 },
   {  1116, 159429 },
   {  1117, 159432 },
   {  1118, 159434 },
   {  1119, 159436 },
-  {  1120, 159441 },
   {  1121, 159444 },
   {  1122, 159445 },
-  {  1123, 159448 },
   {  1124, 159450 },
   {  1125, 159453 },
   {  1126, 159455 },
   {  1127, 159456 },
   {  1128, 159459 },
-  {  1129, 159467 },
   {  1130, 159469 },
   {  1131, 159470 },
-  {  1132, 159484 },
   {  1133, 159485 },
   {  1134, 159486 },
   {  1135, 159487 },
@@ -5372,9 +5312,7 @@ static glyph_property_data_t __glyph_property_data[521] = {
   {  1169, 159649 },
   {  1170, 159650 },
   {  1171, 159651 },
-  {  1172, 159653 },
   {  1173, 159665 },
-  {  1174, 159667 },
   {  1175, 159669 },
   {  1176, 159680 },
   {  1177, 159688 },
@@ -5393,6 +5331,15 @@ static glyph_property_data_t __glyph_property_data[521] = {
   {  1202, 162532 },
   {  1203, 162604 },
   {  1204,  58669 },
+  {  1205, 171752 },
+  {  1206, 171803 },
+  {  1207, 171933 },
+  {  1208, 171929 },
+  {  1209, 171926 },
+  {  1210, 171924 },
+  {  1211, 171921 },
+  {  1212, 173182 },
+  {  1213, 164997 },
   {     0,      0 }
 };
 

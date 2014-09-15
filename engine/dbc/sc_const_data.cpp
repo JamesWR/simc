@@ -184,10 +184,10 @@ std::vector< std::vector< const spell_data_t* > > ptr_class_family_index;
 } // ANONYMOUS namespace ====================================================
 
 int dbc::build_level( bool ptr )
-{ return maybe_ptr( ptr ) ? 17345 : 18546; }
+{ return maybe_ptr( ptr ) ? 17345 : 18865; }
 
 const char* dbc::wow_version( bool ptr )
-{ return maybe_ptr( ptr ) ? "5.4.0" : "6.0.1"; }
+{ return maybe_ptr( ptr ) ? "5.4.0" : "6.0.2"; }
 
 const char* dbc::wow_ptr_status( bool ptr )
 { return ( maybe_ptr( ptr ) ?
@@ -338,6 +338,23 @@ void dbc::apply_hotfixes()
   // Warlock
 
   // Warrior
+  s = spell_data_t::find( 96103, false );
+  assert( s -> _spell_level == 39 && "Check level on Raging Blow" );
+  s -> _spell_level = 30;
+  if ( SC_USE_PTR )
+  {
+    s = spell_data_t::find( 96103, true );
+    s -> _spell_level = 30;
+  }
+
+  s = spell_data_t::find( 85384, false );
+  assert( s -> _spell_level == 39 && "Check level on Raging Blow Off-Hand" );
+  s -> _spell_level = 30;
+  if ( SC_USE_PTR )
+  {
+    s = spell_data_t::find( 85384, true );
+    s -> _spell_level = 30;
+  }
 
   // Druid
   s = spell_data_t::find( 50288, false ); // Starfall probably doesn't take 30 seconds to hit the target.
@@ -1203,6 +1220,12 @@ int dbc_t::resolve_item_scaling( unsigned level ) const
   return __gt_item_scaling[ level - 1 ];
 }
 
+double dbc_t::resolve_level_scaling( unsigned level ) const
+{
+  assert( level > 0 && level <= MAX_LEVEL );
+  return _gt_resolve_dps_by_level[ level - 1 ];
+}
+
 double dbc_t::health_base( player_e t, unsigned level ) const
 {
   uint32_t class_id = util::class_id( t );
@@ -1717,6 +1740,26 @@ const rppm_modifier_t& dbc_t::real_ppm_modifier( specialization_e spec, unsigned
   }
 
   return *p;
+}
+
+std::vector<const item_bonus_entry_t*> dbc_t::item_bonus( unsigned bonus_id ) const
+{
+#if SC_USE_PTR
+  const item_bonus_entry_t* p = ptr ? __ptr_item_bonus_data : __item_bonus_data;
+#else
+  const item_bonus_entry_t* p = __item_bonus_data;
+#endif
+
+  std::vector<const item_bonus_entry_t*> entries;
+
+  while ( p -> id != 0 )
+  {
+    if ( p -> bonus_id == bonus_id )
+      entries.push_back(p);
+    p++;
+  }
+
+  return entries;
 }
 
 const random_suffix_data_t& dbc_t::random_suffix( unsigned suffix_id ) const
@@ -2794,6 +2837,23 @@ bool dbc_t::is_specialization_ability( uint32_t spell_id ) const
   }
 
   return false;
+}
+
+specialization_e dbc_t::spec_by_spell( uint32_t spell_id ) const
+{
+  for ( unsigned cls = 0; cls < dbc_t::class_max_size(); cls++ )
+  {
+    for ( unsigned tree = 0; tree < specialization_max_per_class(); tree++ )
+    {
+      for ( unsigned n = 0; n < specialization_ability_size(); n++ )
+      {
+        if ( specialization_ability( cls, tree, n ) == spell_id )
+          return spec_by_idx( util::translate_class_id( cls ), tree );
+      }
+    }
+  }
+
+  return SPEC_NONE;
 }
 
 double dbc_t::weapon_dps( const item_data_t* item_data, unsigned ilevel ) const

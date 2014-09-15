@@ -113,12 +113,12 @@ std::string item_t::to_string()
     s << " (" << parsed.data.level << ")";
   if ( parsed.data.lfr() )
     s << " LFR";
-  if ( parsed.data.flex() )
-    s << " Flexible";
   if ( parsed.data.heroic() )
     s << " Heroic";
-  if ( parsed.data.elite() )
-    s << " Elite";
+  if ( parsed.data.mythic() )
+    s << " Mythic";
+  if ( parsed.data.warforged() )
+    s << " Warforged";
   if ( util::is_match_slot( slot ) )
     s << " match=" << is_matching_type();
 
@@ -370,6 +370,13 @@ weapon_t* item_t::weapon() const
   return 0;
 }
 
+// item_t::inv_type =========================================================
+
+inventory_type item_t::inv_type() const
+{
+  return static_cast<inventory_type>( parsed.data.inventory_type );
+}
+
 // item_t::parse_options ====================================================
 
 bool item_t::parse_options()
@@ -399,10 +406,10 @@ bool item_t::parse_options()
     opt_string( "equip", option_equip_str ),
     opt_string( "use", option_use_str ),
     opt_string( "weapon", option_weapon_str ),
-    opt_string( "heroic", option_heroic_str ),
+    opt_string( "warforged", option_warforged_str ),
     opt_string( "lfr", option_lfr_str ),
-    opt_string( "flex", option_flex_str ),
-    opt_string( "elite", option_elite_str ),
+    opt_string( "heroic", option_heroic_str ),
+    opt_string( "mythic", option_mythic_str ),
     opt_string( "type", option_armor_type_str ),
     opt_string( "reforge", DUMMY_REFORGE ),
     opt_int( "suffix", parsed.suffix_id ),
@@ -412,6 +419,7 @@ bool item_t::parse_options()
     opt_string( "gem_id", option_gem_id_str ),
     opt_string( "enchant_id", option_enchant_id_str ),
     opt_string( "addon_id", option_addon_id_str ),
+    opt_string( "bonus_id", option_bonus_id_str ),
     opt_null()
   };
 
@@ -427,10 +435,10 @@ bool item_t::parse_options()
   util::tolower( option_equip_str            );
   util::tolower( option_use_str              );
   util::tolower( option_weapon_str           );
-  util::tolower( option_heroic_str           );
+  util::tolower( option_warforged_str        );
   util::tolower( option_lfr_str              );
-  util::tolower( option_flex_str             );
-  util::tolower( option_elite_str            );
+  util::tolower( option_heroic_str           );
+  util::tolower( option_mythic_str           );
   util::tolower( option_armor_type_str       );
   util::tolower( option_ilevel_str           );
   util::tolower( option_quality_str          );
@@ -454,6 +462,19 @@ bool item_t::parse_options()
   if ( ! option_addon_id_str.empty() )
     parsed.addon_id = util::to_unsigned( option_addon_id_str );
 
+  if ( ! option_bonus_id_str.empty() )
+  {
+    std::vector<std::string> split = util::string_split( option_bonus_id_str, "/" );
+    for ( size_t i = 0, end = split.size(); i < end; i++ )
+    {
+      int bonus_id = util::to_int( split[ i ] );
+      if ( bonus_id <= 0 )
+        continue;
+
+      parsed.bonus_id.push_back( bonus_id );
+    }
+  }
+
   return true;
 }
 
@@ -466,6 +487,19 @@ void item_t::encoded_item( xml_writer_t& writer )
 
   if ( parsed.data.id )
     writer.print_attribute( "id", util::to_string( parsed.data.id ) );
+
+  if ( parsed.bonus_id.size() > 0 )
+  {
+    std::string bonus_id_str;
+    for ( size_t i = 0, end = parsed.bonus_id.size(); i < end; i++ )
+    {
+      bonus_id_str += util::to_string( parsed.bonus_id[ i ] );
+      if ( i < parsed.bonus_id.size() - 1 )
+        bonus_id_str += "/";
+    }
+
+    writer.print_attribute( "bonus_id", bonus_id_str );
+  }
 
   if ( parsed.upgrade_level > 0 )
     writer.print_attribute( "upgrade_level", encoded_upgrade_level() );
@@ -494,23 +528,34 @@ std::string item_t::encoded_item()
   if ( parsed.data.id )
     s << ",id=" << parsed.data.id;
 
+  if ( parsed.bonus_id.size() > 0 )
+  {
+    s << ",bonus_id=";
+    for ( size_t i = 0, end = parsed.bonus_id.size(); i < end; i++ )
+    {
+      s << parsed.bonus_id[ i ];
+      if ( i < parsed.bonus_id.size() - 1 )
+        s << "/";
+    }
+  }
+
   if ( ! option_ilevel_str.empty() )
     s << ",ilevel=" << parsed.data.level;
 
   if ( ! option_armor_type_str.empty() )
     s << ",type=" << util::armor_type_string( parsed.data.item_subclass );
 
+  if ( !option_warforged_str.empty() )
+    s << ",warforged=" << ( parsed.data.warforged() ? 1 : 0 );
+
+  if ( !option_lfr_str.empty() )
+    s << ",lfr=" << ( parsed.data.lfr() ? 1 : 0 );
+
   if ( ! option_heroic_str.empty() )
     s << ",heroic=" << ( parsed.data.heroic() ? 1 : 0 );
 
-  if ( ! option_lfr_str.empty() )
-    s << ",lfr=" << ( parsed.data.lfr() ? 1 : 0 );
-
-  if ( ! option_flex_str.empty() )
-    s << ",flex=" << ( parsed.data.flex() ? 1 : 0 );
-
-  if ( ! option_elite_str.empty() )
-    s << ",elite=" << ( parsed.data.elite() ? 1 : 0 );
+  if ( ! option_mythic_str.empty() )
+    s << ",mythic=" << ( parsed.data.mythic() ? 1 : 0 );
 
   if ( ! option_quality_str.empty() )
     s << ",quality=" << util::item_quality_string( parsed.data.quality );
@@ -594,11 +639,11 @@ std::string item_t::encoded_comment()
   if ( option_lfr_str.empty() && parsed.data.lfr() )
     s << "lfr=1,";
 
-  if ( option_flex_str.empty() && parsed.data.flex() )
-    s << "flex=1,";
+  if ( option_mythic_str.empty() && parsed.data.mythic() )
+    s << "mythic=1,";
 
-  if ( option_elite_str.empty() && parsed.data.elite() )
-    s << "elite=1,";
+  if ( option_warforged_str.empty() && parsed.data.warforged() )
+    s << "warforged=1,";
 
   if ( option_stats_str.empty() && ! encoded_stats().empty() )
     s << "stats=" << encoded_stats() << ",";
@@ -815,10 +860,10 @@ bool item_t::init()
     return true;
 
   // Process basic stats
-  if ( ! decode_heroic()                           ) return false;
+  if ( ! decode_warforged()                        ) return false;
   if ( ! decode_lfr()                              ) return false;
-  if ( ! decode_flexible()                         ) return false;
-  if ( ! decode_elite()                            ) return false;
+  if ( ! decode_heroic()                           ) return false;
+  if ( ! decode_mythic()                           ) return false;
   if ( ! decode_quality()                          ) return false;
   if ( ! decode_ilevel()                           ) return false;
   if ( ! decode_armor_type()                       ) return false;
@@ -874,22 +919,22 @@ bool item_t::decode_lfr()
   return true;
 }
 
-// item_t::decode_elite =====================================================
+// item_t::decode_mythic =====================================================
 
-bool item_t::decode_elite()
+bool item_t::decode_mythic()
 {
-  if ( ! option_elite_str.empty() )
-    parsed.data.type_flags |= RAID_TYPE_ELITE;
+  if ( ! option_mythic_str.empty() )
+    parsed.data.type_flags |= RAID_TYPE_MYTHIC;
 
   return true;
 }
 
-// item_t::decode_flexible ==================================================
+// item_t::decode_warforged ==================================================
 
-bool item_t::decode_flexible()
+bool item_t::decode_warforged()
 {
-  if ( ! option_flex_str.empty() )
-    parsed.data.type_flags |= RAID_TYPE_FLEXIBLE;
+  if ( ! option_warforged_str.empty() )
+    parsed.data.type_flags |= RAID_TYPE_WARFORGED;
 
   return true;
 }
@@ -1306,7 +1351,7 @@ bool item_t::decode_enchant()
     // No stats, this is a special enchant that we need to parse out
     if ( parsed.enchant_stats.size() == 0 )
     {
-      const item_enchantment_data_t& enchant_data = enchant::find_item_enchant( player -> dbc, option_enchant_str );
+      const item_enchantment_data_t& enchant_data = enchant::find_item_enchant( *this, option_enchant_str );
       if ( ! enchant::initialize_item_enchant( *this, parsed.enchant_stats, SPECIAL_EFFECT_SOURCE_ENCHANT, enchant_data ) )
         return false;
     }
@@ -1338,7 +1383,7 @@ bool item_t::decode_addon()
     // No stats, this is a special enchant that we need to parse out
     if ( parsed.addon_stats.size() == 0 )
     {
-      const item_enchantment_data_t& enchant_data = enchant::find_item_enchant( player -> dbc, option_addon_str );
+      const item_enchantment_data_t& enchant_data = enchant::find_item_enchant( *this, option_addon_str );
       if ( ! enchant::initialize_item_enchant( *this, parsed.addon_stats, SPECIAL_EFFECT_SOURCE_ADDON, enchant_data ) )
         return false;
     }

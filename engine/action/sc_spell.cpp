@@ -80,7 +80,7 @@ result_e spell_base_t::calculate_result( action_state_t* s )
 
   if ( ! s -> target ) return RESULT_NONE;
 
-  if ( ! harmful || ! may_hit ) return RESULT_NONE;
+  if ( ! may_hit ) return RESULT_NONE;
 
   if ( ( result == RESULT_NONE ) && may_miss )
   {
@@ -113,19 +113,6 @@ void spell_base_t::execute()
 
   if ( player -> last_foreground_action == this )
     player -> debuffs.casting -> expire();
-
-  if ( callbacks )
-  {
-    result_e r = execute_state ? execute_state -> result : RESULT_NONE;
-    if ( r != RESULT_NONE )
-    {
-      action_callback_t::trigger( player -> callbacks.spell[ r ], this );
-    }
-    if ( ! background ) // OnSpellCast
-    {
-      action_callback_t::trigger( player -> callbacks.spell[ RESULT_NONE ], this );
-    }
-  }
 }
 
 void spell_base_t::schedule_execute( action_state_t* execute_state )
@@ -191,47 +178,51 @@ void spell_t::assess_damage( dmg_e type,
                              action_state_t* s )
 {
   spell_base_t::assess_damage( type, s );
+}
 
-  if ( result_is_multistrike( s -> result ) )
-    return;
+dmg_e spell_t::amount_type( const action_state_t* /* state */, bool periodic ) const
+{
+  if ( periodic )
+    return DMG_OVER_TIME;
+  else
+    return DMG_DIRECT;
+}
 
-  if ( type == DMG_DIRECT )
+dmg_e spell_t::report_amount_type( const action_state_t* state ) const
+{
+  dmg_e result_type = state -> result_type;
+
+  if ( result_type == DMG_DIRECT )
   {
-    if ( s -> result_amount > 0.0 )
+    // Direct ticks are direct damage, that are recorded as ticks
+    if ( direct_tick )
+      result_type = DMG_OVER_TIME;
+    // With direct damage, we need to check if this action is a tick action of
+    // someone. If so, then the damage should be recorded as periodic.
+    else
     {
-      if ( direct_tick_callbacks )
+      for ( size_t i = 0, end = stats -> action_list.size(); i < end; i++ )
       {
-        action_callback_t::trigger( player -> callbacks.spell_tick_damage[ get_school() ], this, s );
-      }
-      else
-      {
-        if ( callbacks ) action_callback_t::trigger( player -> callbacks.spell_direct_damage[ get_school() ], this, s );
+        if ( stats -> action_list.front() -> tick_action == this )
+        {
+          result_type = DMG_OVER_TIME;
+          break;
+        }
       }
     }
   }
-  else // DMG_OVER_TIME
+  else if ( result_type == DMG_OVER_TIME )
   {
-    if ( callbacks && s -> result_amount > 0.0 ) action_callback_t::trigger( player -> callbacks.spell_tick_damage[ get_school() ], this, s );
+    if ( periodic_hit )
+      result_type = DMG_OVER_TIME;
   }
+
+  return result_type;
 }
 
 void spell_t::execute()
 {
   spell_base_t::execute();
-
-  if ( harmful && callbacks )
-  {
-    result_e r = execute_state ? execute_state -> result : RESULT_NONE;
-
-    if ( r != RESULT_NONE )
-    {
-      action_callback_t::trigger( player -> callbacks.harmful_spell[ r ], this );
-    }
-    if ( ! background ) // OnHarmfulSpellCast
-    {
-      action_callback_t::trigger( player -> callbacks.harmful_spell[ RESULT_NONE ], this );
-    }
-  }
 }
 
 void spell_t::init()
@@ -289,6 +280,46 @@ void heal_t::parse_effect_data( const spelleffect_data_t& e )
     else if ( e.subtype() == A_OBS_MOD_HEALTH )
       tick_pct_heal = e.percent();
   }
+}
+
+dmg_e heal_t::amount_type( const action_state_t* /* state */, bool periodic ) const
+{
+  if ( periodic )
+    return HEAL_OVER_TIME;
+  else
+    return HEAL_DIRECT;
+}
+
+dmg_e heal_t::report_amount_type( const action_state_t* state ) const
+{
+  dmg_e result_type = state -> result_type;
+
+  // With direct healing, we need to check if this action is a tick action of
+  // someone. If so, then the healing should be recorded as periodic.
+  if ( result_type == HEAL_DIRECT )
+  {
+    // Direct ticks are direct damage, that are recorded as ticks
+    if ( direct_tick )
+      result_type = HEAL_OVER_TIME;
+    else
+    {
+      for ( size_t i = 0, end = stats -> action_list.size(); i < end; i++ )
+      {
+        if ( stats -> action_list.front() -> tick_action == this )
+        {
+          result_type = HEAL_OVER_TIME;
+          break;
+        }
+      }
+    }
+  }
+  else if ( result_type == DMG_OVER_TIME )
+  {
+    if ( periodic_hit )
+      result_type = DMG_OVER_TIME;
+  }
+
+  return result_type;
 }
 
 // heal_t::calculate_direct_amount ==========================================
@@ -378,19 +409,6 @@ double heal_t::calculate_tick_amount( action_state_t* state, double dmg_multipli
 void heal_t::execute()
 {
   spell_base_t::execute();
-
-  if ( callbacks )
-  {
-    result_e r = execute_state ? execute_state -> result : RESULT_NONE;
-    if ( r != RESULT_NONE )
-    {
-      action_callback_t::trigger( player -> callbacks.heal[ r ], this );
-    }
-    if ( ! background ) // OnSpellCast
-    {
-      action_callback_t::trigger( player -> callbacks.heal[ RESULT_NONE ], this );
-    }
-  }
 }
 
 // heal_t::assess_damage ====================================================
@@ -409,12 +427,6 @@ void heal_t::assess_damage( dmg_e heal_type,
                      s -> target -> name(), s -> result_total, s -> result_amount,
                      util::result_type_string( s -> result ) );
     }
-
-    if ( ! result_is_multistrike( s -> result ) )
-    {
-      if ( callbacks && ! direct_tick_callbacks ) action_callback_t::trigger( player -> callbacks.direct_heal[ get_school() ], this, s );
-      if ( direct_tick_callbacks ) action_callback_t::trigger( player -> callbacks.tick_heal[ get_school() ], this, s );
-    }
   }
   else // HEAL_OVER_TIME
   {
@@ -427,9 +439,6 @@ void heal_t::assess_damage( dmg_e heal_type,
                      s -> target -> name(), s -> result_total, s -> result_amount,
                      util::result_type_string( s -> result ) );
     }
-
-    if ( ! result_is_multistrike( s -> result ) || callbacks )
-      action_callback_t::trigger( player -> callbacks.tick_heal[ get_school() ], this, s );
   }
 
   // New callback system; proc spells on impact. 
@@ -535,6 +544,43 @@ std::vector<player_t*> heal_t::find_lowest_players( int num_players ) const
   return lowest_N_players;
 }
 
+// heal_t::smart_target =====================================================
+
+player_t* heal_t::smart_target() const
+{
+  std::vector<player_t*> injured_targets;
+  player_t* target;
+  // First check non-pet target
+  for( size_t i = 0 ; i < sim -> healing_no_pet_list.size() ; i++ )
+  {
+    player_t* temp_p = sim -> healing_no_pet_list[ i ];
+    if( temp_p -> health_percentage() < 100 )
+    {
+      injured_targets.push_back( temp_p );
+    }
+  }
+  // Check pets if we didn't find any injured non-pets
+  if( injured_targets.empty() )
+  {
+    for( size_t i = 0 ; i < sim -> healing_pet_list.size() ; i++ )
+    {
+      player_t* temp_p = sim -> healing_pet_list[ i ];
+      if( temp_p -> health_percentage() < 100 )
+      {
+        injured_targets.push_back( temp_p );
+      }
+    }
+  }
+  // Just choose a full-health target if nobody is injured
+  if( injured_targets.empty() )
+  {
+    injured_targets = sim -> healing_no_pet_list.data();
+  }
+  // Choose a random member of injured_targets
+  target = injured_targets[ rng().real() * injured_targets.size() ];
+  return target;
+}
+
 // heal_t::num_targets ======================================================
 
 int heal_t::num_targets()
@@ -632,19 +678,6 @@ void absorb_t::init_target_cache()
 void absorb_t::execute()
 {
   spell_base_t::execute();
-
-  if ( harmful && callbacks )
-  {
-    result_e r = execute_state ? execute_state -> result : RESULT_UNKNOWN;
-    if ( r != RESULT_NONE )
-    {
-      action_callback_t::trigger( player -> callbacks.absorb[ r ], this );
-    }
-    if ( ! background ) // OnSpellCast
-    {
-      action_callback_t::trigger( player -> callbacks.absorb[ RESULT_NONE ], this );
-    }
-  }
 }
 
 // absorb_t::impact =========================================================

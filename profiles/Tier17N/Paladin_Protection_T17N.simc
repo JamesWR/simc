@@ -3,8 +3,7 @@ level=100
 race=blood_elf
 role=tank
 position=front
-professions=Blacksmithing=600/Enchanting=600
-talents=http://us.battle.net/wow/en/tool/talent-calculator#bZ!201121.
+talents=http://us.battle.net/wow/en/tool/talent-calculator#bZ!2011212
 glyphs=focused_shield/alabaster_shield/divine_protection
 spec=protection
 
@@ -16,67 +15,67 @@ spec=protection
 
 # Executed before combat begins. Accepts non-harmful actions only.
 
-actions.precombat=flask,type=earth
-actions.precombat+=/food,type=chun_tian_spring_rolls
+actions.precombat=flask,type=greater_draenic_stamina_flask
+actions.precombat+=/food,type=talador_surf_and_turf
 actions.precombat+=/blessing_of_kings,if=(!aura.str_agi_int.up)&(aura.mastery.up)
 actions.precombat+=/blessing_of_might,if=!aura.mastery.up
 actions.precombat+=/seal_of_insight
-actions.precombat+=/sacred_shield,if=talent.sacred_shield.enabled
+actions.precombat+=/sacred_shield
 # Snapshot raid buffed stats before combat begins and pre-potting is done.
 actions.precombat+=/snapshot_stats
 
 # Executed every time the actor is available.
 
 actions=/auto_attack
-actions+=/speed_of_light,if=talent.speed_of_light.enabled&movement.remains>1
+actions+=/speed_of_light,if=movement.remains>1
 actions+=/blood_fury
 actions+=/berserking
 actions+=/arcane_torrent
-actions+=/holy_avenger,if=talent.holy_avenger.enabled
+actions+=/holy_avenger
 actions+=/divine_protection
-actions+=/guardian_of_ancient_kings
-actions+=/eternal_flame,if=talent.eternal_flame.enabled&(buff.eternal_flame.remains<2&buff.bastion_of_glory.react>2&(holy_power>=3|buff.divine_purpose.react|buff.bastion_of_power.react))
-actions+=/eternal_flame,if=talent.eternal_flame.enabled&(buff.bastion_of_power.react&buff.bastion_of_glory.react>=5)
+actions+=/guardian_of_ancient_kings,if=buff.holy_avenger.down&buff.shield_of_the_righteous.down&buff.divine_protection.down
+actions+=/ardent_defender,if=buff.holy_avenger.down&buff.shield_of_the_righteous.down&buff.divine_protection.down&buff.guardian_of_ancient_kings.down
+actions+=/eternal_flame,if=buff.eternal_flame.remains<2&buff.bastion_of_glory.react>2&(holy_power>=3|buff.divine_purpose.react|buff.bastion_of_power.react)
+actions+=/eternal_flame,if=buff.bastion_of_power.react&buff.bastion_of_glory.react>=5
 actions+=/shield_of_the_righteous,if=holy_power>=5|buff.divine_purpose.react|incoming_damage_1500ms>=health.max*0.3
-actions+=/wait,sec=cooldown.judgment.remains,if=talent.sanctified_wrath.enabled&cooldown.judgment.remains>0&cooldown.judgment.remains<=0.5
 actions+=/crusader_strike
-actions+=/wait,sec=cooldown.crusader_strike.remains,if=cooldown.crusader_strike.remains>0&cooldown.crusader_strike.remains<=0.5
 actions+=/judgment
-actions+=/wait,sec=cooldown.judgment.remains,if=cooldown.judgment.remains>0&cooldown.judgment.remains<=0.5&(cooldown.crusader_strike.remains-cooldown.judgment.remains)>=0.5
 actions+=/avengers_shield
-actions+=/sacred_shield,if=talent.sacred_shield.enabled&target.dot.sacred_shield.remains<5
+actions+=/sacred_shield,if=target.dot.sacred_shield.remains<5
 actions+=/holy_wrath
-actions+=/execution_sentence,if=talent.execution_sentence.enabled
-actions+=/lights_hammer,if=talent.lights_hammer.enabled
+actions+=/execution_sentence
+actions+=/lights_hammer
 actions+=/hammer_of_wrath
 actions+=/consecration,if=target.debuff.flying.down&!ticking
-actions+=/holy_prism,if=talent.holy_prism.enabled
-actions+=/sacred_shield,if=talent.sacred_shield.enabled
+actions+=/holy_prism
+actions+=/sacred_shield
 
-head=primal_gladiators_plate_helm,id=111211
-neck=primal_gladiators_choker_of_cruelty,id=111207
-shoulders=primal_gladiators_plate_shoulders,id=111213,enchant=10str_5crit
-back=primal_gladiators_cloak_of_prowess,id=111206
-chest=primal_gladiators_plate_chestpiece,id=111209,enchant=glorious_stats
-wrists=primal_gladiators_armplates_of_victory,id=111182,enchant=8mastery
-hands=primal_gladiators_plate_gauntlets,id=111210,enchant=8crit
-waist=primal_gladiators_girdle_of_cruelty,id=111174
-legs=primal_gladiators_plate_legguards,id=111212,enchant=14str_8crit
-feet=primal_gladiators_warboots_of_prowess,id=111178,enchant=pandarens_step
-finger1=primal_gladiators_signet_of_cruelty,id=111219
-finger2=primal_gladiators_signet_of_accuracy,id=111220
-trinket1=primal_gladiators_medallion_of_cruelty,id=111229
-trinket2=primal_gladiators_insignia_of_victory,id=111233
-main_hand=primal_gladiators_hacker,id=111198,enchant=dancing_steel
-off_hand=primal_gladiators_shield_wall,id=111221,enchant=9parry
+head=helmet_of_guiding_light,id=115568
+neck=vertebrae_protector,id=113900,bonus_id=448,enchant=gift_of_haste
+shoulders=unstable_slag_shoulderplates,id=113884,bonus_id=448
+back=charbreath_firecloak,id=113916,bonus_id=448,enchant=gift_of_haste
+chest=battleplate_of_guiding_light,id=115566
+wrists=bracers_of_visceral_force,id=119331,bonus_id=448
+hands=gauntlets_of_guiding_light,id=115567
+waist=uktars_belt_of_chiming_rings,id=113976,bonus_id=448
+legs=legplates_of_guiding_light,id=115569
+feet=sabatons_of_fractal_earth,id=113936,bonus_id=448
+finger1=seal_of_unquenchable_flame,id=113922,bonus_id=448,enchant=gift_of_haste
+finger2=phosphorescent_seal,id=113866,bonus_id=448,enchant=gift_of_haste
+trinket1=forgemasters_insignia,id=113983,bonus_id=448
+trinket2=horn_of_screaming_spirits,id=119193,bonus_id=448
+main_hand=kromogs_brutal_fist,id=113927,bonus_id=448,enchant=mark_of_warsong
+off_hand=kromogs_protecting_palm,id=113926,bonus_id=448
 
 # Gear Summary
-# gear_strength=2407
-# gear_stamina=3248
-# gear_crit_rating=1242
-# gear_haste_rating=370
-# gear_mastery_rating=591
-# gear_armor=4366
-# gear_parry_rating=9
-# gear_multistrike_rating=701
-# gear_versatility_rating=224
+# gear_strength=2816
+# gear_stamina=3523
+# gear_crit_rating=579
+# gear_haste_rating=1281
+# gear_mastery_rating=659
+# gear_armor=2842
+# gear_bonus_armor=96
+# gear_multistrike_rating=540
+# gear_versatility_rating=192
+# set_bonus=tier17_2pc=1
+# set_bonus=tier17_4pc=1

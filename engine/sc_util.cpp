@@ -695,7 +695,11 @@ const char* util::full_result_type_string( full_result_e fulltype )
     case FULLTYPE_HIT_CRITBLOCK:    return "hit (crit blocked)";
     case FULLTYPE_HIT_BLOCK:        return "hit (blocked)";
     case FULLTYPE_HIT:              return "hit";
+    case FULLTYPE_MULTISTRIKE_CRITBLOCK: return "multistrike (crit blocked)";
+    case FULLTYPE_MULTISTRIKE_BLOCK: return "multistrike (blocked)";
     case FULLTYPE_MULTISTRIKE:      return "multistrike";
+    case FULLTYPE_MULTISTRIKE_CRIT_CRITBLOCK: return "multistrike_crit (crit blocked)";
+    case FULLTYPE_MULTISTRIKE_CRIT_BLOCK: return "multistrike_crit (blocked)";
     case FULLTYPE_MULTISTRIKE_CRIT: return "multistrike_crit";
     default:                        return "unknown";
   }
@@ -735,6 +739,7 @@ const char* util::resource_type_string( resource_e resource_type )
     case RESOURCE_HEALTH:        return "health";
     case RESOURCE_MANA:          return "mana";
     case RESOURCE_RAGE:          return "rage";
+    case RESOURCE_ECLIPSE:       return "eclipse";
     case RESOURCE_ENERGY:        return "energy";
     case RESOURCE_FOCUS:         return "focus";
     case RESOURCE_RUNIC_POWER:   return "runic_power";
@@ -983,22 +988,15 @@ const char* util::flask_type_string( flask_e flask )
     case FLASK_SPRING_BLOSSOMS:                         return "spring_blossoms";
     case FLASK_CRYSTAL_OF_INSANITY:                     return "crystal_of_insanity";
       // wod
-    case FLASK_DRAENOR_ARMOR_FLASK:                     return "draenor_armor_flask";
-    case FLASK_DRAENIC_CRITICAL_STRIKE_FLASK:           return "draenic_critical_strike_flask";
-    case FLASK_DRAENIC_HASTE_FLASK:                     return "draenic_haste_flask";
-    case FLASK_DRAENIC_MASTERY_FLASK:                   return "draenic_mastery_flask";
-    case FLASK_DRAENIC_MULTISTRIKE_FLASK:               return "draenic_multistrike_flask";
-    case FLASK_DRAENOR_SPIRIT_FLASK:                    return "draenor_spirit_flask";
+    case FLASK_DRAENOR_ARMOR_FLASK:                     return "draenor_armor_flask"; //Might be removed, not 100% sure. 8-28-14
+    case FLASK_DRAENIC_STRENGTH_FLASK:                  return "draenic_strength_flask";
+    case FLASK_DRAENIC_INTELLECT_FLASK:                 return "draenic_intellect_flask";
+    case FLASK_DRAENIC_AGILITY_FLASK:                   return "draenic_agility_flask";
     case FLASK_DRAENIC_STAMINA_FLASK:                   return "draenic_stamina_flask";
-    case FLASK_DRAENIC_VERSATILITY_FLASK:               return "draenic_versatility_flask";
-    case FLASK_GREATER_DRAENOR_ARMOR_FLASK:             return "greater_draenor_armor_flask";
-    case FLASK_GREATER_DRAENIC_CRITICAL_STRIKE_FLASK:   return "greater_draenic_critical_strike_flask";
-    case FLASK_GREATER_DRAENIC_HASTE_FLASK:             return "greater_draenic_haste_flask";
-    case FLASK_GREATER_DRAENIC_MASTERY_FLASK:           return "greater_draenic_mastery_flask";
-    case FLASK_GREATER_DRAENIC_MULTISTRIKE_FLASK:       return "greater_draenic_multistrike_flask";
-    case FLASK_GREATER_DRAENOR_SPIRIT_FLASK:            return "greater_draenor_spirit_flask";
+    case FLASK_GREATER_DRAENIC_STRENGTH_FLASK:          return "greater_draenic_strength_flask";
+    case FLASK_GREATER_DRAENIC_INTELLECT_FLASK:         return "greater_draenic_intellect_flask";
+    case FLASK_GREATER_DRAENIC_AGILITY_FLASK:           return "greater_draenic_agility_flask";
     case FLASK_GREATER_DRAENIC_STAMINA_FLASK:           return "greater_draenic_stamina_flask";
-    case FLASK_GREATER_DRAENIC_VERSATILITY_FLASK:       return "greater_draenic_versatility_flask";
       // alchemist's
     case FLASK_ALCHEMISTS:                              return "alchemists";
     default:                                            return "unknown";
@@ -1108,7 +1106,7 @@ const char* util::food_type_string( food_e food )
     case FOOD_GORGROND_CHOWDER:                 return "gorgrond_chowder";
     case FOOD_GRILLED_GULPER:                   return "grilled_gulper";
     case FOOD_HEARTY_ELEKK_STEAK:               return "hearty_elekk_steak";
-    case FOOD_NAGRAND_TEMPURA:                  return "nagrant_tempura";
+    case FOOD_NAGRAND_TEMPURA:                  return "nagrand_tempura";
     case FOOD_PAN_SEARED_TALBUK:                return "pan_seared_talbuk";
     case FOOD_RYLAK_CREPES:                     return "rylak_crepes";
     case FOOD_SALTED_SKULKER:                   return "salted_skulker";
@@ -1127,87 +1125,6 @@ const char* util::food_type_string( food_e food )
 food_e util::parse_food_type( const std::string& name )
 {
   return parse_enum<food_e, FOOD_NONE, FOOD_MAX, food_type_string>( name );
-}
-
-// set_bonus_string =========================================================
-
-const char* util::set_bonus_string( set_e type )
-{
-  switch ( type )
-  {
-    case SET_T13_2PC_CASTER: return "tier13_2pc_caster";
-    case SET_T13_4PC_CASTER: return "tier13_4pc_caster";
-    case SET_T13_2PC_MELEE:  return "tier13_2pc_melee";
-    case SET_T13_4PC_MELEE:  return "tier13_4pc_melee";
-    case SET_T13_2PC_TANK:   return "tier13_2pc_tank";
-    case SET_T13_4PC_TANK:   return "tier13_4pc_tank";
-    case SET_T13_2PC_HEAL:   return "tier13_2pc_heal";
-    case SET_T13_4PC_HEAL:   return "tier13_4pc_heal";
-    case SET_T14_2PC_CASTER: return "tier14_2pc_caster";
-    case SET_T14_4PC_CASTER: return "tier14_4pc_caster";
-    case SET_T14_2PC_MELEE:  return "tier14_2pc_melee";
-    case SET_T14_4PC_MELEE:  return "tier14_4pc_melee";
-    case SET_T14_2PC_TANK:   return "tier14_2pc_tank";
-    case SET_T14_4PC_TANK:   return "tier14_4pc_tank";
-    case SET_T14_2PC_HEAL:   return "tier14_2pc_heal";
-    case SET_T14_4PC_HEAL:   return "tier14_4pc_heal";
-    case SET_T15_2PC_CASTER: return "tier15_2pc_caster";
-    case SET_T15_4PC_CASTER: return "tier15_4pc_caster";
-    case SET_T15_2PC_MELEE:  return "tier15_2pc_melee";
-    case SET_T15_4PC_MELEE:  return "tier15_4pc_melee";
-    case SET_T15_2PC_TANK:   return "tier15_2pc_tank";
-    case SET_T15_4PC_TANK:   return "tier15_4pc_tank";
-    case SET_T15_2PC_HEAL:   return "tier15_2pc_heal";
-    case SET_T15_4PC_HEAL:   return "tier15_4pc_heal";
-    case SET_T16_2PC_CASTER: return "tier16_2pc_caster";
-    case SET_T16_4PC_CASTER: return "tier16_4pc_caster";
-    case SET_T16_2PC_MELEE:  return "tier16_2pc_melee";
-    case SET_T16_4PC_MELEE:  return "tier16_4pc_melee";
-    case SET_T16_2PC_TANK:   return "tier16_2pc_tank";
-    case SET_T16_4PC_TANK:   return "tier16_4pc_tank";
-    case SET_T16_2PC_HEAL:   return "tier16_2pc_heal";
-    case SET_T16_4PC_HEAL:   return "tier16_4pc_heal";
-    case SET_T17_2PC_CASTER: return "tier17_2pc_caster";
-    case SET_T17_4PC_CASTER: return "tier17_4pc_caster";
-    case SET_T17_2PC_MELEE:  return "tier17_2pc_melee";
-    case SET_T17_4PC_MELEE:  return "tier17_4pc_melee";
-    case SET_T17_2PC_TANK:   return "tier17_2pc_tank";
-    case SET_T17_4PC_TANK:   return "tier17_4pc_tank";
-    case SET_T17_2PC_HEAL:   return "tier17_2pc_heal";
-    case SET_T17_4PC_HEAL:   return "tier17_4pc_heal";
-    case SET_T18_2PC_CASTER: return "tier18_2pc_caster";
-    case SET_T18_4PC_CASTER: return "tier18_4pc_caster";
-    case SET_T18_2PC_MELEE:  return "tier18_2pc_melee";
-    case SET_T18_4PC_MELEE:  return "tier18_4pc_melee";
-    case SET_T18_2PC_TANK:   return "tier18_2pc_tank";
-    case SET_T18_4PC_TANK:   return "tier18_4pc_tank";
-    case SET_T18_2PC_HEAL:   return "tier18_2pc_heal";
-    case SET_T18_4PC_HEAL:   return "tier18_4pc_heal";
-    case SET_T19_2PC_CASTER: return "tier19_2pc_caster";
-    case SET_T19_4PC_CASTER: return "tier19_4pc_caster";
-    case SET_T19_2PC_MELEE:  return "tier19_2pc_melee";
-    case SET_T19_4PC_MELEE:  return "tier19_4pc_melee";
-    case SET_T19_2PC_TANK:   return "tier19_2pc_tank";
-    case SET_T19_4PC_TANK:   return "tier19_4pc_tank";
-    case SET_T19_2PC_HEAL:   return "tier19_2pc_heal";
-    case SET_T19_4PC_HEAL:   return "tier19_4pc_heal";
-    case SET_PVP_2PC_CASTER: return "pvp_2pc_caster";
-    case SET_PVP_4PC_CASTER: return "pvp_4pc_caster";
-    case SET_PVP_2PC_MELEE:  return "pvp_2pc_melee";
-    case SET_PVP_4PC_MELEE:  return "pvp_4pc_melee";
-    case SET_PVP_2PC_TANK:   return "pvp_2pc_tank";
-    case SET_PVP_4PC_TANK:   return "pvp_4pc_tank";
-    case SET_PVP_2PC_HEAL:   return "pvp_2pc_heal";
-    case SET_PVP_4PC_HEAL:   return "pvp_4pc_heal";
-    default:                 return "unknown";
-  }
-}
-
-// parse_set_bonus ==========================================================
-
-set_e util::parse_set_bonus( const std::string& name )
-{
-  return parse_enum<set_e, SET_NONE, SET_MAX, set_bonus_string>( name );
 }
 
 // slot_type_string =========================================================
@@ -1321,6 +1238,7 @@ const char* util::movement_direction_string( movement_direction_e m )
     case MOVEMENT_OMNI: return "omni";
     case MOVEMENT_TOWARDS: return "towards";
     case MOVEMENT_AWAY: return "away"; 
+    case MOVEMENT_BOOMERANG: return "boomerang"; //Moves the character x yards away from target, then x yards back.
     case MOVEMENT_RANDOM: return "random";
     case MOVEMENT_NONE: return "none";
     default: return "";
@@ -1371,12 +1289,14 @@ const char* util::cache_type_string( cache_e c )
     case CACHE_DODGE:        return "dodge";
     case CACHE_BLOCK:        return "block";
     case CACHE_ARMOR:        return "armor";
+    case CACHE_BONUS_ARMOR:  return "bonus_armor";
     case CACHE_MULTISTRIKE:  return "multistrike";
     case CACHE_READINESS:    return "readiness";
     case CACHE_VERSATILITY:  return "versatility";
     case CACHE_DAMAGE_VERSATILITY:  return "damage_versatility";
     case CACHE_HEAL_VERSATILITY:  return "heal_versatility";
     case CACHE_MITIGATION_VERSATILITY:  return "mitigation_versatility";
+    case CACHE_LEECH: return "leech";
 
     default: return "unknown";
   }
@@ -1477,6 +1397,7 @@ const char* util::stat_type_string( stat_e stat )
     case STAT_AGI_INT:   return "agiint";
     case STAT_STR_AGI:   return "stragi";
     case STAT_STR_INT:   return "strint";
+    case STAT_STR_AGI_INT: return "stragiint";
 
     case STAT_HEALTH: return "health";
     case STAT_MAX_HEALTH: return "maximum_health";
@@ -1503,10 +1424,8 @@ const char* util::stat_type_string( stat_e stat )
     case STAT_HASTE_RATING: return "haste_rating";
 
     case STAT_WEAPON_DPS:   return "weapon_dps";
-    case STAT_WEAPON_SPEED: return "weapon_speed";
 
     case STAT_WEAPON_OFFHAND_DPS:    return "weapon_offhand_dps";
-    case STAT_WEAPON_OFFHAND_SPEED:  return "weapon_offhand_speed";
 
     case STAT_ARMOR:             return "armor";
     case STAT_BONUS_ARMOR:       return "bonus_armor";
@@ -1522,6 +1441,8 @@ const char* util::stat_type_string( stat_e stat )
     case STAT_MULTISTRIKE_RATING: return "multistrike_rating";
     case STAT_READINESS_RATING: return "readiness_rating";
     case STAT_VERSATILITY_RATING: return "versatility_rating";
+
+    case STAT_LEECH_RATING: return "leech_rating";
 
     case STAT_ALL: return "all";
 
@@ -1544,6 +1465,7 @@ const char* util::stat_type_abbrev( stat_e stat )
     case STAT_AGI_INT:   return "AgiInt";
     case STAT_STR_AGI:   return "StrAgi";
     case STAT_STR_INT:   return "StrInt";
+    case STAT_STR_AGI_INT: return "StrAgiInt";
 
     case STAT_HEALTH: return "Health";
     case STAT_MAX_HEALTH: return "MaxHealth";
@@ -1570,10 +1492,8 @@ const char* util::stat_type_abbrev( stat_e stat )
     case STAT_HASTE_RATING: return "Haste";
 
     case STAT_WEAPON_DPS:   return "Wdps";
-    case STAT_WEAPON_SPEED: return "Wspeed";
 
     case STAT_WEAPON_OFFHAND_DPS:    return "WOHdps";
-    case STAT_WEAPON_OFFHAND_SPEED:  return "WOHspeed";
 
     case STAT_ARMOR:             return "Armor";
     case STAT_BONUS_ARMOR:       return "BonusArmor";
@@ -1591,6 +1511,8 @@ const char* util::stat_type_abbrev( stat_e stat )
     case STAT_VERSATILITY_RATING: return "Vers";
 
     case STAT_READINESS_RATING: return "Readiness";
+
+    case STAT_LEECH_RATING: return "Leech";
 
     case STAT_ALL: return "All";
 
@@ -1613,6 +1535,7 @@ const char* util::stat_type_wowhead( stat_e stat )
     case STAT_AGI_INT:   return "agiint";
     case STAT_STR_AGI:   return "agistr";
     case STAT_STR_INT:   return "strint";
+    case STAT_STR_AGI_INT: return "agistrint";
 
     case STAT_HEALTH: return "health";
     case STAT_MANA:   return "mana";
@@ -1631,7 +1554,6 @@ const char* util::stat_type_wowhead( stat_e stat )
     case STAT_HASTE_RATING: return "hasteRating";
 
     case STAT_WEAPON_DPS:   return "__dps";
-    case STAT_WEAPON_SPEED: return "__speed";
 
     case STAT_ARMOR:             return "armor"; 
     case STAT_BONUS_ARMOR:       return "armorbonus";
@@ -1643,7 +1565,9 @@ const char* util::stat_type_wowhead( stat_e stat )
 
     case STAT_MULTISTRIKE_RATING: return "multistrike";
     case STAT_READINESS_RATING:   return "readiness";
-    case STAT_VERSATILITY_RATING: return "versatility"; // TODO-WOD: Verify
+    case STAT_VERSATILITY_RATING: return "versatility";
+
+    case STAT_LEECH_RATING: return "lifesteal";
 
     case STAT_MAX: return "__all";
     default: return "unknown";
@@ -1699,12 +1623,13 @@ const char* util::stat_type_askmrrobot( stat_e stat )
     case STAT_PARRY_RATING: return "ParryRating";
     case STAT_RESILIENCE_RATING: return "ResilienceRating";
     case STAT_MASTERY_RATING: return "MasteryRating";
+    case STAT_MULTISTRIKE_RATING: return "MultistrikeRating";
+    case STAT_VERSATILITY_RATING: return "VersatilityRating";
+    case STAT_BONUS_ARMOR: return "BonusArmor";
     case STAT_PVP_POWER: return "PvpPower";
     case STAT_WEAPON_DPS: return "MainHandDps";
     case STAT_WEAPON_OFFHAND_DPS: return "OffHandDPS";
-
-    //WOD-TODO: add bonus armor, multistrike, readiness, hybrid primaries
-
+      
     default: return "unknown";
 
   }
@@ -1738,7 +1663,6 @@ stat_e util::parse_stat_type( const std::string& name )
   if ( name == "splpwr"         ) return STAT_SPELL_POWER;
   if ( name == "spi"            ) return STAT_SPIRIT;
   if ( str_compare_ci( name, "__wpds"   ) ) return STAT_WEAPON_DPS;
-  if ( str_compare_ci( name, "__wspeed" ) ) return STAT_WEAPON_SPEED;
 
 
   return STAT_NONE;
@@ -1997,12 +1921,13 @@ stat_e util::translate_item_mod( int item_mod )
     case ITEM_MOD_PVP_POWER:           return STAT_PVP_POWER;
     case ITEM_MOD_MULTISTRIKE_RATING:  return STAT_MULTISTRIKE_RATING;
     case ITEM_MOD_READINESS_RATING:    return STAT_READINESS_RATING;
+    case ITEM_MOD_STRENGTH_AGILITY_INTELLECT: return STAT_STR_AGI_INT;
     case ITEM_MOD_AGILITY_INTELLECT:   return STAT_AGI_INT;
     case ITEM_MOD_STRENGTH_AGILITY:    return STAT_STR_AGI;
     case ITEM_MOD_STRENGTH_INTELLECT:  return STAT_STR_INT;
     case ITEM_MOD_VERSATILITY_RATING:  return STAT_VERSATILITY_RATING;
+    case ITEM_MOD_LEECH_RATING:        return STAT_LEECH_RATING;
     default:                           return STAT_NONE;
-    // TODO-wOD: Versatility rating
   }
 }
 
@@ -2030,16 +1955,34 @@ int util::translate_stat( stat_e stat )
     case STAT_PVP_POWER:          return ITEM_MOD_PVP_POWER;
     case STAT_MULTISTRIKE_RATING: return ITEM_MOD_MULTISTRIKE_RATING;
     case STAT_READINESS_RATING:   return ITEM_MOD_READINESS_RATING;
+    case STAT_STR_AGI_INT:        return ITEM_MOD_STRENGTH_AGILITY_INTELLECT;
     case STAT_AGI_INT:            return ITEM_MOD_AGILITY_INTELLECT;
     case STAT_STR_AGI:            return ITEM_MOD_STRENGTH_AGILITY;
     case STAT_STR_INT:            return ITEM_MOD_STRENGTH_INTELLECT;
+    case STAT_VERSATILITY_RATING: return ITEM_MOD_VERSATILITY_RATING;
+    case STAT_LEECH_RATING:       return ITEM_MOD_LEECH_RATING;
     default:                      return ITEM_MOD_NONE;
-
-    // TODO-wOD: Versatility rating
   }
 }
 
 // translate_rating_mod =====================================================
+
+std::vector<stat_e> util::translate_all_rating_mod( unsigned ratings )
+{
+  std::vector<stat_e> stats;
+
+  for ( unsigned i = 0; i < sizeof( unsigned ) * 8; i++ )
+  {
+    if ( ! ( ratings & ( 1 << i ) ) )
+      continue;
+
+    stat_e stat = translate_rating_mod( ratings & ( 1 << i ) );
+    if ( stat != STAT_NONE && std::find( stats.begin(), stats.end(), stat ) == stats.end() )
+      stats.push_back( stat );
+  }
+
+  return stats;
+}
 
 stat_e util::translate_rating_mod( unsigned ratings )
 {
@@ -2067,6 +2010,8 @@ stat_e util::translate_rating_mod( unsigned ratings )
     return STAT_MULTISTRIKE_RATING;
   else if ( ratings & RATING_MOD_READINESS )
     return STAT_READINESS_RATING;
+  else if ( ratings & RATING_MOD_LEECH )
+    return STAT_LEECH_RATING;
 
   return STAT_NONE;
 }
@@ -2591,6 +2536,32 @@ std::string& util::urlencode( std::string& str )
   return str;
 }
 
+// google image chart encoding ================================================
+
+std::string util::google_image_chart_encode( const std::string& str )
+{
+  std::string::size_type l = str.length();
+  if ( ! l ) return str;
+
+  std::string temp;
+  for ( std::string::size_type i = 0; i < l; ++i )
+  {
+    unsigned char c = str[ i ];
+    if ( c == '+' )
+      temp += "%2B";
+    else if ( c == '&' )
+      temp += "%26";
+    else if ( c == '|' )
+      temp += "%7E"; // pipe is a newline in google API, replace with ~
+    else if ( c == '>' )
+      temp += "%3E";
+    else
+      temp += c;
+  }
+
+  return temp;
+}
+
 // urldecode ================================================================
 
 std::string& util::urldecode( std::string& str )
@@ -3108,6 +3079,7 @@ double stat_itemization_weight( stat_e s )
     case STAT_MULTISTRIKE_RATING:
     case STAT_READINESS_RATING:
     case STAT_VERSATILITY_RATING:
+    case STAT_BONUS_ARMOR:
     case STAT_SPIRIT:
       return 2;
     default:

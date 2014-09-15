@@ -36,6 +36,26 @@ std::string source_desc_str( wowhead::wowhead_e source )
   }
 }
 
+// This is a list of all wowhead tooltips that currently freeze the GUI when the mouse hovers over them. 
+// If you find any others, just add them to the array. Generally it will be a spell that has a perk linked in it.
+// The underlying issue is with the QT Webkit, and we most likely cannot fix it. There's a possibility that QT 5.4 will correct this issue,
+// but we won't know for another month or 2. - 9/14/14
+static bool dual_tooltip_disable( unsigned spell_id )
+{
+  static const unsigned naughtylist[] = { 1719, 53817, 20608, 26573, 51690, 57755, 157738, 50401,
+    118038, 115939, 116849, 88766, 115151, 84608, 115295, 115151, 31935, 156910,
+    53563, 1178, 50334, 106951, 108558, 603, 32645, 145416, 32645, 53301, 145661,
+    61777, 49206, 158392, 24275, 158392, 348, 102342, 59052, 51271, 774, 101546,
+    22482, 49222, 51753, 9484, 81209, 81206, 81208, 116858, 172, 63560, 49576,
+    770, 53365, 116, 6940, 48181, 80240, 157708, 6544, 1680, 772, 12328 };
+
+  for ( size_t i = 0; i < sizeof_array( naughtylist ); i++ )
+    if ( spell_id == naughtylist[ i ] )
+      return true;
+
+  return false;
+}
+
 // download_id ==============================================================
 
 std::shared_ptr<xml_node_t> download_id( sim_t*             sim,
@@ -160,20 +180,17 @@ bool wowhead::download_item_data( item_t&            item,
     if ( json.HasMember( "reqlevel" ) )
       item.parsed.data.req_level = json[ "reqlevel" ].GetInt();
 
-    if ( json.HasMember( "heroic" ) )
-      item.parsed.data.type_flags |= RAID_TYPE_HEROIC;
-
-    if ( json.HasMember( "flexible" ) )
-      item.parsed.data.type_flags |= RAID_TYPE_FLEXIBLE;
-
     if ( json.HasMember( "raidfinder" ) )
       item.parsed.data.type_flags |= RAID_TYPE_LFR;
 
-    if ( json.HasMember( "warforged" ) )
-      item.parsed.data.type_flags |= RAID_TYPE_ELITE;
+    if ( json.HasMember( "heroic" ) )
+      item.parsed.data.type_flags |= RAID_TYPE_HEROIC;
 
-    if ( json.HasMember( "thunderforged" ) )
-      item.parsed.data.type_flags |= RAID_TYPE_ELITE;
+    if ( json.HasMember( "mythic" ) )
+      item.parsed.data.type_flags |= RAID_TYPE_MYTHIC;
+
+    if ( json.HasMember( "warforged" ) )
+      item.parsed.data.type_flags |= RAID_TYPE_WARFORGED;
 
     if ( item.parsed.data.item_class == ITEM_CLASS_WEAPON )
     {
@@ -208,11 +225,25 @@ bool wowhead::download_item_data( item_t&            item,
     item.parsed.data.class_mask = classes;
 
     size_t n = 0;
+    stat_e hybrid_stat = STAT_NONE;
+    for ( rapidjson::Value::ConstMemberIterator i = jsonequip.MemberBegin(); 
+          i != jsonequip.MemberEnd() && n < sizeof_array( item.parsed.data.stat_type_e ); i++ )
+    {
+      stat_e type = util::parse_stat_type( i -> name.GetString() );
+      // wowhead josnEquip contains redundant entries for queries, take note so we can purge
+      if ( type == STAT_STR_AGI || type == STAT_STR_INT || type == STAT_AGI_INT )
+        hybrid_stat = type;
+    }
+
     for ( rapidjson::Value::ConstMemberIterator i = jsonequip.MemberBegin(); 
           i != jsonequip.MemberEnd() && n < sizeof_array( item.parsed.data.stat_type_e ); i++ )
     {
       stat_e type = util::parse_stat_type( i -> name.GetString() );
       if ( type == STAT_NONE || type == STAT_ARMOR || util::translate_stat( type ) == ITEM_MOD_NONE ) 
+        continue;
+
+      // If we have a hybrid stat, don't record the excess STR/INT/AGI entries
+      if ( hybrid_stat != STAT_NONE && ( type == STAT_STRENGTH || type == STAT_INTELLECT || type == STAT_AGILITY ) )
         continue;
 
       item.parsed.data.stat_type_e[ n ] = util::translate_stat( type );
@@ -226,7 +257,7 @@ bool wowhead::download_item_data( item_t&            item,
            item.parsed.data.stat_type_e[ n - 1 ] == ITEM_MOD_SPELL_POWER ) )
         item.parsed.data.flags_2 |= ITEM_FLAG2_CASTER_WEAPON;
     }
-
+    
     int n_sockets = 0;
     if ( jsonequip.HasMember( "nsockets" ) )
       n_sockets = jsonequip[ "nsockets" ].GetUint();
@@ -328,7 +359,8 @@ std::string wowhead::decorated_spell_name( const std::string& name,
 {
   std::string decorated_name, base_href, prefix, suffix;
 
-  if ( spell_id > 1 )
+  bool notooltip = dual_tooltip_disable( spell_id );
+  if ( spell_id > 1 && !notooltip ) 
   {
     base_href = "http://" + domain_str( domain ) + ".wowhead.com/spell=" + util::to_string( spell_id );
 

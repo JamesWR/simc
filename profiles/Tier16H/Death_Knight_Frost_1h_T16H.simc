@@ -4,7 +4,7 @@ race=orc
 role=attack
 position=back
 professions=blacksmithing=600/engineering=600
-talents=http://us.battle.net/wow/en/tool/talent-calculator#dZ!1...0..
+talents=http://us.battle.net/wow/en/tool/talent-calculator#dZ!1..0...
 spec=frost
 
 # This default action priority list is automatically created based on your character.
@@ -15,60 +15,64 @@ spec=frost
 
 # Executed before combat begins. Accepts non-harmful actions only.
 
-actions.precombat=flask,type=winters_bite
+actions.precombat=flask,type=greater_draenic_strength_flask
 actions.precombat+=/food,type=black_pepper_ribs_and_shrimp
 actions.precombat+=/horn_of_winter
 actions.precombat+=/frost_presence
 # Snapshot raid buffed stats before combat begins and pre-potting is done.
 actions.precombat+=/snapshot_stats
-actions.precombat+=/potion,name=mogu_power
+actions.precombat+=/army_of_the_dead
+actions.precombat+=/potion,name=draenic_strength
 actions.precombat+=/pillar_of_frost
 
 # Executed every time the actor is available.
 
 actions=auto_attack
-actions+=/deaths_advance,if=talent.deaths_advance.enabled&movement.remains>2
+actions+=/deaths_advance,if=movement.remains>2
 actions+=/antimagic_shell,damage=100000
 actions+=/pillar_of_frost
-actions+=/potion,name=mogu_power,if=target.time_to_die<=30|(target.time_to_die<=60&buff.pillar_of_frost.up)
-actions+=/empower_rune_weapon,if=target.time_to_die<=60&(buff.potion_of_mogu_power.up|buff.golemblood_potion.up)
+actions+=/potion,name=draenic_strength,if=target.time_to_die<=30|(target.time_to_die<=60&buff.pillar_of_frost.up)
+actions+=/empower_rune_weapon,if=target.time_to_die<=60&buff.potion.up
 actions+=/blood_fury
 actions+=/berserking
 actions+=/arcane_torrent
+actions+=/call_action_list,name=aoe,if=active_enemies>=3
+actions+=/call_action_list,name=single_target,if=active_enemies<3
 actions+=/run_action_list,name=aoe,if=active_enemies>=3
 actions+=/run_action_list,name=single_target,if=active_enemies<3
 
-actions.aoe=unholy_blight,if=talent.unholy_blight.enabled
-actions.aoe+=/pestilence,if=dot.blood_plague.ticking&talent.plague_leech.enabled,line_cd=28
-actions.aoe+=/pestilence,if=dot.blood_plague.ticking&talent.unholy_blight.enabled&cooldown.unholy_blight.remains<49,line_cd=28
+actions.aoe=unholy_blight
+actions.aoe+=/blood_boil,if=!talent.necrotic_plague.enabled&dot.blood_plague.ticking&talent.plague_leech.enabled,line_cd=28
+actions.aoe+=/blood_boil,if=!talent.necrotic_plague.enabled&dot.blood_plague.ticking&talent.unholy_blight.enabled&cooldown.unholy_blight.remains<49,line_cd=28
 actions.aoe+=/howling_blast
-actions.aoe+=/blood_tap,if=talent.blood_tap.enabled&buff.blood_charge.stack>10
+actions.aoe+=/blood_tap,if=buff.blood_charge.stack>10
 actions.aoe+=/frost_strike,if=runic_power>76
 actions.aoe+=/death_and_decay,if=unholy=1
 actions.aoe+=/plague_strike,if=unholy=2
-actions.aoe+=/blood_tap,if=talent.blood_tap.enabled
+actions.aoe+=/blood_tap
 actions.aoe+=/frost_strike
-actions.aoe+=/plague_leech,if=talent.plague_leech.enabled&unholy=1
+actions.aoe+=/plague_leech,if=unholy=1
 actions.aoe+=/plague_strike,if=unholy=1
 actions.aoe+=/empower_rune_weapon
 
-actions.single_target=blood_tap,if=talent.blood_tap.enabled&(buff.blood_charge.stack>10&(runic_power>76|(runic_power>=20&buff.killing_machine.react)))
-actions.single_target+=/frost_strike,if=buff.killing_machine.react|runic_power>88
-actions.single_target+=/howling_blast,if=death>1|frost>1
-actions.single_target+=/unholy_blight,if=talent.unholy_blight.enabled&((dot.frost_fever.remains<3|dot.blood_plague.remains<3))
+actions.single_target=blood_tap,if=buff.blood_charge.stack>10&(runic_power>76|(runic_power>=20&buff.killing_machine.react))
 actions.single_target+=/soul_reaper,if=target.health.pct-3*(target.health.pct%target.time_to_die)<=35
-actions.single_target+=/blood_tap,if=talent.blood_tap.enabled&((target.health.pct-3*(target.health.pct%target.time_to_die)<=35&cooldown.soul_reaper.remains=0))
-actions.single_target+=/howling_blast,if=!dot.frost_fever.ticking
-actions.single_target+=/plague_strike,if=!dot.blood_plague.ticking&unholy>0
+actions.single_target+=/blood_tap,if=(target.health.pct-3*(target.health.pct%target.time_to_die)<=35&cooldown.soul_reaper.remains=0)
+actions.single_target+=/blood_tap,if=talent.defile.enabled&cooldown.defile.remains=0
+actions.single_target+=/frost_strike,if=buff.killing_machine.react|runic_power>88
+actions.single_target+=/frost_strike,if=cooldown.antimagic_shell.remains<1&runic_power>=50&!buff.antimagic_shell.up
+actions.single_target+=/howling_blast,if=death>1|frost>1
+actions.single_target+=/unholy_blight,if=!disease.ticking
+actions.single_target+=/howling_blast,if=!talent.necrotic_plague.enabled&!dot.frost_fever.ticking
+actions.single_target+=/howling_blast,if=talent.necrotic_plague.enabled&!dot.necrotic_plague.ticking
+actions.single_target+=/plague_strike,if=!talent.necrotic_plague.enabled&!dot.blood_plague.remains<10&unholy>0
 actions.single_target+=/howling_blast,if=buff.rime.react
 actions.single_target+=/frost_strike,if=runic_power>76
 actions.single_target+=/obliterate,if=unholy>0&!buff.killing_machine.react
-actions.single_target+=/howling_blast
-actions.single_target+=/frost_strike,if=talent.runic_empowerment.enabled&unholy=1
-actions.single_target+=/blood_tap,if=talent.blood_tap.enabled&(target.health.pct-3*(target.health.pct%target.time_to_die)>35|buff.blood_charge.stack>=8)
-actions.single_target+=/frost_strike,if=runic_power>=40
-actions.single_target+=/blood_tap,if=talent.blood_tap.enabled
-actions.single_target+=/plague_leech,if=talent.plague_leech.enabled
+actions.single_target+=/howling_blast,if=!(target.health.pct-3*(target.health.pct%target.time_to_die)<=35&cooldown.soul_reaper.remains<2)|death+frost>=2
+actions.single_target+=/blood_tap,if=target.health.pct-3*(target.health.pct%target.time_to_die)>35|buff.blood_charge.stack>=8
+actions.single_target+=/blood_tap
+actions.single_target+=/plague_leech
 actions.single_target+=/empower_rune_weapon
 
 head=helmet_of_cyclopean_dread,id=99337,upgrade=2,gems=capacitive_primal_4str_8mastery_9str
@@ -89,15 +93,15 @@ main_hand=xifeng_longblade_of_the_titanic_guardian,id=105460,upgrade=2,gems=4str
 off_hand=xifeng_longblade_of_the_titanic_guardian,id=105460,upgrade=2,gems=4str_8mastery_3str,enchant=rune_of_razorice
 
 # Gear Summary
-# gear_strength=1074
+# gear_strength=1077
 # gear_agility=4
 # gear_stamina=1514
 # gear_intellect=4
 # gear_expertise_rating=3
-# gear_crit_rating=510
-# gear_haste_rating=210
-# gear_mastery_rating=813
-# gear_armor=1191
+# gear_crit_rating=518
+# gear_haste_rating=214
+# gear_mastery_rating=817
+# gear_armor=1284
 # meta_gem=capacitive_primal
-# tier16_2pc_melee=1
-# tier16_4pc_melee=1
+# set_bonus=tier16_2pc_melee=1
+# set_bonus=tier16_4pc_melee=1

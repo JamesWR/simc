@@ -211,17 +211,6 @@ void scaling_t::init_deltas()
 
   if ( stats.weapon_dps            == 0 ) stats.weapon_dps            = default_delta * 0.3;
   if ( stats.weapon_offhand_dps    == 0 ) stats.weapon_offhand_dps    = default_delta * 0.3;
-
-  if ( sim -> weapon_speed_scale_factors )
-  {
-    if ( stats.weapon_speed          == 0 ) stats.weapon_speed = 0.2;
-    if ( stats.weapon_offhand_speed  == 0 ) stats.weapon_offhand_speed  = 0.2;
-  }
-  else
-  {
-    stats.weapon_speed         = 0;
-    stats.weapon_offhand_speed = 0;
-  }
 }
 
 // scaling_t::analyze_stats =================================================
@@ -310,27 +299,10 @@ void scaling_t::analyze_stats()
       double   ref_error = ref_p -> scales_over().stddev * ref_sim -> confidence_estimator;
 
       p -> scaling_delta_dps.set_stat( stat, delta_score );
-
-      //if we do a dtps analysis for stamina, scale it by the tank's hp so that we get relative dtps
-      if ( stat == STAT_STAMINA && scale_over == "dtps" )
-      {
-        delta_score /= delta_p -> resources.max[ RESOURCE_HEALTH ];
-        ref_score /= ref_p -> resources.max[ RESOURCE_HEALTH ];
-
-        delta_error /= delta_p -> resources.max[ RESOURCE_HEALTH ];
-        ref_error /= ref_p -> resources.max[ RESOURCE_HEALTH ];
-      }
-
+      
       double score = ( delta_score - ref_score ) / divisor;
       double error = delta_error * delta_error + ref_error * ref_error;
-
-      //if we do a dtps analysis for stamina, unscale relative dtps so that we can compare to the other factors
-      if ( stat == STAT_STAMINA && scale_over == "dtps" )
-      {
-        score *= ref_p -> resources.max[ RESOURCE_HEALTH ];
-        error *= ref_p -> resources.max[ RESOURCE_HEALTH ] * ref_p -> resources.max[ RESOURCE_HEALTH ];
-      }
-
+      
       if ( error > 0  )
         error = sqrt( error );
 
@@ -480,7 +452,7 @@ void scaling_t::normalize()
     if ( divisor == 0 ) continue;
 
     // hack to deal with weirdness in TMI calculations - always normalize using negative divisor
-    if ( scale_over == "tmi" || scale_over == "theck_meloree_index" )
+    if ( util::str_compare_ci( scale_over, "tmi" ) || util::str_compare_ci( scale_over, "theck_meloree_index" ) )
       divisor = - std::abs( divisor );
 
     for ( stat_e j = STAT_NONE; j < STAT_MAX; j++ )
@@ -518,7 +490,7 @@ void scaling_t::analyze()
       }
     }
     // more hack to deal with TMI weirdness, this just determines sorting order, not what gets displayed on the chart
-    bool use_normalized = p -> scaling_normalized.get_stat( p -> normalize_by() ) > 0 || scale_over == "tmi" || scale_over == "theck_meloree_index" || scale_over == "etmi";
+    bool use_normalized = p -> scaling_normalized.get_stat( p -> normalize_by() ) > 0 || util::str_compare_ci( scale_over, "tmi" ) || util::str_compare_ci( scale_over, "theck_meloree_index" ) || util::str_compare_ci( scale_over, "etmi" );
     range::sort( p -> scaling_stats, compare_scale_factors( p, use_normalized ) );
   }
 }
@@ -552,9 +524,7 @@ void scaling_t::create_options()
     opt_float( "scale_readiness_rating", stats.readiness_rating ),
     opt_float( "scale_versatility_rating", stats.versatility_rating ),
     opt_float( "scale_weapon_dps", stats.weapon_dps ),
-    opt_float( "scale_weapon_speed", stats.weapon_speed ),
     opt_float( "scale_offhand_weapon_dps", stats.weapon_offhand_dps ),
-    opt_float( "scale_offhand_weapon_speed", stats.weapon_offhand_speed ),
     opt_string( "scale_only", scale_only_str ),
     opt_string( "scale_over", scale_over ),
     opt_string( "scale_over_player", scale_over_player ),

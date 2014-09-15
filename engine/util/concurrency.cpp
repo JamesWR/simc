@@ -219,10 +219,10 @@ int translate_thread_priority( sc_thread_t::priority_e prio )
   switch ( prio )
   {
   case sc_thread_t::NORMAL: return THREAD_PRIORITY_NORMAL;
-  case sc_thread_t::ABOVE_NORMAL: return THREAD_PRIORITY_ABOVE_NORMAL;
-  case sc_thread_t::BELOW_NORMAL: return THREAD_PRIORITY_BELOW_NORMAL;
+  case sc_thread_t::ABOVE_NORMAL: return THREAD_PRIORITY_HIGHEST-1;
+  case sc_thread_t::BELOW_NORMAL: return THREAD_PRIORITY_LOWEST+1;
   case sc_thread_t::HIGHEST: return THREAD_PRIORITY_HIGHEST;
-  case sc_thread_t::LOWEST: return THREAD_PRIORITY_LOWEST;
+  case sc_thread_t::LOWEST: return THREAD_PRIORITY_IDLE;
   default: assert( false && "invalid thread priority" ); break;
   }
   return THREAD_PRIORITY_NORMAL;
@@ -280,7 +280,7 @@ private:
   }
 };
 
-#elif ( defined( _POSIX_THREADS ) && _POSIX_THREADS > 0 ) || defined( _GLIBCXX_HAVE_GTHR_DEFAULT ) || defined( _GLIBCXX__PTHREADS ) || defined( _GLIBCXX_HAS_GTHREADS )
+#elif defined( _LIBCPP_VERSION ) || ( defined( _POSIX_THREADS ) && _POSIX_THREADS > 0 ) || defined( _GLIBCXX_HAVE_GTHR_DEFAULT ) || defined( _GLIBCXX__PTHREADS ) || defined( _GLIBCXX_HAS_GTHREADS )
 // POSIX
 #include <pthread.h>
 #include <cstdio>

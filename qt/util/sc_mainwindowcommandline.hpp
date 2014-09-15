@@ -6,13 +6,12 @@
 #pragma once
 
 #include "config.hpp"
+#include "../qt/simulationcraftqt.hpp"
 
 #ifdef QT_VERSION_5
 #include <QtWidgets/QtWidgets>
 #endif
 #include <QtGui/QtGui>
-
-#include "qt/simulationcraftqt.hpp"
 
 
 class SC_MainWindowCommandLine : public QWidget
@@ -40,7 +39,7 @@ public:
     CMDLINE_TAB_HELP,
     CMDLINE_TAB_LOG,
     CMDLINE_TAB_RESULTS,
-    CMDLINE_TAB_SITE,
+    CMDLINE_TAB_SPELLQUERY,
 #ifdef SC_PAPERDOLL
     CMDLINE_TAB_PAPERDOLL,
 #endif
@@ -48,6 +47,7 @@ public:
     CMDLINE_TAB_BIS,
     CMDLINE_TAB_HISTORY,
     CMDLINE_TAB_RECENT,
+    CMDLINE_TAB_AUTOMATION,
     CMDLINE_TAB_CUSTOM,
     CMDLINE_TAB_COUNT
   };
@@ -63,6 +63,7 @@ protected:
   QString text_cancel_all_tooltip;
   QString text_save;
   QString text_import;
+  QString text_spellquery;
   QString text_prev;
   QString text_next;
   QString text_prev_tooltip;
@@ -90,7 +91,6 @@ protected:
     PROGRESSBAR_IMPORTING,
     PROGRESSBAR_BATTLE_NET,
     PROGRESSBAR_HELP,
-    PROGRESSBAR_SITE,
     PROGRESSBAR_STATE_COUNT
   };
 
@@ -115,7 +115,6 @@ protected:
   QString commandLineBuffer_DEFAULT; // different buffers for different tabs
   QString commandLineBuffer_TAB_BATTLE_NET;
   QString commandLineBuffer_TAB_RESULTS;
-  QString commandLineBuffer_TAB_SITE;
   QString commandLineBuffer_TAB_HELP;
   QString commandLineBuffer_TAB_LOG;
 
@@ -219,6 +218,7 @@ signals:
   void currentlyViewedTabCloseRequest();
   void commandLineReturnPressed();
   void commandLineTextEdited( const QString& );
+  void queryClicked();
 #ifdef SC_PAPERDOLL
   void simulatePaperdollClicked();
 #endif

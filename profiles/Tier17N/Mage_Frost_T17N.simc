@@ -3,8 +3,7 @@ level=100
 race=troll
 role=spell
 position=back
-professions=tailoring=600/engineering=600
-talents=http://us.battle.net/wow/en/tool/talent-calculator#eb!0...11.
+talents=http://us.battle.net/wow/en/tool/talent-calculator#eb!0...011
 glyphs=icy_veins/splitting_ice
 spec=frost
 
@@ -16,64 +15,70 @@ spec=frost
 
 # Executed before combat begins. Accepts non-harmful actions only.
 
-actions.precombat=flask,type=warm_sun
-actions.precombat+=/food,type=mogu_fish_stew
+actions.precombat=flask,type=greater_draenic_intellect_flask
+actions.precombat+=/food,type=calamari_crepes
 actions.precombat+=/arcane_brilliance
-actions.precombat+=/frost_armor
 actions.precombat+=/water_elemental
 actions.precombat+=/snapshot_stats
-actions.precombat+=/rune_of_power,if=talent.rune_of_power.enabled
-actions.precombat+=/potion,name=jade_serpent
+actions.precombat+=/rune_of_power
+actions.precombat+=/mirror_image
+actions.precombat+=/potion,name=draenic_intellect
 actions.precombat+=/frostbolt
 
 # Executed every time the actor is available.
 
 actions=counterspell,if=target.debuff.casting.react
 actions+=/blink,if=movement.distance>10
-actions+=/blazing_speed,if=talent.blazing_speed.enabled&movement.remains>0
-actions+=/cold_snap,if=talent.cold_snap.enabled&health.pct<30
+actions+=/blazing_speed,if=movement.remains>0
+actions+=/cold_snap,if=health.pct<30
 actions+=/time_warp,if=target.health.pct<25|time>5
-actions+=/rune_of_power,if=talent.rune_of_power.enabled&buff.rune_of_power.remains<cast_time
-actions+=/rune_of_power,if=talent.rune_of_power.enabled&(cooldown.icy_veins.remains=0&buff.rune_of_power.remains<20)
-actions+=/frozen_orb,if=buff.fingers_of_frost.stack<2
+actions+=/mirror_image
+actions+=/rune_of_power,if=buff.rune_of_power.remains<cast_time
+actions+=/rune_of_power,if=cooldown.icy_veins.remains=0&buff.rune_of_power.remains<20
+actions+=/frozen_orb,if=talent.prismatic_crystal.enabled&cooldown.prismatic_crystal.remains=0
+actions+=/prismatic_crystal
 actions+=/icy_veins,if=(time_to_bloodlust>160&(buff.brain_freeze.react|buff.fingers_of_frost.react))|target.time_to_die<22,moving=0
 actions+=/blood_fury,if=buff.icy_veins.up|target.time_to_die<18
 actions+=/berserking,if=buff.icy_veins.up|target.time_to_die<18
 actions+=/arcane_torrent,if=buff.icy_veins.up|target.time_to_die<18
-actions+=/frost_bomb,if=talent.frost_bomb.enabled&target.time_to_die>cast_time+tick_time
-actions+=/ice_lance,if=buff.fingers_of_frost.up
-actions+=/ice_lance,if=buff.fingers_of_frost.react&cooldown.icy_veins.remains>2*action.frostbolt.execute_time
+actions+=/use_item,slot=trinket1
+actions+=/comet_storm
+actions+=/frozen_orb,if=!talent.prismatic_crystal.enabled&buff.fingers_of_frost.stack<2
+actions+=/frost_bomb,if=debuff.frost_bomb.remains<cast_time&buff.fingers_of_frost.stack>=1
+actions+=/frostfire_bolt,if=!pet.prismatic_crystal.active&buff.brain_freeze.react
+actions+=/ice_lance,if=talent.frost_bomb.enabled&buff.fingers_of_frost.react&debuff.frost_bomb.remains>travel_time
+actions+=/ice_lance,if=!talent.frost_bomb.enabled&buff.fingers_of_frost.react
+actions+=/frostfire_bolt,if=buff.brain_freeze.react
+actions+=/ice_nova,if=(charges=1&recharge_time<3&cooldown.icy_veins.remains>5&cooldown.prismatic_crystal.remains>5)|buff.icy_veins.react|pet.prismatic_crystal.active
 actions+=/frostbolt
-actions+=/ice_floes,if=talent.ice_floes.enabled
+actions+=/ice_floes,moving=1
 actions+=/ice_lance,moving=1
 
-head=chronomancer_hood,id=99398,upgrade=2,gems=8haste_8mastery_9int
-neck=untainted_guardians_chain,id=105465,upgrade=2
-shoulders=chronomancer_mantle,id=99401,upgrade=2,gems=8haste_8mastery_8haste_8mastery_6int,enchant=10int_5crit
-back=jadefire_drape,id=98150,upgrade=2,gems=4int_8haste_3int,enchant=9crit
-chest=robes_of_the_tendered_heart,id=105440,upgrade=2,gems=8haste_8mastery_16mastery_8crit_8mastery_9int,enchant=4all
-wrists=avools_ancestral_bracers,id=105591,upgrade=2,enchant=9int
-hands=chronomancer_gloves,id=99397,upgrade=2,gems=4int_8mastery_4int_8mastery_6int,enchant=9mastery
-waist=belt_of_ominous_trembles,id=105515,upgrade=2,gems=8haste_8mastery_8crit_8mastery_16mastery_6int
-legs=chronomancer_leggings,id=99399,upgrade=2,gems=16mastery_16mastery_6int,enchant=14int_8crit
-feet=boneinlaid_sandals,id=105493,upgrade=2,gems=16mastery_3hit,enchant=7mastery
-finger1=signet_of_the_dinomancers,id=105606,upgrade=2,gems=4int_8mastery_3haste
-finger2=iyyokuks_hereditary_seal,id=105628,upgrade=2
-trinket1=purified_bindings_of_immerseus,id=105422,upgrade=2
-trinket2=black_blood_of_yshaarj,id=105648,upgrade=2
-main_hand=immaculately_preserved_wand,id=105594,upgrade=2,gems=4int_8mastery_3int,enchant=jade_spirit
-off_hand=revelations_of_yshaarj,id=105650,upgrade=2,gems=4int_8mastery_3int,enchant=8int
+head=arcanoshatter_hood,id=115553
+neck=gruuls_lip_ring,id=113872,enchant=gift_of_multistrike
+shoulders=arcanoshatter_mantle,id=115551
+back=runescribed_gronncloak,id=120078,enchant=gift_of_multistrike
+chest=arcanoshatter_robes,id=115550
+wrists=bracers_of_spattered_steel,id=113887
+hands=arcanoshatter_gloves,id=115552
+waist=deckhands_rope_belt,id=113967
+legs=arcanoshatter_leggings,id=115554
+feet=inferno_breath_sandals,id=113942
+finger1=ukuroggs_corrupted_seal,id=113975,enchant=gift_of_multistrike
+finger2=epicenter_loop,id=113947,enchant=gift_of_multistrike
+trinket1=shards_of_nothing,id=113835
+trinket2=quiescent_runestone,id=113859
+main_hand=infernoflame_staff,id=113869,enchant=mark_of_frostwolf
 
 # Gear Summary
-# gear_strength=4
-# gear_agility=4
-# gear_stamina=1536
-# gear_intellect=1064
-# gear_spell_power=590
-# gear_hit_rating=3
-# gear_crit_rating=466
-# gear_haste_rating=586
-# gear_mastery_rating=594
-# gear_armor=285
-# tier16_2pc_caster=1
-# tier16_4pc_caster=1
+# gear_stamina=3408
+# gear_intellect=2672
+# gear_spell_power=1325
+# gear_crit_rating=789
+# gear_haste_rating=742
+# gear_mastery_rating=742
+# gear_armor=700
+# gear_multistrike_rating=1151
+# gear_versatility_rating=92
+# set_bonus=tier17_2pc=1
+# set_bonus=tier17_4pc=1

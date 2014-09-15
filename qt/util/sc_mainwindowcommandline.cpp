@@ -62,17 +62,6 @@ int SC_MainWindowCommandLine::getHelpViewProgress()
   return getProgressBarProgressForState( PROGRESSBAR_HELP );
 }
 
-void SC_MainWindowCommandLine::setSiteLoadProgress( int value, QString format,
-                                                    QString toolTip )
-{
-  updateProgress( PROGRESSBAR_SITE, value, format, toolTip );
-}
-
-int SC_MainWindowCommandLine::getSiteProgress()
-{
-  return getProgressBarProgressForState( PROGRESSBAR_SITE );
-}
-
 QString SC_MainWindowCommandLine::commandLineText()
 {
   // gets commandline text for the current tab
@@ -239,6 +228,7 @@ void SC_MainWindowCommandLine::initTextStrings()
       "Cancel ALL simulations, including what is queued" );
   text_save = tr( "Save!" );
   text_import = tr( "Import!" );
+  text_spellquery = tr( "Query!" );
   text_prev = tr( "<" );
   text_next = tr( ">" );
   text_prev_tooltip = tr( "Backwards" );
@@ -309,6 +299,7 @@ void SC_MainWindowCommandLine::initDefaultStates()
       }
     }
   }
+  setText( IDLE, CMDLINE_TAB_SPELLQUERY, BUTTON_MAIN, &text_spellquery );
 }
 
 void SC_MainWindowCommandLine::initImportStates()
@@ -370,8 +361,6 @@ void SC_MainWindowCommandLine::initProgressBarStates()
     // battlenet: battlenet has its own state
     setProgressBarState( state, CMDLINE_TAB_BATTLE_NET,
                          PROGRESSBAR_BATTLE_NET );
-    // site: has its own state
-    setProgressBarState( state, CMDLINE_TAB_SITE, PROGRESSBAR_SITE );
     // help: has its own state
     setProgressBarState( state, CMDLINE_TAB_HELP, PROGRESSBAR_HELP );
   }
@@ -399,9 +388,6 @@ void SC_MainWindowCommandLine::initCommandLineBuffers()
     // battlenet has its own buffer (for url)
     setText( state, CMDLINE_TAB_BATTLE_NET, TEXTEDIT_CMDLINE,
              &commandLineBuffer_TAB_BATTLE_NET );
-    // site has its own buffer (for url)
-    setText( state, CMDLINE_TAB_SITE, TEXTEDIT_CMDLINE,
-             &commandLineBuffer_TAB_SITE );
     // help has its own buffer (for url)
     setText( state, CMDLINE_TAB_HELP, TEXTEDIT_CMDLINE,
              &commandLineBuffer_TAB_HELP );
@@ -571,10 +557,15 @@ void SC_MainWindowCommandLine::createCommandLine( state_e state,
   progressBar->setMaximum( 100 );
   progressBar->setMaximumWidth( 200 );
   progressBar->setMinimumWidth( 150 );
+  QFont override_font = QFont();
+  override_font.setPixelSize( 20 );
+
+  commandLineEdit -> setFont( override_font );
 
   QFont progressBarFont( progressBar->font() );
-  progressBarFont.setPointSize( 11 );
+  progressBarFont.setPointSize( 14 );
   progressBar->setFont( progressBarFont );
+  progressBar->setStyleSheet( QString::fromUtf8( "text-align: center;" ) );
 
   parentLayout->addWidget( progressBar );
 }
@@ -638,6 +629,9 @@ void SC_MainWindowCommandLine::emitSignal( QString* text )
     } else if ( text == text_queue )
     {
       emit( queueClicked() );
+    } else if ( text == text_spellquery )
+    {
+      emit( queryClicked() );
     } else if ( text == text_save )
     {
       switch ( current_tab )

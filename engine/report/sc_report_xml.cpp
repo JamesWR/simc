@@ -986,17 +986,22 @@ void print_xml_summary( sim_t* sim, xml_writer_t & writer, sim_report_informatio
   writer.begin_tag( "charts" );
 
   highchart::bar_chart_t raid_dps( "raid_dps", sim );
-  writer.begin_tag( "chart" );
-  writer.print_attribute( "type", "raid_dps" );
-  writer.print_text( chart::generate_raid_aps( raid_dps, sim, true ).to_xml() );
-  writer.end_tag( "chart" );
+  if ( chart::generate_raid_aps( raid_dps, sim, "dps" ) )
+  {
+    writer.begin_tag( "chart" );
+    writer.print_attribute( "type", "raid_dps" );
+    writer.print_text( raid_dps.to_xml() );
+    writer.end_tag( "chart" );
+  }
 
-  highchart::bar_chart_t raid_gps( "raid_gps", sim );
-  writer.begin_tag( "chart" );
-  writer.print_attribute( "type", "raid_gps" );
-  writer.print_text( chart::generate_raid_aps( raid_gps, sim, false ).to_xml() );
-  writer.end_tag( "chart" );
-
+  highchart::bar_chart_t raid_hps( "raid_hps", sim );
+  if ( chart::generate_raid_aps( raid_hps, sim, "hps" ) )
+  {
+    writer.begin_tag( "chart" );
+    writer.print_attribute( "type", "raid_hps" );
+    writer.print_text( raid_hps.to_xml() );
+    writer.end_tag( "chart" );
+  }
 
   size_t count = ri.gear_charts.size();
   for ( size_t i = 0; i < count; i++ )

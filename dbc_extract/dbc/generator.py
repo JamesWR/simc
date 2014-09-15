@@ -223,6 +223,7 @@ class SpecializationEnumGenerator(DataGenerator):
             [],
         ]
         
+        spec_to_idx_map = [ ]
         max_specialization = 0
         for spec_id, spec_data in self._chrspecialization_db.iteritems():
             if spec_data.class_id > 0:
@@ -233,6 +234,11 @@ class SpecializationEnumGenerator(DataGenerator):
 
                 if spec_data.spec_id > max_specialization:
                     max_specialization = spec_data.spec_id
+
+                if len(spec_to_idx_map) < spec_id + 1:
+                    spec_to_idx_map += [ -1 ] * ( ( spec_id - len(spec_to_idx_map) ) + 1 )
+
+                spec_to_idx_map[ spec_id ] = spec_data.spec_id
             else:
                 spec_name = 'PET_%s' % (
                     spec_data.name.upper().replace(" ", "_")
@@ -264,12 +270,25 @@ class SpecializationEnumGenerator(DataGenerator):
                 spec_arr.append('%s' % enum_ids[cls][spec]['name'])
         s += '};\n\n'
 
+        spec_idx_str = ''
+        for i in xrange(0, len(spec_to_idx_map)):
+            if i % 25 == 0:
+                spec_idx_str += '\n  '
+
+            spec_idx_str += '%2d' % spec_to_idx_map[i]
+            if i < len(spec_to_idx_map) - 1:
+                spec_idx_str += ','
+                if (i + 1) % 25 != 0:
+                    spec_idx_str += ' '
+
         # Ugliness abound, but the easiest way to iterate over all specs is this ...
         s += 'namespace specdata {\n';
         s += 'static const unsigned n_specs = %u;\n' % len(spec_arr);
         s += 'static const specialization_e __specs[%u] = {\n  %s\n};\n\n' % (len(spec_arr), ', \n  '.join(spec_arr))
+        s += 'static const int __idx_specs[%u] = {%s\n};\n\n' % (len(spec_to_idx_map), spec_idx_str)
         s += 'inline unsigned spec_count()\n{ return n_specs; }\n\n';
         s += 'inline specialization_e spec_id( unsigned idx )\n{ assert( idx < n_specs ); return __specs[ idx ]; }\n\n'
+        s += 'inline int spec_idx( specialization_e spec )\n{ assert( spec < %d ); return __idx_specs[ spec ]; }\n\n' % len(spec_to_idx_map)
         s += '}\n'
                
         return s
@@ -493,8 +512,12 @@ class CombatRatingsDataGenerator(DataGenerator):
                         'Spell hit',    'Melee crit',   'Ranged crit', 'Spell crit', 'PvP Resilience',
                         'Melee haste',  'Ranged haste', 'Spell haste', 'Expertise',  'Mastery',
                         'PvP Power',    'Multistrike',  'Readiness',
-                        'Damage Versatility', 'Healing Versatility', 'Mitigation Versatility' ]
-    _combat_rating_ids = [ 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 17, 18, 19, 23, 25, 26, 11, 12, 28, 29, 30 ]
+                        'Damage Versatility', 'Healing Versatility', 'Mitigation Versatility', 'Leech' ]
+    _combat_rating_ids = [ 2, 3, 4, 5, 6,
+                           7, 8, 9, 10, 15, 
+                           17, 18, 19, 23, 25, 
+                           26, 11, 12, 
+                           28, 29, 30, 16 ]
     def __init__(self, options):
         # Hardcode these, as we need two different kinds of databases for output, using the same combat rating ids
         self._dbc = [ 'gtCombatRatings' ]
@@ -845,7 +868,7 @@ class ItemDataGenerator(DataGenerator):
                             continue
 
                         # Grants armor, stats, or rating
-                        if not spell.has_effect('sub_type', [13, 22, 29, 99, 189]):
+                        if not spell.has_effect('sub_type', [13, 22, 29, 99, 189, 465]):
                             continue
 
                         filter_ilevel = False
@@ -867,6 +890,17 @@ class ItemDataGenerator(DataGenerator):
                    filter_ilevel = False 
                 else:
                     continue
+            # Hunter scopes and whatnot
+            elif classdata.classs == 7:
+                if classdata.has_value('subclass', 3):
+                    for item_effect in data.spells:
+                        spell = self._spell_db[item_effect.id_spell]
+                        for effect in spell._effects:
+                            if not effect:
+                                continue
+
+                            if effect.type == 53:
+                                filter_ilevel = False
             # Only very select quest-item permanent item enchantments
             elif classdata.classs == 12:
                 valid = False
@@ -1243,11 +1277,15 @@ class SpellDataGenerator(DataGenerator):
          105617,                    # Alchemist's Flask
          137596,                    # Capacitance
          104510, 104423,            # Windsong Mastery / Haste buffs
+         156060, 156055, 173287,    # Hunter Scopes
+         177172, 177175, 177176,    # WoD Legendary ring, phase 1(?)
+         177161, 177159, 177160,    # WoD Legendary ring, phase 1(?)
         ),
         
         # Warrior:
         (
             ( 118340, 0 ),          # Impending Victory Heal
+            ( 58385,  0 ),          # Glyph of Hamstring
             ( 118779, 0, False ),   # Victory Rush heal is not directly activatable
             ( 144500, 0 ),          # T16 tank 4pc proc
             ( 156321, 0 ),          # Shield Charge for Gladiator Stance
@@ -1282,6 +1320,9 @@ class SpellDataGenerator(DataGenerator):
           ( 82928, 0 ), # Aimed Shot Master Marksman
           ( 131900, 0 ), # Murder of Crows damage spell
           ( 138374, 5 ), # T15 2pc nuke
+          ( 168811, 0 ), # Sniper Training
+          ( 171454, 0 ), # Chimaera Shot - Frost
+          ( 171457, 0 ), # Chimaera Shot - Nature
         ),
           
         # Rogue:
@@ -1294,6 +1335,11 @@ class SpellDataGenerator(DataGenerator):
             ( 89775, 0, False ),    # Hemorrhage damage is not directy activatable
             ( 86392, 0, False ),    # Main Gauche false positive for activatable
             ( 145211, 0 ),          # Subtlety Tier16 4PC proc
+            ( 168908, 0 ),          # Sinister Calling: Hemorrhage
+            ( 168952, 0 ),          # Sinister Calling: Crimson Tempest
+            ( 168971, 0 ),          # Sinister Calling: Garrote
+            ( 168963, 0 ),          # Sinister Calling: Rupture
+            ( 115189, 0 ),          # Anticipation buff
         ),  
         
         # Priest:
@@ -1346,8 +1392,11 @@ class SpellDataGenerator(DataGenerator):
           ( 8034, 0, False ),                           # Frostbrand false positive for activatable
           ( 145002, 0, False ),                         # Lightning Elemental nuke
           ( 157348, 5 ), ( 157331, 5 ),                 # Storm elemental spells
-          ( 168553, 0 ),                                # Electrical Charge
-          ( 168554, 0 ),                                # Rising Heat
+          ( 159101, 0 ), ( 159105, 0 ), ( 159103, 0 ),  # Echo of the Elements spec buffs
+          ( 157766, 0 ),                                # Improved Chain Lightning visible buff
+          ( 173184, 0 ), ( 173185, 0 ), ( 173186, 0 ),  # Elemental Blast buffs
+          ( 173183, 0 ),                                # Elemental Blast buffs
+          ( 170512, 0 ),                                # Feral Spirit windfury (t17 enhance 4pc set bonus)
         ),
         
         # Mage:
@@ -1362,6 +1411,8 @@ class SpellDataGenerator(DataGenerator):
           ( 115757, 0, False ),                                   # Frost Nova false positive for activatable
           ( 145264, 0 ),                                          # T16 Frigid Blast
           ( 148022, 0 ),                                          # Icicle
+          ( 155152, 5 ),                                          # Prismatic Crystal nuke
+          ( 157978, 0 ), ( 157979, 0 ), ( 157977, 0 ),            # Unstable magic aoe
         ), 
         
         # Warlock:
@@ -1400,11 +1451,13 @@ class SpellDataGenerator(DataGenerator):
             ( 109468, 0 ),
             ( 104225, 0 ),
             ( 89653, 0 ),         # Drain Life heal
+            ( 157698, 1 ),        # Soulburn: Haunt buff
         ),
         
         # Monk:
         ( ( 118864, 3 ), # Combo Breaker: Tiger Palm
-          ( 116768, 3 ), # Combo Breaker: Blackout Kick 
+          ( 116768, 3 ), # Combo Breaker: Blackout Kick
+          ( 159407, 3 ), # Combo Breaker: Chi Explosion
           ( 108557, 1, False ), # Brewmaster Jab
           ( 126890, 0, False ), # Eminence false positives for activatable abilities
           ( 117895, 0, False ),
@@ -1415,6 +1468,7 @@ class SpellDataGenerator(DataGenerator):
           ( 106996, 1, True ), # Astral Storm
           ( 112071, 1, True ), # Celestial Alignment
           ( 110621, 0, True ), # Symbiosis spells
+          ( 122114, 1, True ), # Chosen of Elune
           ( 122283, 0, True ),
           ( 110807, 0, True ),
           ( 112997, 0, True ),
@@ -1435,6 +1489,7 @@ class SpellDataGenerator(DataGenerator):
 	  ( 165432, 0 ),       # tier17_4pc_melee
 	  ( 166638, 0 ),       # tier17_4pc_melee debuff
 	  ( 166639, 0 ),       # tier17_4pc_melee proc driver
+	  ( 177969, 0 ),       # tier17_4pc_tank buff
         ), 
     ]
 
@@ -2036,7 +2091,9 @@ class SpellDataGenerator(DataGenerator):
                 continue
 
             # Consumables, Flasks, Elixirs, Potions, Food & Drink, Permanent Enchants
-            if classdata.classs != 12 and (classdata.classs != 0 or classdata.subclass not in [1, 2, 3, 5, 6]):
+            if classdata.classs != 12 and \
+               (classdata.classs != 7 or classdata.subclass not in [3]) and \
+               (classdata.classs != 0 or classdata.subclass not in [1, 2, 3, 5, 6]):
                 continue
             
             # Grab relevant spells from quest items, this in essence only 
@@ -2062,7 +2119,7 @@ class SpellDataGenerator(DataGenerator):
 
                     # Potions and Elixirs need to apply attributes, rating or
                     # armor
-                    if classdata.has_value('subclass', [1, 2, 3]) and spell.has_effect('sub_type', [13, 22, 29, 99, 189]):
+                    if classdata.has_value('subclass', [1, 2, 3]) and spell.has_effect('sub_type', [13, 22, 29, 99, 189, 465]):
                         self.process_spell(spell.id, ids, 0, 0)
                     # Food needs to have a periodically triggering effect
                     # (presumed to be always a stat giving effect)
@@ -2071,6 +2128,17 @@ class SpellDataGenerator(DataGenerator):
                     # Permanent enchants
                     elif classdata.has_value('subclass', 6):
                         self.process_spell(spell.id, ids, 0, 0)
+            # Hunter scopes and whatnot
+            elif classdata.classs == 7:
+                if classdata.has_value('subclass', 3):
+                    for item_effect in data.spells:
+                        spell = self._spell_db[item_effect.id_spell]
+                        for effect in spell._effects:
+                            if not effect:
+                                continue
+
+                            if effect.type == 53:
+                                self.process_spell(spell.id, ids, 0, 0)
         
         # Item sets, loop through ItemSet.dbc getting class-specific tier sets and add 
         # their bonuses to the spell list
@@ -2097,6 +2165,18 @@ class SpellDataGenerator(DataGenerator):
                     continue
 
                 self.process_spell(item_set_bonus.id_spell, ids, mask_class_category, 0)
+
+        # PVP Set bonuses, and then some
+        for id, set_spell_data in self._itemsetspell_db.iteritems():
+            itemset = self._itemset_db[set_spell_data.id_item_set]
+            if 'Gladiator' not in itemset.name:
+                continue
+
+            # Only wod pvp spells
+            if set_spell_data.unk_wod_1 == 0:
+                continue
+
+            self.process_spell(set_spell_data.id_spell, ids, 0, 0)
 
         # Glyph effects, need to do trickery here to get actual effect from spellbook data
         for ability_id, ability_data in self._skilllineability_db.iteritems():
@@ -3297,14 +3377,36 @@ class SetBonusListGenerator(DataGenerator):
             2980: 14
     }
 
-    def __init__(self, options):
-        self._dbc = [ 'ItemSet', 'ItemSetSpell', 'Spell', 'ChrSpecialization' ]
+    # Older set bonuses (T16 and before) need to be mapped to "roles" in
+    # simulationcraft (for backwards compatibility reasons, and because set
+    # bonuses were not "spec specific" before Warlords of Draenor). We can use
+    # the specialization roles for healer and tank, however simulationcraft
+    # makes a distinction between "caster" and "melee" roles, so the DPS
+    # specialization role in the client has to be split into two, by spec.
+    #
+    # Use Blizzard's "dps" spec type (2) as "melee", and add 3 as the "caster"
+    # version. All of this is only relevant to backwards support our
+    # "tierxx_ypc_zzzz" options, where zzzz is the role. Tier17 onwards, set
+    # bonuses are spec specific, and we can simply enable/disable bonuses.
+    role_map = {
+            # Balance Druid
+            102: 3,
+            # Mage specs
+            62 : 3, 63: 3, 64: 3,
+            # Shadow Priest
+            258: 3,
+            # Elemental Shaman
+            262: 3,
+            # Warlock specs
+            265: 3, 266: 3, 267: 3
+    }
 
-        self._regex = re.compile(r'^Item\s+-\s+(.+)\s+T([0-9]+)\s+([A-z\s]*)\s*([0-9]+)P')
+    def __init__(self, options):
+        self._dbc = [ 'ItemSet', 'ItemSetSpell', 'Spell', 'ChrSpecialization', 'Item-sparse', 'ItemNameDescription' ]
+
+        self._regex = re.compile(r'^Item\s+-\s+(.+)\s+T([0-9]+)\s+([A-z\s]*)\s*([0-9]+)P\s+Bonus')
 
         DataGenerator.__init__(self, options)
-
-        # Generate a class -> spec_type -> spec_ids list
 
     def initialize(self):
         DataGenerator.initialize(self)
@@ -3321,71 +3423,167 @@ class SetBonusListGenerator(DataGenerator):
 
         return True
 
+    def derive_specs(self, class_, name):
+        specs = []
+        spec_added = False
+        roles = set()
+        for spec_id, spec_data in self._chrspecialization_db.iteritems():
+            if class_ == spec_data.class_id and spec_data.name in name:
+                spec_added = True
+                specs.append(spec_id)
+                roles.add(SetBonusListGenerator.role_map.get(spec_id, spec_data.spec_type))
+
+        # If we could not figure out specs from spec specific words, use
+        # some generic things and blizzard typoes .. sigh .. to massage
+        # things a bit
+        if not spec_added:
+            if name == 'Tank':
+                specs = self.spec_type_map[class_][0]
+                roles.add(0)
+            elif name in ['DPS', 'Melee']:
+                specs = self.spec_type_map[class_][2]
+                roles.add(SetBonusListGenerator.role_map.get(specs[0], 2))
+            elif name in ['Healer', 'Healing']:
+                specs = self.spec_type_map[class_][1]
+                roles.add(1)
+            # Pure DPS classes can have empty string, in which case just
+            # slap in all specs for the class
+            elif len(name) == 0:
+                specs = self.spec_type_map[class_][2]
+                roles.add(SetBonusListGenerator.role_map.get(specs[0], 2))
+            # Sigh ...
+            elif name == 'Enhancment':
+                specs = [ 263, ]
+                roles.add(2)
+            else:
+                print >>sys.stderr, "Found set bonus spell '%s' that does not match Blizzard set bonus spell template" % name
+
+        return specs, list(roles)[0]
+
     def filter(self):
-        # Make a set bonus spell id <-> tier number map so we can .. "fix" some things.
-        self.tier_id_map = {}
         data = []
-        for item_set_spell_id, item_set_spell_data in self._itemsetspell_db.iteritems():
-            spell_data = self._spell_db[item_set_spell_data.id_spell]
+        for id, set_spell_data in self._itemsetspell_db.iteritems():
+            spell_data = self._spell_db[set_spell_data.id_spell]
 
             mobj = self._regex.match(spell_data.name)
             if not mobj:
                 continue
 
+            set_spell_id = set_spell_data.id_spell
             set_class = self._class_map[mobj.group(1)]
             set_tier_derived = int(mobj.group(2))
             set_tier_spec_string = mobj.group(3).strip()
             set_tier_bonus_derived = int(mobj.group(4))
             set_spec = 0
+            set_role = -1
 
-            if item_set_spell_data.id in SetBonusListGenerator.tier_spell_map:
-                set_tier_derived = SetBonusListGenerator.tier_spell_map[item_set_spell_data.id]
+            if id in SetBonusListGenerator.tier_spell_map:
+                set_tier_derived = SetBonusListGenerator.tier_spell_map[id]
 
             set_spec_arr_derived = []
 
-            if item_set_spell_data.unk_wod_1 == 0:
-                spec_added = False
-                for spec_id, spec_data in self._chrspecialization_db.iteritems():
-                    if set_class == spec_data.class_id and spec_data.name in set_tier_spec_string:
-                        spec_added = True
-                        set_spec_arr_derived.append(spec_id)
-
-                # If we could not figure out specs from spec specific words, use
-                # some generic things and blizzard typoes .. sigh .. to massage
-                # things a bit
-                if not spec_added:
-                    if set_tier_spec_string == 'Tank':
-                        set_spec_arr_derived = self.spec_type_map[set_class][0]
-                    elif set_tier_spec_string in ['DPS', 'Melee']:
-                        set_spec_arr_derived = self.spec_type_map[set_class][2]
-                    elif set_tier_spec_string in ['Healer', 'Healing']:
-                        set_spec_arr_derived = self.spec_type_map[set_class][1]
-                    # Pure DPS classes can have empty string, in which case just
-                    # slap in all specs for the class
-                    elif len(set_tier_spec_string) == 0:
-                        set_spec_arr_derived = self.spec_type_map[set_class][2]
-                    # Sigh ...
-                    elif set_tier_spec_string == 'Enhancment':
-                        set_spec_arr_derived = [ 263, ]
-                    else:
-                        print >>sys.stderr, "Found set bonus spell '%s' that does not match Blizzard set bonus spell template" % spell_data.name
+            if set_spell_data.unk_wod_1 == 0:
+                set_spec_arr_derived, set_role = self.derive_specs(set_class, set_tier_spec_string)
             # We have a spec. Figure out class from it too and stop guessing by
             # name.
             else:
-                set_spec = item_set_spell_data.unk_wod_1
+                set_spec = set_spell_data.unk_wod_1
                 for spec_id, spec_data in self._chrspecialization_db.iteritems():
-                    if spec_id == item_set_spell_data.unk_wod_1:
+                    if spec_id == set_spec:
                         set_class = spec_data.class_id
+                        set_role = SetBonusListGenerator.role_map.get(spec_id, spec_data.spec_type)
                         break
                 set_spec_arr_derived.append(0)
 
             data.append({
                 'derived_class': set_class,
                 'derived_tier' : set_tier_derived,
+                'derived_spell': set_spell_id,
                 'derived_bonus': set_tier_bonus_derived,
                 'derived_specs': set_spec_arr_derived,
                 'spec'         : set_spec,
-                'set_bonus_id' : item_set_spell_id })
+                'role'         : set_role,
+                'set_id'       : set_spell_data.id_item_set,
+                'set_bonus_id' : id })
+
+        # Check for new set bonuses that have no defined ItemSetSpell/ItemSet
+        # entries yet. These are wild guesses and will _never_ overwrite data
+        # that already exists in the results
+        for id, spell_data in self._spell_db.iteritems():
+            mobj = self._regex.match(spell_data.name)
+            if not mobj:
+                continue
+
+            set_spell_id = id
+            set_class = self._class_map[mobj.group(1)]
+            set_tier_derived = int(mobj.group(2))
+            set_tier_spec_string = mobj.group(3).strip()
+            set_tier_bonus_derived = int(mobj.group(4))
+            set_role = -1
+
+            if id in SetBonusListGenerator.tier_spell_map:
+                set_tier_derived = SetBonusListGenerator.tier_spell_map[id]
+
+            set_spec_arr_derived, set_role = self.derive_specs(set_class, set_tier_spec_string)
+
+            found = False
+            for entry in data:
+                if entry['derived_class'] == set_class and \
+                   entry['derived_tier'] == set_tier_derived and \
+                   entry['derived_bonus'] == set_tier_bonus_derived:
+                    found = True
+
+                    # Do the spec check spearately. It will need to flip the found to
+                    # False if the specs dont match reasonably.
+                    if found:
+                        if entry['spec'] > 0 and set_spec_arr_derived[0] != entry['spec']:
+                            found = False
+                        elif entry['spec'] == 0 and set_spec_arr_derived != entry['derived_specs']:
+                            found = False
+
+                    if found:
+                        break
+
+            if found:
+                continue
+
+            data.append({
+                'derived_class': set_class,
+                'derived_tier' : set_tier_derived,
+                'derived_spell': set_spell_id,
+                'derived_bonus': set_tier_bonus_derived,
+                'derived_specs': set_spec_arr_derived,
+                'spec'         : 0,
+                'role'         : set_role,
+                'set_id'       : 0,
+                'set_bonus_id' : 0 })
+
+
+        # PvP stuff very unfinished
+        pvp_bonuses = {}
+        for id, set_spell_data in self._itemsetspell_db.iteritems():
+            itemset = self._itemset_db[set_spell_data.id_item_set]
+            if 'Gladiator' not in itemset.name:
+                continue
+
+            if set_spell_data.unk_wod_1 == 0:
+                continue
+
+            spec_data = self._chrspecialization_db[set_spell_data.unk_wod_1]
+            pvp_bonuses[(set_spell_data.unk_wod_1, set_spell_data.n_req_items)] = {
+                'derived_class' : spec_data.class_id,
+                'derived_tier'  : 0,
+                'derived_spell' : set_spell_data.id_spell,
+                'derived_bonus' : set_spell_data.n_req_items,
+                'derived_specs' : [ 0 ],
+                'spec'          : set_spell_data.unk_wod_1,
+                'role'          : SetBonusListGenerator.role_map.get(spec_id, spec_data.spec_type),
+                'set_id'        : itemset.id,
+                'set_bonus_id'  : id
+            }
+
+        for spec, pvp_data in pvp_bonuses.iteritems():
+            data.append(pvp_data)
 
         return data
 
@@ -3430,21 +3628,39 @@ class SetBonusListGenerator(DataGenerator):
             entry = ids[data_idx]
 
             if data_idx % 25 == 0:
-                s += '  //%45s, Tier, Bns, Cls, %20s, Spec,  Spell, Items\n' % ('Tier name', 'Derived Spec')
+                s += '  //%45s, SetID, Tier, Bns, Cls, %20s, Role, Spec,  Spell, Items\n' % ('Tier name', 'Derived Spec')
 
-            item_set_spell = self._itemsetspell_db[entry['set_bonus_id']]
-            item_set = self._itemset_db[item_set_spell.id_item_set]
+            item_set_spell = None
+            if entry['set_bonus_id'] > 0 :
+                item_set_spell = self._itemsetspell_db[entry['set_bonus_id']]
+
+            spec = 0
             set_bonus = entry['derived_bonus']
-            if item_set_spell.n_req_items != set_bonus:
-                print >>sys.stderr, 'Discrepancy between set bonuses for %s, derived %u, data %u' % (
-                        item_set.name, set_bonus, item_set_spell.n_req_items )
-                set_bonus = item_set_spell.n_req_items
-
+            spell_id = entry['derived_spell']
+            item_set_str = ""
             items = []
-            for item_n in xrange(1, 17):
-                item_id = getattr(item_set, 'id_item_%d' % item_n)
-                if item_id > 0:
-                    items.append('%6u' % item_id)
+            role = entry['role']
+            if item_set_spell:
+                spec = item_set_spell.unk_wod_1
+                item_set = self._itemset_db[item_set_spell.id_item_set]
+                item_set_str = item_set.name
+                if item_set_spell.n_req_items != set_bonus:
+                    print >>sys.stderr, 'Discrepancy between set bonuses for %s, derived %u, data %u' % (
+                            item_set.name, set_bonus, item_set_spell.n_req_items )
+                    set_bonus = item_set_spell.n_req_items
+
+                for item_n in xrange(1, 17):
+                    item_id = getattr(item_set, 'id_item_%d' % item_n)
+                    if item_id > 0:
+                        items.append('%6u' % item_id)
+            else:
+                spec_str = ''
+                if len(entry['derived_specs']) == 1:
+                    spec_str = ' %s' % self._chrspecialization_db[entry['derived_specs'][0]].name
+                item_set_str = '[PH] %s%s T%d %dP Bonus' % (
+                        DataGenerator._class_names[entry['derived_class']],
+                        spec_str,
+                        entry['derived_tier'], entry['derived_bonus'] )
 
             if len(items) < 17:
                 items.append(' 0')
@@ -3456,14 +3672,16 @@ class SetBonusListGenerator(DataGenerator):
 
             spec_str += '0'
 
-            s += '  { %-45s, %4u, %3u, %3u, %20s, %4u, %6u, %s },\n' % (
-                '"%s"' % item_set.name.replace('"', '\\"'),
+            s += '  { %-45s, %5u, %4u, %3u, %3u, %20s, %4u, %4u, %6u, %s },\n' % (
+                '"%s"' % item_set_str.replace('"', '\\"'),
+                entry['set_id'],
                 entry['derived_tier'],
                 set_bonus,
                 entry['derived_class'],
                 '{ %s }' % spec_str,
-                item_set_spell.unk_wod_1,
-                item_set_spell.id_spell,
+                role,
+                spec,
+                spell_id,
                 '{ %s }' % (', '.join(items))
             )
 
@@ -3917,4 +4135,71 @@ class GemPropertyDataGenerator(DataGenerator):
 
         s += '};\n\n'
 
+        return s
+
+class ItemBonusDataGenerator(DataGenerator):
+    def __init__(self, options):
+        self._dbc = [ 'ItemBonus', 'ItemBonusTreeNode', 'ItemXBonusTree' ]
+        DataGenerator.__init__(self, options)
+
+    def generate(self, ids):
+        # Bonus trees
+        
+        data_str = "%sitem_bonus_tree%s" % (
+            self._options.prefix and ('%s_' % self._options.prefix) or '',
+            self._options.suffix and ('_%s' % self._options.suffix) or '',
+        )
+
+        s = '#define %s_SIZE (%d)\n\n' % (data_str.upper(), len(self._itembonustreenode_db.keys()) + 1)
+
+        s += '// Item bonus trees, wow build %d\n' % ( self._options.build )
+
+        s += 'static struct item_bonus_tree_entry_t __%s_data[%s_SIZE] = {\n' % (data_str, data_str.upper())
+
+        for key in sorted(self._itembonustreenode_db.keys()) + [0,]:
+            data = self._itembonustreenode_db[key]
+
+            fields = data.field('id', 'id_tree', 'index', 'id_child', 'id_node')
+            s += '  { %s },\n' % (', '.join(fields))
+
+        s += '};\n\n'
+        
+        # Bonus definitions
+
+        data_str = "%sitem_bonus%s" % (
+            self._options.prefix and ('%s_' % self._options.prefix) or '',
+            self._options.suffix and ('_%s' % self._options.suffix) or '',
+        )
+
+        s += '#define %s_SIZE (%d)\n\n' % (data_str.upper(), len(self._itembonus_db.keys()) + 1)
+        s += '// Item bonuses, wow build %d\n' % ( self._options.build )
+
+        s += 'static struct item_bonus_entry_t __%s_data[%s_SIZE] = {\n' % (data_str, data_str.upper())
+
+        for key in sorted(self._itembonus_db.keys()) + [0,]:
+            data = self._itembonus_db[key]
+            fields = data.field('id', 'id_node', 'type', 'val1', 'val2', 'index')
+            s += '  { %s },\n' % (', '.join(fields))
+
+        s += '};\n\n'
+        
+        # Item bonuses (unsure as of yet if we need this, depends on how
+        # Blizzard exports the bonus id to third parties)
+        data_str = "%sitem_bonus_map%s" % (
+            self._options.prefix and ('%s_' % self._options.prefix) or '',
+            self._options.suffix and ('_%s' % self._options.suffix) or '',
+        )
+
+        s += '#define %s_SIZE (%d)\n\n' % (data_str.upper(), len(self._itemxbonustree_db.keys()) + 1)
+        s += '// Item bonus map, wow build %d\n' % ( self._options.build )
+
+        s += 'static struct item_bonus_node_entry_t __%s_data[%s_SIZE] = {\n' % (data_str, data_str.upper())
+
+        for key in sorted(self._itemxbonustree_db.keys()) + [0,]:
+            data = self._itemxbonustree_db[key]
+            fields = data.field('id', 'id_item', 'id_tree')
+            s += '  { %s },\n' % (', '.join(fields))
+
+        s += '};\n\n'
+        
         return s

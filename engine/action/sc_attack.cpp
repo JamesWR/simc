@@ -33,15 +33,6 @@ attack_t::attack_t( const std::string&  n,
 void attack_t::execute()
 {
   action_t::execute();
-
-  if ( harmful && callbacks )
-  {
-    result_e r = execute_state ? execute_state -> result : RESULT_NONE;
-    if ( r != RESULT_NONE )
-    {
-      action_callback_t::trigger( player -> callbacks.attack[ execute_state -> result ], this, execute_state );
-    }
-  }
 }
 
 // attack_t::execute_time ===================================================
@@ -56,6 +47,46 @@ timespan_t attack_t::execute_time() const
 
   //sim -> output( "%s execute_time=%f base_execute_time=%f execute_time=%f", name(), base_execute_time * swing_haste(), base_execute_time, swing_haste() );
   return base_execute_time * player -> cache.attack_speed();
+}
+
+dmg_e attack_t::amount_type( const action_state_t* /* state */, bool periodic ) const
+{
+  if ( periodic )
+    return DMG_OVER_TIME;
+  else
+    return DMG_DIRECT;
+}
+
+dmg_e attack_t::report_amount_type( const action_state_t* state ) const
+{
+  dmg_e result_type = state -> result_type;
+
+  if ( result_type == DMG_DIRECT )
+  {
+    // Direct ticks are direct damage, that are recorded as ticks
+    if ( direct_tick )
+      result_type = DMG_OVER_TIME;
+    // With direct damage, we need to check if this action is a tick action of
+    // someone. If so, then the damage should be recorded as periodic.
+    else
+    {
+      for ( size_t i = 0, end = stats -> action_list.size(); i < end; i++ )
+      {
+        if ( stats -> action_list.front() -> tick_action == this )
+        {
+          result_type = DMG_OVER_TIME;
+          break;
+        }
+      }
+    }
+  }
+  else if ( result_type == DMG_OVER_TIME )
+  {
+    if ( periodic_hit )
+      result_type = DMG_OVER_TIME;
+  }
+
+  return result_type;
 }
 
 // attack_t::miss_chance ====================================================
@@ -91,7 +122,6 @@ double attack_t::dodge_chance( double expertise, player_t* t ) const
 
   // subtract the player's expertise chance
   dodge -= expertise;
-
 
   return dodge;
 }

@@ -19,14 +19,13 @@ struct elixir_data_t
   elixir_type_e type;
   stat_e st;
   int stat_amount;
-  int mixology_stat_amount;
 };
 
 const elixir_data_t elixir_data[] =
 {
   // mop
-  { "mantid", ELIXIR_GUARDIAN, STAT_BONUS_ARMOR, 2250, 2730 },
-  { "mad_hozen", ELIXIR_BATTLE, STAT_CRIT_RATING, 750, 990 },
+  { "mantid", ELIXIR_GUARDIAN, STAT_BONUS_ARMOR, 256 },
+  { "mad_hozen", ELIXIR_BATTLE, STAT_CRIT_RATING, 85 },
 };
 
 struct food_data_t
@@ -159,53 +158,51 @@ const food_data_t food_data[] =
   { FOOD_YAK_CHEESE_CURDS,             STAT_HASTE_RATING,        11 },
 
   // WoD
-  { FOOD_BLACKROCK_BARBECUE,           STAT_CRIT_RATING,        150 },
+  { FOOD_BLACKROCK_BARBECUE,           STAT_CRIT_RATING,        75 },
 
-  { FOOD_BLACKROCK_HAM,                STAT_CRIT_RATING,        125 },
+  { FOOD_BLACKROCK_HAM,                STAT_CRIT_RATING,        50 },
 
-  { FOOD_BRAISED_BASILISK,             STAT_MASTERY_RATING,     125 },
+  { FOOD_BRAISED_BASILISK,             STAT_MASTERY_RATING,     50 },
 
-  { FOOD_CALAMARI_CREPES,              STAT_MULTISTRIKE_RATING, 150 },
+  { FOOD_CALAMARI_CREPES,              STAT_MULTISTRIKE_RATING, 75 },
 
-  { FOOD_CLEFTHOOF_POT_ROAST,          STAT_SPIRIT,             125 },
+  { FOOD_CLEFTHOOF_POT_ROAST,          STAT_SPIRIT,             50 },
 
-  { FOOD_CLEFTHOOF_SAUSAGES,           STAT_READINESS_RATING,   125 },
+  { FOOD_CLEFTHOOF_SAUSAGES,           STAT_VERSATILITY_RATING, 50 },
 
-  { FOOD_CRISPY_FRIED_SCORPION,        STAT_ARMOR,              125 },
+  { FOOD_CRISPY_FRIED_SCORPION,        STAT_BONUS_ARMOR,        50 },
 
-  { FOOD_DEEP_FRIED_BASILISK,          STAT_ARMOR,              125 },
+  { FOOD_DEEP_FRIED_BASILISK,          STAT_BONUS_ARMOR,        50 },
 
-  { FOOD_FAT_SLEEPER_CAKES,            STAT_MASTERY_RATING,     125 },
+  { FOOD_FAT_SLEEPER_CAKES,            STAT_MASTERY_RATING,     50 },
 
-  { FOOD_FIERY_CALAMARI,               STAT_MULTISTRIKE_RATING, 125 },
+  { FOOD_FIERY_CALAMARI,               STAT_MULTISTRIKE_RATING, 50 },
 
-  { FOOD_FROSTY_STEW,                  STAT_HASTE_RATING,       150 },
+  { FOOD_FROSTY_STEW,                  STAT_HASTE_RATING,       75 },
 
-  { FOOD_GORGROND_CHOWDER,             STAT_READINESS_RATING,   150 },
+  { FOOD_GORGROND_CHOWDER,             STAT_VERSATILITY_RATING, 75 },
 
-  { FOOD_GRILLED_GULPER,               STAT_CRIT_RATING,        125 },
+  { FOOD_GRILLED_GULPER,               STAT_CRIT_RATING,        50 },
 
-  { FOOD_HEARTY_ELEKK_STEAK,           STAT_STAMINA,            187 },
+  { FOOD_HEARTY_ELEKK_STEAK,           STAT_STAMINA,            75 },
 
-  { FOOD_NAGRAND_TEMPURA,              STAT_ARMOR,              150 },
+  { FOOD_NAGRAND_TEMPURA,              STAT_BONUS_ARMOR,        75 },
 
-  { FOOD_PAN_SEARED_TALBUK,            STAT_HASTE_RATING,       125 },
+  { FOOD_PAN_SEARED_TALBUK,            STAT_HASTE_RATING,       50 },
 
-  { FOOD_RYLAK_CREPES,                 STAT_MULTISTRIKE_RATING, 125 },
+  { FOOD_RYLAK_CREPES,                 STAT_MULTISTRIKE_RATING, 50 },
 
-  { FOOD_SALTED_SKULKER,               STAT_SPIRIT,             125 },
+  { FOOD_SALTED_SKULKER,               STAT_SPIRIT,             50 },
 
-  { FOOD_SLEEPER_SURPRISE,             STAT_MASTERY_RATING,     150 },
+  { FOOD_SLEEPER_SURPRISE,             STAT_MASTERY_RATING,     75 },
 
-  { FOOD_STARFLOWER_SANDWICH,          STAT_SPIRIT,             150 },
+  { FOOD_STARFLOWER_SANDWICH,          STAT_SPIRIT,             75 },
 
-  { FOOD_STEAMED_SCORPION,             STAT_STAMINA,            187 },
+  { FOOD_STEAMED_SCORPION,             STAT_STAMINA,            75 },
 
-  { FOOD_STURGEON_STEW,                STAT_HASTE_RATING,       125 },
+  { FOOD_STURGEON_STEW,                STAT_HASTE_RATING,       50 },
 
-  { FOOD_TALADOR_SURF_AND_TURF,        STAT_STAMINA,            225 },
-
-  { FOOD_WHIPTAIL_CHOWDER,             STAT_READINESS_RATING,   125 },
+  { FOOD_TALADOR_SURF_AND_TURF,        STAT_STAMINA,            112 },
 };
 
 struct flask_t : public action_t
@@ -396,7 +393,7 @@ struct elixir_t : public action_t
     }
     else
     {
-      double amount = ( player  -> profession[ PROF_ALCHEMY ] > 50 ) ? data -> mixology_stat_amount : data -> stat_amount;
+      double amount = data -> stat_amount;
       buff = stat_buff_creator_t( player, data -> name + "_elixir" )
              .duration( timespan_t::from_seconds( 60 * 60 ) ) // 1hr
              .add_stat( data -> st, amount );
@@ -516,7 +513,7 @@ struct food_t : public action_t
 
     double food_stat_multiplier = 1.0;
     if ( is_pandaren( p -> race ) )
-      food_stat_multiplier = 2.0;
+      food_stat_multiplier = 2.00;
 
     for ( size_t i = 0; i < sizeof_array( food_data ); ++i )
     {
@@ -641,7 +638,7 @@ struct food_t : public action_t
         break;
       case FOOD_FEAST_OF_BLOOD:
       case FOOD_FEAST_OF_THE_WATERS:
-        if ( gain_amount <= 0.0 ) gain_amount = 125;
+        if ( gain_amount <= 0.0 ) gain_amount = 50;
 
         if ( p -> current.stats.dodge_rating > 0 )
         {
@@ -801,117 +798,8 @@ struct health_stone_t : public heal_t
 };
 
 // ==========================================================================
-// Dark Rune
-// ==========================================================================
-
-struct dark_rune_t : public action_t
-{
-  int trigger;
-  int health;
-  int mana;
-
-  dark_rune_t( player_t* p, const std::string& options_str ) :
-    action_t( ACTION_USE, "dark_rune", p ), trigger( 0 ), health( 0 ), mana( 0 )
-  {
-    option_t options[] =
-    {
-      opt_int( "trigger", trigger ),
-      opt_int( "mana",    mana ),
-      opt_int( "health",  health ),
-      opt_null()
-    };
-    parse_options( options, options_str );
-
-    if ( mana    == 0 ) mana = trigger;
-    if ( trigger == 0 ) trigger = mana;
-    assert( mana > 0 && trigger > 0 );
-
-    cooldown = p -> get_cooldown( "rune" );
-    cooldown -> duration = timespan_t::from_minutes( 15 );
-
-    trigger_gcd = timespan_t::zero();
-    harmful = false;
-  }
-
-  virtual void execute()
-  {
-    if ( sim -> log ) sim -> out_log.printf( "%s uses Dark Rune", player -> name() );
-    player -> resource_gain( RESOURCE_MANA,   mana, player -> gains.dark_rune );
-    player -> resource_loss( RESOURCE_HEALTH, health );
-    update_ready();
-  }
-
-  virtual bool ready()
-  {
-    if ( player -> resources.current[ RESOURCE_HEALTH ] <= health )
-      return false;
-
-    if ( ( player -> resources.max    [ RESOURCE_MANA ] -
-           player -> resources.current[ RESOURCE_MANA ] ) < trigger )
-      return false;
-
-    return action_t::ready();
-  }
-};
-// ==========================================================================
 //  Potion Base
 // ==========================================================================
-
-struct potion_base_t : public action_t
-{
-  timespan_t pre_pot_time;
-  buff_t*    potion_buff;
-
-  potion_base_t( player_t* p, const std::string& n, buff_t* pb, const std::string& options_str ) :
-    action_t( ACTION_USE, n, p ),
-    pre_pot_time( timespan_t::from_seconds( 5.0 ) ),
-    potion_buff( pb )
-  {
-    assert( pb );
-
-    option_t options[] =
-    {
-      opt_timespan( "pre_pot_time", pre_pot_time ),
-      opt_null()
-    };
-    parse_options( options, options_str );
-
-    pre_pot_time = std::max( timespan_t::zero(), std::min( pre_pot_time, potion_buff -> buff_duration ) );
-
-    trigger_gcd = timespan_t::zero();
-    harmful = false;
-    cooldown = p -> get_cooldown( "potion" );
-    cooldown -> duration = potion_buff -> cooldown -> duration;
-    sim -> errorf( "Old style potion actions ('actions+=/jade_spirit_potion') are going away in WoD Simulationcraft. Please change action list to use 'actions+=/potion,name=jade_spirit' instead." );
-  }
-
-  virtual void execute()
-  {
-    if ( player -> in_combat )
-    {
-      potion_buff -> trigger();
-      player -> potion_used = true;
-    }
-    else
-    {
-      cooldown -> duration -= pre_pot_time;
-      potion_buff -> trigger( 1, buff_t::DEFAULT_VALUE(), potion_buff -> default_chance,
-                              potion_buff ->  buff_duration - pre_pot_time );
-    }
-
-    if ( sim -> log ) sim -> out_log.printf( "%s uses %s", player -> name(), name() );
-    update_ready();
-    cooldown -> duration = potion_buff -> cooldown -> duration;
-  }
-
-  virtual bool ready()
-  {
-    if ( player -> potion_used )
-      return false;
-
-    return action_t::ready();
-  }
-};
 
 struct dbc_potion_t : public action_t
 {
@@ -960,11 +848,18 @@ struct dbc_potion_t : public action_t
         std::string spell_name = spell -> name_cstr();
         util::tokenize( spell_name );
         buff_t* existing_buff = buff_t::find( p -> buff_list, spell_name );
-        assert( dynamic_cast< stat_buff_t* >( existing_buff ) && "Potion stat buff is not stat_buff_t" );
         if ( ! existing_buff )
           stat_buff = stat_buff_creator_t( p, spell_name, spell );
         else
+        {
+          assert( dynamic_cast< stat_buff_t* >( existing_buff ) && "Potion stat buff is not stat_buff_t" );
           stat_buff = static_cast< stat_buff_t* >( existing_buff );
+        }
+
+        id = spell -> id();
+        s_data = spell;
+
+        stats = player -> get_stats( spell_name, this );
         break;
       }
     }
@@ -1037,28 +932,11 @@ action_t* consumable::create_action( player_t*          p,
                                      const std::string& options_str )
 {
   if ( name == "potion"               ) return new   dbc_potion_t( p, options_str );
-  if ( name == "dark_rune"            ) return new    dark_rune_t( p, options_str );
   if ( name == "flask"                ) return new        flask_t( p, options_str );
   if ( name == "elixir"               ) return new       elixir_t( p, options_str );
   if ( name == "food"                 ) return new         food_t( p, options_str );
   if ( name == "health_stone"         ) return new health_stone_t( p, options_str );
   if ( name == "mana_potion"          ) return new  mana_potion_t( p, options_str );
-  if ( name == "mythical_mana_potion" ) return new  mana_potion_t( p, options_str );
-  if ( name == "speed_potion"         ) return new  potion_base_t( p, name, p -> potion_buffs.speed, options_str );
-  if ( name == "volcanic_potion"      ) return new  potion_base_t( p, name, p -> potion_buffs.volcanic, options_str );
-  if ( name == "earthen_potion"       ) return new  potion_base_t( p, name, p -> potion_buffs.earthen, options_str );
-  if ( name == "golemblood_potion"    ) return new  potion_base_t( p, name, p -> potion_buffs.golemblood, options_str );
-  if ( name == "tolvir_potion"        ) return new  potion_base_t( p, name, p -> potion_buffs.tolvir, options_str );
-  // new mop potions
-  if ( name == "jade_serpent_potion"  ) return new  potion_base_t( p, name, p -> potion_buffs.jade_serpent, options_str );
-  if ( name == "mountains_potion"     ) return new  potion_base_t( p, name, p -> potion_buffs.mountains, options_str );
-  if ( name == "mogu_power_potion"    ) return new  potion_base_t( p, name, p -> potion_buffs.mogu_power, options_str );
-  if ( name == "virmens_bite_potion"  ) return new  potion_base_t( p, name, p -> potion_buffs.virmens_bite, options_str );
-  // new wod potions
-  if ( name == "draenor_agility_potion"     ) return new  potion_base_t( p, name, p -> potion_buffs.draenor_agility, options_str );
-  if ( name == "draenor_armor_potion"       ) return new  potion_base_t( p, name, p -> potion_buffs.draenor_armor, options_str );
-  if ( name == "draenor_intellect_potion"   ) return new  potion_base_t( p, name, p -> potion_buffs.draenor_intellect, options_str );
-  if ( name == "draenor_strength_potion"    ) return new  potion_base_t( p, name, p -> potion_buffs.draenor_strength, options_str );
 
   return 0;
 }

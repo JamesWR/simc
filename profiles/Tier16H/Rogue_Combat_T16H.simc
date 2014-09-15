@@ -17,43 +17,39 @@ spec=combat
 
 actions.precombat=flask,type=spring_blossoms
 actions.precombat+=/food,type=sea_mist_rice_noodles
-actions.precombat+=/apply_poison,lethal=deadly
+actions.precombat+=/apply_poison,lethal=deadly,nonlethal=crippling
 # Snapshot raid buffed stats before combat begins and pre-potting is done.
 actions.precombat+=/snapshot_stats
 actions.precombat+=/potion,name=virmens_bite
 actions.precombat+=/stealth
-actions.precombat+=/marked_for_death,if=talent.marked_for_death.enabled
+actions.precombat+=/marked_for_death
 actions.precombat+=/slice_and_dice,if=talent.marked_for_death.enabled
 
 # Executed every time the actor is available.
 
 actions=potion,name=virmens_bite,if=buff.bloodlust.react|target.time_to_die<40
-actions+=/auto_attack
 actions+=/kick
-actions+=/preparation,if=!buff.vanish.up&cooldown.vanish.remains>60
 actions+=/blood_fury
 actions+=/berserking
 actions+=/arcane_torrent,if=energy<60
 actions+=/blade_flurry,if=(active_enemies>=2&!buff.blade_flurry.up)|(active_enemies<2&buff.blade_flurry.up)
-actions+=/shadow_reflection,if=talent.shadow_reflection.enabled
+actions+=/shadow_reflection,if=(cooldown.killing_spree.remains<10&combo_points>3)|buff.adrenaline_rush.up
 actions+=/ambush
-actions+=/vanish,if=time>10&(combo_points<3|(talent.anticipation.enabled&anticipation_charges<3))&((talent.shadow_focus.enabled&buff.adrenaline_rush.down&energy<20)|(talent.subterfuge.enabled&energy>=90)|(!talent.shadow_focus.enabled&!talent.subterfuge.enabled&energy>=60))
-actions+=/killing_spree,if=energy<50
+actions+=/killing_spree,if=energy<50&(!talent.shadow_reflection.enabled|cooldown.shadow_reflection.remains>30|buff.shadow_reflection.remains>3)
 actions+=/adrenaline_rush,if=energy<35
 actions+=/slice_and_dice,if=buff.slice_and_dice.remains<2|(buff.slice_and_dice.remains<15&buff.bandits_guile.stack=11&combo_points>=4)
-actions+=/marked_for_death,if=talent.marked_for_death.enabled&(combo_points<=1&dot.revealing_strike.ticking)
-actions+=/run_action_list,name=generator,if=combo_points<5|(talent.anticipation.enabled&anticipation_charges<=4&!dot.revealing_strike.ticking)
-actions+=/run_action_list,name=finisher,if=!talent.anticipation.enabled|buff.deep_insight.up|anticipation_charges>=4
-actions+=/run_action_list,name=generator,if=energy>60|buff.deep_insight.down|buff.deep_insight.remains>5-combo_points
+actions+=/marked_for_death,if=combo_points<=1&dot.revealing_strike.ticking&(!talent.shadow_reflection.enabled|buff.shadow_reflection.up|cooldown.shadow_reflection.remains>30)
+actions+=/call_action_list,name=generator,if=combo_points<5|(talent.anticipation.enabled&anticipation_charges<=4&buff.deep_insight.down)
+actions+=/call_action_list,name=finisher,if=combo_points=5&(buff.deep_insight.up|!talent.anticipation.enabled|(talent.anticipation.enabled&anticipation_charges>=4))
 
 # Combo point generators
 
-actions.generator=revealing_strike,if=ticks_remain<2
+actions.generator=revealing_strike,if=ticks_remain<2|buff.deep_insight.up|(buff.bandits_guile.stack=11&cooldown.adrenaline_rush.remains<10)
 actions.generator+=/sinister_strike
 
 # Combo point finishers
 
-actions.finisher=crimson_tempest,if=active_enemies>=7&dot.crimson_tempest_dot.ticks_remain<=2
+actions.finisher=crimson_tempest,if=active_enemies>7&dot.crimson_tempest_dot.ticks_remain<=1
 actions.finisher+=/eviscerate
 
 head=helmet_of_the_barbed_assassin,id=99348,upgrade=2,gems=capacitive_primal_8agi_9agi
@@ -62,7 +58,7 @@ shoulders=shoulderguards_of_the_righteous_stand,id=105551,upgrade=2,gems=4agi_8h
 back=fenyu_fury_of_xuen,id=102248,upgrade=2,gems=8agi_3agi,enchant=9crit
 chest=tunic_of_the_barbed_assassin,id=99356,upgrade=2,gems=8agi_8agi_8agi_9agi,enchant=4all
 wrists=bombers_blackened_wristwatch,id=105616,upgrade=2,gems=8agi,enchant=9agi
-hands=gloves_of_the_barbed_assassin,id=99355,upgrade=2,gems=8agi_8agi_8agi_6agi,enchant=9haste,addon=synapse_springs_2
+hands=gloves_of_the_barbed_assassin,id=99355,upgrade=2,gems=8agi_8agi_8agi_6agi,enchant=9haste
 waist=damrons_belt_of_darkness,id=105528,upgrade=2,gems=8agi_4agi_8crit_8agi_6agi
 legs=legguards_of_the_barbed_assassin,id=99349,upgrade=2,gems=4agi_8haste_4agi_8haste_6agi,enchant=14agi_8crit
 feet=stonetoes_tormented_treads,id=105431,upgrade=2,gems=8agi_3mastery,enchant=7agi
@@ -75,14 +71,14 @@ off_hand=hvitserks_formidable_shanker,id=105601,upgrade=2,gems=8agi_3agi,enchant
 
 # Gear Summary
 # gear_strength=4
-# gear_agility=1166
+# gear_agility=1169
 # gear_stamina=1512
 # gear_intellect=4
-# gear_crit_rating=262
-# gear_haste_rating=609
-# gear_mastery_rating=477
-# gear_armor=413
+# gear_crit_rating=270
+# gear_haste_rating=613
+# gear_mastery_rating=481
+# gear_armor=535
 # gear_multistrike_rating=99
 # meta_gem=capacitive_primal
-# tier16_2pc_melee=1
-# tier16_4pc_melee=1
+# set_bonus=tier16_2pc_melee=1
+# set_bonus=tier16_4pc_melee=1

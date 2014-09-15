@@ -16,11 +16,12 @@ spec=protection
 
 # Executed before combat begins. Accepts non-harmful actions only.
 
-actions.precombat=flask,type=greater_draenic_critical_strike_flask
-actions.precombat+=/food,type=blackrock_barbecue
-actions.precombat+=/stance,choose=gladiator,if=talent.gladiators_resolve.enabled
-actions.precombat+=/stance,choose=defensive,if=!talent.gladiators_resolve.enabled
+actions.precombat=flask,type=greater_draenic_stamina_flask
+actions.precombat+=/food,type=nagrand_tempura
+actions.precombat+=/stance,choose=defensive
 # Snapshot raid buffed stats before combat begins and pre-potting is done.
+# Generic on-use trinket line if needed when swapping trinkets out. 
+#actions+=/use_item,slot=trinket1,if=active_enemies=1&(buff.bloodbath.up|(!talent.bloodbath.enabled&debuff.colossus_smash.up))|(active_enemies>=2&buff.ravager.up)
 actions.precombat+=/snapshot_stats
 actions.precombat+=/potion,name=draenic_armor
 
@@ -28,74 +29,49 @@ actions.precombat+=/potion,name=draenic_armor
 
 actions=charge
 actions+=/auto_attack
-actions+=/blood_fury,if=buff.bloodbath.up|buff.avatar.up|buff.shield_charge.up
-actions+=/berserking,if=buff.bloodbath.up|buff.avatar.up|buff.shield_charge.up
-actions+=/arcane_torrent,if=buff.bloodbath.up|buff.avatar.up|buff.shield_charge.up
-actions+=/run_action_list,name=gladiator,if=talent.gladiators_resolve.enabled
-actions+=/run_action_list,name=prot
+actions+=/blood_fury,if=buff.bloodbath.up|buff.avatar.up
+actions+=/berserking,if=buff.bloodbath.up|buff.avatar.up
+actions+=/arcane_torrent,if=buff.bloodbath.up|buff.avatar.up
+actions+=/berserker_rage,if=buff.enrage.down
+actions+=/call_action_list,name=prot
 
-actions.prot=potion,name=draenic_armor,if=(target.health.pct<20&buff.recklessness.up)|target.time_to_die<=25
-actions.prot+=/heroic_strike,if=buff.ultimatum.up
-actions.prot+=/shield_block
-actions.prot+=/shield_barrier,if=incoming_damage_1500ms>health.max*0.3|rage>rage.max-20
-actions.prot+=/shield_wall,if=incoming_damage_2500ms>health.max*0.6
-actions.prot+=/last_stand,if=incoming_damage_2500ms>health.max*0.6&buff.shield_wall.down
-actions.prot+=/run_action_list,name=prot_aoe,if=active_enemies>3
+actions.prot=shield_block,if=!(debuff.demoralizing_shout.up|buff.ravager.up|buff.shield_wall.up|buff.last_stand.up|buff.enraged_regeneration.up|buff.shield_block.up|buff.draenic_armor_potion.up)|action.shield_block.charges_fractional>=2
+actions.prot+=/shield_barrier,if=(rage>=120)&buff.shield_barrier.down
+actions.prot+=/demoralizing_shout,if=incoming_damage_2500ms>health.max*0.1&!(debuff.demoralizing_shout.up|buff.ravager.up|buff.shield_wall.up|buff.last_stand.up|buff.enraged_regeneration.up|buff.shield_block.up|buff.draenic_armor_potion.up)
+actions.prot+=/enraged_regeneration,if=incoming_damage_2500ms>health.max*0.1&!(debuff.demoralizing_shout.up|buff.ravager.up|buff.shield_wall.up|buff.last_stand.up|buff.enraged_regeneration.up|buff.shield_block.up|buff.draenic_armor_potion.up)
+actions.prot+=/shield_wall,if=incoming_damage_2500ms>health.max*0.1&!(debuff.demoralizing_shout.up|buff.ravager.up|buff.shield_wall.up|buff.last_stand.up|buff.enraged_regeneration.up|buff.shield_block.up|buff.draenic_armor_potion.up)
+actions.prot+=/last_stand,if=incoming_damage_2500ms>health.max*0.1&!(debuff.demoralizing_shout.up|buff.ravager.up|buff.shield_wall.up|buff.last_stand.up|buff.enraged_regeneration.up|buff.shield_block.up|buff.draenic_armor_potion.up)
+actions.prot+=/potion,name=draenic_armor,if=incoming_damage_2500ms>health.max*0.1&!(debuff.demoralizing_shout.up|buff.ravager.up|buff.shield_wall.up|buff.last_stand.up|buff.enraged_regeneration.up|buff.shield_block.up|buff.draenic_armor_potion.up)
+actions.prot+=/call_action_list,name=prot_aoe,if=active_enemies>3
+actions.prot+=/heroic_strike,if=buff.ultimatum.up|(talent.unyielding_strikes.enabled&buff.unyielding_strikes.stack>=5)
+actions.prot+=/bloodbath,if=talent.bloodbath.enabled&((cooldown.dragon_roar.remains=0&talent.dragon_roar.enabled)|(cooldown.stormbolt.remains=0&talent.stormbolt.enabled)|talent.shockwave.enabled)
+actions.prot+=/avatar,if=talent.avatar.enabled&((cooldown.ravager.remains=0&talent.ravager.enabled)|(cooldown.dragon_roar.remains=0&talent.dragon_roar.enabled)|(talent.stormbolt.enabled&cooldown.stormbolt.remains=0)|(!(talent.dragon_roar.enabled|talent.ravager.enabled|talent.stormbolt.enabled)))
 actions.prot+=/shield_slam
 actions.prot+=/revenge
-actions.prot+=/enraged_regeneration,if=talent.enraged_regeneration.enabled
-actions.prot+=/heroic_strike,if=buff.ultimatum.up
-actions.prot+=/ravager,if=talent.ravager.enabled
-actions.prot+=/thunder_clap
-actions.prot+=/demoralizing_shout
-actions.prot+=/impending_victory,if=talent.impending_victory.enabled
-actions.prot+=/victory_rush,if=!talent.impending_victory.enabled
-actions.prot+=/bloodbath,if=talent.bloodbath.enabled
-actions.prot+=/bladestorm,if=talent.bladestorm.enabled
-actions.prot+=/shockwave,if=talent.shockwave.enabled
-actions.prot+=/storm_bolt,if=talent.storm_bolt.enabled
-actions.prot+=/dragon_roar,if=talent.dragon_roar.enabled
+actions.prot+=/ravager
+actions.prot+=/storm_bolt
+actions.prot+=/dragon_roar
+actions.prot+=/impending_victory,if=talent.impending_victory.enabled&cooldown.shield_slam.remains<=execute_time
+actions.prot+=/victory_rush,if=!talent.impending_victory.enabled&cooldown.shield_slam.remains<=execute_time
+actions.prot+=/thunder_clap,if=glyph.resonating_power.enabled&cooldown.shield_slam.remains<=execute_time
+actions.prot+=/execute,if=talent.sudden_death.enabled&buff.sudden_death.up&cooldown.shield_slam.remains<=execute_time
 actions.prot+=/devastate
 
-actions.prot_aoe=bloodbath,if=talent.bloodbath.enabled
-actions.prot_aoe+=/avatar,if=talent.avatar.enabled
+actions.prot_aoe=bloodbath
+actions.prot_aoe+=/avatar
 actions.prot_aoe+=/thunder_clap,if=!dot.deep_wounds.ticking
-actions.prot_aoe+=/bladestorm,if=talent.bladestorm.enabled
-actions.prot_aoe+=/heroic_strike,if=buff.ultimatum.up|rage>110
+actions.prot_aoe+=/heroic_strike,if=buff.ultimatum.up|rage>110|(talent.unyielding_strikes.enabled&buff.unyielding_strikes.stack>=5)
 actions.prot_aoe+=/heroic_leap,if=(buff.bloodbath.up|cooldown.bloodbath.remains>5|!talent.bloodbath.enabled)
+actions.prot_aoe+=/shield_slam,if=buff.shield_block.up
+actions.prot_aoe+=/ravager,if=(buff.avatar.up|cooldown.avatar.remains>10)|!talent.avatar.enabled
+actions.prot_aoe+=/dragon_roar,if=(buff.bloodbath.up|cooldown.bloodbath.remains>10)|!talent.bloodbath.enabled
+actions.prot_aoe+=/shockwave
 actions.prot_aoe+=/revenge
-actions.prot_aoe+=/shield_slam
 actions.prot_aoe+=/thunder_clap
-actions.prot_aoe+=/dragon_roar,if=talent.dragon_roar.enabled&((buff.bloodbath.up|cooldown.bloodbath.remains>10)|!talent.bloodbath.enabled)
-actions.prot_aoe+=/storm_bolt,if=talent.storm_bolt.enabled&((buff.bloodbath.up|cooldown.bloodbath.remains>7)|!talent.bloodbath.enabled)
-actions.prot_aoe+=/devastate,if=cooldown.shield_slam.remains>gcd*0.4
-
-actions.gladiator=potion,name=draenic_strength,if=(target.health.pct<20&buff.recklessness.up)|target.time_to_die<=25
-actions.gladiator+=/run_action_list,name=gladiator_aoe,if=active_enemies>3
-actions.gladiator+=/shield_charge,if=buff.shield_charge.down&cooldown.shield_slam.remains=0&(cooldown.bloodbath.remains>15|!talent.bloodbath.enabled)
-actions.gladiator+=/heroic_strike,if=buff.shield_charge.up|buff.ultimatum.up|rage>=85|target.time_to_die<=3|(talent.unyielding_strikes.enabled&buff.unyielding_strikes.max_stack)
-actions.gladiator+=/bloodbath,if=talent.bloodbath.enabled
-actions.gladiator+=/avatar,if=talent.avatar.enabled
-actions.gladiator+=/heroic_leap,if=(buff.bloodbath.up|cooldown.bloodbath.remains>10)|!talent.bloodbath.enabled
-actions.gladiator+=/shield_slam
-actions.gladiator+=/revenge
-actions.gladiator+=/storm_bolt,if=talent.storm_bolt.enabled&((buff.bloodbath.up|cooldown.bloodbath.remains>7)|!talent.bloodbath.enabled)
-actions.gladiator+=/dragon_roar,if=talent.dragon_roar.enabled&((buff.bloodbath.up|cooldown.bloodbath.remains>10)|!talent.bloodbath.enabled)
-actions.gladiator+=/devastate,if=cooldown.shield_slam.remains>gcd*0.4
-
-actions.gladiator_aoe=bloodbath,if=talent.bloodbath.enabled
-actions.gladiator_aoe+=/avatar,if=talent.avatar.enabled
-actions.gladiator_aoe+=/shield_charge,if=buff.shield_charge.down&cooldown.shield_slam.remains=0&(cooldown.bloodbath.remains>15|!talent.bloodbath.enabled)
-actions.gladiator_aoe+=/thunder_clap,if=!dot.deep_wounds.ticking
-actions.gladiator_aoe+=/bladestorm,if=talent.bladestorm.enabled
-actions.gladiator_aoe+=/heroic_strike,if=buff.ultimatum.up|buff.shield_charge.up&rage>50|rage>110
-actions.gladiator_aoe+=/heroic_leap,if=(buff.bloodbath.up|cooldown.bloodbath.remains>5|!talent.bloodbath.enabled)
-actions.gladiator_aoe+=/revenge
-actions.gladiator_aoe+=/shield_slam
-actions.gladiator_aoe+=/thunder_clap
-actions.gladiator_aoe+=/dragon_roar,if=talent.dragon_roar.enabled&((buff.bloodbath.up|cooldown.bloodbath.remains>10)|!talent.bloodbath.enabled)
-actions.gladiator_aoe+=/storm_bolt,if=talent.storm_bolt.enabled&((buff.bloodbath.up|cooldown.bloodbath.remains>7)|!talent.bloodbath.enabled)
-actions.gladiator_aoe+=/devastate,if=cooldown.shield_slam.remains>gcd*0.4
+actions.prot_aoe+=/shield_slam
+actions.prot_aoe+=/storm_bolt
+actions.prot_aoe+=/shield_slam
+actions.prot_aoe+=/devastate
 
 head=helmet_of_the_prehistoric_marauder,id=99418,upgrade=2,gems=capacitive_primal_16crit_8haste_8crit_9str
 neck=malkoroks_tainted_dog_tags,id=105566,upgrade=2
@@ -116,14 +92,13 @@ main_hand=encapsulated_essence_of_immerseus,id=105417,upgrade=2
 off_hand=shield_of_mockery,id=105481,upgrade=2
 
 # Gear Summary
-# gear_strength=1003
+# gear_strength=1008
 # gear_agility=3
 # gear_stamina=1528
 # gear_intellect=3
-# gear_crit_rating=863
-# gear_haste_rating=296
-# gear_mastery_rating=420
-# gear_armor=2037
+# gear_crit_rating=871
+# gear_haste_rating=300
+# gear_mastery_rating=424
+# gear_armor=1836
 # gear_bonus_armor=36
 # meta_gem=capacitive_primal
-# tier16_2pc_melee=1

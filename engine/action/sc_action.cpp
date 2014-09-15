@@ -215,36 +215,7 @@ action_priority_t* action_priority_list_t::add_talent( const player_t* p,
                                                        const std::string& comment )
 {
   const spell_data_t* s = p -> find_talent_spell( name, "", SPEC_NONE, false, false );
-  std::string talent_check_str = "talent." + dbc::get_token( s -> id() ) + ".enabled";
-  bool found_if = false;
-  bool found_talent_check = false;
-
-  if ( util::str_in_str_ci( action_options, "if=" ) )
-    found_if = true;
-
-  if ( util::str_in_str_ci( action_options, talent_check_str ) )
-    found_talent_check = true;
-
-  std::string opts;
-  if ( ! found_if && ! found_talent_check )
-    opts = "if=" + talent_check_str;
-  else if ( found_if && ! found_talent_check )
-  {
-    // Naively parenthesis the existing expressions if there are logical
-    // operators in it
-    bool has_logical_operators = util::str_in_str_ci( action_options, "&" ) ||
-                                 util::str_in_str_ci( action_options, "|" );
-
-    size_t if_pos = action_options.find( "if=" ) + 3;
-    opts += action_options.substr( 0, if_pos ) + talent_check_str + "&";
-    if ( has_logical_operators ) opts += "(";
-    opts += action_options.substr( if_pos );
-    if ( has_logical_operators ) opts += ")";
-  }
-  else
-    opts = action_options;
-
-  return add_action( p, s, dbc::get_token( s -> id() ), opts, comment );
+  return add_action( p, s, dbc::get_token( s -> id() ), action_options, comment );
 }
 
 // action_t::action_t =======================================================
@@ -259,9 +230,11 @@ action_t::action_t( action_e       ty,
   name_str( token ),
   player( p ),
   target( p -> target ),
+  default_target( p -> target ),
   target_cache(),
   school( SCHOOL_NONE ),
   id(),
+  internal_id( static_cast<int>( p -> get_action_id( name_str ) ) ),
   resource_current( RESOURCE_NONE ),
   aoe(),
   pre_combat( 0 ),
@@ -270,12 +243,12 @@ action_t::action_t( action_e       ty,
   callbacks( true ),
   special(),
   channeled(),
-  background(),
   sequence(),
-  use_off_gcd(),
   quiet(),
+  background(),
+  use_off_gcd(),
+  interrupt_auto_attack( true ),
   direct_tick(),
-  direct_tick_callbacks(),
   periodic_hit(),
   repeating(),
   harmful( true ),
@@ -305,6 +278,7 @@ action_t::action_t( action_e       ty,
   base_execute_time( timespan_t::zero() ),
   base_tick_time( timespan_t::zero() ),
   dot_duration( timespan_t::zero() ),
+  base_cooldown_reduction( 1.0 ),
   time_to_execute( timespan_t::zero() ),
   time_to_travel( timespan_t::zero() ),
   target_specific_dot( false ),
@@ -326,8 +300,6 @@ action_t::action_t( action_e       ty,
   base_hit                       = 0.0;
   base_crit                      = 0.0;
   rp_gain                        = 0.0;
-  base_spell_power               = 0.0;
-  base_attack_power              = 0.0;
   crit_multiplier                = 1.0;
   crit_bonus_multiplier          = 1.0;
   base_dd_adder                  = 0.0;
@@ -364,15 +336,15 @@ action_t::action_t( action_e       ty,
   execute_action                 = 0;
   impact_action                  = 0;
   dynamic_tick_action            = false;
-  special_proc                   = false;
   // New Stuff
   snapshot_flags = 0;
   update_flags = STATE_TGT_MUL_DA | STATE_TGT_MUL_TA | STATE_TGT_CRIT;
   execute_state = 0;
   pre_execute_state = 0;
-  action_list = "";
+  action_list = 0;
   movement_directionality = MOVEMENT_NONE;
   base_teleport_distance = 0;
+  state_cache = 0;
 
   range::fill( base_costs, 0.0 );
   range::fill( costs_per_second, 0 );
@@ -438,6 +410,13 @@ action_t::~action_t()
   delete if_expr;
   delete interrupt_if_expr;
   delete early_chain_if_expr;
+
+  while ( state_cache != 0 )
+  {
+    action_state_t* s = state_cache;
+    state_cache = s -> next;
+    delete s;
+  }
 }
 
 // action_t::parse_data =====================================================
@@ -525,7 +504,7 @@ void action_t::parse_effect_data( const spelleffect_data_t& spelleffect_data )
         case A_PERIODIC_LEECH:
         case A_PERIODIC_HEAL:
           spell_power_mod.tick = spelleffect_data.sp_coeff();
-          attack_power_mod.tick = spelleffect_data.ap_coeff(); // change to ap_coeff
+          attack_power_mod.tick = spelleffect_data.ap_coeff();
           base_td          = player -> dbc.effect_average( spelleffect_data.id(), player -> level );
         case A_PERIODIC_ENERGIZE:
         case A_PERIODIC_TRIGGER_SPELL_WITH_VALUE:
@@ -534,6 +513,7 @@ void action_t::parse_effect_data( const spelleffect_data_t& spelleffect_data )
         case A_PERIODIC_DAMAGE_PERCENT:
         case A_PERIODIC_DUMMY:
         case A_PERIODIC_TRIGGER_SPELL:
+        case A_OBS_MOD_HEALTH:
           if ( spelleffect_data.period() > timespan_t::zero() )
           {
             base_tick_time   = spelleffect_data.period();
@@ -542,7 +522,7 @@ void action_t::parse_effect_data( const spelleffect_data_t& spelleffect_data )
           break;
         case A_SCHOOL_ABSORB:
           spell_power_mod.direct = spelleffect_data.sp_coeff();
-          attack_power_mod.direct = spelleffect_data.ap_coeff(); // change to ap_coeff
+          attack_power_mod.direct = spelleffect_data.ap_coeff();
           base_dd_min      = player -> dbc.effect_min( spelleffect_data.id(), player -> level );
           base_dd_max      = player -> dbc.effect_max( spelleffect_data.id(), player -> level );
           break;
@@ -1074,7 +1054,7 @@ void action_t::execute()
       s -> target = tl[ t ];
       s -> n_targets = std::min( num_targets, tl.size() );
       s -> chain_target = as<int>( t );
-      if ( ! pre_execute_state ) snapshot_state( s, type == ACTION_HEAL ? HEAL_DIRECT : DMG_DIRECT );
+      if ( ! pre_execute_state ) snapshot_state( s, amount_type( s ) );
       s -> result = calculate_result( s );
       s -> block_result = calculate_block_result( s );
 
@@ -1086,7 +1066,7 @@ void action_t::execute()
 
       schedule_travel( s );
 
-      schedule_multistrike( execute_state, type == ACTION_HEAL ? HEAL_DIRECT : DMG_DIRECT );
+      schedule_multistrike( execute_state, amount_type( execute_state ) );
     }
   }
   else // single target
@@ -1097,7 +1077,7 @@ void action_t::execute()
     s -> target = target;
     s -> n_targets = 1;
     s -> chain_target = 0;
-    if ( ! pre_execute_state ) snapshot_state( s, type == ACTION_HEAL ? HEAL_DIRECT : DMG_DIRECT );
+    if ( ! pre_execute_state ) snapshot_state( s, amount_type( s ) );
     s -> result = calculate_result( s );
     s -> block_result = calculate_block_result( s );
 
@@ -1108,7 +1088,7 @@ void action_t::execute()
 
     schedule_travel( s );
 
-    schedule_multistrike( execute_state, type == ACTION_HEAL ? HEAL_DIRECT : DMG_DIRECT );
+    schedule_multistrike( execute_state, amount_type( execute_state ) );
   }
 
   consume_resource();
@@ -1133,8 +1113,6 @@ void action_t::execute()
     }
 
     // New callback system; proc abilities on execute. 
-    // Note: direct_tick_callbacks should not be used with the new system, 
-    // override action_t::proc_type() instead
     if ( callbacks )
     {
       proc_types pt = execute_state -> proc_type();
@@ -1159,7 +1137,6 @@ result_e action_t::calculate_multistrike_result( action_state_t* s )
 {
   if ( ! s -> target ) return RESULT_NONE;
   if ( ! may_multistrike ) return RESULT_NONE;
-  //if ( ! harmful ) return RESULT_NONE; See if this screws anything up. 
 
   result_e r = RESULT_NONE;
   if ( rng().roll( composite_multistrike() ) )
@@ -1203,6 +1180,8 @@ int action_t::schedule_multistrike( action_state_t* state, dmg_e type, double ti
     ms_state -> n_targets = 1;
     ms_state -> chain_target = 0;
     ms_state -> result = r;
+    // Multistrikes can be blocked
+    ms_state -> block_result = calculate_block_result( state );
 
     if ( type == DMG_DIRECT || type == HEAL_DIRECT )
       multistrike_direct( state, ms_state );
@@ -1223,9 +1202,14 @@ int action_t::schedule_multistrike( action_state_t* state, dmg_e type, double ti
 
 // Generate a direct damage multistrike. Note that the multistrike damage will
 // travel like normal damage events, based off of the ability travel time.
-void action_t::multistrike_direct( const action_state_t*, action_state_t* ms_state )
+void action_t::multistrike_direct( const action_state_t* source_state, action_state_t* ms_state )
 {
-  ms_state -> result_amount = calculate_direct_amount( ms_state );
+ ms_state -> result_raw = source_state -> result_raw * composite_multistrike_multiplier( source_state );
+ double total = ms_state -> result_raw;
+ if ( ms_state -> result == RESULT_MULTISTRIKE_CRIT )
+   total *= ( 1.0 + total_crit_bonus() );
+
+ ms_state -> result_total = ms_state -> result_amount = total;
 }
 
 // action_t::tick ===========================================================
@@ -1235,38 +1219,34 @@ void action_t::tick( dot_t* d )
   if ( tick_action )
   {
     if ( tick_action -> pre_execute_state )
-    {
       action_state_t::release( tick_action -> pre_execute_state );
-    }
+
     action_state_t* state = tick_action -> get_state( d -> state );
     if ( dynamic_tick_action )
-      snapshot_state( state, type == ACTION_HEAL ? HEAL_OVER_TIME : DMG_OVER_TIME );
+      snapshot_state( state, amount_type( state, true ) );
     else
-      update_state( state, type == ACTION_HEAL ? HEAL_OVER_TIME : DMG_OVER_TIME );
-    state -> da_multiplier = state -> ta_multiplier;
+      update_state( state, amount_type( state, true ) );
+    state -> da_multiplier = state -> ta_multiplier * d -> get_last_tick_factor();
     state -> target_da_multiplier = state -> target_ta_multiplier;
     tick_action -> schedule_execute( state );
   }
   else
   {
     d -> state -> result = RESULT_HIT;
-    update_state( d -> state, type == ACTION_HEAL ? HEAL_OVER_TIME : DMG_OVER_TIME );
+    update_state( d -> state, amount_type( d -> state, true ) );
 
     if ( tick_may_crit && rng().roll( d -> state -> composite_crit() ) )
       d -> state -> result = RESULT_CRIT;
 
     d -> state -> result_amount = calculate_tick_amount( d -> state, d -> get_last_tick_factor() );
 
-    assess_damage( type == ACTION_HEAL ? HEAL_OVER_TIME : DMG_OVER_TIME, d -> state );
+    assess_damage( amount_type( d -> state, true ), d -> state );
 
     if ( sim -> debug )
       d -> state -> debug();
 
-    schedule_multistrike( d -> state, type == ACTION_HEAL ? HEAL_OVER_TIME : DMG_OVER_TIME );
+    schedule_multistrike( d -> state, amount_type( d -> state, true ) );
   }
-
-  if ( harmful && callbacks && type != ACTION_HEAL )
-    action_callback_t::trigger( player -> callbacks.tick[ d -> state -> result ], this, d -> state );
 
   if ( ! periodic_hit ) stats -> add_tick( d -> time_to_tick, d -> state -> target );
 
@@ -1276,9 +1256,14 @@ void action_t::tick( dot_t* d )
 // action_t::multistrike_tick ===============================================
 
 // Generate a periodic multistrike
-void action_t::multistrike_tick( const action_state_t*, action_state_t* ms_state, double tick_multiplier )
+void action_t::multistrike_tick( const action_state_t* source_state, action_state_t* ms_state, double /* tick_multiplier */ )
 {
-  ms_state -> result_amount = calculate_tick_amount( ms_state, tick_multiplier );
+  ms_state -> result_raw = source_state -> result_raw * composite_multistrike_multiplier( source_state );
+  double total = ms_state -> result_raw;
+  if ( ms_state -> result == RESULT_MULTISTRIKE_CRIT )
+    total *= ( 1.0 + total_crit_bonus() );
+
+  ms_state -> result_total = ms_state -> result_amount = total;
 }
 
 // action_t::last_tick ======================================================
@@ -1322,12 +1307,10 @@ void action_t::update_resolve( dmg_e type,
     // Skip updating the Resolve tables if the damage is zero to limit unnecessary events
     if ( raw_resolve_amount > 0.0 )
     {
-      // modify according to damage type; spell damage gives 2.5x as much Resolve
-      raw_resolve_amount *= ( get_school() == SCHOOL_PHYSICAL ? 1.0 : 2.5 );
-
-      // normalize by player's current health, ignoring any temporary health buffs
-      raw_resolve_amount /= ( target -> resources.max[ RESOURCE_HEALTH ] - target -> resources.temporary[ RESOURCE_HEALTH ] );
-
+      // modify according to damage type; spell damage and bleeds give 2.5x as much Resolve
+      if ( get_school() != SCHOOL_PHYSICAL || type == DMG_OVER_TIME )
+        raw_resolve_amount *= 2.5;
+      
       // update the player's resolve diminishing return list first!
       target -> resolve_manager.add_diminishing_return_entry( source, source -> get_raw_dps( s ), sim -> current_time );
 
@@ -1371,25 +1354,6 @@ void action_t::assess_damage( dmg_e    type,
                      util::school_type_string( get_school() ),
                      util::result_type_string( s -> result ) );
     }
-
-    if ( s -> result_amount > 0.0 && ! result_is_multistrike( s -> result ) )
-    {
-      if ( direct_tick_callbacks )
-      {
-        action_callback_t::trigger( player -> callbacks.tick_damage[ get_school() ], this, s );
-      }
-      else
-      {
-        if ( callbacks )
-        {
-          action_callback_t::trigger( player -> callbacks.direct_damage[ get_school() ], this, s );
-          if ( s -> result == RESULT_CRIT )
-          {
-            action_callback_t::trigger( player -> callbacks.direct_crit[ get_school() ], this, s );
-          }
-        }
-      }
-    }
   }
   else // DMG_OVER_TIME
   {
@@ -1403,15 +1367,13 @@ void action_t::assess_damage( dmg_e    type,
                      util::school_type_string( get_school() ),
                      util::result_type_string( s -> result ) );
     }
-
-    if ( ! result_is_multistrike( s -> result ) && callbacks && s -> result_amount > 0.0 )
-      action_callback_t::trigger( player -> callbacks.tick_damage[ get_school() ], this, s );
   }
 
+  if ( s -> result_amount > 0 && composite_leech( s ) > 0 )
+    player -> resource_gain( RESOURCE_HEALTH, composite_leech( s ) * s -> result_amount, player -> gains.leech );
+
   // New callback system; proc spells on impact. 
-  // TODO: Not used for now.
-  // Note: direct_tick_callbacks should not be used with the new system, 
-  // override action_t::proc_type() instead
+
   if ( callbacks )
   {
     proc_types pt = s -> proc_type();
@@ -1420,7 +1382,21 @@ void action_t::assess_damage( dmg_e    type,
       action_callback_t::trigger( player -> callbacks.procs[ pt ][ pt2 ], this, s );
   }
 
-  stats -> add_result( s -> result_amount, s -> result_amount, ( direct_tick ? DMG_OVER_TIME : periodic_hit ? DMG_DIRECT : type ), s -> result, s -> block_result, s -> target );
+  record_data( s );
+}
+
+// action_t::record_data ====================================================
+
+void action_t::record_data( action_state_t* data )
+{
+  if ( ! stats )
+    return;
+
+  stats -> add_result( data -> result_amount, data -> result_total,
+                       report_amount_type( data ),
+                       data -> result,
+                       ( may_block || player -> position() != POSITION_BACK ) ? data -> block_result : BLOCK_RESULT_UNKNOWN,
+                       data -> target );
 }
 
 // action_t::schedule_execute ===============================================
@@ -1436,6 +1412,9 @@ void action_t::schedule_execute( action_state_t* execute_state )
 
   execute_event = start_action_execute_event( time_to_execute, execute_state );
 
+  if ( trigger_gcd > timespan_t::zero() )
+    player -> off_gcdactions.clear();
+
   if ( ! background )
   {
     player -> executing = this;
@@ -1445,7 +1424,7 @@ void action_t::schedule_execute( action_state_t* execute_state )
       player -> gcd_ready -= sim -> queue_gcd_reduction;
     }
 
-    if ( special && time_to_execute > timespan_t::zero() && ! proc )
+    if ( special && time_to_execute > timespan_t::zero() && ! proc && interrupt_auto_attack )
     {
       // While an ability is casting, the auto_attack is paused
       // So we simply reschedule the auto_attack by the ability's casttime
@@ -1502,23 +1481,33 @@ void action_t::update_ready( timespan_t cd_duration /* = timespan_t::min() */ )
   timespan_t delay = timespan_t::zero();
 
   if ( cd_duration < timespan_t::zero() )
-    cd_duration = cooldown -> duration;
+    cd_duration = cooldown -> duration * cooldown_reduction();
 
   if ( cd_duration > timespan_t::zero() && ! dual )
   {
 
     if ( ! background && ! proc )
-    {
+    { /*This doesn't happen anymore due to the gcd queue, in WoD if an ability has a cooldown of 20 seconds,
+      it is usable exactly every 20 seconds with proper Lag tolerance set in game.
+      The only situation that this could happen is when world lag is over 400, as blizzard does not allow
+      custom lag tolerance to go over 400.
+      */
       timespan_t lag, dev;
 
       lag = player -> world_lag_override ? player -> world_lag : sim -> world_lag;
       dev = player -> world_lag_stddev_override ? player -> world_lag_stddev : sim -> world_lag_stddev;
       delay = rng().gauss( lag, dev );
-      if ( sim -> debug )
-        sim -> out_debug.printf( "%s delaying the cooldown finish of %s by %f", player -> name(), name(), delay.total_seconds() );
+      if ( delay > timespan_t::from_millis( 400 ) )
+      {
+        delay -= timespan_t::from_millis( 400 ); //Even high latency players get some benefit from CLT.
+        if ( sim -> debug )
+          sim -> out_debug.printf( "%s delaying the cooldown finish of %s by %f", player -> name(), name(), delay.total_seconds() );
+      }
+      else
+        delay = timespan_t::zero();
     }
 
-    cooldown -> start( cd_duration, delay );
+    cooldown -> start( this, cd_duration, delay );
 
     if ( sim -> debug )
       sim -> out_debug.printf( "%s starts cooldown for %s (%s). Will be ready at %.4f", player -> name(), name(), cooldown -> name(), cooldown -> ready.total_seconds() );
@@ -1718,6 +1707,12 @@ void action_t::init()
   if ( dot_duration > timespan_t::zero() && ( hasted_ticks || channeled ) )
     snapshot_flags |= STATE_HASTE;
 
+  // If the action has a tick action, we have to snapshot tick multiplier,
+  // since ::tick() will actually replace da_modifier in the snapshot state
+  // with ta_modifier.
+  if ( tick_action )
+    snapshot_flags |= STATE_MUL_TA;
+
   // WOD: Dot Snapshoting is gone
   update_flags |= snapshot_flags;
 
@@ -1731,7 +1726,8 @@ void action_t::init()
     update_flags &= ~STATE_HASTE;
   }
 
-  if ( ! ( background || sequence ) && ( pre_combat || action_list == "precombat" ) )
+
+  if ( ! ( background || sequence ) && ( pre_combat || ( action_list && action_list -> name_str == "precombat" ) ) )
   {
     if ( harmful )
     {
@@ -1751,12 +1747,15 @@ void action_t::init()
     else
       player -> precombat_action_list.push_back( this );
   }
-  else if ( ! ( background || sequence ) && ! action_list.empty() )
-    player -> find_action_priority_list( action_list ) -> foreground_action_list.push_back( this );
+  else if ( ! ( background || sequence ) && action_list )
+    player -> find_action_priority_list( action_list -> name_str ) -> foreground_action_list.push_back( this );
 
   initialized = true;
 
   init_target_cache();
+
+  // Setup default target in init
+  default_target = target;
 }
 
 void action_t::init_target_cache()
@@ -1776,6 +1775,7 @@ void action_t::reset()
   line_cooldown.reset( false );
   execute_event = 0;
   travel_events.clear();
+  target = default_target;
 }
 
 // action_t::cancel =========================================================
@@ -1830,7 +1830,7 @@ void action_t::interrupt_action()
   if ( player -> executing  == this ) player -> executing  = 0;
   if ( player -> channeling == this )
   {
-    dot_t* dot = get_dot();
+    dot_t* dot = get_dot( execute_state -> target );
     assert( dot -> is_ticking() );
     dot -> cancel();
   }
@@ -1915,6 +1915,20 @@ expr_t* action_t::create_expression( const std::string& name_str )
 
   if ( name_str == "cast_time" )
     return make_mem_fn_expr( name_str, *this, &action_t::execute_time );
+  else if ( name_str == "target" )
+  {
+    struct target_expr_t : public action_expr_t
+    {
+      target_expr_t( action_t& a ) : action_expr_t( "target", a )
+      { }
+
+      double evaluate()
+      { return static_cast<double>( action.target -> actor_index ); }
+    };
+    return new target_expr_t( *this );
+  }
+  else if ( name_str == "gcd" )
+    return make_mem_fn_expr( name_str, *this, &action_t::gcd );
   else if ( name_str == "execute_time" )
   {
     struct execute_time_expr_t : public action_expr_t
@@ -1958,8 +1972,6 @@ expr_t* action_t::create_expression( const std::string& name_str )
     };
     return new new_tick_time_expr_t( *this );
   }
-  else if ( name_str == "gcd" )
-    return make_mem_fn_expr( name_str, *this, &action_t::gcd );
   else if ( name_str == "travel_time" )
     return make_mem_fn_expr( name_str, *this, &action_t::travel_time );
 
@@ -2029,7 +2041,7 @@ expr_t* action_t::create_expression( const std::string& name_str )
       action_t* action;
       action_state_t* state;
 
-      tick_multiplier_expr_t( action_t* a ) : 
+      tick_multiplier_expr_t( action_t* a ) :
         expr_t( "tick_multiplier" ), action( a ), state( a -> get_state() )
       {
         state -> n_targets    = 1;
@@ -2057,7 +2069,7 @@ expr_t* action_t::create_expression( const std::string& name_str )
       action_t* action;
       action_state_t* state;
 
-      persistent_multiplier_expr_t( action_t* a ) : 
+      persistent_multiplier_expr_t( action_t* a ) :
         expr_t( "persistent_multiplier" ), action( a ), state( a -> get_state() )
       {
         state -> n_targets    = 1;
@@ -2177,8 +2189,78 @@ expr_t* action_t::create_expression( const std::string& name_str )
           return false;
         }
       };
-
       return new prev_expr_t( *this, splits[ 1 ] );
+    }
+    else if ( splits[0] == "prev_gcd" )
+    {
+      struct prev_gcd_expr_t: public action_expr_t
+      {
+        std::string prev_gcd_action;
+        prev_gcd_expr_t( action_t& a, const std::string& prev_action ): action_expr_t( "prev_gcd", a ), prev_gcd_action( prev_action ) {}
+        virtual double evaluate()
+        {
+          if ( action.player -> last_gcd_action )
+            return action.player -> last_gcd_action -> name_str == prev_gcd_action;
+          return false;
+        }
+      };
+      return new prev_gcd_expr_t( *this, splits[1] );
+    }
+    else if ( splits[0] == "prev_off_gcd" )
+    {
+      struct prev_gcd_expr_t: public action_expr_t
+      {
+        std::string offgcdaction;
+        prev_gcd_expr_t( action_t& a, const std::string& offgcdaction ): action_expr_t( "prev_off_gcd", a ), offgcdaction( offgcdaction ) {}
+        virtual double evaluate()
+        {
+          for ( size_t i = 0; i < action.player -> off_gcdactions.size(); i++ )
+          {
+            if ( action.player -> off_gcdactions[ i ] -> name_str == offgcdaction )
+              return true;
+          }
+          return false;
+        }
+      };
+      return new prev_gcd_expr_t( *this, splits[1] );
+    }
+    else if ( splits[ 0 ] == "gcd" )
+    {
+      if ( splits[1] == "max" )
+      {
+        struct gcd_expr_t: public action_expr_t
+        {
+          double gcd_time;
+          gcd_expr_t( action_t & a ): action_expr_t( "gcd", a )
+          {
+          }
+          double evaluate()
+          {
+            gcd_time = ( action.player -> base_gcd ).total_seconds();
+            gcd_time *= action.player -> cache.attack_haste();
+            if ( gcd_time < 1.0 )
+              gcd_time = 1.0;
+            return gcd_time;
+          }
+        };
+        return new gcd_expr_t( *this );
+      }
+      else if ( splits[1] == "remains" )
+      {
+        struct gcd_remains_expr_t: public action_expr_t
+        {
+          double gcd_remains;
+          gcd_remains_expr_t( action_t & a ): action_expr_t( "gcd", a )
+          {
+          }
+          double evaluate()
+          {
+            gcd_remains = ( action.player -> gcd_ready ).total_seconds();
+            return gcd_remains;
+          }
+        };
+        return new gcd_remains_expr_t( *this );
+      }
     }
   }
 
@@ -2348,10 +2430,10 @@ void action_t::snapshot_internal( action_state_t* state, uint32_t flags, dmg_e r
     state -> haste = composite_haste();
 
   if ( flags & STATE_AP )
-    state -> attack_power = int( composite_attack_power() * player -> composite_attack_power_multiplier() );
+    state -> attack_power = composite_attack_power() * player -> composite_attack_power_multiplier();
 
   if ( flags & STATE_SP )
-    state -> spell_power = int( composite_spell_power() * player -> composite_spell_power_multiplier() );
+    state -> spell_power = composite_spell_power() * player -> composite_spell_power_multiplier();
 
   if ( flags & STATE_VERSATILITY )
     state -> versatility = composite_versatility( state );
@@ -2445,7 +2527,7 @@ void action_t::schedule_travel( action_state_t* s )
 
 void action_t::impact( action_state_t* s )
 {
-  assess_damage( type == ACTION_HEAL ? HEAL_DIRECT : DMG_DIRECT, s );
+  assess_damage( ( type == ACTION_HEAL || type == ACTION_ABSORB ) ? HEAL_DIRECT : DMG_DIRECT, s );
 
   if ( result_is_hit( s -> result ) )
   {
@@ -2540,7 +2622,44 @@ void action_t::do_teleport( action_state_t* state )
  */
 timespan_t action_t::calculate_dot_refresh_duration( const dot_t* dot, timespan_t triggered_duration ) const
 {
-  // WoD Pandemic
-  return std::min( triggered_duration * 0.3, dot -> remains() ) + triggered_duration; // New WoD Formula: Get no malus during the last 30% of the dot.
+  if ( ! channeled )
+    // WoD Pandemic
+    return std::min( triggered_duration * 0.3, dot -> remains() ) + triggered_duration; // New WoD Formula: Get no malus during the last 30% of the dot.
+  else
+    return dot -> time_to_next_tick() + triggered_duration;
 
 }
+
+call_action_list_t::call_action_list_t( player_t* player, const std::string& options_str ) :
+  action_t( ACTION_CALL, "call_action_list", player ), alist( 0 )
+{
+  std::string alist_name;
+  int randomtoggle = 0;
+  option_t options[] =
+  {
+    opt_string( "name", alist_name ),
+    opt_int( "random", randomtoggle ),
+    opt_null()
+  };
+  parse_options( options, options_str );
+
+  if ( alist_name.empty() )
+  {
+    sim -> errorf( "Player %s uses call_action_list without specifying the name of the action list\n", player -> name() );
+    sim -> cancel();
+  }
+
+  alist = player -> find_action_priority_list( alist_name );
+
+  if ( randomtoggle == 1 )
+  {
+    alist -> random = randomtoggle;
+  }
+
+  if ( ! alist )
+  {
+    sim -> errorf( "Player %s uses call_action_lis with unknown action list %s\n", player -> name(), alist_name.c_str() );
+    sim -> cancel();
+  }
+}
+

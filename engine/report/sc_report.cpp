@@ -925,7 +925,7 @@ void report::generate_player_charts( player_t* p, player_processed_report_inform
   ri.reforge_dps_chart    = chart::reforge_dps  ( p );
   ri.scale_factors_chart  = chart::scale_factors( p );
 
-  std::string encoded_name = p -> name_str;
+  std::string encoded_name = util::google_image_chart_encode( p -> name_str );
   util::urlencode( encoded_name );
 
 
@@ -953,6 +953,16 @@ void report::generate_sim_report_information( sim_t* s , sim_report_information_
   if ( ri.charts_generated )
     return;
 
+/*
+  ri.downtime_chart = chart::raid_downtime( s -> players_by_name, s -> print_styles );
+
+
+  chart::raid_aps     ( ri.dps_charts, s, s -> players_by_dps, "dps" );
+  chart::raid_aps     ( ri.hps_charts, s, s -> players_by_hps, "hps" );
+  chart::raid_aps     ( ri.dtps_charts, s, s -> players_by_dtps, "dtps" );
+  chart::raid_aps     ( ri.tmi_charts, s, s -> players_by_tmi, "tmi" );
+  chart::raid_dpet    ( ri.dpet_charts, s );
+*/
   chart::raid_gear    ( ri.gear_charts, s, s -> print_styles );
 
   ri.charts_generated = true;

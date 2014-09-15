@@ -1,9 +1,9 @@
 
-for tier in 16H 17N
+for tier in 16H 17H 17M 17N 17P
 do
   PROFDIR='profiles/Tier'$tier'/'
   cd $PROFDIR
-	../../engine/simc 'generate_T'$tier".simc"
+	../../simc 'generate_T'$tier".simc"
   cd ../..
 done
 echo "done"

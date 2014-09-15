@@ -49,7 +49,7 @@ const OptionEntry debuffOptions[] =
 {
   { "Toggle All Debuffs",     "",                                "Toggle all debuffs on/off"      },
 
-  { "Bleeding",               "override.bleeding",               "Rip\nRupture\nPiercing Shots"   },
+  { "Bleeding",               "override.bleeding",               "Rip\nRupture"   },
   { "Mortal Wounds",          "override.mortal_wounds",          "Healing Debuff"                 },
 
   { NULL, NULL, NULL }
@@ -70,12 +70,9 @@ const OptionEntry scalingOptions[] =
   { "Analyze Haste Rating",             "haste",    "Calculate scale factors for Haste Rating"             },
   { "Analyze Mastery Rating",           "mastery",  "Calculate scale factors for Mastery Rating"           },
   { "Analyze Multistrike Rating",       "mult",     "Calculate scale factors for Multistrike Rating"       },
-  { "Analyze Readiness Rating",         "readiness",  "Calculate scale factors for Readiness Rating"       },
   { "Analyze Versatility Rating",       "vers",     "Calculate scale factors for Versatility Rating"       },
   { "Analyze Weapon DPS",               "wdps",     "Calculate scale factors for Weapon DPS"               },
-  { "Analyze Weapon Speed",             "wspeed",   "Calculate scale factors for Weapon Speed"             },
   { "Analyze Off-hand Weapon DPS",      "wohdps",   "Calculate scale factors for Off-hand Weapon DPS"      },
-  { "Analyze Off-hand Weapon Speed",    "wohspeed", "Calculate scale factors for Off-hand Weapon Speed"    },
   { "Analyze Armor",                    "armor",    "Calculate scale factors for Armor"                    },
   { "Analyze Bonus Armor",              "bonusarmor",   "Calculate scale factors for Bonus Armor"          },
   { "Analyze Latency",                  "",         "Calculate scale factors for Latency"                  },
@@ -95,9 +92,9 @@ const OptionEntry plotOptions[] =
   { "Plot Scaling per Haste Rating",     "haste",   "Generate Scaling curve for Haste Rating"     },
   { "Plot Scaling per Mastery Rating",   "mastery", "Generate Scaling curve for Mastery Rating"   },
   { "Plot Scaling per Multistrike Rating", "mult",  "Generate Scaling curve for Multistrike Rating" },
-  { "Plot Scaling per Readiness Rating", "readiness", "Generate Scaling curve for Readiness Rating" },
   { "Plot Scaling per Versatility Rating", "vers",  "Generate Scaling curve for Versatility Rating" },
   { "Plot Scaling per Weapon DPS",       "wdps",    "Generate Scaling curve for Weapon DPS"       },
+  { "Plot Scaling per Weapon OH DPS", "wohdps", "Generate Scaling curve for Weapon OH DPS" },
   { "Plot Scaling per Armor",            "armor",   "Generate Scaling curve for Armor"            },
   { "Plot Scaling per Bonus Armor",      "bonusarmor",  "Generate Scaling curve for Bonus Armor"      },
   { NULL, NULL, NULL }
@@ -110,7 +107,6 @@ const OptionEntry reforgePlotOptions[] =
   { "Plot Reforge Options for Haste Rating",     "haste",   "Generate reforge plot data for Haste Rating"     },
   { "Plot Reforge Options for Mastery Rating",   "mastery", "Generate reforge plot data for Mastery Rating"   },
   { "Plot Reforge Options for Multistrike Rating", "mult",  "Generate reforge plot data for Multistrike Rating" },
-  { "Plot Reforge Options for Readiness Rating", "readiness", "Generate reforge plot data for Readiness Rating" },
   { "Plot Reforge Options for Versatility Rating", "vers",  "Generate reforge plot data for Versatility Rating" },
   { "Plot Reforge Options for Bonus Armor Rating", "bonusarmor", "Generate reforge plot data for Bonus Armor" },
 
@@ -120,7 +116,7 @@ const OptionEntry reforgePlotOptions[] =
   { "Plot Reforge Options for Intellect",        "int",     "Generate reforge plot data for Intellect"        },
   { NULL, NULL, NULL }
 };
-const int reforgePlotOption_cut = 8; // separate between secondary and primary stats
+const int reforgePlotOption_cut = 7; // separate between secondary and primary stats
 
 QComboBox* createChoiceFromRange( int lowerInclusive, int upperInclusive ) {
   QComboBox* choice = new QComboBox();
@@ -191,6 +187,7 @@ SC_OptionsTab::SC_OptionsTab( SC_MainWindow* parent ) :
   connect( choice.target_level,       SIGNAL( currentIndexChanged( int ) ), this, SLOT( _optionsChanged() ) );
   connect( choice.target_race,        SIGNAL( currentIndexChanged( int ) ), this, SLOT( _optionsChanged() ) );
   connect( choice.threads,            SIGNAL( currentIndexChanged( int ) ), this, SLOT( _optionsChanged() ) );
+  connect( choice.thread_priority,    SIGNAL( currentIndexChanged( int ) ), this, SLOT( _optionsChanged() ) );
   connect( choice.version,            SIGNAL( currentIndexChanged( int ) ), this, SLOT( _optionsChanged() ) );
   connect( choice.world_lag,          SIGNAL( currentIndexChanged( int ) ), this, SLOT( _optionsChanged() ) );
 
@@ -218,21 +215,22 @@ void SC_OptionsTab::createGlobalsTab()
   globalsLayout_left -> addRow(        tr( "Version" ),        choice.version = createChoice( 1, "Live" ) );
 #endif
 #endif
-  globalsLayout_left -> addRow( tr(    "Iterations" ),     choice.iterations = addValidatorToComboBox( 1, INT_MAX, createChoice( 7, "100", "1000", "10000", "25000", "50000", "100000", "250000" ) ) );
+  globalsLayout_left -> addRow( tr(    "Iterations" ),     choice.iterations = addValidatorToComboBox( 1, INT_MAX, createChoice( 8, "1", "100", "1000", "10000", "25000", "50000", "100000", "250000" ) ) );
   globalsLayout_left -> addRow( tr(     "World Lag" ),      choice.world_lag = createChoice( 5, "Super Low - 25 ms", "Low - 50 ms", "Medium - 100 ms", "High - 150 ms", "Australia - 200 ms" ) );
-  globalsLayout_left -> addRow( tr(  "Length (sec)" ),   choice.fight_length = createChoice( 10, "100", "150", "200", "250", "300", "350", "400", "450", "500", "600" ) );
+  globalsLayout_left -> addRow( tr(  "Length (sec)" ),   choice.fight_length = addValidatorToComboBox( 1, 1000, createChoice( 10, "100", "150", "200", "250", "300", "350", "400", "450", "500", "600" ) ) );
   globalsLayout_left -> addRow( tr(   "Vary Length" ), choice.fight_variance = createChoice( 3, "0%", "10%", "20%" ) );
-  globalsLayout_left -> addRow( tr(   "Fight Style" ),    choice.fight_style = createChoice( 7, "Patchwerk", "HecticAddCleave", "HelterSkelter", "Ultraxion", "LightMovement", "HeavyMovement", "RaidDummy" ) );
-  globalsLayout_left -> addRow( tr(  "Target Level" ),   choice.target_level = createChoice( 4, "Raid Boss", "5-man heroic", "5-man normal", "Max Player Level" ) );
-  globalsLayout_left -> addRow( tr(   "Target Race" ),    choice.target_race = createChoice( 7, "humanoid", "beast", "demon", "dragonkin", "elemental", "giant", "undead" ) );
-  globalsLayout_left -> addRow( tr(   "Num Enemies" ),     choice.num_target = createChoice( 8, "1", "2", "3", "4", "5", "6", "7", "8" ) );
+  globalsLayout_left -> addRow( tr(   "Fight Style" ),    choice.fight_style = createChoice( 6, "Patchwerk", "HecticAddCleave", "HelterSkelter", "Ultraxion", "LightMovement", "HeavyMovement" ) );
+  globalsLayout_left -> addRow( tr(  "Target Level" ),   choice.target_level = createChoice( 4, "Raid Boss", "5-Man Heroic", "5-Man Normal", "Max Player Level" ) );
+  globalsLayout_left -> addRow( tr(   "Target Race" ),    choice.target_race = createChoice( 7, "Humanoid", "Beast", "Demon", "Dragonkin", "Elemental", "Giant", "Undead" ) );
+  globalsLayout_left -> addRow( tr(   "Num Enemies" ),     choice.num_target = createChoice( 9, "1", "2", "3", "4", "5", "6", "7", "8", "20" ) );
   globalsLayout_left -> addRow( tr( "Challenge Mode" ),   choice.challenge_mode = createChoice( 2, "Disabled", "Enabled" ) );
   globalsLayout_left -> addRow( tr(  "Player Skill" ),   choice.player_skill = createChoice( 4, "Elite", "Good", "Average", "Ouch! Fire is hot!" ) );
   globalsLayout_left -> addRow( tr(       "Threads" ),        choice.threads = addValidatorToComboBox( 1, QThread::idealThreadCount(), createChoiceFromRange( 1, QThread::idealThreadCount() ) ) );
-  globalsLayout_left -> addRow( tr( "Armory Region" ),  choice.armory_region = createChoice( 5, "us", "eu", "tw", "cn", "kr" ) );
-  globalsLayout_left -> addRow( tr(   "Armory Spec" ),    choice.armory_spec = createChoice( 2, "active", "inactive" ) );
-  globalsLayout_left -> addRow( tr(  "Default Role" ),   choice.default_role = createChoice( 4, "auto", "dps", "heal", "tank" ) );
-  globalsLayout_left -> addRow( tr( "TMI Standard Boss" ),   choice.tmi_boss = createChoice( 8, "custom", "T17Q", "T16H25", "T16H10", "T16N25", "T16N10", "T15H25", "T15N25", "T15LFR" ) );
+  globalsLayout_left -> addRow( tr(  "Thread Priority" ), choice.thread_priority = createChoice( 5, "Highest", "High", "Normal", "Lower", "Lowest" ) );
+  globalsLayout_left -> addRow( tr( "Armory Region" ),  choice.armory_region = createChoice( 5, "US", "EU", "TW", "CN", "KR" ) );
+  globalsLayout_left -> addRow( tr(   "Armory Spec" ),    choice.armory_spec = createChoice( 2, "Active", "Inactive" ) );
+  globalsLayout_left -> addRow( tr(  "Default Role" ),   choice.default_role = createChoice( 4, "Auto", "DPS", "Heal", "Tank" ) );
+  globalsLayout_left -> addRow( tr( "TMI Standard Boss" ),   choice.tmi_boss = createChoice( 8, "Custom", "T17M", "T17H", "T17N", "T16H25", "T16H10", "T16N25", "T16N10" ) );
   globalsLayout_left -> addRow( tr( "TMI Window (sec)" ),  choice.tmi_window = createChoice( 10, "0", "2", "3", "4", "5", "6", "7", "8", "9", "10" ) );
   globalsLayout_left -> addRow( tr( "Show ETMI" ),          choice.show_etmi = createChoice( 2, "Only when in group", "Always" ) );
 
@@ -342,7 +340,7 @@ void SC_OptionsTab::createScalingTab()
   QFormLayout* scalingLayout2 = new QFormLayout();
   scalingLayout2 -> setFieldGrowthPolicy( QFormLayout::FieldsStayAtSizeHint );
   scalingLayout2 -> addRow( tr( "Center Scale Delta" ),  choice.center_scale_delta = createChoice( 2, "Yes", "No" ) );
-  scalingLayout2 -> addRow( tr( "Scale Over" ),  choice.scale_over = createChoice( 9, "default", "dps", "hps", "dtps", "htps", "raid_dps", "raid_hps", "tmi", "etmi" ) );
+  scalingLayout2 -> addRow( tr( "Scale Over" ),  choice.scale_over = createChoice( 9, "Default", "DPS", "HPS", "DTPS", "HTPS", "Raid_DPS", "Raid_HPS", "TMI", "ETMI" ) );
 
   scalingLayout -> addLayout( scalingLayout2 );
 
@@ -361,7 +359,7 @@ void SC_OptionsTab::createPlotsTab()
   choice.plots_points = addValidatorToComboBox( 1, INT_MAX, createChoice( 4, "10", "20", "30", "40" ) );
   plotsLayout -> addRow( tr( "Number of Plot Points" ), choice.plots_points );
 
-  choice.plots_step = addValidatorToComboBox( 1, INT_MAX, createChoice( 6, "50", "100", "150", "200", "250", "300" ) );
+  choice.plots_step = addValidatorToComboBox( 1, INT_MAX, createChoice( 6, "25", "50", "100", "150", "200", "250" ) );
   plotsLayout -> addRow( tr( "Plot Step Amount" ), choice.plots_step );
 
   plotsButtonGroup = new QButtonGroup();
@@ -388,10 +386,10 @@ void SC_OptionsTab::createReforgePlotsTab()
   reforgePlotsLayout -> setFieldGrowthPolicy( QFormLayout::FieldsStayAtSizeHint );
 
   // Create Combo Boxes
-  choice.reforgeplot_amount = addValidatorToComboBox( 1, INT_MAX, createChoice( 10, "250", "500", "750", "1000", "1250", "1500", "2000", "2500", "3000", "5000" ) );
+  choice.reforgeplot_amount = addValidatorToComboBox( 1, INT_MAX, createChoice( 10, "100", "200", "300", "400", "500", "750", "1000", "1250", "1500", "2000" ) );
   reforgePlotsLayout -> addRow( tr( "Reforge Amount" ), choice.reforgeplot_amount );
 
-  choice.reforgeplot_step = addValidatorToComboBox( 1, INT_MAX, createChoice( 6, "50", "100", "200", "500", "750", "1000" ) );
+  choice.reforgeplot_step = addValidatorToComboBox( 1, INT_MAX, createChoice( 5, "25", "50", "100", "200", "250" ) );
   reforgePlotsLayout -> addRow( tr( "Step Amount" ), choice.reforgeplot_step );
 
   QLabel* messageText = new QLabel( tr( "A maximum of three stats may be ran at once.\n" ) );
@@ -526,21 +524,22 @@ void SC_OptionsTab::decodeOptions()
   QSettings settings;
   settings.beginGroup( "options" );
   load_setting( settings, "version", choice.iterations );
-  load_setting( settings, "iterations", choice.iterations, "1000" );
+  load_setting( settings, "iterations", choice.iterations, "10000" );
   load_setting( settings, "fight_length", choice.fight_length, "450" );
   load_setting( settings, "fight_variance", choice.fight_variance, "20%" );
   load_setting( settings, "fight_style", choice.fight_style );
   load_setting( settings, "target_race", choice.target_race );
   load_setting( settings, "num_target", choice.num_target );
   load_setting( settings, "player_skill", choice.player_skill );
-  load_setting( settings, "threads", choice.threads );
+  load_setting( settings, "threads", choice.threads, QString::number( QThread::idealThreadCount() ) );
+  load_setting( settings, "thread_priority", choice.thread_priority, "Lowest" );
   load_setting( settings, "armory_region", choice.armory_region );
   load_setting( settings, "armory_spec", choice.armory_spec );
   load_setting( settings, "default_role", choice.default_role );
-  load_setting( settings, "tmi_boss", choice.tmi_boss );
+  load_setting( settings, "tmi_boss", choice.tmi_boss, "T17M" );
   load_setting( settings, "tmi_window_global", choice.tmi_window, "6" );
   load_setting( settings, "show_etmi", choice.show_etmi );
-  load_setting( settings, "world_lag", choice.world_lag );
+  load_setting( settings, "world_lag", choice.world_lag, "Medium - 100 ms" );
   load_setting( settings, "target_level", choice.target_level );
   load_setting( settings, "report_pets", choice.report_pets, "No" );
   load_setting( settings, "print_style", choice.print_style );
@@ -551,8 +550,8 @@ void SC_OptionsTab::decodeOptions()
   load_setting( settings, "center_scale_delta", choice.center_scale_delta, "No" );
   load_setting( settings, "scale_over", choice.scale_over );
 
-  load_setting( settings, "plot_points", choice.plots_points, "10" );
-  load_setting( settings, "plot_step", choice.plots_step, "100" );
+  load_setting( settings, "plot_points", choice.plots_points, "40" );
+  load_setting( settings, "plot_step", choice.plots_step, "50" );
 
   load_setting( settings, "reforgeplot_amount", choice.reforgeplot_amount, "500" );
   load_setting( settings, "reforgeplot_step", choice.reforgeplot_step, "50" );
@@ -626,6 +625,7 @@ void SC_OptionsTab::encodeOptions()
   settings.setValue( "num_target", choice.num_target -> currentText() );
   settings.setValue( "player_skill", choice.player_skill -> currentText() );
   settings.setValue( "threads", choice.threads -> currentText() );
+  settings.setValue( "thread_priority", choice.thread_priority -> currentText() );
   settings.setValue( "armory_region", choice.armory_region -> currentText() );
   settings.setValue( "armory_spec", choice.armory_spec -> currentText() );
   settings.setValue( "default_role", choice.default_role -> currentText() );
@@ -663,7 +663,7 @@ void SC_OptionsTab::encodeOptions()
 
 void SC_OptionsTab::createToolTips()
 {
-  choice.version -> setToolTip( tr( "Live: Use mechanics on Live servers. ( WoW Build %1 )" ).arg( dbc::build_level( false ) ) + "\n" +
+  choice.version -> setToolTip( tr( "Live:  Use mechanics on Live servers. ( WoW Build %1 )" ).arg( dbc::build_level( false ) ) + "\n" +
                               #if SC_BETA
                                 tr( "Beta:  Use mechanics on Beta servers. ( WoW Build %1 )" ).arg( dbc::build_level( true ) ) + "\n" +
                                 tr( "Both: Create Evil Twin with Beta mechanics" ) );
@@ -672,13 +672,11 @@ void SC_OptionsTab::createToolTips()
                                 tr( "Both: Create Evil Twin with PTR mechanics" ) );
 #endif
 
-  choice.iterations -> setToolTip( tr( "%1:   Fast and Rough" ).arg( 100 ) + "\n" +
-                                   tr( "%1:  Sufficient for DPS Analysis" ).arg( 1000 ) + "\n" +
+  choice.iterations -> setToolTip( tr( "%1:    Fast and Rough" ).arg( 100 ) + "\n" +
+                                   tr( "%1:   Sufficient for DPS Analysis" ).arg( 1000 ) + "\n" +
                                    tr( "%1: Recommended for Scale Factor Generation" ).arg( 10000 ) + "\n" +
                                    tr( "%1: Use if %2 isn't enough for Scale Factors" ).arg( 25000 ).arg( 10000 ) + "\n" +
                                    tr( "%1: If you're patient" ).arg( 50000 ) );
-
-  choice.fight_length -> setToolTip( tr( "For custom fight lengths use max_time=seconds." ) );
 
   choice.fight_variance -> setToolTip( tr( "Varying the fight length over a given spectrum improves\n"
                                            "the analysis of trinkets and abilities with long cooldowns." ) );
@@ -700,8 +698,7 @@ void SC_OptionsTab::createToolTips()
 
   choice.target_race -> setToolTip( tr( "Race of the target and any adds." ) );
 
-  choice.challenge_mode -> setToolTip( tr( "Enables/Disables the challenge mode setting, downscaling items to level 463.\n"
-                                           "Stats won't be exact, but very close." ) );
+  choice.challenge_mode -> setToolTip( tr( "Enables/Disables the challenge mode setting, downscaling items to level 660." ) );
 
   choice.num_target -> setToolTip( tr( "Number of enemies." ) );
 
@@ -712,6 +709,9 @@ void SC_OptionsTab::createToolTips()
 
   choice.threads -> setToolTip( tr( "Match the number of CPUs for optimal performance.\n"
                                     "Most modern desktops have at least two CPU cores." ) );
+
+  choice.thread_priority -> setToolTip( tr( "This can allow for a more responsive computer while simulations are running.\n"
+                                            "When set to 'Lowest', it will be possible to use your computer as normal while SimC runs in the background." ) );
 
   choice.armory_region -> setToolTip( tr( "United States, Europe, Taiwan, China, Korea" ) );
 
@@ -732,7 +732,7 @@ void SC_OptionsTab::createToolTips()
 
   choice.report_pets -> setToolTip( tr( "Specify if pets get reported separately in detail." ) );
 
-  choice.print_style -> setToolTip( tr( "Specify html report print style." ) );
+  choice.print_style -> setToolTip( tr( "Specify HTML report print style." ) );
 
 
   choice.statistics_level -> setToolTip( tr( "Determines how much detailed statistical information besides count & mean will be collected during simulation.\n"
@@ -862,9 +862,16 @@ QString SC_OptionsTab::get_globalSettings()
 QString SC_OptionsTab::mergeOptions()
 {
   QString options = "### Begin GUI options ###\n";
+  QString spell_query = mainWindow -> cmdLine -> commandLineText();
+  if ( spell_query.startsWith( "spell_query" ) )
+  {
+    options += spell_query;
+    return options;
+  }
 
   options += get_globalSettings();
   options += "threads=" + choice.threads -> currentText() + "\n";
+  options += "thread_priority=" + choice.thread_priority -> currentText() + "\n";
 
   QList<QAbstractButton*> buttons = scalingButtonGroup -> buttons();
   for ( int i = 2; i < buttons.size(); i++ )

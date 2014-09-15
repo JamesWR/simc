@@ -3,7 +3,6 @@ level=100
 race=night_elf
 role=tank
 position=front
-professions=engineering=600/alchemy=600
 talents=http://us.battle.net/wow/en/tool/talent-calculator#Ub!.0.0.01
 spec=guardian
 
@@ -15,8 +14,8 @@ spec=guardian
 
 # Executed before combat begins. Accepts non-harmful actions only.
 
-actions.precombat=flask,type=greater_draenor_armor_flask
-actions.precombat+=/food,type=chun_tian_spring_rolls
+actions.precombat=flask,type=greater_draenic_stamina_flask
+actions.precombat+=/food,type=sleeper_surprise
 actions.precombat+=/mark_of_the_wild,if=!aura.str_agi_int.up
 actions.precombat+=/bear_form
 # Snapshot raid buffed stats before combat begins and pre-potting is done.
@@ -29,38 +28,38 @@ actions+=/berserking
 actions+=/arcane_torrent
 actions+=/use_item,slot=trinket1
 actions+=/auto_attack
-actions+=/skull_bash_bear
+actions+=/skull_bash
 actions+=/maul,if=buff.tooth_and_claw.react&buff.tooth_and_claw_absorb.down&incoming_damage_1s
 # Cast Frenzied Regeneration based on incoming damage, being more strict the closer we are to wasting SD charges.
 actions+=/frenzied_regeneration,if=incoming_damage_3>(1+action.savage_defense.charges_fractional)*0.04*health.max
 actions+=/savage_defense
 actions+=/barkskin
-actions+=/bristling_fur,if=talent.bristling_fur.enabled&incoming_damage_4s>health.max*0.15
-actions+=/renewal,if=talent.renewal.enabled&incoming_damage_5>0.8*health.max
-actions+=/natures_vigil,if=talent.natures_vigil.enabled&(!talent.incarnation.enabled|buff.son_of_ursoc.up|cooldown.incarnation.remains)
+actions+=/bristling_fur,if=incoming_damage_4s>health.max*0.15
+actions+=/renewal,if=incoming_damage_5>0.8*health.max
+actions+=/natures_vigil,if=!talent.incarnation.enabled|buff.son_of_ursoc.up|cooldown.incarnation.remains
 actions+=/lacerate,if=((remains<=duration*0.3)|(dot.lacerate.stack<3&dot.thrash_bear.remains>dot.thrash_bear.duration*0.3))&(buff.son_of_ursoc.up|buff.berserk.up)
 actions+=/thrash_bear,if=remains<=duration*0.3&(buff.son_of_ursoc.up|buff.berserk.up)
-actions+=/pulverize,if=talent.pulverize.enabled&buff.pulverize.remains<gcd
+actions+=/pulverize,if=buff.pulverize.remains<gcd
 actions+=/mangle
 actions+=/incarnation
 actions+=/lacerate,cycle_targets=1,if=remains<=duration*0.3|dot.lacerate.stack<3
 actions+=/thrash_bear,if=remains<=duration*0.3
-actions+=/cenarion_ward,if=talent.cenarion_ward.enabled
+actions+=/cenarion_ward
 actions+=/thrash_bear,if=active_enemies>=3
 actions+=/lacerate
 
 head=primal_gladiators_headcover,id=111285
-neck=primal_gladiators_necklace_of_prowess,id=111080,enchant=140mastery
+neck=primal_gladiators_necklace_of_prowess,id=111080,enchant=gift_of_mastery
 shoulders=primal_gladiators_dragonhide_spaulders,id=111111
-back=primal_gladiators_cape_of_cruelty,id=111077,enchant=200mastery
+back=primal_gladiators_cape_of_cruelty,id=111077,enchant=gift_of_mastery
 chest=primal_gladiators_tunic,id=111273
 wrists=primal_gladiators_bindings_of_prowess,id=111148
 hands=primal_gladiators_dragonhide_gloves,id=111107
 waist=primal_gladiators_belt_of_cruelty,id=111142
 legs=primal_gladiators_legguards,id=111276
 feet=primal_gladiators_boots_of_victory,id=111146
-finger1=primal_gladiators_ring_of_cruelty,id=111081,enchant=100mastery
-finger2=primal_gladiators_ring_of_prowess,id=111271,enchant=100mastery
+finger1=primal_gladiators_ring_of_cruelty,id=111081,enchant=gift_of_mastery
+finger2=primal_gladiators_ring_of_prowess,id=111271,enchant=gift_of_mastery
 trinket1=primal_gladiators_badge_of_conquest,id=111222
 trinket2=primal_gladiators_insignia_of_conquest,id=111223
 main_hand=primal_gladiators_pike,id=111075,enchant=mark_of_the_frostwolf
@@ -70,8 +69,8 @@ main_hand=primal_gladiators_pike,id=111075,enchant=mark_of_the_frostwolf
 # gear_stamina=3250
 # gear_crit_rating=858
 # gear_haste_rating=89
-# gear_mastery_rating=1705
-# gear_armor=877
+# gear_mastery_rating=1440
+# gear_armor=950
 # gear_multistrike_rating=525
 # gear_versatility_rating=249
-# pvp_2pc_melee=1
+# set_bonus=pvp_2pc=1

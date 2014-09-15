@@ -444,9 +444,13 @@ void print_html_sim_summary( report::sc_html_stream& os, sim_t* sim, const sim_r
   os.printf(
     "<tr class=\"left\">\n"
     "<th>Total Events Processed:</th>\n"
-    "<td>%ld</td>\n"
+#if !defined( SC_WINDOWS )
+    "<td>%lu</td>\n"
+#else
+    "<td>%I64u</td>\n"
+#endif
     "</tr>\n",
-    ( long ) sim -> total_events_processed );
+    sim -> total_events_processed );
 
   os.printf(
     "<tr class=\"left\">\n"
@@ -536,9 +540,7 @@ void print_html_sim_summary( report::sc_html_stream& os, sim_t* sim, const sim_r
         sim -> simulation_length.mean(),
         sim -> simulation_length.min(),
         sim -> simulation_length.max() );
-    os.printf(
-      "<a href=\"#help-timeline-distribution\" class=\"help\">%s</a>\n",
-      chart.to_string().c_str() );
+    os << "<a href=\"#help-timeline-distribution\" class=\"help\">" << chart.to_string() << "</a>\n";
   }
 
   // Gear Charts
@@ -603,7 +605,12 @@ void print_html_raid_summary( report::sc_html_stream& os, sim_t* sim, const sim_
 
 
   highchart::bar_chart_t raid_dps( "raid_dps", sim );
-  os <<  chart::generate_raid_aps( raid_dps, sim, true ).to_string();
+  if ( chart::generate_raid_aps( raid_dps, sim, "dps" ) )
+    os << raid_dps.to_string();
+
+  highchart::bar_chart_t raid_dtps( "raid_dtps", sim );
+  if ( chart::generate_raid_aps( raid_dtps, sim, "dtps" ) )
+    os << raid_dtps.to_string();
 
   if ( ! sim -> raid_events_str.empty() )
   {
@@ -638,7 +645,12 @@ void print_html_raid_summary( report::sc_html_stream& os, sim_t* sim, const sim_
   os << "<div class=\"charts\">\n";
 
   highchart::bar_chart_t raid_hps( "raid_hps", sim );
-  os <<  chart::generate_raid_aps( raid_hps, sim, false ).to_string();
+  if ( chart::generate_raid_aps( raid_hps, sim, "hps" ) )
+    os << raid_hps.to_string();
+
+  highchart::bar_chart_t raid_tmi( "raid_tmi", sim );
+  if ( chart::generate_raid_aps( raid_tmi, sim, "tmi" ) )
+    os << raid_tmi.to_string();
 
   // RNG chart
   if ( sim -> report_rng )
@@ -820,7 +832,7 @@ static const help_box_t help_boxes[] =
     { "RPS In", "Average primary resource points generated per second."},
     { "RPS Out", "Average primary resource points consumed per second."},
     { "Scale Factors", "Gain per unit stat increase except for <b>Hit/Expertise</b> which represent <b>Loss</b> per unit stat <b>decrease</b>."},
-    { "Gear Amount", "Amount from raw gear, before class or buff modifiers. Amount from hybrid primary stats (i.e. Agility/Intellect) shown in parentheses."},
+    { "Gear Amount", "Amount from raw gear, before class, attunement, or buff modifiers. Amount from hybrid primary stats (i.e. Agility/Intellect) shown in parentheses."},
     { "Stats Raid Buffed", "Amount after all static buffs have been accounted for. Dynamic buffs (i.e. trinkets, potions) not included."},
     { "Stats Unbuffed", "Amount after class modifiers and effects, but before buff modifiers."},
     { "Ticks", "Average number of periodic ticks per iteration. Spells that do not have a damage-over-time component will have zero ticks."},
@@ -1014,8 +1026,12 @@ void print_html_head( report::sc_html_stream& os, sim_t* sim )
   os << "<title>Simulationcraft Results</title>\n";
   os << "<meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\" />\n"
      << "<script type=\"text/javascript\" src=\"http://ajax.googleapis.com/ajax/libs/jquery/1/jquery.min.js\"></script>\n"
-     << "<script src=\"http://code.highcharts.com/highcharts.js\"></script>\n"
-     << "<script>var wowhead_tooltips = { \"colorlinks\": true, \"iconizelinks\": true, \"renamelinks\": true }</script>\n";
+     << "<script src=\"http://code.highcharts.com/highcharts.js\"></script>\n";
+  if ( sim -> wowhead_tooltips )
+  {
+   os << "<script type=\"text/javascript\" src=\"http://static.wowhead.com/widgets/power.js\"></script>\n"
+      << "<script>var wowhead_tooltips = { \"colorlinks\": true, \"iconizelinks\": true, \"renamelinks\": true }</script>\n";
+  }
 
   print_html_styles( os, sim );
 }

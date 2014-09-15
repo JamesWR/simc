@@ -503,7 +503,7 @@ bool download_item_data( item_t& item, cache::behavior_e caching )
     {
       const rapidjson::Value& sockets = js[ "socketInfo" ][ "sockets" ];
 
-	  for (rapidjson::SizeType i = 0, n = as<rapidjson::SizeType>( std::min(static_cast< size_t >(sockets.Size()), sizeof_array(item.parsed.data.socket_color))); i < n; ++i)
+    for (rapidjson::SizeType i = 0, n = as<rapidjson::SizeType>( std::min(static_cast< size_t >(sockets.Size()), sizeof_array(item.parsed.data.socket_color))); i < n; ++i)
       {
         if ( ! sockets[ i ].HasMember( "type" ) )
           continue;
@@ -549,17 +549,11 @@ bool download_item_data( item_t& item, cache::behavior_e caching )
         item.parsed.data.type_flags |= RAID_TYPE_HEROIC;
       else if ( util::str_in_str_ci( nameDescription, "raid finder" ) )
         item.parsed.data.type_flags |= RAID_TYPE_LFR;
-      else if ( util::str_in_str_ci( nameDescription, "flexible" ) )
-        item.parsed.data.type_flags |= RAID_TYPE_FLEXIBLE;
-
-      if ( util::str_in_str_ci( nameDescription, "thunderforged" ) )
-        item.parsed.data.type_flags |= RAID_TYPE_ELITE;
+      else if ( util::str_in_str_ci( nameDescription, "mythic" ) )
+        item.parsed.data.type_flags |= RAID_TYPE_MYTHIC;
 
       if ( util::str_in_str_ci( nameDescription, "warforged" ) )
-        item.parsed.data.type_flags |= RAID_TYPE_ELITE;
-
-      if ( util::str_in_str_ci( nameDescription, "timeless" ) )
-        item.parsed.data.type_flags |= RAID_TYPE_ELITE;
+        item.parsed.data.type_flags |= RAID_TYPE_WARFORGED;
     }
 
     if ( js.HasMember( "itemSpells" ) )
@@ -797,24 +791,3 @@ bool bcp_api::download_glyph( player_t*          player,
 
   return true;
 }
-
-#if USE_WOWREFORGE
-player_t* wowreforge::download_player( sim_t*             sim,
-                                       const std::string& profile_id,
-                                       const std::string& talents,
-                                       cache::behavior_e  caching )
-{
-  sim -> current_name = profile_id;
-
-  player_spec_t player;
-
-  player.origin = "http://wowreforge.com/Profiles/" + profile_id;
-  player.url = player.origin + "?json";
-  player.name = "wowreforge_" + profile_id;
-
-  player.talent_spec = talents;
-
-  return parse_player( sim, player, caching );
-}
-
-#endif // USE_WOWREFORGE

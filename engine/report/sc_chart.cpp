@@ -398,10 +398,21 @@ struct compare_downtime
 
 struct filter_non_performing_players
 {
-  bool dps;
-  filter_non_performing_players( bool dps_ ) : dps( dps_ ) {}
+  std::string type;
+  filter_non_performing_players( std::string type_ ) : type( type_ ) {}
   bool operator()( player_t* p ) const
-  { if ( dps ) { if ( p -> collected_data.dps.mean() <= 0 ) return true;} else if ( p -> collected_data.hps.mean() <= 0 ) return true; return false; }
+  { 
+    if ( type == "dps" && p -> collected_data.dps.mean() <= 0 ) 
+        return true;
+    else if ( type == "hps" && p -> collected_data.hps.mean() <= 0 ) 
+      return true; 
+    else if ( type == "dtps" && p -> collected_data.dtps.mean() <= 0 ) 
+      return true; 
+    else if ( type == "tmi" && p -> collected_data.theck_meloree_index.mean() <= 0 ) 
+      return true; 
+    
+    return false; 
+  }
 };
 
 struct compare_dpet
@@ -602,6 +613,232 @@ public:
 // Chart
 // ==========================================================================
 
+std::string chart::raid_downtime( std::vector<player_t*>& players_by_name, int print_styles )
+{
+  // chart option overview: http://code.google.com/intl/de-DE/apis/chart/image/docs/chart_params.html
+
+  if ( players_by_name.empty() )
+    return std::string();
+
+  std::vector<player_t*> waiting_list;
+  for ( size_t i = 0; i < players_by_name.size(); i++ )
+  {
+    player_t* p = players_by_name[ i ];
+    if ( ( p -> collected_data.waiting_time.mean() / p -> collected_data.fight_length.mean() ) > 0.01 )
+    {
+      waiting_list.push_back( p );
+    }
+  }
+
+  if ( waiting_list.empty() )
+    return std::string();
+
+  range::sort( waiting_list, compare_downtime() );
+
+  // Check if any player name contains non-ascii characters.
+  // If true, add a special char ("\xE4\xB8\x80")  to the title, which fixes a weird bug with google image charts.
+  // See Issue 834
+  bool player_names_non_ascii = false;
+  for ( size_t i = 0; i < waiting_list.size(); i++ )
+  {
+    if ( util::contains_non_ascii( waiting_list[ i ] -> name_str ) )
+    {
+      player_names_non_ascii = true;
+      break;
+    }
+  }
+
+  // Set up chart
+  sc_chart chart( std::string( player_names_non_ascii ? "\xE4\xB8\x80" : "" ) + "Player Waiting Time", HORIZONTAL_BAR, print_styles );
+  chart.set_height( as<unsigned>( waiting_list.size() ) * 30 + 30 );
+
+  std::ostringstream s;
+  s.setf( std::ios_base::fixed ); // Set fixed flag for floating point numbers
+
+  // Create Chart
+  s << chart.create();
+
+  // Fill in data
+  s << "chd=t:";
+  double max_waiting = 0;
+  for ( size_t i = 0; i < waiting_list.size(); i++ )
+  {
+    player_t* p = waiting_list[ i ];
+    double waiting = 100.0 * p -> collected_data.waiting_time.mean() / p -> collected_data.fight_length.mean();
+    if ( waiting > max_waiting ) max_waiting = waiting;
+    s << ( i ? "|" : "" );
+    s << std::setprecision( 2 ) << waiting;
+  }
+  s << amp;
+
+  // Custom chart data scaling
+  s << "chds=0," << ( max_waiting * 1.9 );
+  s << amp;
+
+  // Fill in color series
+  s << "chco=";
+  for ( size_t i = 0; i < waiting_list.size(); i++ )
+  {
+    if ( i ) s << ",";
+    s << class_color( get_player_or_owner_type( waiting_list[ i ] ) );
+  }
+  s << amp;
+
+  // Text Data
+  s << "chm=";
+  for ( size_t i = 0; i < waiting_list.size(); i++ )
+  {
+    player_t* p = waiting_list[ i ];
+
+    std::string formatted_name = p -> name_str;
+    util::urlencode( formatted_name );
+
+    double waiting_pct = ( 100.0 * p -> collected_data.waiting_time.mean() / p -> collected_data.fight_length.mean() );
+
+    s << ( i ? "|" : "" )  << "t++" << std::setprecision( p -> sim -> report_precision / 2 ) << waiting_pct; // Insert waiting percent
+
+    s << "%25++" << formatted_name.c_str(); // Insert player name
+
+    s << "," << get_color( p ); // Insert player class text color
+
+    s << "," << i; // Series Index
+
+    s << ",0"; // <opt_which_points> 0 == draw markers for all points
+
+    s << ",15"; // size
+  }
+  s << amp;
+
+  return s.str();
+}
+
+// chart::raid_dps ==========================================================
+
+size_t chart::raid_aps( std::vector<std::string>& images,
+                        sim_t* sim,
+                        std::vector<player_t*>& players_by_aps,
+                        std::string type )
+{
+  size_t num_players = players_by_aps.size();
+
+  if ( num_players == 0 )
+    return 0;
+
+  double max_aps = 0;
+  std::string title_str = "none";
+  if ( type == "dps" )
+  {
+    max_aps = players_by_aps[ 0 ] -> collected_data.dps.mean();
+    title_str = "DPS";
+  }
+  else if ( type == "hps" )
+  {
+    max_aps = players_by_aps[ 0 ] -> collected_data.hps.mean() + players_by_aps[ 0 ] -> collected_data.aps.mean();
+    title_str = "HPS %2b APS";
+  }
+  else if ( type == "dtps" )
+  {
+    max_aps = players_by_aps[ players_by_aps.size() - 1 ] -> collected_data.dtps.mean();
+    title_str = "DTPS";
+  }
+  else if ( type == "tmi" )
+  {
+    max_aps = players_by_aps[ players_by_aps.size() - 1 ] -> collected_data.theck_meloree_index.mean() / 1000.0;
+    title_str = "TMI";
+  }
+
+  std::string s = std::string();
+  char buffer[ 1024 ];
+  bool first = true;
+
+  std::vector<player_t*> player_list ;
+  size_t max_players = MAX_PLAYERS_PER_CHART;
+
+  // Ommit Player with 0 DPS/HPS
+  range::remove_copy_if( players_by_aps, back_inserter( player_list ), filter_non_performing_players( type ) );
+
+  num_players = player_list.size();
+
+  if ( num_players == 0 )
+    return 0;
+
+  while ( true )
+  {
+    if ( num_players > max_players ) num_players = max_players;
+
+
+    // Check if any player name contains non-ascii characters.
+    // If true, add a special char ("\xE4\xB8\x80")  to the title, which fixes a weird bug with google image charts.
+    // See Issue 834
+    bool player_names_non_ascii = false;
+    for ( size_t i = 0; i < num_players; i++ )
+    {
+      if ( util::contains_non_ascii( player_list[ i ] -> name_str ) )
+      {
+        player_names_non_ascii = true;
+        break;
+      }
+    }
+
+    std::string chart_name = first ? ( std::string( player_names_non_ascii ? "\xE4\xB8\x80" : "" ) + std::string( title_str ) + " Ranking" ) : "";
+    sc_chart chart( chart_name, HORIZONTAL_BAR, sim -> print_styles );
+    chart.set_height( as<unsigned>( num_players ) * 20 + ( first ? 20 : 0 ) );
+
+    s = chart.create();
+    s += "chbh=15";
+    s += amp;
+    s += "chd=t:";
+
+    for ( size_t i = 0; i < num_players; i++ )
+    {
+      player_t* p = player_list[ i ];
+      double player_mean = 0.0;
+      if      ( type == "dps" )  { player_mean = p -> collected_data.dps.mean(); }
+      else if ( type == "hps" )  { player_mean = p -> collected_data.hps.mean() + p -> collected_data.aps.mean(); }
+      else if ( type == "dtps" ) { player_mean = p -> collected_data.dtps.mean(); }
+      else if ( type == "tmi" )  { player_mean = p -> collected_data.theck_meloree_index.mean() / 1000.0; }
+      snprintf( buffer, sizeof( buffer ), "%s%.0f", ( i ? "|" : "" ), player_mean ); 
+      s += buffer;
+    }
+    s += amp;
+    snprintf( buffer, sizeof( buffer ), "chds=0,%.0f", max_aps * 2.5 ); s += buffer;
+    s += amp;
+    s += "chco=";
+    for ( size_t i = 0; i < num_players; i++ )
+    {
+      if ( i ) s += ",";
+      s += get_color( player_list[ i ] );
+    }
+    s += amp;
+    s += "chm=";
+    for ( size_t i = 0; i < num_players; i++ )
+    {
+      player_t* p = player_list[ i ];
+      std::string formatted_name = util::google_image_chart_encode( p -> name_str );
+      util::urlencode( formatted_name );
+      double player_mean = 0.0;
+      if      ( type == "dps" )  { player_mean = p -> collected_data.dps.mean(); }
+      else if ( type == "hps" )  { player_mean = p -> collected_data.hps.mean() + p -> collected_data.aps.mean(); }
+      else if ( type == "dtps" ) { player_mean = p -> collected_data.dtps.mean(); }
+      else if ( type == "tmi" )  { player_mean = p -> collected_data.theck_meloree_index.mean() / 1000.0; }
+      std::string tmi_letter = ( type == "tmi" ) ? "k" : "";
+      snprintf( buffer, sizeof( buffer ), "%st++%.0f%s++%s,%s,%d,0,15", ( i ? "|" : "" ), player_mean, tmi_letter.c_str(), formatted_name.c_str(), get_color( p ).c_str(), ( int )i ); s += buffer;
+    }
+    s += amp;
+
+
+
+    images.push_back( s );
+
+    first = false;
+    player_list.erase( player_list.begin(), player_list.begin() + num_players );
+    num_players = ( int ) player_list.size();
+    if ( num_players == 0 ) break;
+  }
+
+  return images.size();
+}
+
 // chart::raid_gear =========================================================
 
 size_t chart::raid_gear( std::vector<std::string>& images,
@@ -760,7 +997,7 @@ std::string chart::scale_factors( player_t* p )
 
   char buffer[ 1024 ];
 
-  std::string formatted_name = p -> scales_over().name;
+  std::string formatted_name = util::google_image_chart_encode( p -> scales_over().name );
   util::urlencode( formatted_name );
 
   sc_chart chart( "Scale Factors|" + formatted_name, HORIZONTAL_BAR, p -> sim -> print_styles );
@@ -852,7 +1089,7 @@ std::string chart::scaling_dps( player_t* p )
 
   char buffer[ 1024 ];
 
-  std::string formatted_name = p -> scales_over().name;
+  std::string formatted_name = util::google_image_chart_encode( p -> scales_over().name );
   util::urlencode( formatted_name );
 
   sc_chart chart( "Stat Scaling|" + formatted_name, LINE, p -> sim -> print_styles );
@@ -976,13 +1213,34 @@ std::string chart::reforge_dps( player_t* p )
     int ysteps = 5;
     double ystep_amount = max_ydelta / ysteps;
 
-    std::string formatted_name = p -> scales_over().name;
+    int negative_steps = 0, positive_steps = 0, positive_offset = -1;
+
+    for ( int i = 0; i < num_points; i++ )
+    {
+      if ( pd[ i ][ 0 ].value < 0 )
+        negative_steps++;
+      else if ( pd[ i ][ 0 ].value > 0 )
+      {
+        if ( positive_offset == -1 )
+          positive_offset = i;
+        positive_steps++;
+      }
+    }
+
+    // We want to fit about 4 labels per side, but if there's many plot points, have some sane 
+    int negative_mod = static_cast<int>( std::max( std::ceil( negative_steps / 4 ), 4.0 ) );
+    int positive_mod = static_cast<int>( std::max( std::ceil( positive_steps / 4 ), 4.0 ) );
+
+    std::string formatted_name = util::google_image_chart_encode( p -> scales_over().name );
     util::urlencode( formatted_name );
 
     sc_chart chart( "Reforge Scaling|" + formatted_name, XY_LINE, p -> sim -> print_styles );
-    chart.set_height( 300 );
+    chart.set_height( 400 );
 
     s << chart.create();
+
+    // Generate reasonable X-axis labels in conjunction with the X data series.
+    std::string xl1, xl2;
 
     // X series
     s << "chd=t2:";
@@ -991,6 +1249,55 @@ std::string chart::reforge_dps( player_t* p )
       s << static_cast< int >( pd[ i ][ 0 ].value );
       if ( i < num_points - 1 )
         s << ",";
+
+      bool label = false;
+      // Label start
+      if ( i == 0 )
+        label = true;
+      // Label end
+      else if ( i == num_points - 1 )
+        label = true;
+      // Label baseline
+      else if ( pd[ i ][ 0 ].value == 0 )
+        label = true;
+      // Label every negative_modth value (left side of baseline)
+      else if ( pd[ i ][ 0 ].value < 0 && i % negative_mod == 0 )
+        label = true;
+      // Label every positive_modth value (right side of baseline), if there is
+      // enough room until the end of the graph
+      else if ( pd[ i ][ 0 ].value > 0 && i <= num_points - positive_mod && ( i - positive_offset ) > 0 && ( i - positive_offset + 1 ) % positive_mod == 0 )
+        label = true;
+
+      if ( label )
+      {
+        xl1 += util::to_string( pd[ i ][ 0 ].value );
+        if ( i == 0 || i == num_points - 1 )
+        {
+          xl1 += "+";
+          xl1 += util::stat_type_abbrev( stat_indices[ 0 ] );
+        }
+
+        xl2 += util::to_string( pd[ i ][ 1 ].value );
+        if ( i == 0 || i == num_points - 1 )
+        {
+          xl2 += "+";
+          xl2 += util::stat_type_abbrev( stat_indices[ 1 ] );
+        }
+
+      }
+      // Otherwise, "fake" a label by adding simply a space. This is required
+      // so that we can get asymmetric reforge ranges to correctly display the
+      // baseline position on the X axis
+      else
+      {
+        xl1 += "+";
+        xl2 += "+";
+      }
+
+      if ( i < num_points - 1 )
+        xl1 += "|";
+      if ( i < num_points - 1 )
+        xl2 += "|";
     }
 
     // Y series
@@ -1029,18 +1336,8 @@ std::string chart::reforge_dps( player_t* p )
     s << "chxt=x,y,x";
     s << amp;
 
-    // X Axis labels
-    s << "chxl=0:|" << ( int ) pd[ 0 ][ 0 ].value << "+" << util::stat_type_abbrev( stat_indices[ 0 ] ) << "|";
-    s << ( int ) pd[ 0 ][ 0 ].value / 2;
-    s << "|0|";
-    s << ( int ) pd[ ( num_points - 1 ) ][ 0 ].value / 2;
-    s << "|" << ( int ) pd[ num_points - 1 ][ 0 ].value << "+" << util::stat_type_abbrev( stat_indices[ 0 ] ) << "|";
-
-    s << "2:|" << ( int ) pd[ 0 ][ 1 ].value << "+" << util::stat_type_abbrev( stat_indices[ 1 ] ) << "|";
-    s << ( int ) pd[ 0 ][ 1 ].value / 2;
-    s << "|0|";
-    s << ( int ) pd[ num_points - 1 ][ 1 ].value / 2;
-    s << "|" << ( int ) pd[ ( num_points - 1 ) ][ 1 ].value << "+" << util::stat_type_abbrev( stat_indices[ 1 ] ) << "|";
+    // X Axis labels (generated above)
+    s << "chxl=0:|" << xl1 << "|2:|" << xl2 << "|";
 
     // Y Axis labels
     s << "1:|";
@@ -1070,9 +1367,9 @@ std::string chart::reforge_dps( player_t* p )
     s << amp;
 
     // Grid lines
-    s << "chg=5,";
+    s << "chg=" << util::to_string( 100 / ( 1.0 * num_points ) ) << ",";
     s << util::to_string( 100 / ( ysteps * 2 ) );
-    s << ",1,3";
+    s << ",3,3,0,0";
     s << amp;
 
     // Chart markers (Errorbars and Center-line)
@@ -1396,9 +1693,6 @@ std::string chart::gear_weights_lootrank( player_t* p )
       case STAT_WEAPON_DPS:
         if ( HUNTER == p -> type ) name = "rdps"; else name = "dps";  break;
       case STAT_WEAPON_OFFHAND_DPS:       name = "odps"; break;
-      case STAT_WEAPON_SPEED:
-        if ( HUNTER == p -> type ) name = "rsp"; else name = "msp"; break;
-      case STAT_WEAPON_OFFHAND_SPEED:     name = "osp"; break;
       default: name = 0; break;
     }
 
@@ -1905,6 +2199,7 @@ std::string chart::resource_color( int type )
     case RESOURCE_SOUL_SHARD:
     case RESOURCE_BURNING_EMBER:
     case RESOURCE_DEMONIC_FURY:  return class_color( WARLOCK );
+    case RESOURCE_ECLIPSE: return class_color( DRUID );
 
     case RESOURCE_CHI:           return class_color( MONK );
 
@@ -2165,47 +2460,61 @@ highchart::bar_chart_t& chart::generate_player_waiting_time( highchart::bar_char
 
 }
 
-highchart::bar_chart_t& chart::generate_raid_aps( highchart::bar_chart_t& bc, sim_t* s, bool dps_or_heal )
+bool chart::generate_raid_aps( highchart::bar_chart_t& bc,
+                                                sim_t* s,
+                                    const std::string& type )
 {
-  bc.set_title( std::string(dps_or_heal ? "DPS" : "HPS ") + " Ranking" );
+  bc.set_title( type + " Ranking" );
 
   // Prepare list
   std::vector<player_t*> player_list;
 
-  // Ommit Player with 0 DPS/HPS
-  range::remove_copy_if( dps_or_heal ? s -> players_by_dps : s -> players_by_hps, back_inserter( player_list ), filter_non_performing_players( dps_or_heal ) );
+  // Omit Player with 0 DPS/HPS
+  if ( util::str_compare_ci( type, "dps" ) )
+    range::remove_copy_if( s -> players_by_dps, back_inserter( player_list ), filter_non_performing_players( type ) );
+  else if ( util::str_compare_ci( type, "hps" ) )
+    range::remove_copy_if( s -> players_by_hps, back_inserter( player_list ), filter_non_performing_players( type ) );
+  else if ( util::str_compare_ci( type, "dtps" ) )
+    range::remove_copy_if( s -> players_by_dtps, back_inserter( player_list ), filter_non_performing_players( type ) );
+  else if ( util::str_compare_ci( type, "tmi" ) )
+    range::remove_copy_if( s -> players_by_tmi, back_inserter( player_list ), filter_non_performing_players( type ) );
+
+  if ( player_list.size() == 0 )
+    return false;
 
   // Create Chart
   std::vector<highchart::chart_t::entry_t> data;
-  if ( ! player_list.empty() )
+  bc.height_ = player_list.size() * 30 + 100;
+
+  for ( size_t i = 0; i < player_list.size(); ++i )
   {
-    size_t num_stats = player_list.size();
-
-    bc.height_ = num_stats * 30 + 30;
-
-    for ( size_t i = 0; i < num_stats; ++i )
+    const player_t* p = player_list[ i ];
+    std::string color = class_color( p -> type );
+    if ( color.empty() )
     {
-      const player_t* p = player_list[ i ];
-      std::string color = class_color( p -> type );
-      if ( color.empty() )
-      {
-        s -> errorf( "%s Player class color unknown. Type %s\n",
-            p -> name(), util::player_type_string( p -> type ) );
-        assert( 0 );
-      }
-
-      highchart::chart_t::entry_t e;
-      e.color = "#" + color;
-      e.name = p -> name_str;
-      e.value = dps_or_heal ? p -> collected_data.dps.mean() : p -> collected_data.hps.mean();
-      data.push_back( e );
+      s -> errorf( "%s Player class color unknown. Type %s\n",
+          p -> name(), util::player_type_string( p -> type ) );
+      assert( 0 );
     }
 
+    highchart::chart_t::entry_t e;
+    e.color = "#" + color;
+    e.name = p -> name_str;
+    if ( util::str_compare_ci( type, "dps" ) )
+      e.value = p -> collected_data.dps.mean();
+    else if ( util::str_compare_ci( type, "hps" ) )
+      e.value = p -> collected_data.hps.mean() + p -> collected_data.aps.mean();
+    else if ( util::str_compare_ci( type, "dtps" ) )
+      e.value = p -> collected_data.dtps.mean();
+    else if ( util::str_compare_ci( type, "tmi" ) )
+      e.value = p -> collected_data.theck_meloree_index.mean();
+
+    data.push_back( e );
   }
+
   bc.add_series( data );
 
-  return bc;
-
+  return true;
 }
 
 highchart::bar_chart_t& chart::generate_raid_dpet( highchart::bar_chart_t& bc, sim_t* s )

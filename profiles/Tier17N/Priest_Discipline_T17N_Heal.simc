@@ -3,7 +3,6 @@ level=100
 race=draenei
 role=heal
 position=back
-professions=enchanting=600/engineering=600
 talents=http://us.battle.net/wow/en/tool/talent-calculator#Xa!2112121
 glyphs=prayer_of_mending/circle_of_healing/deep_wells
 spec=discipline
@@ -16,7 +15,7 @@ spec=discipline
 
 # Executed before combat begins. Accepts non-harmful actions only.
 
-actions.precombat=flask,type=greater_draenic_critical_strike_flask
+actions.precombat=flask,type=greater_draenic_intellect_flask
 actions.precombat+=/food,type=blackrock_barbecue
 actions.precombat+=/power_word_fortitude,if=!aura.stamina.up
 # Snapshot raid buffed stats before combat begins and pre-potting is done.
@@ -35,38 +34,37 @@ actions+=/power_word_solace,if=talent.power_word_solace.enabled
 actions+=/mindbender,if=talent.mindbender.enabled&mana.pct<80
 actions+=/shadowfiend,if=!talent.mindbender.enabled
 actions+=/power_word_shield
-actions+=/penance_heal,if=buff.borrowed_time.up|target.buff.grace.stack<3
+actions+=/penance_heal,if=buff.borrowed_time.up
 actions+=/penance_heal
 actions+=/flash_heal,if=buff.surge_of_light.react
 actions+=/heal,if=buff.power_infusion.up|mana.pct>20
 actions+=/prayer_of_mending
 actions+=/heal
 
-head=primal_gladiators_hood_of_prowess,id=111084
-neck=primal_gladiators_pendant_of_contemplation,id=111131,enchant=140crit
-shoulders=primal_gladiators_amice_of_prowess,id=111087
-back=primal_gladiators_drape_of_contemplation,id=111127,enchant=gift_of_critical_strike
-chest=primal_gladiators_robes_of_prowess,id=111086
-wrists=primal_gladiators_cuffs_of_cruelty,id=111100
-hands=primal_gladiators_handguards_of_cruelty,id=111088
-waist=primal_gladiators_cord_of_victory,id=111095
-legs=primal_gladiators_leggings_of_prowess,id=111085
-feet=primal_gladiators_treads_of_prowess,id=111097
-finger1=primal_gladiators_band_of_meditation,id=111137,enchant=100crit
-finger2=primal_gladiators_band_of_contemplation,id=111138,enchant=100crit
-trinket1=primal_gladiators_medallion_of_meditation,id=111231
-trinket2=primal_gladiators_insignia_of_dominance,id=111228
-main_hand=primal_gladiators_battle_staff,id=111122,enchant=mark_of_shadowmoon
+head=soul_priests_hood,id=115563
+neck=feldspars_control_choker,id=113890,enchant=gift_of_critical_strike
+shoulders=soul_priests_shoulderguards,id=115561
+back=barrage_dodger_cloak,id=113878,enchant=gift_of_critical_strike
+chest=soul_priests_raiment,id=115560
+wrists=bracers_of_enkindled_power,id=113956
+hands=soul_priests_gloves,id=115562
+waist=seeking_ember_girdle,id=113941
+legs=soul_priests_leggings,id=115564
+feet=cavedwellers_climbers,id=113864
+finger1=sixeyed_band,id=113901,enchant=gift_of_critical_strike
+finger2=firemenders_smoldering_signet,id=113957,enchant=gift_of_critical_strike
+trinket1=autorepairing_autoclave,id=113986
+trinket2=ironspike_chew_toy,id=119192
+main_hand=blackhand_doomstaff,id=113988,enchant=mark_of_shadowmoon
 
 # Gear Summary
-# gear_stamina=3250
-# gear_intellect=2378
-# gear_spell_power=1265
-# gear_crit_rating=1228
-# gear_haste_rating=423
-# gear_mastery_rating=706
-# gear_armor=600
-# gear_multistrike_rating=525
-# gear_versatility_rating=212
-# tier17_2pc_heal=1
-# tier17_4pc_heal=1
+# gear_stamina=3408
+# gear_intellect=2490
+# gear_spell_power=1325
+# gear_crit_rating=1335
+# gear_haste_rating=597
+# gear_mastery_rating=657
+# gear_armor=700
+# gear_multistrike_rating=339
+# set_bonus=tier17_2pc=1
+# set_bonus=tier17_4pc=1

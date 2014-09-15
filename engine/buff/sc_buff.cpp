@@ -145,6 +145,7 @@ buff_t::buff_t( const buff_creation::buff_creator_basics_t& params ) :
   reverse(),
   constant(),
   quiet(),
+  can_cancel( true ),
   overridden(),
   requires_invalidation(),
   current_value(),
@@ -170,8 +171,8 @@ buff_t::buff_t( const buff_creation::buff_creator_basics_t& params ) :
   avg_refresh(),
   uptime_pct(),
   start_intervals(),
-  trigger_intervals()
-
+  trigger_intervals(),
+  change_regen_rate( false )
 {
   if ( source ) // Player Buffs
   {
@@ -183,7 +184,6 @@ buff_t::buff_t( const buff_creation::buff_creator_basics_t& params ) :
     sim -> buff_list.push_back( this );
     cooldown = sim -> get_cooldown( "buff_" + name_str );
   }
-
 
   // Set Buff duration
   if ( params._duration == timespan_t::min() )
@@ -259,6 +259,9 @@ buff_t::buff_t( const buff_creation::buff_creator_basics_t& params ) :
   if ( params._activated != -1 )
     activated = params._activated != 0;
 
+  if ( params._can_cancel != -1 )
+    can_cancel = params._can_cancel != 0;
+
   if ( params._period >= timespan_t::zero() )
     buff_period = params._period;
   else
@@ -296,6 +299,34 @@ buff_t::buff_t( const buff_creation::buff_creator_basics_t& params ) :
 
   if ( params._tick_callback )
     tick_callback = params._tick_callback;
+
+  if ( params._affects_regen == -1 && player && player -> regen_type == REGEN_DYNAMIC )
+  {
+    for ( size_t i = 0, end = params._invalidate_list.size(); i < end; i++ )
+    {
+      if ( player -> regen_caches[ params._invalidate_list[ i ] ] )
+        change_regen_rate = true;
+    }
+  }
+  else if ( params._affects_regen != -1 )
+    change_regen_rate = params._affects_regen != 0;
+
+  if ( params._refresh_behavior == BUFF_REFRESH_NONE )
+  {
+    // In wod, default behavior for ticking buffs is to pandemic-extend the duration
+    if ( tick_behavior == BUFF_TICK_CLIP || tick_behavior == BUFF_TICK_REFRESH )
+      refresh_behavior = BUFF_REFRESH_PANDEMIC;
+    // Otherwise, just do the full-duration refresh
+    else
+      refresh_behavior = BUFF_REFRESH_DURATION;
+  }
+  else
+    refresh_behavior = params._refresh_behavior;
+
+  if ( params._refresh_duration_callback )
+    refresh_duration_callback = params._refresh_duration_callback;
+
+  assert( refresh_behavior != BUFF_REFRESH_CUSTOM || ( refresh_behavior == BUFF_REFRESH_CUSTOM && refresh_duration_callback ) );
 
   invalidate_list = params._invalidate_list;
   requires_invalidation = ! invalidate_list.empty();
@@ -362,7 +393,8 @@ void buff_t::datacollection_end()
   for ( int i = 0; i <= simulation_max_stack; i++ )
     stack_uptime[ i ] -> datacollection_end( time );
 
-  double benefit = up_count > 0 ? 100.0 * up_count / ( up_count + down_count ) : 0;
+  double benefit = up_count > 0 ? 100.0 * up_count / ( up_count + down_count ) : 
+    time != timespan_t::zero() ? 100 * iteration_uptime_sum / time : 0;
   benefit_pct.add( benefit );
 
   double _trigger_pct = trigger_attempts > 0 ? 100.0 * trigger_successes / trigger_attempts : 0;
@@ -370,6 +402,46 @@ void buff_t::datacollection_end()
 
   avg_start.add( start_count );
   avg_refresh.add( refresh_count );
+}
+
+// buff_t:: refresh_duration ================================================
+
+timespan_t buff_t::refresh_duration( const timespan_t& new_duration ) const
+{
+  switch ( refresh_behavior )
+  {
+    case BUFF_REFRESH_DISABLED:
+      return timespan_t::zero();
+    case BUFF_REFRESH_DURATION:
+      return new_duration;
+    case BUFF_REFRESH_TICK:
+    {
+      timespan_t residual = remains() % buff_period;
+      if ( sim -> debug )
+        sim -> out_debug.printf( "%s %s carryover duration from ongoing tick: %.3f",
+            player -> name(), name(), residual.total_seconds() );
+
+      return new_duration + residual;
+    }
+    case BUFF_REFRESH_PANDEMIC:
+    {
+      timespan_t residual = std::min( new_duration * 0.3, remains() );
+      if ( sim -> debug )
+        sim -> out_debug.printf( "%s %s carryover from ongoing buff: %.3f",
+            player -> name(), name(), residual.total_seconds() );
+
+      return new_duration + residual;
+    }
+    case BUFF_REFRESH_EXTEND:
+      return remains() + new_duration;
+    case BUFF_REFRESH_CUSTOM:
+      return refresh_duration_callback( this, new_duration );
+    default:
+    {
+      assert( 0 );
+      return new_duration;
+    }
+  }
 }
 
 // buff_t::total_stack ======================================================
@@ -663,9 +735,34 @@ void buff_t::start( int        stacks,
   }
 #endif
 
-  if ( sim -> current_time <= timespan_t::from_seconds( 0.01 ) ) constant = true;
+  if ( sim -> current_time <= timespan_t::from_seconds( 0.01 ) )
+  {
+    if ( buff_duration == timespan_t::zero() || ( buff_duration > timespan_t::from_seconds( sim -> expected_max_time() ) ) )
+      constant = true;
+  }
 
   start_count++;
+
+  if ( player && change_regen_rate )
+    player -> do_dynamic_regen();
+  else if ( change_regen_rate )
+  {
+    for ( size_t i = 0, end = sim -> player_non_sleeping_list.size(); i < end; i++ )
+    {
+      player_t* actor = sim -> player_non_sleeping_list[ i ];
+      if ( actor -> regen_type != REGEN_DYNAMIC || actor -> is_pet() )
+        continue;
+
+      for ( size_t j = 0, end = invalidate_list.size(); j < end; j++ )
+      {
+        if ( actor -> regen_caches[ invalidate_list[ j ] ] )
+        {
+          actor -> do_dynamic_regen();
+          break;
+        }
+      }
+    }
+  }
 
   bump( stacks, value );
 
@@ -680,7 +777,7 @@ void buff_t::start( int        stacks,
   {
     expiration = new ( *sim ) expiration_t( this, d );
 
-    if ( tick_behavior != BUFF_TICK_NONE && 
+    if ( tick_behavior != BUFF_TICK_NONE &&
          buff_period > timespan_t::zero() &&
          buff_period <= d )
     {
@@ -706,20 +803,16 @@ void buff_t::refresh( int        stacks,
 
   refresh_count++;
 
-  timespan_t d = ( duration >= timespan_t::zero() ) ? duration : buff_duration;
+  timespan_t d;
+  if ( duration > timespan_t::zero() )
+    d = refresh_duration( duration );
+  else if ( duration == timespan_t::zero() )
+    d = duration;
+  else
+    d = refresh_duration( buff_duration );
 
-  // Carryover on ticking buffs that refresh, instead of clip
-  if ( d > timespan_t::zero() && buff_period > timespan_t::zero() && tick_behavior == BUFF_TICK_REFRESH )
-  {
-    timespan_t carryover = remains() % buff_period;
-    assert( carryover < buff_period );
-
-    if ( sim -> debug )
-      sim -> out_debug.printf( "%s %s carryover duration from ongoing tick: %.3f", 
-          player -> name(), name(), carryover.total_seconds() );
-
-    d += carryover;
-  }
+  if ( refresh_behavior == BUFF_REFRESH_DISABLED && duration != timespan_t::zero() )
+    return;
 
   // Make sure we always cancel the expiration event if we get an
   // infinite duration
@@ -732,12 +825,20 @@ void buff_t::refresh( int        stacks,
   }
   else
   {
-    assert( d > timespan_t::zero() );
     // Infinite duration -> duration of d
     if ( ! expiration )
       expiration = new ( *sim ) expiration_t( this, d );
     else
-      expiration -> reschedule( d );
+    {
+      timespan_t duration_remains = expiration -> remains();
+      if ( duration_remains < d )
+        expiration -> reschedule( d );
+      else if ( duration_remains > d )
+      {
+        core_event_t::cancel( expiration );
+        expiration = new ( *sim ) expiration_t( this, d );
+      }
+    }
 
     if ( tick_event && tick_behavior == BUFF_TICK_CLIP )
     {
@@ -849,6 +950,27 @@ void buff_t::expire( timespan_t delay )
 
   assert( as<std::size_t>( current_stack ) < stack_uptime.size() );
   stack_uptime[ current_stack ] -> update( false, sim -> current_time );
+
+  if ( player && change_regen_rate )
+    player -> do_dynamic_regen();
+  else if ( change_regen_rate )
+  {
+    for ( size_t i = 0, end = sim -> player_non_sleeping_list.size(); i < end; i++ )
+    {
+      player_t* actor = sim -> player_non_sleeping_list[ i ];
+      if ( actor -> regen_type != REGEN_DYNAMIC || actor -> is_pet() )
+        continue;
+
+      for ( size_t j = 0, end = invalidate_list.size(); j < end; j++ )
+      {
+        if ( actor -> regen_caches[ invalidate_list[ j ] ] )
+        {
+          actor -> do_dynamic_regen();
+          break;
+        }
+      }
+    }
+  }
 
   current_stack = 0;
   current_value = 0;
@@ -1007,6 +1129,32 @@ buff_t* buff_t::find( const std::vector<buff_t*>& buffs,
   }
 
   return NULL;
+}
+
+static buff_t* find_potion_buff( const std::vector<buff_t*>& buffs, player_t* source )
+{
+  for ( size_t i = 0, end = buffs.size(); i < end; i++ )
+  {
+    buff_t* b = buffs[ i ];
+    player_t* p = b -> player;
+
+    const item_data_t* item = unique_gear::find_item_by_spell( p -> dbc, b -> data().id() );
+    if ( item && item -> item_class == 0 && item -> item_subclass == ITEM_SUBCLASS_POTION &&
+         ( ! source || ( source == b -> source ) ) )
+      return b;
+  }
+
+  return 0;
+}
+
+buff_t* buff_t::find_expressable( const std::vector<buff_t*>& buffs,
+                                  const std::string& name,
+                                  player_t* source )
+{
+  if ( util::str_compare_ci( "potion", name ) )
+    return find_potion_buff( buffs, source );
+  else
+    return find( buffs, name, source );
 }
 
 // buff_t::to_str ===========================================================
@@ -1241,11 +1389,20 @@ stat_buff_t::stat_buff_t( const stat_buff_creator_t& params ) :
       double amount = 0;
       const spelleffect_data_t& effect = data().effectN( i );
 
+      if ( params.item )
+        amount = util::round( effect.average( params.item ) );
+      else
+        amount = util::round( effect.average( player, std::min( MAX_LEVEL, player -> level ) ) );
+
       if ( effect.subtype() == A_MOD_STAT )
         s = static_cast< stat_e >( effect.misc_value1() + 1 );
       else if ( effect.subtype() == A_MOD_RATING )
-        s = util::translate_rating_mod( effect.misc_value1() );
-      else if ( effect.subtype() == A_MOD_DAMAGE_DONE && effect.misc_value1() == 126 )
+      {
+        std::vector<stat_e> s = util::translate_all_rating_mod( effect.misc_value1() );
+        for ( size_t j = 0; j < s.size(); j++ )
+          stats.push_back( buff_stat_t( s[ j ], amount ) );
+      }
+      else if ( effect.subtype() == A_MOD_DAMAGE_DONE && ( effect.misc_value1() & 0x7E ) )
         s = STAT_SPELL_POWER;
       else if ( effect.subtype() == A_MOD_RESISTANCE )
         s = STAT_BONUS_ARMOR;
@@ -1256,11 +1413,8 @@ stat_buff_t::stat_buff_t( const stat_buff_creator_t& params ) :
       }
       else if ( effect.subtype() == A_MOD_INCREASE_HEALTH_2 || effect.subtype() == A_MOD_INCREASE_HEALTH )
         s = STAT_MAX_HEALTH;
-
-      if ( params.item )
-        amount = util::round( effect.average( params.item ) );
-      else
-        amount = effect.average( player, std::min( MAX_LEVEL, player -> level ) );
+      else if ( effect.subtype() == A_465 )
+        s = STAT_BONUS_ARMOR;
 
       if ( s != STAT_NONE )
         stats.push_back( buff_stat_t( s, amount ) );
@@ -1593,8 +1747,11 @@ void buff_creator_basics_t::init()
   _quiet = -1;
   _reverse = -1;
   _activated = -1;
+  _can_cancel = -1;
   _behavior = BUFF_TICK_NONE;
+  _refresh_behavior = BUFF_REFRESH_NONE;
   _default_value = buff_t::DEFAULT_VALUE();
+  _affects_regen = -1;
 }
 
 buff_creator_basics_t::buff_creator_basics_t( actor_pair_t p, const std::string& n, const spell_data_t* sp, const item_t* item ) :

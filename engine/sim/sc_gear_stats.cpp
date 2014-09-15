@@ -27,6 +27,7 @@ void gear_stats_t::add_stat( stat_e stat,
     case STAT_AGI_INT:  attribute[ ATTR_AGI_INT ] += value; break;
     case STAT_STR_AGI:  attribute[ ATTR_STR_AGI ] += value; break;
     case STAT_STR_INT:  attribute[ ATTR_STR_INT ] += value; break;
+    case STAT_STR_AGI_INT: attribute[ ATTR_STR_AGI_INT ] += value; break;
 
     case STAT_HEALTH: resource[ RESOURCE_HEALTH ] += value; break;
     case STAT_MANA:   resource[ RESOURCE_MANA   ] += value; break;
@@ -55,12 +56,11 @@ void gear_stats_t::add_stat( stat_e stat,
     case STAT_MULTISTRIKE_RATING: multistrike_rating += value; break;
     case STAT_READINESS_RATING: readiness_rating += value; break;
     case STAT_VERSATILITY_RATING: versatility_rating += value; break;
+    case STAT_LEECH_RATING: leech_rating += value; break;
 
     case STAT_WEAPON_DPS:   weapon_dps   += value; break;
-    case STAT_WEAPON_SPEED: weapon_speed += value; break;
 
     case STAT_WEAPON_OFFHAND_DPS:    weapon_offhand_dps    += value; break;
-    case STAT_WEAPON_OFFHAND_SPEED:  weapon_offhand_speed  += value; break;
 
     case STAT_ARMOR:             armor          += value; break;
     case STAT_BONUS_ARMOR:       bonus_armor    += value; break;
@@ -75,7 +75,7 @@ void gear_stats_t::add_stat( stat_e stat,
     case STAT_PVP_POWER:                 pvp_power += value; break;
 
     case STAT_ALL:
-      for ( attribute_e i = ATTRIBUTE_NONE; i < ATTRIBUTE_MAX; i++ )
+      for ( attribute_e i = ATTRIBUTE_NONE; i < ATTRIBUTE_STAT_ALL_MAX; i++ )
       { attribute[ i ] += value; }
       break;
 
@@ -97,6 +97,11 @@ void gear_stats_t::set_stat( stat_e stat,
     case STAT_STAMINA:   attribute[ ATTR_STAMINA   ] = value; break;
     case STAT_INTELLECT: attribute[ ATTR_INTELLECT ] = value; break;
     case STAT_SPIRIT:    attribute[ ATTR_SPIRIT    ] = value; break;
+
+    case STAT_AGI_INT:  attribute[ ATTR_AGI_INT ] = value; break;
+    case STAT_STR_AGI:  attribute[ ATTR_STR_AGI ] = value; break;
+    case STAT_STR_INT:  attribute[ ATTR_STR_INT ] = value; break;
+    case STAT_STR_AGI_INT: attribute[ ATTR_STR_AGI_INT ] = value; break;
 
     case STAT_HEALTH: resource[ RESOURCE_HEALTH ] = value; break;
     case STAT_MANA:   resource[ RESOURCE_MANA   ] = value; break;
@@ -125,12 +130,11 @@ void gear_stats_t::set_stat( stat_e stat,
     case STAT_MULTISTRIKE_RATING: multistrike_rating = value; break;
     case STAT_READINESS_RATING: readiness_rating = value; break;
     case STAT_VERSATILITY_RATING: versatility_rating = value; break;
+    case STAT_LEECH_RATING: leech_rating = value; break;
 
     case STAT_WEAPON_DPS:   weapon_dps   = value; break;
-    case STAT_WEAPON_SPEED: weapon_speed = value; break;
 
     case STAT_WEAPON_OFFHAND_DPS:    weapon_offhand_dps    = value; break;
-    case STAT_WEAPON_OFFHAND_SPEED:  weapon_offhand_speed  = value; break;
 
     case STAT_ARMOR:             armor          = value; break;
     case STAT_BONUS_ARMOR:       bonus_armor    = value; break;
@@ -145,7 +149,7 @@ void gear_stats_t::set_stat( stat_e stat,
     case STAT_PVP_POWER:                 pvp_power += value; break;
 
     case STAT_ALL:
-      for ( attribute_e i = ATTRIBUTE_NONE; i < ATTRIBUTE_MAX; i++ )
+      for ( attribute_e i = ATTRIBUTE_NONE; i < ATTRIBUTE_STAT_ALL_MAX; i++ )
       { attribute[ i ] = value; }
       break;
 
@@ -170,6 +174,7 @@ double gear_stats_t::get_stat( stat_e stat ) const
     case STAT_AGI_INT:   return attribute[ ATTR_AGI_INT ];
     case STAT_STR_AGI:   return attribute[ ATTR_STR_AGI ];
     case STAT_STR_INT:   return attribute[ ATTR_STR_INT ];
+    case STAT_STR_AGI_INT: return attribute[ ATTR_STR_AGI_INT ];
 
     case STAT_HEALTH: return resource[ RESOURCE_HEALTH ];
     case STAT_MANA:   return resource[ RESOURCE_MANA   ];
@@ -198,12 +203,11 @@ double gear_stats_t::get_stat( stat_e stat ) const
     case STAT_MULTISTRIKE_RATING: return multistrike_rating;
     case STAT_READINESS_RATING: return readiness_rating;
     case STAT_VERSATILITY_RATING: return versatility_rating;
+    case STAT_LEECH_RATING: return leech_rating;
 
     case STAT_WEAPON_DPS:   return weapon_dps;
-    case STAT_WEAPON_SPEED: return weapon_speed;
 
     case STAT_WEAPON_OFFHAND_DPS:    return weapon_offhand_dps;
-    case STAT_WEAPON_OFFHAND_SPEED:  return weapon_offhand_speed;
 
     case STAT_ARMOR:             return armor;
     case STAT_BONUS_ARMOR:       return bonus_armor;
@@ -242,8 +246,8 @@ double gear_stats_t::stat_mod( stat_e stat )
 {
   switch ( stat )
   {
-    case STAT_ATTACK_POWER:      return 0.50;
-    case STAT_SPELL_POWER:       return 0.86;
+    case STAT_ATTACK_POWER:      return 1.0;
+    case STAT_SPELL_POWER:       return 1.0;
     default:                     return 1.0;
   }
 }
