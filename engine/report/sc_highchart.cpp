@@ -124,7 +124,7 @@ std::string chart_t::to_string() const
 {
 
     rapidjson::StringBuffer b;
-    rapidjson::PrettyWriter< rapidjson::StringBuffer > writer( b );
+    rapidjson::Writer< rapidjson::StringBuffer > writer( b );
 
     js_.Accept( writer );
     std::string javascript = b.GetString();
