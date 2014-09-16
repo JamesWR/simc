@@ -392,11 +392,12 @@ void print_html_action_info( report::sc_html_stream& os, unsigned stats_mask, st
 
   if ( p -> sim -> report_details )
   {
+    /*
     highchart::histogram_chart_t aps_dist_chart( highchart::build_id( s, "aps_dist" ), p -> sim );
     chart::generate_distribution( aps_dist_chart, p, s -> portion_aps.distribution, s -> name_str + ( s -> type == STATS_DMG ? " DPS" : " HPS" ),
         s -> portion_aps.mean(), s -> portion_aps.min(), s -> portion_aps.max() );
     std::string aps_distribution_str = aps_dist_chart.to_string();
-
+    */
     os << "<tr class=\"details hide\">\n"
        << "<td colspan=\"" << ( 7 + n_columns ) << "\" class=\"filler\">\n";
 
@@ -781,9 +782,9 @@ void print_html_action_info( report::sc_html_stream& os, unsigned stats_mask, st
       os << chart::generate_stats_timeline( ts, s ).to_string();
     }
 
-    os.printf(
-      "%s\n",
-      aps_distribution_str.c_str() );
+    //os.printf(
+    //  "%s\n",
+    //  aps_distribution_str.c_str() );
 
     os << "<div class=\"clear\">&nbsp;</div>\n";
     // Action Details
