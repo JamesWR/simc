@@ -874,9 +874,13 @@ void report::print_html_sample_data( report::sc_html_stream& os, const player_t*
     util::tokenize( tokenized_div_name );
 
     highchart::histogram_chart_t chart( tokenized_div_name, p -> sim );
-    chart::generate_distribution( chart, 0, data.distribution, name, data.mean(), data.min(), data.max() );
     chart.set_toggle_id( "actor" + util::to_string( p -> index ) + "_" + name + "_stats_toggle" );
-    os << chart.to_string();
+    if ( chart::generate_distribution( chart, 0, data.distribution, name, data.mean(), data.min(), data.max() ) )
+    {
+      os << chart.to_target_div();
+      p -> sim -> highcharts_str += chart.to_aggregate_string();
+      //os << chart.to_string();
+    }
   }
 
 

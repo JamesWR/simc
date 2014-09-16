@@ -1570,8 +1570,8 @@ std::string chart::timeline(  player_t* p,
 
 // chart::distribution_dps ==================================================
 
-highchart::histogram_chart_t& chart::generate_distribution( highchart::histogram_chart_t& hc,
-    const player_t* p,
+bool chart::generate_distribution( highchart::histogram_chart_t& hc,
+                                  const player_t* p,
                                  const std::vector<size_t>& dist_data,
                                  const std::string& distribution_name,
                                  double avg, double min, double max )
@@ -1579,7 +1579,7 @@ highchart::histogram_chart_t& chart::generate_distribution( highchart::histogram
   int max_buckets = ( int ) dist_data.size();
 
   if ( ! max_buckets )
-    return hc;
+    return false;
 
   hc.set_title( distribution_name + " Distribution" );
   if ( p )
@@ -1597,7 +1597,7 @@ highchart::histogram_chart_t& chart::generate_distribution( highchart::histogram
   //snprintf( buffer, sizeof( buffer ), "chxl=0:|min=%.0f|avg=%.0f|max=%.0f", min, avg, max ); s += buffer;
 
 
-  return hc;
+  return true;
 }
 
 #if LOOTRANK_ENABLED == 1

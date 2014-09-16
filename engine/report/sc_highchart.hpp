@@ -69,6 +69,8 @@ struct chart_t
   void add_series( const std::string& type, const std::string& color, const std::string& name, const std::vector<entry_t>& d );
 
   virtual std::string to_string() const;
+  virtual std::string to_aggregate_string() const;
+  virtual std::string to_target_div() const;
   virtual std::string to_json() const;
   virtual std::string to_xml() const;
 

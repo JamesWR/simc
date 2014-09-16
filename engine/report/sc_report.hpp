@@ -41,7 +41,7 @@ std::string gear_weights_lootrank  ( player_t* );
 std::string gear_weights_wowhead   ( player_t* );
 std::string gear_weights_askmrrobot( player_t* );
 
-highchart::histogram_chart_t& generate_distribution( highchart::histogram_chart_t&, const player_t* p,
+bool generate_distribution( highchart::histogram_chart_t&, const player_t* p,
                                  const std::vector<size_t>& dist_data,
                                  const std::string& distribution_name,
                                  double avg, double min, double max );

@@ -2858,6 +2858,8 @@ private:
   }
 public:
   bool requires_regen_event;
+
+  std::string highcharts_str;
 };
 
 // Module ===================================================================

@@ -119,6 +119,36 @@ chart_t::chart_t( const std::string& id_str, const sim_t* sim ) :
 
 }
 
+std::string chart_t::to_target_div() const
+{
+  std::string str_ = "<div id=\"" + id_str_ + "\"";
+  str_ += " style=\"min-width: " + util::to_string( width_ ) + "px;";
+  if ( height_ > 0 )
+    str_ += " height: " + util::to_string( height_ ) + "px;";
+  str_ += "margin: 0 auto;\"></div>\n";
+
+  return str_;
+}
+
+std::string chart_t::to_aggregate_string() const
+{
+    rapidjson::StringBuffer b;
+    rapidjson::Writer< rapidjson::StringBuffer > writer( b );
+
+    js_.Accept( writer );
+    std::string javascript = b.GetString();
+    assert( ! toggle_id_str_.empty() );
+
+    std::string str_;
+    str_ += "$('#" + toggle_id_str_ + "').on('click', function() {\n";
+    str_ += "console.log(\"Loading " + id_str_ + ": " + toggle_id_str_ + " ...\" );\n";
+    str_ += "$('#" + id_str_ + "').highcharts(";
+    str_ += javascript;
+    str_ += ");\n});\n";
+
+    return str_;
+}
+
 std::string chart_t::to_string() const
 {
     rapidjson::StringBuffer b;

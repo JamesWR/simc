@@ -1142,6 +1142,12 @@ void print_html_( report::sc_html_stream& os, sim_t* sim )
 
   print_html_image_load_scripts( os );
 
+  os << "<script type=\"text/javascript\">\n";
+  os << "jQuery( document ).ready( function( $ ) {\n";
+  os << sim -> highcharts_str << "\n";
+  os << "});\n";
+  os << "</script>\n";
+
   os << "</body>\n\n"
      << "</html>\n";
 }
