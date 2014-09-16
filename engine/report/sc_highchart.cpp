@@ -162,7 +162,7 @@ std::string chart_t::to_string() const
     if ( height_ > 0 )
       str_ += " height: " + util::to_string( height_ ) + "px;";
     str_ += "margin: 0 auto;\"></div>\n";
-    str_ += "<script type=\"text/javascript\">\n";
+    str_ += "<script>\n";
     if ( ! toggle_id_str_.empty() )
     {
       str_ += "jQuery( document ).ready( function( $ ) {\n";
@@ -174,9 +174,9 @@ std::string chart_t::to_string() const
     }
     else
     {
-      str_ += "jQuery( document ).ready( function( $ ) {\n$('#" + id_str_ + "').highcharts(";
+      str_ += "jQuery('#" + id_str_ + "').highcharts(";
       str_ += javascript;
-      str_ += ");\n});\n";
+      str_ += ");\n";
     }
     str_ += "</script>\n";
 
