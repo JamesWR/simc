@@ -565,13 +565,12 @@ histogram_chart_t::histogram_chart_t( const std::string& id_str, const sim_t* si
 
   set( "legend.enabled", false );
 
-  set( "chart.type", "area" );
+  set( "chart.type", "column" );
+
 
   add( "chart.spacing", 5 ).add( "chart.spacing", 5 ).add( "chart.spacing", 5 ).add( "chart.spacing", 5 );
 
   set( "plotOptions.series.shadow", true );
-  //set( "plotOptions.bar.states.hover.lineWidth", 1 );
-  set( "plotOptions.pie.fillOpacity", 0.2 );
 
 
   set( "plotOptions.pie.dataLabels.enabled", true );

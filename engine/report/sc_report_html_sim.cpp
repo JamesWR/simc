@@ -1026,7 +1026,8 @@ void print_html_head( report::sc_html_stream& os, sim_t* sim )
   os << "<title>Simulationcraft Results</title>\n";
   os << "<meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\" />\n"
      << "<script type=\"text/javascript\" src=\"http://ajax.googleapis.com/ajax/libs/jquery/1/jquery.min.js\"></script>\n"
-     << "<script src=\"http://code.highcharts.com/highcharts.js\"></script>\n";
+     << "<script src=\"http://code.highcharts.com/highcharts.js\"></script>\n"
+     << "<script src=\"http://code.highcharts.com/modules/exporting.js\"></script>\n";
   if ( sim -> wowhead_tooltips )
   {
    os << "<script type=\"text/javascript\" src=\"http://static.wowhead.com/widgets/power.js\"></script>\n"
