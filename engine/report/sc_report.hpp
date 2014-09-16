@@ -38,9 +38,8 @@ std::string normal_distribution(  double mean, double std_dev, double confidence
 #if LOOTRANK_ENABLED == 1
 std::string gear_weights_lootrank  ( player_t* );
 #endif
-std::string gear_weights_wowhead   ( player_t*, bool hit_expertise );
+std::string gear_weights_wowhead   ( player_t* );
 std::string gear_weights_askmrrobot( player_t* );
-std::string gear_weights_pawn      ( player_t*, bool hit_expertise );
 
 highchart::histogram_chart_t& generate_distribution( highchart::histogram_chart_t&,
                                  const std::vector<size_t>& dist_data,
