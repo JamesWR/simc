@@ -822,9 +822,10 @@ void print_xml_player_charts( xml_writer_t & writer, player_processed_report_inf
     writer.print_attribute( "type", "dpet" );
     writer.print_text( time_spent.to_xml() );
     writer.end_tag( "chart" );
+  }
 
     writer.end_tag( "charts" );
-  }
+
 }
 
 void print_xml_buffs( sim_t* sim, xml_writer_t & writer )
