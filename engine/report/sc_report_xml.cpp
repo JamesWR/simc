@@ -816,12 +816,15 @@ void print_xml_player_charts( xml_writer_t & writer, player_processed_report_inf
   }
 
   highchart::pie_chart_t time_spent( highchart::build_id( p, "time_spent" ), p -> sim );
-  writer.begin_tag( "chart" );
-  writer.print_attribute( "type", "dpet" );
-  writer.print_text( chart::generate_spent_time( time_spent , p ).to_xml() );
-  writer.end_tag( "chart" );
+  if ( chart::generate_spent_time( time_spent, p ) )
+  {
+    writer.begin_tag( "chart" );
+    writer.print_attribute( "type", "dpet" );
+    writer.print_text( time_spent.to_xml() );
+    writer.end_tag( "chart" );
 
-  writer.end_tag( "charts" );
+    writer.end_tag( "charts" );
+  }
 }
 
 void print_xml_buffs( sim_t* sim, xml_writer_t & writer )
