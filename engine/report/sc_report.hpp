@@ -41,6 +41,7 @@ std::string gear_weights_lootrank  ( player_t* );
 std::string gear_weights_wowhead   ( player_t* );
 std::string gear_weights_askmrrobot( player_t* );
 
+bool generate_raid_aps( highchart::bar_chart_t&, sim_t*, const std::string& type );
 bool generate_distribution( highchart::histogram_chart_t&, const player_t* p,
                                  const std::vector<size_t>& dist_data,
                                  const std::string& distribution_name,
@@ -50,7 +51,6 @@ bool generate_spent_time( highchart::pie_chart_t&, const player_t* );
 highchart::pie_chart_t& generate_stats_sources( highchart::pie_chart_t&, const player_t*, const std::string title, const std::vector<stats_t*>& stats_list );
 bool generate_damage_stats_sources( highchart::pie_chart_t&, const player_t* );
 bool generate_heal_stats_sources( highchart::pie_chart_t&, const player_t* );
-bool generate_raid_aps( highchart::bar_chart_t&, sim_t*, const std::string& type );
 highchart::bar_chart_t& generate_raid_dpet( highchart::bar_chart_t&, sim_t* );
 highchart::bar_chart_t& generate_player_waiting_time( highchart::bar_chart_t&, sim_t* );
 bool generate_action_dpet( highchart::bar_chart_t&, const player_t* );

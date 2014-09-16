@@ -125,7 +125,7 @@ std::string chart_t::to_target_div() const
   str_ += " style=\"min-width: " + util::to_string( width_ ) + "px;";
   if ( height_ > 0 )
     str_ += " height: " + util::to_string( height_ ) + "px;";
-  str_ += "margin: 0 auto;\"></div>\n";
+  str_ += "margin: 5px;\"></div>\n";
 
   return str_;
 }
@@ -161,7 +161,7 @@ std::string chart_t::to_string() const
     str_ += " style=\"min-width: " + util::to_string( width_ ) + "px;";
     if ( height_ > 0 )
       str_ += " height: " + util::to_string( height_ ) + "px;";
-    str_ += "margin: 0 auto;\"></div>\n";
+    str_ += "margin: 5px;\"></div>\n";
     str_ += "<script>\n";
     if ( ! toggle_id_str_.empty() )
     {
@@ -513,14 +513,10 @@ bar_chart_t::bar_chart_t( const std::string& id_str, const sim_t* sim ) :
   add( "chart.spacing", 5 ).add( "chart.spacing", 5 ).add( "chart.spacing", 5 ).add( "chart.spacing", 5 );
 
   set( "plotOptions.series.shadow", true );
-  //set( "plotOptions.bar.states.hover.lineWidth", 1 );
-  set( "plotOptions.bar.fillOpacity", 0.2 );
   set( "plotOptions.bar.borderWidth", 0 );
-  set( "plotOptions.bar.dataLabels.enabled", true );
-  set( "plotOptions.bar.dataLabels.verticalAlign", "middle" );
-  set( "plotOptions.bar.dataLabels.style.color", "white" );
-  set( "plotOptions.bar.dataLabels.style.style", TEXT_OUTLINE );
   set( "plotOptions.bar.pointWidth", 15 );
+  set( "plotOptions.bar.dataLabels.style.color", TEXT_COLOR );
+  set( "plotOptions.bar.dataLabels.style.textShadow", TEXT_OUTLINE );
   set( "xAxis.tickLength", 0 );
   set( "xAxis.type", "category" );
   set( "xAxis.labels.style.textShadow", TEXT_OUTLINE );

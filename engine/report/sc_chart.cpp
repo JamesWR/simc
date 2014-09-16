@@ -2399,27 +2399,36 @@ bool chart::generate_raid_aps( highchart::bar_chart_t& bc,
                                                 sim_t* s,
                                     const std::string& type )
 {
-  bc.set_title( type + " Ranking" );
-
-  // Prepare list
+  // Prepare list, based on the selected metric
   std::vector<player_t*> player_list;
+  std::string long_type;
 
-  // Omit Player with 0 DPS/HPS
   if ( util::str_compare_ci( type, "dps" ) )
+  {
+    long_type = "Damage per Second";
     range::remove_copy_if( s -> players_by_dps, back_inserter( player_list ), filter_non_performing_players( type ) );
+  }
   else if ( util::str_compare_ci( type, "hps" ) )
+  {
+    long_type = "Heal & Absorb per Second";
     range::remove_copy_if( s -> players_by_hps, back_inserter( player_list ), filter_non_performing_players( type ) );
+  }
   else if ( util::str_compare_ci( type, "dtps" ) )
+  {
+    long_type = "Damage Taken per Second";
     range::remove_copy_if( s -> players_by_dtps, back_inserter( player_list ), filter_non_performing_players( type ) );
+  }
   else if ( util::str_compare_ci( type, "tmi" ) )
+  {
+    long_type = "Theck-Meloree Index";
     range::remove_copy_if( s -> players_by_tmi, back_inserter( player_list ), filter_non_performing_players( type ) );
+  }
 
+  // Nothing to visualize
   if ( player_list.size() == 0 )
     return false;
 
-  // Create Chart
   std::vector<highchart::chart_t::entry_t> data;
-  bc.height_ = player_list.size() * 15 + 100;
 
   for ( size_t i = 0; i < player_list.size(); ++i )
   {
@@ -2447,7 +2456,19 @@ bool chart::generate_raid_aps( highchart::bar_chart_t& bc,
     data.push_back( e );
   }
 
-  bc.add_series( data );
+  bc.height_ = 96 + player_list.size() * 16;
+  bc.set_title( long_type + " Ranking" );
+  bc.set( "yAxis.title.text", long_type.c_str() );
+  // Make the Y-axis a bit longer, so we can put in all numbers on the right
+  // side of the bar charts
+  bc.set( "yAxis.maxPadding", 0.2 );
+  bc.set( "plotOptions.bar.dataLabels.crop", false );
+  bc.set( "plotOptions.bar.dataLabels.overflow", "none" );
+  bc.set( "plotOptions.bar.dataLabels.y", -1 );
+  bc.set( "plotOptions.bar.dataLabels.enabled", true );
+  bc.set( "plotOptions.bar.dataLabels.verticalAlign", "middle" );
+
+  bc.add_series( data, "", long_type );
 
   return true;
 }
