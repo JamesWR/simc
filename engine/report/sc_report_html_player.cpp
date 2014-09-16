@@ -2092,18 +2092,18 @@ void print_html_player_statistics( report::sc_html_stream& os, player_t* p, play
      "<table class=\"sc\">\n";
 
   int sd_counter = 0;
-  report::print_html_sample_data( os, p -> sim, p -> collected_data.fight_length, "Fight Length", sd_counter );
-  report::print_html_sample_data( os, p -> sim, p -> collected_data.dps, "DPS", sd_counter );
-  report::print_html_sample_data( os, p -> sim, p -> collected_data.dpse, "DPS(e)", sd_counter );
-  report::print_html_sample_data( os, p -> sim, p -> collected_data.dmg, "Damage", sd_counter );
-  report::print_html_sample_data( os, p -> sim, p -> collected_data.dtps, "DTPS", sd_counter );
-  report::print_html_sample_data( os, p -> sim, p -> collected_data.hps, "HPS", sd_counter );
-  report::print_html_sample_data( os, p -> sim, p -> collected_data.hpse, "HPS(e)", sd_counter );
-  report::print_html_sample_data( os, p -> sim, p -> collected_data.heal, "Heal", sd_counter );
-  report::print_html_sample_data( os, p -> sim, p -> collected_data.htps, "HTPS", sd_counter );
-  report::print_html_sample_data( os, p -> sim, p -> collected_data.theck_meloree_index, "TMI", sd_counter );
-  report::print_html_sample_data( os, p -> sim, p -> collected_data.effective_theck_meloree_index, "ETMI", sd_counter );
-  report::print_html_sample_data( os, p -> sim, p -> collected_data.max_spike_amount, "MSD", sd_counter );
+  report::print_html_sample_data( os, p, p -> collected_data.fight_length, "Fight Length", sd_counter );
+  report::print_html_sample_data( os, p, p -> collected_data.dps, "DPS", sd_counter );
+  report::print_html_sample_data( os, p, p -> collected_data.dpse, "DPS(e)", sd_counter );
+  report::print_html_sample_data( os, p, p -> collected_data.dmg, "Damage", sd_counter );
+  report::print_html_sample_data( os, p, p -> collected_data.dtps, "DTPS", sd_counter );
+  report::print_html_sample_data( os, p, p -> collected_data.hps, "HPS", sd_counter );
+  report::print_html_sample_data( os, p, p -> collected_data.hpse, "HPS(e)", sd_counter );
+  report::print_html_sample_data( os, p, p -> collected_data.heal, "Heal", sd_counter );
+  report::print_html_sample_data( os, p, p -> collected_data.htps, "HTPS", sd_counter );
+  report::print_html_sample_data( os, p, p -> collected_data.theck_meloree_index, "TMI", sd_counter );
+  report::print_html_sample_data( os, p, p -> collected_data.effective_theck_meloree_index, "ETMI", sd_counter );
+  report::print_html_sample_data( os, p, p -> collected_data.max_spike_amount, "MSD", sd_counter );
 
   os <<
      "\t\t\t\t\t\t\t</table>\n"
