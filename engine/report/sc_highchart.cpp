@@ -510,7 +510,7 @@ bar_chart_t::bar_chart_t( const std::string& id_str, const sim_t* sim ) :
 
   set( "chart.type", "bar" );
 
-  add( "chart.spacing", 5 ).add( "chart.spacing", 5 ).add( "chart.spacing", 5 ).add( "chart.spacing", 5 );
+  add( "chart.spacing", 2 ).add( "chart.spacing", 2 ).add( "chart.spacing", 2 ).add( "chart.spacing", 2 );
 
   set( "plotOptions.series.shadow", true );
   set( "plotOptions.bar.borderWidth", 0 );
@@ -520,6 +520,9 @@ bar_chart_t::bar_chart_t( const std::string& id_str, const sim_t* sim ) :
   set( "xAxis.tickLength", 0 );
   set( "xAxis.type", "category" );
   set( "xAxis.labels.style.textShadow", TEXT_OUTLINE );
+  set( "xAxis.labels.step", 1 );
+  set( "xAxis.labels.y", 4 );
+  set( "xAxis.offset", -10 );
 }
 
 void bar_chart_t::add_series( const std::vector<entry_t>& d, const std::string& color, const std::string& name )
