@@ -1571,6 +1571,7 @@ std::string chart::timeline(  player_t* p,
 // chart::distribution_dps ==================================================
 
 highchart::histogram_chart_t& chart::generate_distribution( highchart::histogram_chart_t& hc,
+    const player_t* p,
                                  const std::vector<size_t>& dist_data,
                                  const std::string& distribution_name,
                                  double avg, double min, double max )
@@ -1581,6 +1582,8 @@ highchart::histogram_chart_t& chart::generate_distribution( highchart::histogram
     return hc;
 
   hc.set_title( distribution_name + " Distribution" );
+  if ( p )
+    hc.set_toggle_id( "player" + util::to_string( p -> index ) + "toggle" );
 
   std::vector<highchart::chart_t::entry_t> data;
   for ( int i = 0; i < max_buckets; i++ )
@@ -2157,6 +2160,7 @@ highchart::pie_chart_t& chart::generate_gains( highchart::pie_chart_t& pc, const
   std::string resource_name = util::inverse_tokenize( util::resource_type_string( type ) );
   pc.set_title( p -> name_str + " " + resource_name + " Gains" );
   pc.set( "plotOptions.pie.dataLabels.format", "<b>{point.name}</b>: {point.y:.1f}" );
+  pc.set_toggle_id( "player" + util::to_string( p -> index ) + "toggle" );
 
   // Build gains List
   std::vector<gain_t*> gains_list;
@@ -2196,6 +2200,7 @@ bool chart::generate_spent_time( highchart::pie_chart_t& pc, const player_t* p )
 {
   pc.set_title( p -> name_str + " Spent Time" );
   pc.set( "plotOptions.pie.dataLabels.format", "<b>{point.name}</b>: {point.y:.1f}s" );
+  pc.set_toggle_id( "player" + util::to_string( p -> index ) + "toggle" );
 
   std::vector<stats_t*> filtered_waiting_stats;
 
@@ -2249,8 +2254,9 @@ bool chart::generate_spent_time( highchart::pie_chart_t& pc, const player_t* p )
 
 highchart::pie_chart_t& chart::generate_stats_sources( highchart::pie_chart_t& pc, const player_t* p, const std::string title, const std::vector<stats_t*>& stats_list )
 {
-   pc.set_title( title );
+  pc.set_title( title );
   pc.set( "plotOptions.pie.dataLabels.format", "<b>{point.name}</b>: {point.percentage:.1f} %" );
+  pc.set_toggle_id( "player" + util::to_string( p -> index ) + "toggle" );
 
   // Build Data
   std::vector<highchart::pie_chart_t::entry_t> data;
@@ -2413,7 +2419,7 @@ bool chart::generate_raid_aps( highchart::bar_chart_t& bc,
 
   // Create Chart
   std::vector<highchart::chart_t::entry_t> data;
-  bc.height_ = player_list.size() * 30 + 100;
+  bc.height_ = player_list.size() * 13 + 100;
 
   for ( size_t i = 0; i < player_list.size(); ++i )
   {
@@ -2473,7 +2479,8 @@ highchart::bar_chart_t& chart::generate_dpet( highchart::bar_chart_t& bc , sim_t
   {
     size_t num_stats = stats_list.size();
 
-    bc.height_ = num_stats * 30 + 30;
+    //bc.height_ = num_stats * 30 + 30;
+    bc.height_ = 0;
 
     std::vector<highchart::chart_t::entry_t> data;
     for ( size_t i = 0; i < num_stats; ++i )
@@ -2502,6 +2509,7 @@ bool chart::generate_action_dpet( highchart::bar_chart_t& bc, const player_t* p 
 {
   bc.set_title( p -> name_str + " Damage per Execute Time" );
   bc.set_yaxis_title( "Damage per Execute Time" );
+  bc.set_toggle_id( "player" + util::to_string( p -> index ) + "toggle" );
 
   std::vector<stats_t*> stats_list;
 
@@ -2523,6 +2531,7 @@ highchart::time_series_t& chart::generate_stats_timeline( highchart::time_series
 {
   sc_timeline_t timeline_aps;
   s -> timeline_amount.build_derivative_timeline( timeline_aps );
+  ts.set_toggle_id( "actor" + util::to_string( s -> player -> index ) + "_" + s -> name_str );
 
   ts.height_ = 200;
   ts.set( "yAxis.min", 0 );
@@ -2551,6 +2560,7 @@ highchart::time_series_t& chart::generate_actor_dps_series( highchart::time_seri
 {
   sc_timeline_t timeline_dps;
   p -> collected_data.timeline_dmg.build_derivative_timeline( timeline_dps );
+  ts.set_toggle_id( "player" + util::to_string( p -> index ) + "toggle" );
 
   ts.set( "yAxis.min", 0 );
   ts.set_yaxis_title( "Damage per second" );
@@ -2568,6 +2578,7 @@ highchart::time_series_t& chart::generate_actor_timeline( highchart::time_series
                                                           const sc_timeline_t& data )
 {
   std::string attr_str = util::inverse_tokenize( attribute );
+  ts.set_toggle_id( "player" + util::to_string( p -> index ) + "toggle" );
   ts.set_title( p -> name_str + " " + attr_str );
   ts.set_yaxis_title( "Average " + attr_str );
   ts.add_series( series_color, attr_str, data.data() );

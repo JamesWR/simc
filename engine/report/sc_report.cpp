@@ -871,7 +871,7 @@ void report::print_html_sample_data( report::sc_html_stream& os, const sim_t* si
   if ( ! data.simple )
   {
     highchart::histogram_chart_t chart( data.name_str + "_dist", sim );
-    chart::generate_distribution( chart, data.distribution, name, data.mean(), data.min(), data.max() );
+    chart::generate_distribution( chart, 0, data.distribution, name, data.mean(), data.min(), data.max() );
     os << chart.to_string();
   }
 

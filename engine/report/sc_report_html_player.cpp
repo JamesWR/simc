@@ -164,7 +164,7 @@ std::string output_action_name( stats_t* s, player_t* actor )
   action_t* a = 0;
 
   if ( s -> player -> sim -> report_details )
-    class_attr = " class=\"toggle-details\"";
+    class_attr = " id=\"actor" + util::to_string( s -> player -> index ) + "_" + s -> name_str + "_toggle\" class=\"toggle-details\"";
 
   for ( size_t i = 0; i < s -> action_list.size(); i++ )
   {
@@ -393,7 +393,7 @@ void print_html_action_info( report::sc_html_stream& os, unsigned stats_mask, st
   if ( p -> sim -> report_details )
   {
     highchart::histogram_chart_t aps_dist_chart( highchart::build_id( s, "aps_dist" ), p -> sim );
-    chart::generate_distribution( aps_dist_chart, s -> portion_aps.distribution, s -> name_str + ( s -> type == STATS_DMG ? " DPS" : " HPS" ),
+    chart::generate_distribution( aps_dist_chart, p, s -> portion_aps.distribution, s -> name_str + ( s -> type == STATS_DMG ? " DPS" : " HPS" ),
         s -> portion_aps.mean(), s -> portion_aps.min(), s -> portion_aps.max() );
     std::string aps_distribution_str = aps_dist_chart.to_string();
 
@@ -777,6 +777,7 @@ void print_html_action_info( report::sc_html_stream& os, unsigned stats_mask, st
     if ( s -> has_direct_amount_results() || s -> has_tick_amount_results() )
     {
       highchart::time_series_t ts( highchart::build_id( s ), s -> player -> sim );
+      ts.set_toggle_id( "actor" + util::to_string( s -> player -> index ) + "_" + s -> name_str + "_toggle" );
       os << chart::generate_stats_timeline( ts, s ).to_string();
     }
 
@@ -2399,7 +2400,7 @@ void print_html_player_resources( report::sc_html_stream& os, player_t* p, playe
     histogram tmi_hist;
     tmi_hist.create_histogram( p -> collected_data.theck_meloree_index, 50 );
     highchart::histogram_chart_t tmi_chart( highchart::build_id( p, "tmi_dist" ), p -> sim );
-    chart::generate_distribution( tmi_chart, tmi_hist.data(), "TMI", p -> collected_data.theck_meloree_index.mean(), tmi_hist.min(), tmi_hist.max() );
+    chart::generate_distribution( tmi_chart, p, tmi_hist.data(), "TMI", p -> collected_data.theck_meloree_index.mean(), tmi_hist.min(), tmi_hist.max() );
     os <<tmi_chart.to_string();
   }
   os << "</div>\n";
@@ -2512,6 +2513,7 @@ void print_html_player_charts( report::sc_html_stream& os, sim_t* sim, player_t*
   if ( p -> collected_data.resolve_timeline.merged_timeline.mean() > 0 )
   {
     highchart::time_series_t resolve( highchart::build_id( p, "resolve" ), p -> sim );
+    resolve.set_toggle_id( "player" + util::to_string( p -> index ) + "toggle" );
     resolve.set_yaxis_title( "Attack Power" );
     resolve.set_title( p -> name_str + " Resolve attack power" );
     resolve.add_series( "#FF0000", "Attack Power", p -> collected_data.resolve_timeline.merged_timeline.data() );
@@ -2525,7 +2527,7 @@ void print_html_player_charts( report::sc_html_stream& os, sim_t* sim, player_t*
   if ( p -> collected_data.dps.mean() > 0 )
   {
     highchart::histogram_chart_t chart( highchart::build_id( p, "hdps_dist" ), p -> sim );
-    chart::generate_distribution( chart, p -> collected_data.dps.distribution, p -> name_str + " DPS",
+    chart::generate_distribution( chart, p, p -> collected_data.dps.distribution, p -> name_str + " DPS",
         p -> collected_data.dps.mean(),
         p -> collected_data.dps.min(),
         p -> collected_data.dps.max() );
@@ -2535,7 +2537,7 @@ void print_html_player_charts( report::sc_html_stream& os, sim_t* sim, player_t*
   if ( p -> collected_data.hps.mean() > 0 || p -> collected_data.aps.mean() > 0 )
   {
     highchart::histogram_chart_t chart( highchart::build_id( p, "hps_dist" ), p -> sim );
-    chart::generate_distribution( chart, p -> collected_data.hps.distribution, p -> name_str + " HPS",
+    chart::generate_distribution( chart, p, p -> collected_data.hps.distribution, p -> name_str + " HPS",
         p -> collected_data.hps.mean(),
         p -> collected_data.hps.min(),
         p -> collected_data.hps.max() );
@@ -2825,7 +2827,7 @@ void print_html_player_description( report::sc_html_stream& os, sim_t* sim, play
       p -> report_information.thumbnail_url.c_str(), p -> name_str.c_str() );
   }
 
-  os << "<h2 class=\"toggle";
+  os << "<h2 id=\"" << "player" << p -> index << "toggle\" class=\"toggle";
   if ( num_players == 1 )
   {
     os << " open";
@@ -3813,7 +3815,7 @@ void print_html_player_deaths( report::sc_html_stream& os, player_t* p, player_p
   {
 
       highchart::histogram_chart_t chart( highchart::build_id( p, "hps_dist" ), p -> sim );
-      chart::generate_distribution( chart,
+      chart::generate_distribution( chart, p,
           p -> collected_data.deaths.distribution, p -> name_str + " Death",
           p -> collected_data.deaths.mean(),
           p -> collected_data.deaths.min(),

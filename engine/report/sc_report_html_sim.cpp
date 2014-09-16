@@ -536,7 +536,7 @@ void print_html_sim_summary( report::sc_html_stream& os, sim_t* sim, const sim_r
   if ( sim -> iterations > 1 )
   {
     highchart::histogram_chart_t chart( "sim_length_dist", sim );
-    chart::generate_distribution( chart, sim -> simulation_length.distribution, "Timeline",
+    chart::generate_distribution( chart, 0, sim -> simulation_length.distribution, "Timeline",
         sim -> simulation_length.mean(),
         sim -> simulation_length.min(),
         sim -> simulation_length.max() );

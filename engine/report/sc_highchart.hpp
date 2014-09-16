@@ -48,6 +48,7 @@ struct alt_chart_formatter_t : public sc_chart_formatter_t
 struct chart_t
 {
   std::string id_str_;
+  std::string toggle_id_str_;
   size_t height_, width_;
   rapidjson::Document js_;
   const sim_t* sim_;
@@ -55,6 +56,8 @@ struct chart_t
 
   chart_t( const std::string& id_str, const sim_t* sim );
   virtual ~chart_t() { }
+
+  void set_toggle_id( const std::string& tid ) { toggle_id_str_ = tid; }
 
   void set_title( const std::string& title );
   void set_xaxis_title( const std::string& label );

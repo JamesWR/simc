@@ -60,7 +60,6 @@ void default_chart_formatter_t::do_format( chart_t& c )
   c.set( "yAxis.title.style.textShadow", TEXT_OUTLINE );
   c.set( "xAxis.labels.style.textShadow", TEXT_OUTLINE );
   c.set( "yAxis.labels.style.textShadow", TEXT_OUTLINE );
-
 }
 
 alt_chart_formatter_t::alt_chart_formatter_t() :
@@ -79,7 +78,7 @@ std::string highchart::build_id( const stats_t* stats, const std::string& suffix
 
   return s;
 }
-   
+
 std::string highchart::build_id( const player_t* actor, const std::string& suffix )
 {
   std::string s = "actor" + util::to_string( actor -> index );
@@ -122,7 +121,6 @@ chart_t::chart_t( const std::string& id_str, const sim_t* sim ) :
 
 std::string chart_t::to_string() const
 {
-
     rapidjson::StringBuffer b;
     rapidjson::Writer< rapidjson::StringBuffer > writer( b );
 
@@ -131,11 +129,25 @@ std::string chart_t::to_string() const
     javascript.erase(std::remove(javascript.begin(),javascript.end(), '\n'), javascript.end());
     std::string str_ = "<div id=\"" + id_str_ + "\"";
     str_ += " style=\"min-width: " + util::to_string( width_ ) + "px;";
-    str_ += " height: " + util::to_string( height_ ) + "px; margin: 0 auto\"></div>\n";
+    if ( height_ > 0 )
+      str_ += " height: " + util::to_string( height_ ) + "px;";
+    str_ += "margin: 0 auto;\"></div>\n";
     str_ += "<script type=\"text/javascript\">\n";
-    str_ += "jQuery( document ).ready( function( $ ) {\n$('#" + id_str_ + "').highcharts(";
-    str_ += javascript;
-    str_ += ");\n});\n";
+    if ( ! toggle_id_str_.empty() )
+    {
+      str_ += "jQuery( document ).ready( function( $ ) {\n";
+      str_ += "$('#" + toggle_id_str_ + "').on('click', function() {\n";
+      str_ += "console.log(\"Loading " + id_str_ + ": " + toggle_id_str_ + " ...\" );\n";
+      str_ += "$('#" + id_str_ + "').highcharts(";
+      str_ += javascript;
+      str_ += ");\n});\n});\n";
+    }
+    else
+    {
+      str_ += "jQuery( document ).ready( function( $ ) {\n$('#" + id_str_ + "').highcharts(";
+      str_ += javascript;
+      str_ += ");\n});\n";
+    }
     str_ += "</script>\n";
 
     return str_;
@@ -275,7 +287,7 @@ void chart_t::add_series( const std::string& color,
   std::string color_hex = color;
   if ( color_hex[ 0 ] != '#' )
     color_hex = '#' + color_hex;
-  
+
   add( "series", obj );
   add( "colors", color_hex );
 }
@@ -385,7 +397,6 @@ time_series_t::time_series_t( const std::string& id_str, const sim_t* sim ) :
   set( "plotOptions.area.lineWidth", 1.25 );
   set( "plotOptions.area.states.hover.lineWidth", 1 );
   set( "plotOptions.area.fillOpacity", 0.2 );
-
 }
 
 /**
@@ -471,9 +482,15 @@ bar_chart_t::bar_chart_t( const std::string& id_str, const sim_t* sim ) :
   set( "plotOptions.series.shadow", true );
   //set( "plotOptions.bar.states.hover.lineWidth", 1 );
   set( "plotOptions.bar.fillOpacity", 0.2 );
+  set( "plotOptions.bar.borderWidth", 0 );
   set( "plotOptions.bar.dataLabels.enabled", true );
-  set( "plotOptions.bar.dataLabels.format", "{point.name}: {point.y}" );
-
+  set( "plotOptions.bar.dataLabels.format", "{point.name}" );
+  set( "plotOptions.bar.dataLabels.style.color", "#CACACA" );
+  set( "plotOptions.bar.dataLabels.style.textShadow", TEXT_OUTLINE );
+  set( "plotOptions.bar.dataLabels.padding", 0 );
+  set( "plotOptions.bar.dataLabels.verticalAlign", "middle" );
+  set( "plotOptions.bar.pointWidth", 14 );
+  set( "xAxis.labels.enabled", false );
 }
 
 void bar_chart_t::add_series( const std::vector<entry_t>& d, const std::string& color, const std::string& name )

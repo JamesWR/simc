@@ -788,7 +788,7 @@ void print_xml_player_charts( xml_writer_t & writer, player_processed_report_inf
 
   {
     highchart::histogram_chart_t chart( highchart::build_id( p, "dps_dist" ), p -> sim );
-    chart::generate_distribution( chart, p -> collected_data.dps.distribution, p -> name_str + " DPS",
+    chart::generate_distribution( chart, p, p -> collected_data.dps.distribution, p -> name_str + " DPS",
         p -> collected_data.dps.mean(),
         p -> collected_data.dps.min(),
         p -> collected_data.dps.max() );
@@ -799,7 +799,7 @@ void print_xml_player_charts( xml_writer_t & writer, player_processed_report_inf
   }
   {
     highchart::histogram_chart_t chart( highchart::build_id( p, "hps_dist" ), p -> sim );
-    chart::generate_distribution( chart, p -> collected_data.hps.distribution, p -> name_str + " HPS",
+    chart::generate_distribution( chart, p, p -> collected_data.hps.distribution, p -> name_str + " HPS",
         p -> collected_data.hps.mean(),
         p -> collected_data.hps.min(),
         p -> collected_data.hps.max() );
