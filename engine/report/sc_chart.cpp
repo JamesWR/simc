@@ -2419,7 +2419,7 @@ bool chart::generate_raid_aps( highchart::bar_chart_t& bc,
 
   // Create Chart
   std::vector<highchart::chart_t::entry_t> data;
-  bc.height_ = player_list.size() * 13 + 100;
+  bc.height_ = player_list.size() * 15 + 100;
 
   for ( size_t i = 0; i < player_list.size(); ++i )
   {

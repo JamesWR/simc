@@ -290,10 +290,13 @@ void chart_t::add_series( const std::string& type, const std::string& color, con
 
     rapidjson::Value dataKeys;
 
+    std::string html_name = "<span style=\"font-weight:bold;color:" + entry.color;
+    html_name += "\">" + entry.name + "</span>";
+
     dataKeys.SetObject();
     rapidjson::Value val(entry.value);
     rapidjson::Value color(entry.color.c_str(), js_.GetAllocator());
-    rapidjson::Value name(entry.name.c_str(), js_.GetAllocator());
+    rapidjson::Value name(html_name.c_str(), js_.GetAllocator());
     dataKeys.AddMember( "y", js_.GetAllocator(), val, js_.GetAllocator() );
     dataKeys.AddMember("color", js_.GetAllocator(), color, js_.GetAllocator() );
     dataKeys.AddMember("name", js_.GetAllocator(), name, js_.GetAllocator() );
@@ -514,13 +517,13 @@ bar_chart_t::bar_chart_t( const std::string& id_str, const sim_t* sim ) :
   set( "plotOptions.bar.fillOpacity", 0.2 );
   set( "plotOptions.bar.borderWidth", 0 );
   set( "plotOptions.bar.dataLabels.enabled", true );
-  set( "plotOptions.bar.dataLabels.format", "{point.name}" );
-  set( "plotOptions.bar.dataLabels.style.color", "#CACACA" );
-  set( "plotOptions.bar.dataLabels.style.textShadow", TEXT_OUTLINE );
-  set( "plotOptions.bar.dataLabels.padding", 0 );
   set( "plotOptions.bar.dataLabels.verticalAlign", "middle" );
-  set( "plotOptions.bar.pointWidth", 14 );
-  set( "xAxis.labels.enabled", false );
+  set( "plotOptions.bar.dataLabels.style.color", "white" );
+  set( "plotOptions.bar.dataLabels.style.style", TEXT_OUTLINE );
+  set( "plotOptions.bar.pointWidth", 15 );
+  set( "xAxis.tickLength", 0 );
+  set( "xAxis.type", "category" );
+  set( "xAxis.labels.style.textShadow", TEXT_OUTLINE );
 }
 
 void bar_chart_t::add_series( const std::vector<entry_t>& d, const std::string& color, const std::string& name )
