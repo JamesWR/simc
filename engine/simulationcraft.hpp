@@ -3928,7 +3928,7 @@ struct player_processed_report_information_t
   std::string scaling_dps_chart, scale_factors_chart;
   std::string reforge_dps_chart, dps_error_chart;
   std::string gear_weights_lootrank_link, gear_weights_wowhead_std_link, gear_weights_askmrrobot_link;
-  std::string gear_weights_pawn_std_string, gear_weights_pawn_alt_string;
+  std::string gear_weights_pawn_std_string;
   std::string save_str;
   std::string save_gear_str;
   std::string save_talents_str;
