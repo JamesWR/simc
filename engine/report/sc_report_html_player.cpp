@@ -2544,7 +2544,7 @@ void print_html_player_charts( report::sc_html_stream& os, sim_t* sim, player_t*
   if ( p -> collected_data.dps.mean() > 0 )
   {
     highchart::time_series_t ts( highchart::build_id( p, "dps" ), p -> sim );
-    chart::generate_actor_dps_series( ts, p ).to_string();
+    chart::generate_actor_dps_series( ts, p );
 
     os << ts.to_target_div();
     p -> sim -> highcharts_str += ts.to_aggregate_string();
@@ -3876,19 +3876,6 @@ void print_html_player_deaths( report::sc_html_stream& os, player_t* p, player_p
 
   if ( deaths.size() > 0 )
   {
-
-      highchart::histogram_chart_t chart( highchart::build_id( p, "hps_dist" ), p -> sim );
-      chart::generate_distribution( chart, p,
-          p -> collected_data.deaths.distribution, p -> name_str + " Death",
-          p -> collected_data.deaths.mean(),
-          p -> collected_data.deaths.min(),
-          p -> collected_data.deaths.max() );
-    //std::string distribution_deaths_str = chart.to_string();
-      std::string distribution_deaths_str = chart.to_target_div();
-
-      p -> sim -> highcharts_str += chart.to_aggregate_string();
-
-
     os << "<div class=\"player-section gains\">\n"
        << "<h3 class=\"toggle\">Deaths</h3>\n"
        << "<div class=\"toggle-content hide\">\n"
@@ -3934,7 +3921,18 @@ void print_html_player_deaths( report::sc_html_stream& os, player_t* p, player_p
 
     os << "<div class=\"clear\"></div>\n";
 
-    os << "" << distribution_deaths_str << "\n";
+    highchart::histogram_chart_t chart( highchart::build_id( p, "death_dist" ), p -> sim );
+    if ( chart::generate_distribution( chart, p,
+        p -> collected_data.deaths.distribution, p -> name_str + " Death",
+        p -> collected_data.deaths.mean(),
+        p -> collected_data.deaths.min(),
+        p -> collected_data.deaths.max() ) )
+    {
+    //std::string distribution_deaths_str = chart.to_string();
+      os << chart.to_target_div();
+
+      p -> sim -> highcharts_str += chart.to_aggregate_string();
+    }
 
     os << "</div>\n"
        << "</div>\n";
