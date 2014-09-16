@@ -290,7 +290,7 @@ void chart_t::add_series( const std::string& type, const std::string& color, con
 
     rapidjson::Value dataKeys;
 
-    std::string html_name = "<span style=\"font-weight:bold;color:" + entry.color;
+    std::string html_name = "<span style=\"color:" + entry.color;
     html_name += "\">" + entry.name + "</span>";
 
     dataKeys.SetObject();

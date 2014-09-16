@@ -2456,7 +2456,7 @@ bool chart::generate_raid_aps( highchart::bar_chart_t& bc,
     data.push_back( e );
   }
 
-  bc.height_ = 96 + player_list.size() * 16;
+  bc.height_ = 96 + player_list.size() * 17;
   bc.set_title( long_type + " Ranking" );
   bc.set( "yAxis.title.text", long_type.c_str() );
   // Make the Y-axis a bit longer, so we can put in all numbers on the right
