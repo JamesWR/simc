@@ -4,9 +4,6 @@
 // ==========================================================================
 // WoD To-do
 // OH MY GOD CLEAN UP THE TODO SECTION - lots of love, collision.
-// Do perks that effect crit (such as enhanced pyrotechnics) also effect the crit chance of multistrike?
-// Extensive Test - At a glance, enhanced pyrotechnics works properly. Need to test more in depth though (remember CM interacts with this!)
-// multistrike triggering ignite? - CONFIRMED BY CELESTALON TO INTERACT WITH EACHOTHER
 // change the syntax around frostfirebolts implimentation of Enhanced pyrotechnics to match fireballs
 // Need to add in Improved Scorch
 // Shatter is changed Shatter: Now Frost only. Multiplies the critical strike chance of all your spells against frozen targets by 1.5 plus an additional 50%. needs to be coded.
@@ -17,12 +14,10 @@
 // All new spells need to have their damage cross-checked with in game values.
 // Is the ignite from Inferno Blast spread?
 // Automate which spells use Unstable Magic
-// Do not hardcode 15second duration for enhanced frostbolt perk
 // Arcane Orb needs to be treated as a flying object that can hit multiple targets in a line, instead of as something which is basically just an explosion around a single target.
 // Need to do some basic d=vt calcs to have a more realistic travel time for AO.
 // Improve the delay between tick and aoe for NT by applying a guassian distribution centered around 1.25s with stddev such that travel time is ~1.2-1.3s
 // Removing hardcoding of Inferno Blast CD once it has returned to the spell data
-// Water elemental waterbolt hitting ~30% too hard.
 
 // Are Meteor ticks effected by haste? - Maybe? They are bugged on Beta as of 8/11/2014 (http://us.battle.net/wow/en/forum/topic/13780228135)
 
@@ -842,6 +837,8 @@ struct prismatic_crystal_t : public pet_t
       o() -> action_list[ i ] -> target_cache.is_valid = false;
   }
 
+  double composite_mitigation_versatility() const { return 0; }
+
   double composite_player_vulnerability( school_e school ) const
   {
     double m = pet_t::composite_player_vulnerability( school );
@@ -1564,14 +1561,15 @@ static void trigger_unstable_magic( action_state_t* s )
 
   if ( !p -> explode )
   {
-   p -> explode = new unstable_magic_explosion_t( p );
-   p -> explode -> init();
+    p -> explode = new unstable_magic_explosion_t( p );
+    p -> explode -> init();
   }
 
+  p -> explode -> target = s -> target;
   p -> explode -> base_dd_max = s -> result_amount;
   p -> explode -> base_dd_min = s -> result_amount;
   p -> explode -> execute();
-  
+
   return;
 }
 
@@ -2147,7 +2145,13 @@ struct combustion_t : public mage_spell_t
 
       residual_periodic_state_t* combustion_dot_state_t = debug_cast<residual_periodic_state_t*>( combustion_dot -> state );
       const residual_periodic_state_t* ignite_dot_state_t = debug_cast<const residual_periodic_state_t*>( ignite_dot -> state );
-      combustion_dot_state_t -> tick_amount = ignite_dot_state_t -> tick_amount * 0.4; // Changed in 40% in WoD beta.
+
+      // Combustion tooltip: "equal to X seconds of Ignite's current damage
+      // done over <Combustion's duration>". Compute this by using Ignite's
+      // tick damage, number of seconds, and Combustion's base duration.
+      double base_duration = p() -> find_spell( 83853, "combustion_dot" ) -> duration().total_seconds();
+      combustion_dot_state_t -> tick_amount = ignite_dot_state_t -> tick_amount *
+                                              data().effectN( 1 ).base_value()  / base_duration;
     }
   }
 
@@ -2506,7 +2510,6 @@ struct frost_bomb_t : public mage_spell_t
     mage_spell_t( "frost_bomb", p, p -> talents.frost_bomb )
   {
     parse_options( NULL, options_str );
-    harmful = false;
   }
 
   virtual void execute()
@@ -2524,11 +2527,6 @@ struct frost_bomb_t : public mage_spell_t
       }
       p.last_bomb_target = execute_state -> target;
     }
-  }
-
-  virtual void last_tick( dot_t* d )
-  {
-    mage_spell_t::last_tick( d );
   }
 
   virtual void impact( action_state_t* s )
@@ -2551,7 +2549,7 @@ struct frostbolt_t : public mage_spell_t
 
   frostbolt_t( mage_t* p, const std::string& options_str ) :
     mage_spell_t( "frostbolt", p, p -> find_specialization_spell( "Frostbolt" ) ),
-    bf_proc_chance( 0.1 ),
+    bf_proc_chance( p -> spec.brain_freeze -> effectN( 1 ).percent() ),
     icicle( p -> get_stats( "icicle_fb" ) )
   {
     parse_options( NULL, options_str );
@@ -2564,10 +2562,8 @@ struct frostbolt_t : public mage_spell_t
   {
     int sm = mage_spell_t::schedule_multistrike( s, dmg_type, tick_multiplier );
 
-    if ( sm == 1 )
-      bf_proc_chance += p() -> spec.brain_freeze -> effectN( 2 ).percent();
-    if ( sm == 2 )
-      bf_proc_chance +=  ( p() -> spec.brain_freeze -> effectN( 2 ).percent() * 2 );
+    bf_proc_chance += p() -> spec.brain_freeze -> effectN( 2 ).percent() * sm;
+
     return sm;
   }
 
@@ -2576,7 +2572,7 @@ struct frostbolt_t : public mage_spell_t
     timespan_t cast = mage_spell_t::execute_time();
 
     if ( p() -> buffs.enhanced_frostbolt -> check() )
-      cast *= 1 + p() -> perks.enhanced_frostbolt -> effectN(1).time_value().total_seconds() /
+      cast *= 1 + p() -> perks.enhanced_frostbolt -> effectN( 1 ).time_value().total_seconds() /
                   base_execute_time.total_seconds();
 
     return cast;
@@ -2590,7 +2586,7 @@ struct frostbolt_t : public mage_spell_t
 
     if ( p() -> buffs.enhanced_frostbolt -> up() )
     {
-      p() -> cooldowns.bolt -> duration = timespan_t::from_seconds( 15.0 );
+      p() -> cooldowns.bolt -> duration = p() -> find_spell( 157648 ) -> duration();
       p() -> cooldowns.bolt -> start();
       p() -> buffs.enhanced_frostbolt -> expire();
     }
@@ -2609,11 +2605,10 @@ struct frostbolt_t : public mage_spell_t
 
       p() -> buffs.fingers_of_frost -> trigger( 1, buff_t::DEFAULT_VALUE(), fof_proc_chance );
       p() -> buffs.brain_freeze -> trigger(1, buff_t::DEFAULT_VALUE(), bf_proc_chance );
-
     }
 
     p() -> buffs.frozen_thoughts -> expire();
-    bf_proc_chance = 0.1;
+    bf_proc_chance = p() -> spec.brain_freeze -> effectN( 1 ).percent();
   }
 
   virtual void impact( action_state_t* s )
@@ -2623,6 +2618,7 @@ struct frostbolt_t : public mage_spell_t
       {
         if ( p() -> talents.unstable_magic -> ok() && rng().roll( p() -> talents.unstable_magic -> effectN( 3 ).percent() ) )
           trigger_unstable_magic( s );
+
         trigger_icicle_gain( s, icicle );
       }
 
@@ -2648,7 +2644,7 @@ struct frostbolt_t : public mage_spell_t
     double am = mage_spell_t::action_multiplier();
     if ( p() -> buffs.frozen_thoughts -> up() )
     {
-      am *= ( 1.0 + p() -> buffs.frozen_thoughts -> data().effectN( 1 ).percent() );
+      am *= 1.0 + p() -> buffs.frozen_thoughts -> data().effectN( 1 ).percent();
     }
 
     return am;
@@ -2899,12 +2895,12 @@ struct ice_lance_t : public mage_spell_t
 {
 
   double fof_multiplier;
-  frost_bomb_explosion_t* frost_bomb_explode;
+  frost_bomb_explosion_t* frost_bomb_explosion;
 
   ice_lance_t( mage_t* p, const std::string& options_str ) :
     mage_spell_t( "ice_lance", p, p -> find_class_spell( "Ice Lance" ) ),
     fof_multiplier( 0 ),
-    frost_bomb_explode( new frost_bomb_explosion_t( p ) )
+    frost_bomb_explosion( new frost_bomb_explosion_t( p ) )
   {
     parse_options( NULL, options_str );
 
@@ -2949,7 +2945,10 @@ struct ice_lance_t : public mage_spell_t
     if ( p() -> talents.frost_bomb -> ok() )
     {
       if ( td( s -> target ) -> debuffs.frost_bomb -> up() && frozen && !result_is_multistrike( s -> result) )
-        frost_bomb_explode -> execute();
+      {
+        frost_bomb_explosion -> target = s -> target;
+        frost_bomb_explosion -> execute();
+      }
     }
   }
 
@@ -3152,11 +3151,11 @@ struct living_bomb_explosion_t : public mage_spell_t
 
 struct living_bomb_t : public mage_spell_t
 {
-  living_bomb_explosion_t* explosion_spell;
+  living_bomb_explosion_t* explosion;
 
   living_bomb_t( mage_t* p, const std::string& options_str ) :
     mage_spell_t( "living_bomb", p, p -> talents.living_bomb ),
-    explosion_spell( new living_bomb_explosion_t( p ) )
+    explosion( new living_bomb_explosion_t( p ) )
   {
     parse_options( NULL, options_str );
   }
@@ -3168,7 +3167,8 @@ struct living_bomb_t : public mage_spell_t
       dot_t* dot = get_dot( s -> target );
       if ( dot -> is_ticking() && dot -> remains() < dot_duration * 0.3 )
       {
-        explosion_spell -> execute();
+        explosion -> target = s -> target;
+        explosion -> execute();
       }
     }
     mage_spell_t::impact( s );
@@ -3177,8 +3177,12 @@ struct living_bomb_t : public mage_spell_t
   void tick( dot_t* d )
   {
     mage_spell_t::tick( d );
+
     if ( d -> ticks_left() == 0 )
-      explosion_spell -> execute();
+    {
+      explosion -> target = d -> target;
+      explosion -> execute();
+    }
   }
 };
 
@@ -4330,8 +4334,7 @@ void mage_t::init_spells()
   // Passive Spells
   passives.nether_attunement = find_specialization_spell( "Nether Attunement" ); // BUG: Not in spell lists at present.
   passives.nether_attunement = ( find_spell( 117957 ) -> is_level( level ) ) ? find_spell( 117957 ) : spell_data_t::not_found();
-  passives.shatter           = find_specialization_spell( "Shatter" ); // BUG: Doesn't work at present as Shatter isn't tagged as a spec of Frost.
-  passives.shatter           = ( find_spell( 12982 ) -> is_level( level ) ) ? find_spell( 12982 ) : spell_data_t::not_found();
+  passives.shatter           = find_specialization_spell( "Shatter" );
   passives.frost_armor       = find_specialization_spell( "Frost Armor" );
   passives.mage_armor        = find_specialization_spell( "Mage Armor" );
   passives.molten_armor      = find_specialization_spell( "Molten Armor" );
@@ -4483,7 +4486,7 @@ void mage_t::create_buffs()
   else
     buffs.icy_veins            = buff_creator_t( this, "icy_veins", find_spell( 12472 ) ).add_invalidate( CACHE_SPELL_HASTE );
 
-  buffs.enhanced_frostbolt   = buff_creator_t( this, "enhanced_frostbolt", find_spell( 157646 ) ).duration( timespan_t::from_seconds( 15.0 ) );
+  buffs.enhanced_frostbolt   = buff_creator_t( this, "enhanced_frostbolt", find_spell( 157646 ) ).duration( find_spell( 157648 ) -> duration() );
   buffs.ice_floes            = buff_creator_t( this, "ice_floes", talents.ice_floes );
   buffs.improved_blink       = buff_creator_t( this, "improved_blink", perks.improved_blink )
                                .default_value( perks.improved_blink -> effectN( 1 ).percent() );

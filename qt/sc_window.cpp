@@ -408,13 +408,14 @@ SC_MainWindow::SC_MainWindow( QWidget *parent )
 
   mainTab = new SC_MainTab( this );
   createWelcomeTab();
-  createOptionsTab();
   createImportTab();
+  createOptionsTab();
   createSimulateTab();
+  createResultsTab();
   createOverridesTab();
   createHelpTab();
   createLogTab();
-  createResultsTab();
+
   createSpellQueryTab();
   createCmdLine();
   createToolTips();
