@@ -10,6 +10,7 @@ namespace
 
 // ==========================================================================
 // Hunter
+// Currently on beta enhanced basic attacks seem to proc 50% of the time, rather than 15% from spell data.
 // ==========================================================================
 
 struct hunter_t;
@@ -40,7 +41,7 @@ public:
   core_event_t* sniper_training;
   const spell_data_t* sniper_training_cd;
   timespan_t movement_ended;
-
+  double enhanced_auto;
   // Active
   std::vector<pets::hunter_main_pet_t*> hunter_main_pets;
   struct actives_t
@@ -320,7 +321,7 @@ public:
     cooldowns.explosive_shot  = get_cooldown( "explosive_shot" );
     cooldowns.bestial_wrath   = get_cooldown( "bestial_wrath" );
     cooldowns.kill_shot_reset = get_cooldown( "kill_shot_reset" );
-    cooldowns.kill_shot_reset -> duration = timespan_t::from_seconds( 6 );
+    cooldowns.kill_shot_reset -> duration = timespan_t::from_seconds( 10 );
     cooldowns.rapid_fire      = get_cooldown( "rapid_fire" );
     cooldowns.sniper_training = get_cooldown( "sniper_training" );
     cooldowns.sniper_training -> duration = timespan_t::from_seconds( 3 );
@@ -328,6 +329,7 @@ public:
     summon_pet_str = "";
     base.distance = 40;
     base_gcd = timespan_t::from_seconds( 1.0 );
+    enhanced_auto = 0.5;
 
     regen_type = REGEN_DYNAMIC;
     regen_caches[ CACHE_HASTE ] = true;
@@ -1222,8 +1224,9 @@ struct basic_attack_t: public hunter_main_pet_attack_t
 
   void update_ready( timespan_t cd_duration )
   {
-    hunter_main_pet_attack_t::update_ready( cd_duration );
-    if ( o() -> rng().roll( o() -> perks.enhanced_basic_attacks -> effectN( 1 ).percent() ) )
+    hunter_main_pet_attack_t::update_ready( cd_duration ); // Currently on beta enhanced basic attacks seems to proc 50% of the time, rather than 15%.
+    // Added in an option to tweak it for now, default set at 50%
+    if ( o() -> rng().roll( o() -> bugs ? o() -> enhanced_auto : o() -> perks.enhanced_basic_attacks -> effectN( 1 ).percent() ) )
     {
       cooldown -> reset( true );
       p() -> buffs.enhanced_basic_attacks -> trigger();
@@ -1254,9 +1257,9 @@ struct kill_command_t: public hunter_main_pet_attack_t
     background = proc = true;
     school = SCHOOL_PHYSICAL;
 
-    // The hardcoded parameter is taken from the $damage value in teh tooltip. e.g., 1.89 below
-    // $damage = ${ 1.5*($83381m1 + ($RAP*  1.89   ))*$<bmMastery> }
-    attack_power_mod.direct  = 1.89; // Hard-coded in tooltip.
+    // The hardcoded parameter is taken from the $damage value in teh tooltip. e.g., 1.36 below
+    // $damage = ${ 1.5*($83381m1 + ($RAP*  1.36   ))*$<bmMastery> }
+    attack_power_mod.direct  = 1.36; // Hard-coded in tooltip.
   }
 
   double action_multiplier() const
@@ -1502,6 +1505,10 @@ struct dire_critter_t: public hunter_pet_t
       background = repeating = may_glance = may_crit = true;
       special = false;
       focus_gain = player -> find_spell( 120694 ) -> effectN( 1 ).base_value();
+      
+      // Dire Beast is only giving 2 focus per hit in game
+      if ( p.o() -> bugs )
+        focus_gain = 2;
     }
 
     virtual void impact( action_state_t* s )
@@ -1754,7 +1761,8 @@ struct ranged_t: public hunter_ranged_attack_t
           residual_action::trigger(
             p() -> active.poisoned_ammo, // ignite spell
             s -> target, // target
-            p() -> cache.attack_power() * 0.4 );
+            p() -> cache.attack_power() * ( p() -> find_spell( 170661 ) -> effectN( 1 ).ap_coeff() * 
+            ( p() -> find_spell( 170661 ) -> duration() / p() -> find_spell( 170661 ) -> effectN( 1 ).period() ) ) );
         }
         else if ( p() -> active.ammo == FROZEN_AMMO )
           p() -> active.frozen_ammo -> execute();
@@ -2281,7 +2289,7 @@ struct explosive_shot_t: public hunter_ranged_attack_t
     parse_options( NULL, options_str );
     may_block = false;
 
-    attack_power_mod.tick = 0.42; //Welcome to the hard-coded tooltip club!
+    attack_power_mod.tick = 0.39; //Welcome to the hard-coded tooltip club!
     attack_power_mod.direct = attack_power_mod.tick;
     // the inital impact is not part of the rolling dot
     dot_duration = timespan_t::zero();
@@ -3982,6 +3990,7 @@ void hunter_t::create_options()
   option_t hunter_options[] =
   {
     opt_string( "summon_pet", summon_pet_str ),
+    opt_float( "enhanced_auto", enhanced_auto ),
     opt_null()
   };
 
@@ -4008,6 +4017,7 @@ void hunter_t::copy_from( player_t* source )
   hunter_t* p = debug_cast<hunter_t*>( source );
 
   summon_pet_str = p -> summon_pet_str;
+  enhanced_auto = p -> enhanced_auto;
 }
 
 // hunter_t::armory_extensions ==============================================

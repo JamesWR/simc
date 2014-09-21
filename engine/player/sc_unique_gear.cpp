@@ -1410,12 +1410,22 @@ void item::spellbound_runic_band( special_effect_t& effect,
   const spell_data_t* driver = p -> find_spell( effect.spell_id );
   buff_t* buff = 0;
 
-  if ( p -> convert_hybrid_stat( STAT_STRENGTH ) )
-    buff = buff_t::find( p, "archmages_greater_incandescence_str" );
-  else if ( p -> convert_hybrid_stat( STAT_AGILITY ) )
-    buff = buff_t::find( p, "archmages_greater_incandescence_agi" );
-  else if ( p -> convert_hybrid_stat( STAT_INTELLECT ) )
-    buff = buff_t::find( p, "archmages_greater_incandescence_int" );
+
+  //Need to test which procs on off-spec rings, assume correct proc for now.
+  switch( p -> convert_hybrid_stat( STAT_STR_AGI_INT ) )
+  {
+    case STAT_STRENGTH:
+      buff = buff_t::find( p, "archmages_greater_incandescence_str" );
+      break;
+    case STAT_AGILITY:
+      buff = buff_t::find( p, "archmages_greater_incandescence_agi" );
+      break;
+    case STAT_INTELLECT:
+      buff = buff_t::find( p, "archmages_greater_incandescence_int" );
+      break;
+    default:
+      break;
+  }
 
   effect.ppm_ = -1.0 * driver -> real_ppm();
   effect.custom_buff = buff;
@@ -1433,12 +1443,21 @@ void item::spellbound_solium_band( special_effect_t& effect,
   const spell_data_t* driver = p -> find_spell( effect.spell_id );
   buff_t* buff = 0;
 
-  if ( p -> convert_hybrid_stat( STAT_STRENGTH ) )
-    buff = buff_t::find( p, "archmages_incandescence_str" );
-  else if ( p -> convert_hybrid_stat( STAT_AGILITY ) )
-    buff = buff_t::find( p, "archmages_incandescence_agi" );
-  else if ( p -> convert_hybrid_stat( STAT_INTELLECT ) )
-    buff = buff_t::find( p, "archmages_incandescence_int" );
+  //Need to test which procs on off-spec rings, assume correct proc for now.
+  switch( p -> convert_hybrid_stat( STAT_STR_AGI_INT ) )
+  {
+    case STAT_STRENGTH:
+      buff = buff_t::find( p, "archmages_incandescence_str" );
+      break;
+    case STAT_AGILITY:
+      buff = buff_t::find( p, "archmages_incandescence_agi" );
+      break;
+    case STAT_INTELLECT:
+      buff = buff_t::find( p, "archmages_incandescence_int" );
+      break;
+    default:
+      break;
+  }
 
   effect.ppm_ = -1.0 * driver -> real_ppm();
   effect.custom_buff = buff;

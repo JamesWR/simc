@@ -7,6 +7,7 @@
   5.4: Remove Unbreakable Spirit code
   Selfless Healer?
   Sacred Shield proxy buff for APL trickery
+  Not sure if it's intended, but currently Hammer of Wrath procs seals on beta. 8/30/14 - Alex
 */
 #include "simulationcraft.hpp"
 
@@ -101,6 +102,10 @@ public:
     buff_t* guardian_of_ancient_kings;
     buff_t* grand_crusader;
     buff_t* infusion_of_light;
+    buff_t* seal_of_insight;
+    buff_t* seal_of_justice;
+    buff_t* seal_of_righteousness;
+    buff_t* seal_of_truth;
     buff_t* shield_of_the_righteous;
 
     // glyphs
@@ -153,9 +158,10 @@ public:
     gain_t* divine_plea;
     gain_t* extra_regen;
     gain_t* glyph_of_divinity;
+    gain_t* glyph_of_illumination;
+    gain_t* mana_beacon_of_light;
 
     // Holy Power
-    gain_t* hp_beacon_of_light;
     gain_t* hp_blazing_contempt;
     gain_t* hp_blessed_life;
     gain_t* hp_crusader_strike;
@@ -306,6 +312,7 @@ public:
     const spell_data_t* hand_of_sacrifice;
     const spell_data_t* harsh_words;
     const spell_data_t* immediate_truth;
+    const spell_data_t* illumination;
     const spell_data_t* judgment;
     const spell_data_t* mass_exorcism;
     const spell_data_t* merciful_wrath;
@@ -2035,8 +2042,11 @@ struct flash_of_light_t : public paladin_heal_t
     }
         
     // Grant Holy Power if healing the beacon target
-    if ( s -> target == p() -> beacon_target )
-      p() -> resource_gain( RESOURCE_HOLY_POWER, 1, p() -> gains.hp_beacon_of_light );
+    if ( s -> target == p() -> beacon_target ){
+        int g = static_cast<int>( p() -> find_spell( 88852 ) -> effectN(1).percent() * flash_of_light_t::cost() );
+        p() -> resource_gain( RESOURCE_MANA, g, p() -> gains.mana_beacon_of_light );
+
+    }
   }
 };
 
@@ -2207,8 +2217,11 @@ struct holy_light_t : public paladin_heal_t
     paladin_heal_t::impact( s );
     
     // Grant Holy Power if healing the beacon target
-    if ( s -> target == p() -> beacon_target )
-      p() -> resource_gain( RESOURCE_HOLY_POWER, 1, p() -> gains.hp_beacon_of_light );
+    if ( s -> target == p() -> beacon_target ){
+        int g = static_cast<int>( p() -> find_spell( 88852 ) -> effectN(1).percent() * holy_light_t::cost() );
+        p() -> resource_gain( RESOURCE_MANA, g, p() -> gains.mana_beacon_of_light );
+
+    }
   }
 
 };
@@ -2422,7 +2435,7 @@ struct holy_shock_damage_t : public paladin_spell_t
     background = true;
     trigger_gcd = timespan_t::zero();
 
-    // this grabs the 25% base crit bonus from 20473
+    // this grabs the 100% base crit bonus from 20473
     crit_chance_multiplier = p -> find_class_spell( "Holy Shock" ) -> effectN( 1 ).base_value() / 10.0;
   }
 
@@ -2455,6 +2468,10 @@ struct holy_shock_damage_t : public paladin_spell_t
                               p() -> buffs.holy_avenger -> value() - g,
                               p() -> gains.hp_holy_avenger );
       }
+      //phillipuh
+      if ( p() -> glyphs.illumination -> ok())
+         p() -> resource_gain(RESOURCE_MANA, .01 * p() -> resources.max[RESOURCE_MANA], p() -> gains.glyph_of_illumination);
+
     }
   }
   
@@ -2506,6 +2523,9 @@ struct holy_shock_heal_t : public paladin_heal_t
     p() -> resource_gain( RESOURCE_HOLY_POWER,
                           g,
                           p() -> gains.hp_holy_shock );
+    if ( p() -> glyphs.illumination -> ok() )
+       p() -> resource_gain(RESOURCE_MANA, .01 * p() -> resources.max[RESOURCE_MANA], p() -> gains.glyph_of_illumination);
+
     if ( p() -> buffs.holy_avenger -> check() )
     {
       p() -> resource_gain( RESOURCE_HOLY_POWER,
@@ -2515,6 +2535,7 @@ struct holy_shock_heal_t : public paladin_heal_t
 
     if ( execute_state -> result == RESULT_CRIT )
       p() -> buffs.infusion_of_light -> trigger();
+
   }
 
   virtual void impact ( action_state_t* s )
@@ -2676,18 +2697,18 @@ struct lay_on_hands_t : public paladin_heal_t
   lay_on_hands_t( paladin_t* p, const std::string& options_str ) :
     paladin_heal_t( "lay_on_hands", p, p -> find_class_spell( "Lay on Hands" ) ), mana_return_pct( 0 )
   {
-    parse_options( NULL, options_str );
+      parse_options( NULL, options_str );
 
-    // unbreakable spirit reduces cooldown
-    if ( p -> talents.unbreakable_spirit -> ok() )
-        cooldown -> duration = data().cooldown() * ( 1 + p -> talents.unbreakable_spirit -> effectN( 1 ).percent() );
+      // unbreakable spirit reduces cooldown
+      if ( p -> talents.unbreakable_spirit -> ok() )
+          cooldown -> duration = data().cooldown() * ( 1 + p -> talents.unbreakable_spirit -> effectN( 1 ).percent() );
 
-    //Glyph of Divinity Phillipuh
-    if ( p -> glyphs.divinity -> ok() )
-        cooldown -> duration += p -> glyphs.divinity -> effectN( 1 ).time_value();
+      //Glyph of Divinity Phillipuh
+      if ( p -> glyphs.divinity -> ok() )
+          cooldown -> duration += p -> glyphs.divinity -> effectN( 1 ).time_value();
 
-    use_off_gcd = true;
-    trigger_gcd = timespan_t::zero();
+      use_off_gcd = true;
+      trigger_gcd = timespan_t::zero();
 
     pct_heal = 1.0;
 
@@ -2700,15 +2721,10 @@ struct lay_on_hands_t : public paladin_heal_t
     paladin_heal_t::execute();
 
     target -> debuffs.forbearance -> trigger();
+    if ( p() -> glyphs.divinity -> ok() ){
+        p() -> resource_gain(RESOURCE_MANA, p() -> find_spell( 54986 ) -> effectN(1).percent() * p() -> resources.max[RESOURCE_MANA], p() -> gains.glyph_of_divinity);
+    }
   }
-  virtual void impact( action_state_t* s )
-  {
-    paladin_heal_t::impact( s );
-
-    if ( mana_return_pct > 0 )
-      p() -> resource_gain( RESOURCE_MANA, mana_return_pct * p() -> resources.max[ RESOURCE_MANA ], p() -> gains.glyph_of_divinity );
-  }
-
 
   virtual bool ready()
   {
@@ -4108,7 +4124,36 @@ struct paladin_seal_t : public paladin_melee_attack_t
       p() -> active_seal = SEAL_NONE;
     }
     else
+    {
       p() -> active_seal = seal_type; // set the new seal
+
+      // now handle the buffs (for reporting only)
+
+      // cancel all existing buffs
+      p() -> buffs.seal_of_insight -> expire();
+      p() -> buffs.seal_of_justice -> expire();
+      p() -> buffs.seal_of_righteousness -> expire();
+      p() -> buffs.seal_of_truth -> expire();
+      // now trigger the new buff
+      switch ( seal_type )
+      {
+      case SEAL_OF_INSIGHT:
+        p() -> buffs.seal_of_insight -> trigger();
+        p() -> invalidate_cache( CACHE_PLAYER_HEAL_MULTIPLIER );
+        break;
+      case SEAL_OF_JUSTICE:
+        p() -> buffs.seal_of_justice -> trigger();
+        break;
+      case SEAL_OF_RIGHTEOUSNESS:
+        p() -> buffs.seal_of_righteousness -> trigger();
+        break;
+      case SEAL_OF_TRUTH:
+        p() -> buffs.seal_of_truth -> trigger();
+        break;
+      default:
+        break;
+      }
+    }
 
     // if we've swapped to or from Seal of Insight, we'll need to refresh spell haste cache
 
@@ -4260,52 +4305,6 @@ struct shield_of_the_righteous_t : public paladin_melee_attack_t
 };
 
 // Templar's Verdict / Final Verdict ========================================================
-
-//struct final_verdict_cleave_t : public paladin_melee_attack_t 
-//{
-//  final_verdict_cleave_t( paladin_t* p ) 
-//    : paladin_melee_attack_t( "final_verdict_cleave", p, p -> find_talent_spell( "Final Verdict" ) )
-//  {
-//    base_multiplier *= data().effectN( 1 ).percent();
-//    aoe = -1;
-//    trigger_seal = true; // TODO: test, works w/ SoI
-//    background = true;
-//    trigger_gcd = timespan_t::zero();
-//    resource_consumed = RESOURCE_NONE;
-//    
-//    // Tier 13 Retribution 4-piece boosts damage (TODO: Test?)
-//    base_multiplier *= 1.0 + p -> sets.set( SET_MELEE, T13, B4 ) -> effectN( 1 ).percent();
-//    // Tier 14 Retribution 2-piece boosts damage (TODO: Test?)
-//    base_multiplier *= 1.0 + p -> sets.set( SET_MELEE, T14, B2 ) -> effectN( 1 ).percent();
-//  }
-//
-//  
-//    
-//  // FV AoE does not hit the main target
-//  size_t available_targets( std::vector< player_t* >& tl ) const
-//  {
-//    tl.clear();
-//
-//    for ( size_t i = 0; i < sim -> actor_list.size(); i++ )
-//    {
-//      if ( ! sim -> actor_list[ i ] -> is_sleeping() &&
-//             sim -> actor_list[ i ] -> is_enemy() &&
-//             sim -> actor_list[ i ] != target )
-//        tl.push_back( sim -> actor_list[ i ] );
-//    }
-//
-//    return tl.size();
-//  }
-//
-//  virtual void impact( action_state_t* s )
-//  {
-//    paladin_melee_attack_t::impact( s );
-//
-//    if ( result_is_hit( s -> result ) || result_is_multistrike( s -> result ) )
-//      trigger_hand_of_light( s );
-//  }
-//
-//};
 
 struct final_verdict_t : public paladin_melee_attack_t
 {
@@ -4731,6 +4730,8 @@ void paladin_t::init_gains()
   gains.divine_plea                 = get_gain( "divine_plea"            );
   gains.extra_regen                 = get_gain( ( specialization() == PALADIN_RETRIBUTION ) ? "sword_of_light" : "guarded_by_the_light" );
   gains.glyph_of_divinity           = get_gain( "glyph_of_divinity" );
+  gains.glyph_of_illumination       = get_gain( "glyph_of_illumination" );
+  gains.mana_beacon_of_light        = get_gain( "beacon_of_light" );
 
   // Health
   gains.holy_shield                 = get_gain( "holy_shield_absorb" );
@@ -4739,7 +4740,6 @@ void paladin_t::init_gains()
   gains.glyph_divine_shield         = get_gain( "glyph_of_divine_shield" );
 
   // Holy Power
-  gains.hp_beacon_of_light          = get_gain( "beacon_of_light" );
   gains.hp_blessed_life             = get_gain( "blessed_life" );
   gains.hp_crusader_strike          = get_gain( "crusader_strike" );
   gains.hp_exorcism                 = get_gain( "exorcism" );
@@ -4837,6 +4837,10 @@ void paladin_t::create_buffs()
                                  .cd( timespan_t::zero() ) // Let the ability handle the CD
                                  .add_invalidate( CACHE_PLAYER_DAMAGE_MULTIPLIER );
   buffs.hand_of_purity         = buff_creator_t( this, "hand_of_purity", find_talent_spell( "Hand of Purity" ) ).cd( timespan_t::zero() ); // Let the ability handle the CD
+  buffs.seal_of_insight        = buff_creator_t( this, "seal_of_insight", find_class_spell( "Seal of Insight" ) );
+  buffs.seal_of_justice        = buff_creator_t( this, "seal_of_justice", find_class_spell( "Seal of Justice" ) );
+  buffs.seal_of_righteousness  = buff_creator_t( this, "seal_of_righteousness", find_class_spell( "Seal of Righteousness" ) );
+  buffs.seal_of_truth          = buff_creator_t( this, "seal_of_truth", find_class_spell( "Seal of Truth" ) );
 
   // Holy
   buffs.daybreak               = buff_creator_t( this, "daybreak", find_spell( 88819 ) );
@@ -4968,23 +4972,30 @@ void paladin_t::generate_action_prio_list_prot()
     def -> add_action( racial_actions[ i ] );
 
   def -> add_talent( this, "Holy Avenger" );
-  def -> add_action( this, "Divine Protection" ); // use on cooldown
+  def -> add_action( this, "Divine Protection", "if=buff.seraphim.down" ); // use on cooldown
   def -> add_action( this, "Guardian of Ancient Kings", "if=buff.holy_avenger.down&buff.shield_of_the_righteous.down&buff.divine_protection.down" ); 
   def -> add_action( this, "Ardent Defender", "if=buff.holy_avenger.down&buff.shield_of_the_righteous.down&buff.divine_protection.down&buff.guardian_of_ancient_kings.down");
   def -> add_talent( this, "Eternal Flame", "if=buff.eternal_flame.remains<2&buff.bastion_of_glory.react>2&(holy_power>=3|buff.divine_purpose.react|buff.bastion_of_power.react)" );
   def -> add_talent( this, "Eternal Flame", "if=buff.bastion_of_power.react&buff.bastion_of_glory.react>=5" );
-  def -> add_action( this, "Shield of the Righteous", "if=holy_power>=5|buff.divine_purpose.react|incoming_damage_1500ms>=health.max*0.3" );
+  def -> add_talent( this, "Seraphim", "if=buff.divine_protection.down&cooldown.divine_protection.remains>0" );
+  def -> add_action( this, "Shield of the Righteous", "if=(holy_power>=5|buff.divine_purpose.react|incoming_damage_1500ms>=health.max*0.3)&(!talent.seraphim.enabled|cooldown.seraphim.remains>5)" );
   def -> add_action( this, "Crusader Strike" );
   def -> add_action( this, "Judgment" );
+  def -> add_action( this, "Holy Wrath", "if=talent.sanctified_wrath.enabled" );
   def -> add_action( this, "Avenger's Shield" );
-  def -> add_talent( this, "Sacred Shield", "if=target.dot.sacred_shield.remains<5" );
-  def -> add_action( this, "Holy Wrath" );
   def -> add_talent( this, "Execution Sentence" );
-  def -> add_talent( this, "Light's Hammer" );
   def -> add_action( this, "Hammer of Wrath" );
+  def -> add_talent( this, "Light's Hammer" );
+  def -> add_action( this, "Holy Wrath", "if=glyph.final_wrath.enabled&target.health.pct<=20" );
+  def -> add_talent( this, "Sacred Shield", "if=target.dot.sacred_shield.remains<5" );
   def -> add_action( this, "Consecration", "if=target.debuff.flying.down&!ticking" );
+  def -> add_action( this, "Holy Wrath" );
   def -> add_talent( this, "Holy Prism" );
+  def -> add_action( this, "Seal of Insight", "if=talent.empowered_seals.enabled&buff.uthers_insight.remains<buff.liadrins_righteousness.remains&buff.uthers_insight.remains<buff.maraads_truth.remains" );
+  def -> add_action( this, "Seal of Righteousness", "if=talent.empowered_seals.enabled&buff.liadrins_righteousness.remains<buff.uthers_insight.remains&buff.liadrins_righteousness.remains<buff.maraads_truth.remains" );
+  def -> add_action( this, "Seal of Truth", "if=talent.empowered_seals.enabled&buff.maraads_truth.remains<buff.uthers_insight.remains&buff.maraads_truth.remains<buff.liadrins_righteousness.remains" );
   def -> add_talent( this, "Sacred Shield" );
+  def -> add_action( this, "Flash of Light", "if=talent.selfless_healer.enabled" );
 }
 
 // ==========================================================================
@@ -5140,7 +5151,7 @@ void paladin_t::generate_action_prio_list_holy()
   {
     std::string flask_action = "flask,type=";
     if ( level > 90 ) 
-      flask_action += "greator_draenic_intellect_flask";
+      flask_action += "greater_draenic_intellect_flask";
     else
     flask_action += ( level > 85 ) ? "warm_sun" : "draconic_mind";
 
@@ -5168,23 +5179,13 @@ void paladin_t::generate_action_prio_list_holy()
   
   // action priority list
   action_priority_list_t* def = get_action_priority_list( "default" );
-
+  
   // Potions
-  if ( sim -> allow_potions )
+  if (sim -> allow_potions && level >= 80)
+    def -> add_action( "potion,name=draenic_intellect" );
+  else
     def -> add_action( "potion,name=mana_potion,if=mana.pct<=75" );
-  // Potions
-
-    // Phillipuh
-  if (sim -> allow_potions && level >= 80){
-      std::string potion_action= "potion,name=";
-      if ( level > 90 )
-          potion_action += "potion,name=draenic_intellect";
-      else
-          potion_action += ( level > 85 ) ? "mogu power" : "jade serpent";
-      precombat -> add_action( potion_action);
-
-  }
-
+  
   def -> add_action( "/auto_attack" );
   def -> add_talent( this, "Speed of Light", "if=movement.remains>1" );
 
@@ -5380,6 +5381,7 @@ void paladin_t::init_spells()
   glyphs.hand_of_sacrifice        = find_glyph_spell( "Glyph of Hand of Sacrifice" );
   glyphs.harsh_words              = find_glyph_spell( "Glyph of Harsh Words" );
   glyphs.immediate_truth          = find_glyph_spell( "Glyph of Immediate Truth" );
+  glyphs.illumination                 = find_glyph_spell( "Glyph of Illumination" );
   glyphs.judgment                 = find_glyph_spell( "Glyph of Judgment" );
   glyphs.mass_exorcism            = find_glyph_spell( "Glyph of Mass Exorcism" );
   glyphs.merciful_wrath           = find_glyph_spell( "Glyph of Merciful Wrath" );
@@ -5398,8 +5400,8 @@ void paladin_t::init_spells()
   }
   else if ( specialization() == PALADIN_PROTECTION )
   {
-    extra_regen_period  = passives.guarded_by_the_light -> effectN( 3 ).period();
-    extra_regen_percent = passives.guarded_by_the_light -> effectN( 3 ).percent();
+    extra_regen_period  = passives.sanctuary -> effectN( 5 ).period();
+    extra_regen_percent = passives.sanctuary -> effectN( 5 ).percent();
   }
 
   if ( find_class_spell( "Beacon of Light" ) -> ok() )
@@ -5815,7 +5817,7 @@ double paladin_t::composite_block() const
   if ( buffs.shield_of_glory -> check() )
     b += buffs.shield_of_glory -> data().effectN( 1 ).percent();
 
-  // Protection T17 2-piece bonus
+  // Protection T17 2-piece bonus not affected by DR (confirmed 9/19)
   if ( buffs.faith_barricade -> check() )
     b += buffs.faith_barricade -> value();
 
@@ -5953,7 +5955,7 @@ void paladin_t::target_mitigation( school_e school,
 
     // clamp is hardcoded in tooltip, not shown in effects
     sotr_mitigation = std::max( -0.80, sotr_mitigation );
-    sotr_mitigation = std::min( -0.25, sotr_mitigation );
+    sotr_mitigation = std::min( -0.20, sotr_mitigation );
 
     s -> result_amount *= 1.0 + sotr_mitigation; 
 
@@ -5971,9 +5973,10 @@ void paladin_t::target_mitigation( school_e school,
     if ( s -> result_amount > 0 && s -> result_amount >= resources.current[ RESOURCE_HEALTH ] )
     {
       // Ardent defender is a little odd - it doesn't heal you *for* 12%, it heals you *to* 12%.
-      // It does this by either absorbing all damage and healing you for the difference between 15% and your current health (if current < 15%)
-      // or absorbing any damage that would take you below 15% (if current > 15%).
+      // It does this by either absorbing all damage and healing you for the difference between 12% and your current health (if current < 12%)
+      // or absorbing any damage that would take you below 12% (if current > 12%).
       // To avoid complications with absorb modeling, we're just going to kludge it by adjusting the amount gained or lost accordingly.
+      // Also arbitrarily capping at 3x max health because if you're seriously simming bosses that hit for >300% player health I hate you.
       s -> result_amount = 0.0;
       double AD_health_threshold = resources.max[ RESOURCE_HEALTH ] * buffs.ardent_defender -> data().effectN( 2 ).percent();
       if ( resources.current[ RESOURCE_HEALTH ] >= AD_health_threshold )
@@ -5985,8 +5988,9 @@ void paladin_t::target_mitigation( school_e school,
       }
       else
       {
+        // completely arbitrary heal-capping here at 3x max health, done just so paladin health timelines don't look so insane
         resource_gain( RESOURCE_HEALTH,
-                       AD_health_threshold - resources.current[ RESOURCE_HEALTH ],
+                       std::min( AD_health_threshold - resources.current[ RESOURCE_HEALTH ], 3 * resources.max[ RESOURCE_HEALTH ] ),
                        nullptr,
                        s -> action );
       }

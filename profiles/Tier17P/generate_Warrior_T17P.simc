@@ -8,8 +8,8 @@ race=orc
 spec=fury
 role=attack
 position=back
-talents=1331322
-glyphs=unending_rage/death_from_above/bull_rush
+talents=2221322
+glyphs=unending_rage/death_from_above/raging_wind
 head=primal_gladiators_plate_helm,id=111241
 neck=primal_gladiators_choker_of_cruelty,id=111207,enchant=gift_of_critical_strike
 shoulders=primal_gladiators_plate_pauldrons,id=111218
@@ -35,8 +35,8 @@ race=orc
 spec=fury
 role=attack
 position=back
-talents=2331322
-glyphs=unending_rage/death_from_above/bull_rush
+talents=2221322
+glyphs=unending_rage/death_from_above/raging_wind
 head=primal_gladiators_plate_helm,id=111241
 neck=primal_gladiators_choker_of_cruelty,id=111207,enchant=gift_of_critical_strike
 shoulders=primal_gladiators_plate_pauldrons,id=111218

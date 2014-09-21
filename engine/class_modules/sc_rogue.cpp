@@ -566,6 +566,9 @@ struct rogue_attack_t : public melee_attack_t
     return p() -> buffs.vanish -> check() || p() -> buffs.stealth -> check() || player -> buffs.shadowmeld -> check();
   }
 
+  virtual bool procs_poison() const
+  { return weapon != 0; }
+
   // Adjust poison proc chance
   virtual double composite_poison_flat_modifier( const action_state_t* ) const
   { return 0.0; }
@@ -1167,10 +1170,10 @@ void rogue_attack_t::impact( action_state_t* state )
 
   if ( result_is_hit( state -> result ) )
   {
-    if ( weapon && p() -> active_lethal_poison )
+    if ( procs_poison() && p() -> active_lethal_poison )
       p() -> active_lethal_poison -> trigger( state );
 
-    if ( weapon && p() -> active_nonlethal_poison )
+    if ( procs_poison() && p() -> active_nonlethal_poison )
       p() -> active_nonlethal_poison -> trigger( state );
 
     // Legendary Daggers buff handling
@@ -1714,10 +1717,7 @@ struct envenom_t : public rogue_attack_t
     p() -> buffs.enhanced_vendetta -> expire();
 
     if ( p() -> sets.has_set_bonus( ROGUE_ASSASSINATION, T17, B4 ) )
-    {
       p() -> trigger_combo_point_gain( execute_state, 1, p() -> gains.t17_4pc_assassination );
-      p() -> buffs.blindside -> trigger();
-    }
   }
 
   double action_multiplier() const
@@ -1849,7 +1849,6 @@ struct eviscerate_t : public rogue_attack_t
   {
     rogue_attack_t::consume_resource();
 
-    // TODO: DfA + Deceit interaction?
     p() -> buffs.deceit -> expire();
   }
 
@@ -2146,13 +2145,6 @@ struct mutilate_strike_t : public rogue_attack_t
                             this );
   }
 
-  void consume_resource()
-  {
-    rogue_attack_t::consume_resource();
-
-    p() -> buffs.enhanced_vendetta -> expire();
-  }
-
   double action_multiplier() const
   {
     double m = rogue_attack_t::action_multiplier();
@@ -2202,7 +2194,14 @@ struct mutilate_t : public rogue_attack_t
     add_child( oh_strike );
   }
 
-  virtual double cost() const
+  void consume_resource()
+  {
+    rogue_attack_t::consume_resource();
+
+    p() -> buffs.enhanced_vendetta -> expire();
+  }
+  
+  double cost() const
   {
     double c = rogue_attack_t::cost();
     if ( p() -> buffs.t16_2pc_melee -> up() )
@@ -2214,7 +2213,7 @@ struct mutilate_t : public rogue_attack_t
     return c;
   }
 
-  virtual void execute()
+  void execute()
   {
     rogue_attack_t::execute();
 
@@ -2222,12 +2221,12 @@ struct mutilate_t : public rogue_attack_t
 
     if ( result_is_hit( execute_state -> result ) )
     {
-      mh_strike -> schedule_execute( mh_strike -> get_state( execute_state ) );
-      oh_strike -> schedule_execute( oh_strike -> get_state( execute_state ) );
+      mh_strike -> execute();
+      oh_strike -> execute();
     }
   }
 
-  virtual void impact( action_state_t* state )
+  void impact( action_state_t* state )
   {
     rogue_attack_t::impact( state );
 
@@ -2450,6 +2449,9 @@ struct shuriken_toss_t : public rogue_attack_t
   {
     adds_combo_points = 1; // it has an effect but with no base value :rollseyes:
   }
+
+  bool procs_poison() const
+  { return true; }
 };
 
 // Sinister Strike ==========================================================
@@ -2510,7 +2512,7 @@ struct sinister_strike_t : public rogue_attack_t
       p() -> buffs.bandits_guile -> trigger();
 
       rogue_td_t* td = this -> td( state -> target );
-      double proc_chance = td -> dots.revealing_strike -> current_action -> data().proc_chance();
+      double proc_chance = td -> dots.revealing_strike -> current_action -> data().effectN( 6 ).percent();
       proc_chance += p() -> sets.set( ROGUE_COMBAT, T17, B2 ) -> effectN( 1 ).percent();
 
       if ( td -> dots.revealing_strike -> is_ticking() && rng().roll( proc_chance ) )
@@ -2829,6 +2831,9 @@ struct main_gauche_t : public rogue_attack_t
     may_crit        = true;
     proc = true; // it's proc; therefore it cannot trigger main_gauche for chain-procs
   }
+
+  bool procs_poison() const
+  { return false; }
 };
 
 struct blade_flurry_attack_t : public rogue_attack_t
@@ -3297,6 +3302,9 @@ void rogue_t::trigger_t17_4pc_combat( const action_state_t* state )
 
   rogue_attack_t* attack = state ? debug_cast<rogue_attack_t*>( state -> action ) : 0;
   if ( attack -> base_costs[ RESOURCE_COMBO_POINT ] == 0 )
+    return;
+
+  if ( ! attack -> harmful )
     return;
 
   if ( ! attack -> result_is_hit( state -> result ) )
@@ -4893,7 +4901,8 @@ void rogue_t::arise()
   resources.current[ RESOURCE_COMBO_POINT ] = 0;
 
   if ( perk.improved_slice_and_dice -> ok() )
-    buffs.slice_and_dice -> trigger();
+    buffs.slice_and_dice -> trigger( 1, buffs.slice_and_dice -> data().effectN( 1 ).percent(), -1.0, timespan_t::zero() );
+
 
   if ( ! sim -> overrides.haste && dbc.spell( 113742 ) -> is_level( level ) ) sim -> auras.haste -> trigger();
   if ( ! sim -> overrides.multistrike && dbc.spell( 113742 ) -> is_level( level ) ) sim -> auras.multistrike -> trigger();

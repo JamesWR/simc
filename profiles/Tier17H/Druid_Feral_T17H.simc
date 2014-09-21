@@ -4,7 +4,7 @@ race=night_elf
 role=attack
 position=back
 talents=http://us.battle.net/wow/en/tool/talent-calculator#UZ!...1.21
-glyphs=savage_roar/master_shapeshifter
+glyphs=savage_roar/master_shapeshifter/cat_form
 spec=feral
 
 # This default action priority list is automatically created based on your character.
@@ -38,52 +38,56 @@ actions+=/blood_fury,sync=tigers_fury
 actions+=/berserking,sync=tigers_fury
 actions+=/arcane_torrent,sync=tigers_fury
 actions+=/tigers_fury,if=(!buff.omen_of_clarity.react&energy.max-energy>=60)|energy.max-energy>=80
-actions+=/shadowmeld,if=buff.savage_roar.remains<3|(buff.bloodtalons.up&buff.savage_roar.remains<6)
+actions+=/shadowmeld,if=(buff.bloodtalons.up|!talent.bloodtalons.enabled)&dot.rake.remains<0.3*dot.rake.duration
 # Keep Rip from falling off during execute range.
 actions+=/ferocious_bite,cycle_targets=1,if=dot.rip.ticking&dot.rip.remains<=3&target.health.pct<25
-actions+=/healing_touch,if=talent.bloodtalons.enabled&buff.predatory_swiftness.up&(combo_points>=4|buff.predatory_swiftness.remains<1.5)
+# Take advantage of Glyph of Cat Form
+actions+=/healing_touch,target_self=1,if=talent.bloodtalons.enabled&buff.predatory_swiftness.up&(combo_points>=4|buff.predatory_swiftness.remains<1.5)
 actions+=/savage_roar,if=buff.savage_roar.remains<3
 actions+=/potion,name=draenic_agility,sync=berserk,if=target.health.pct<25
 actions+=/thrash_cat,if=buff.omen_of_clarity.react&remains<=duration*0.3&active_enemies>1
-actions+=/rip,cycle_targets=1,if=combo_points=5&dot.rip.ticking&persistent_multiplier>dot.rip.pmultiplier
 actions+=/ferocious_bite,cycle_targets=1,if=combo_points=5&target.health.pct<25&dot.rip.ticking
 actions+=/rip,cycle_targets=1,if=combo_points=5&remains<=duration*0.3
 actions+=/savage_roar,if=combo_points=5&(energy.time_to_max<=1|buff.berserk.up|cooldown.tigers_fury.remains<3)&buff.savage_roar.remains<42*0.3
 actions+=/ferocious_bite,if=combo_points=5&(energy.time_to_max<=1|buff.berserk.up|cooldown.tigers_fury.remains<3)
-actions+=/rake,cycle_targets=1,if=remains<=duration*0.3&active_enemies<9&combo_points<5
+actions+=/rake,cycle_targets=1,if=remains<=duration*0.3&combo_points<5
 actions+=/pool_resource,for_next=1
-actions+=/thrash_cat,if=dot.thrash_cat.remains<4.5&active_enemies>1
-actions+=/rake,cycle_targets=1,if=persistent_multiplier>dot.rake.pmultiplier&active_enemies<9&combo_points<5
-actions+=/moonfire,cycle_targets=1,if=remains<=duration*0.3&active_enemies=1
-actions+=/swipe,if=combo_points<5&active_enemies>1
-actions+=/shred,if=combo_points<5&active_enemies=1
+actions+=/thrash_cat,if=remains<=duration*0.3&active_enemies>1
+actions+=/moonfire,cycle_targets=1,if=remains<=duration*0.3&active_enemies<=10
+actions+=/rake,cycle_targets=1,if=persistent_multiplier>dot.rake.pmultiplier&combo_points<5
+actions+=/swipe,if=combo_points<5&active_enemies>=3
+actions+=/shred,if=combo_points<5&active_enemies<3
 actions+=/natures_vigil
+# Take advantage of Glyph of Cat Form
+actions+=/rejuvenation,target_self=1,if=!ticking&(buff.natures_vigil.up|cooldown.natures_vigil.remains<15)
+actions+=/rejuvenation,cycle_targets=1,if=!ticking&(buff.natures_vigil.up|cooldown.natures_vigil.remains<15)
 actions+=/rejuvenation,cycle_targets=1,if=!ticking&(buff.natures_vigil.up|cooldown.natures_vigil.remains<15)
 actions+=/rejuvenation,cycle_targets=1,if=buff.natures_vigil.up
 
-head=primal_gladiators_headcover,id=111285
-neck=primal_gladiators_necklace_of_prowess,id=111080,enchant=gift_of_mastery
-shoulders=primal_gladiators_dragonhide_spaulders,id=111111
-back=primal_gladiators_cape_of_cruelty,id=111077,enchant=gift_of_mastery
-chest=primal_gladiators_tunic,id=111273
-wrists=primal_gladiators_bindings_of_prowess,id=111148
-hands=primal_gladiators_dragonhide_gloves,id=111107
-waist=primal_gladiators_belt_of_cruelty,id=111142
-legs=primal_gladiators_legguards,id=111276
-feet=primal_gladiators_boots_of_victory,id=111146
-finger1=primal_gladiators_ring_of_cruelty,id=111081,enchant=gift_of_mastery
-finger2=primal_gladiators_ring_of_prowess,id=111271,enchant=gift_of_mastery
-trinket1=primal_gladiators_badge_of_conquest,id=111222
-trinket2=primal_gladiators_insignia_of_conquest,id=111223
-main_hand=primal_gladiators_pike,id=111075,enchant=mark_of_the_frostwolf
+head=sorkas_nightshade_cowl,id=113978,bonus_id=566
+neck=darklight_necklace,id=113865,bonus_id=566,enchant=gift_of_critical_strike
+shoulders=living_wood_spaulders,id=115544,bonus_id=566
+back=drape_of_the_dark_hunt,id=113971,bonus_id=566,enchant=gift_of_critical_strike
+chest=living_wood_raiment,id=115540,bonus_id=566
+wrists=bracers_of_shattered_stalactites,id=113935,bonus_id=566
+hands=living_wood_grips,id=115541,bonus_id=566
+waist=conductors_multipocket_girdle,id=113964,bonus_id=566
+legs=living_wood_legguards,id=115543,bonus_id=566
+feet=furnace_tenders_treads,id=113895,bonus_id=566
+finger1=spellbound_runic_band_of_unrelenting_slaughter,id=118307,enchant=gift_of_critical_strike
+finger2=unexploded_explosive_shard,id=113877,bonus_id=566,enchant=gift_of_critical_strike
+trinket1=beating_heart_of_the_mountain,id=113931,bonus_id=566
+trinket2=humming_blackiron_trigger,id=113985,bonus_id=566
+main_hand=headlopper_skullscythe,id=119448,bonus_id=566,enchant=mark_of_the_thunderlord
 
 # Gear Summary
-# gear_agility=2588
-# gear_stamina=3250
-# gear_crit_rating=858
-# gear_haste_rating=89
-# gear_mastery_rating=1440
-# gear_armor=950
-# gear_multistrike_rating=525
-# gear_versatility_rating=249
-# set_bonus=pvp_2pc=1
+# gear_agility=3168
+# gear_stamina=3993
+# gear_crit_rating=1322
+# gear_haste_rating=294
+# gear_mastery_rating=919
+# gear_armor=1057
+# gear_multistrike_rating=1126
+# gear_versatility_rating=122
+# set_bonus=tier17_2pc=1
+# set_bonus=tier17_4pc=1

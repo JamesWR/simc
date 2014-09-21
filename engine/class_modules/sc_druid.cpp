@@ -13,9 +13,6 @@ namespace { // UNNAMED NAMESPACE
  /* WoD -- TODO:
     = Feral =
     Update LI implementation to work like in-game
-    Damage check:
-      Thrash (both forms) // Checked, is correct as of 9/14
-      Swipe
 
     = Balance =
     PvP/Tier Bonuses
@@ -28,6 +25,12 @@ namespace { // UNNAMED NAMESPACE
 
     = Restoration =
     Err'thing
+
+
+    = To add to wiki = 
+    New Options :
+      target_self - bool - changes target of spell to caster
+      active_rejuvenations - int - number of ticking rejuvenations on the raid
 */
 
 // Forward declarations
@@ -1902,14 +1905,13 @@ struct cat_attack_t : public druid_attack_t < melee_attack_t >
   int              combo_point_gain;
   double           base_dd_bonus;
   double           base_td_bonus;
-  bool             consume_ooc;
 
   cat_attack_t( const std::string& token, druid_t* p,
                 const spell_data_t* s = spell_data_t::nil(),
                 const std::string& options = std::string() ) :
     base_t( token, p, s ),
     requires_stealth( false ), combo_point_gain( 0 ),
-    base_dd_bonus( 0.0 ), base_td_bonus( 0.0 ), consume_ooc( true )
+    base_dd_bonus( 0.0 ), base_td_bonus( 0.0 )
   {
     parse_options( 0, options );
 
@@ -1946,7 +1948,7 @@ public:
     if ( c == 0 )
       return 0;
 
-    if ( consume_ooc && p() -> buff.omen_of_clarity -> check() )
+    if ( p() -> buff.omen_of_clarity -> check() )
       return 0;
 
     if ( p() -> buff.berserk -> check() )
@@ -1955,9 +1957,22 @@ public:
     return c;
   }
 
-  virtual bool stealthed() const
+  virtual bool prowling() const // For effects that specifically trigger only when "prowling."
   {
-    return p() -> buff.prowl -> up() || p() -> buff.king_of_the_jungle -> up() || p() -> buffs.shadowmeld -> up();
+    // Make sure we call all three methods for accurate benefit tracking.
+    bool prowl = p() -> buff.prowl -> up(),
+           inc = p() -> buff.king_of_the_jungle -> up();
+
+    return prowl || inc;
+  }
+
+  virtual bool stealthed() const // For effects that require any form of stealth.
+  {
+    // Make sure we call all three methods for accurate benefit tracking.
+    bool shadowmeld = p() -> buffs.shadowmeld -> up(),
+              prowl = prowling();
+
+    return prowl || shadowmeld;
   }
 
   void trigger_glyph_of_savage_roar()
@@ -2056,9 +2071,9 @@ public:
                               p() -> gain.soul_of_the_forest );
     }
 
-    if ( consume_ooc && base_t::cost() > 0 && p() -> buff.omen_of_clarity -> up() )
+    if ( base_t::cost() > 0 && p() -> buff.omen_of_clarity -> up() )
     {
-      // Treat the savings like a energy gain.
+      // Treat the savings like a energy gain for tracking purposes.
       p() -> gain.omen_of_clarity -> add( RESOURCE_ENERGY, base_t::cost() );
       p() -> buff.omen_of_clarity -> expire();
     }
@@ -2123,13 +2138,6 @@ struct cat_melee_t : public cat_attack_t
     special = false;
   }
 
-  virtual void init()
-  {
-    cat_attack_t::init();
-
-    consume_ooc = false;
-  }
-
   virtual timespan_t execute_time() const
   {
     if ( ! player -> in_combat )
@@ -2164,7 +2172,6 @@ struct feral_charge_cat_t : public cat_attack_t
   {
     cat_attack_t::init();
 
-    consume_ooc         = false;
     consume_bloodtalons = false;
   }
 
@@ -2317,8 +2324,9 @@ struct rake_t : public cat_attack_t
     special = true;
     attack_power_mod.direct = data().effectN( 1 ).ap_coeff();
 
-    bleed_spell = p -> find_spell( 155722 );
+    bleed_spell           = p -> find_spell( 155722 );
     dot_behavior          = DOT_REFRESH;
+    base_td               = bleed_spell -> effectN( 1 ).base_value();
     attack_power_mod.tick = bleed_spell -> effectN( 1 ).ap_coeff();
     dot_duration          = bleed_spell -> duration();
     base_tick_time        = bleed_spell -> effectN( 1 ).period();
@@ -2356,17 +2364,12 @@ struct rake_t : public cat_attack_t
     cat_attack_t::impact( s );
 
     if ( result_is_hit( s -> result ) )
-    {
       p() -> resource_gain( RESOURCE_COMBO_POINT, combo_point_gain, p() -> gain.rake );
-
-      if ( p() -> sets.has_set_bonus( DRUID_FERAL, T17, B2 ) )
-        p() -> resource_gain( RESOURCE_ENERGY, 3.0, p() -> gain.tier17_2pc_melee );
-    }
   }
 
   virtual void execute()
   {
-    if ( p() -> glyph.savage_roar -> ok() && stealthed() )
+    if ( p() -> glyph.savage_roar -> ok() && prowling() )
       trigger_glyph_of_savage_roar();
 
     cat_attack_t::execute();
@@ -2650,12 +2653,7 @@ struct thrash_cat_t : public cat_attack_t
     cat_attack_t::impact( s );
 
     if ( result_is_hit( s -> result ) )
-    {
       this -> td( s -> target ) -> dots.thrash_bear -> cancel();
-
-      if ( p() -> sets.has_set_bonus( DRUID_FERAL, T17, B2 ) )
-        p() -> resource_gain( RESOURCE_ENERGY, 3.0, p() -> gain.tier17_2pc_melee );
-    }
   }
 
   // Treat direct damage as "bleed"
@@ -2847,17 +2845,10 @@ struct mangle_t : public bear_attack_t
 
     rage_amount = data().effectN( 3 ).resource( RESOURCE_RAGE ) + player -> talent.soul_of_the_forest -> effectN( 1 ).resource( RESOURCE_RAGE );
 
-    base_multiplier *= 1.0 + player -> talent.soul_of_the_forest -> effectN( 2 ).percent();
-  }
-
-  virtual double composite_crit() const
-  {
-    double c = bear_attack_t::composite_crit();
-
     if ( p() -> specialization() == DRUID_GUARDIAN )
-      c += p() -> talent.dream_of_cenarius -> effectN( 3 ).percent();
+      base_crit += p() -> talent.dream_of_cenarius -> effectN( 3 ).percent();
 
-    return c;
+    base_multiplier *= 1.0 + player -> talent.soul_of_the_forest -> effectN( 2 ).percent();
   }
 
   void update_ready( timespan_t )
@@ -2887,6 +2878,8 @@ struct mangle_t : public bear_attack_t
 
     if ( result_is_multistrike( s -> result ) )
       trigger_ursa_major();
+    if ( p() -> talent.dream_of_cenarius -> ok() && s -> result == RESULT_CRIT )
+      p() -> buff.dream_of_cenarius -> trigger();
   }
 };
 
@@ -2906,8 +2899,7 @@ struct maul_t : public bear_attack_t
       may_multistrike = 0;
       target = player;
 
-      /* Coeff is hardcoded into tooltip and isn't in spell data, so hardcode coeff.
-         Used to be able to use FR coeff * x but can't anymore because of recent changes. */
+      // Coeff is in tooltip but not spell data, so hardcode the value here.
       attack_power_mod.direct = 2.40;
     }
 
@@ -2979,8 +2971,10 @@ struct maul_t : public bear_attack_t
     if ( result_is_hit( s -> result ) && p() -> buff.tooth_and_claw -> up() )
     {
       if ( p() -> sets.has_set_bonus( DRUID_GUARDIAN, T17, B2 ) )
+      {
+        // Treat the savings like a rage gain for tracking purposes.
         p() -> gain.tier17_2pc_tank -> add( RESOURCE_RAGE, cost_reduction );
-
+      }
       absorb -> execute();
       p() -> buff.tooth_and_claw -> decrement(); // Only decrements on hit, tested 6/27/2014 by Zerrahki
     }
@@ -3039,12 +3033,7 @@ struct thrash_bear_t : public bear_attack_t
     bear_attack_t::impact( s );
 
     if ( result_is_hit( s -> result ) )
-    {
       this -> td( s -> target ) -> dots.thrash_cat -> cancel();
-
-      if ( p() -> sets.has_set_bonus( DRUID_FERAL, T17, B2 ) )
-        p() -> resource_gain( RESOURCE_ENERGY, 3.0, p() -> gain.tier17_2pc_melee );
-    }
   }
 
   // Treat direct damage as "bleed"
@@ -3063,37 +3052,10 @@ private:
 public:
   typedef druid_spell_base_t base_t;
 
-  bool consume_ooc;
-
   druid_spell_base_t( const std::string& n, druid_t* player,
                       const spell_data_t* s = spell_data_t::nil() ) :
-    ab( n, player, s ),
-    consume_ooc( true )
+    ab( n, player, s )
   {}
-
-  virtual void consume_resource()
-  {
-    ab::consume_resource();
-    druid_t& p = *this -> p();
-
-    if ( consume_ooc && ab::cost() > 0 && ( this -> execute_time() != timespan_t::zero() || p.specialization() == DRUID_FERAL ) && p.buff.omen_of_clarity -> up() )
-    {
-      // Treat the savings like a mana gain.
-      p.gain.omen_of_clarity -> add( RESOURCE_MANA, ab::cost() );
-      p.buff.omen_of_clarity -> expire();
-    }
-  }
-
-  virtual double cost() const
-  {
-    if ( consume_ooc && ( this -> execute_time() != timespan_t::zero() || ab::id == 155625 ) && this -> p() -> buff.omen_of_clarity -> check() )
-      return 0;
-
-    return std::max( 0.0, ab::cost() * ( 1.0 + cost_reduction() ) );
-  }
-
-  virtual double cost_reduction() const
-  { return 0.0; }
 
   virtual double composite_haste() const
   {
@@ -3128,14 +3090,24 @@ namespace heals {
 struct druid_heal_t : public druid_spell_base_t<heal_t>
 {
   action_t* living_seed;
+  bool target_self;
 
   druid_heal_t( const std::string& token, druid_t* p,
                 const spell_data_t* s = spell_data_t::nil(),
-                const std::string& options = std::string() ) :
+                const std::string& options_str = std::string() ) :
     base_t( token, p, s ),
-    living_seed( nullptr )
+    living_seed( nullptr ),
+    target_self( 0 )
   {
-    parse_options( 0, options );
+    option_t options[] = 
+    {
+      opt_bool( "target_self", target_self ),
+      opt_null()
+    };
+    parse_options( options, options_str );
+
+    if( target_self )
+      target = p;
 
     dot_behavior      = DOT_REFRESH;
     may_miss          = false;
@@ -3293,8 +3265,9 @@ struct frenzied_regeneration_t : public druid_heal_t
     may_crit = false;
     may_multistrike = 0;
     target = p;
-    // Hardcode AP coeff because spelldata is incorrect. According to Arielle coeff is 2.4 AP as of 9/12/2014
-    attack_power_mod.direct = 2.40;
+    /* As of build 18837 & 18850 the spell data is no longer
+       accurate so we have to hardcode the coefficient */
+    attack_power_mod.direct = 6.00;
     maximum_rage_cost = data().effectN( 2 ).base_value();
 
     if ( p -> sets.has_set_bonus( SET_TANK, T16, B2 ) )
@@ -3356,8 +3329,6 @@ struct healing_touch_t : public druid_heal_t
   healing_touch_t( druid_t* p, const std::string& options_str ) :
     druid_heal_t( "healing_touch", p, p -> find_class_spell( "Healing Touch" ), options_str )
   {
-    consume_ooc      = true;
-
     init_living_seed();
   }
 
@@ -3582,7 +3553,6 @@ struct regrowth_t : public druid_heal_t
     druid_heal_t( "regrowth", p, p -> find_class_spell( "Regrowth" ), options_str )
   {
     base_crit   += 0.6;
-    consume_ooc  = true;
 
     if ( p -> glyph.regrowth -> ok() )
     {
@@ -3592,6 +3562,28 @@ struct regrowth_t : public druid_heal_t
     }
 
     init_living_seed();
+  }
+
+  virtual double cost() const
+  {
+    // Feral doesn't have Regrowth so don't need to worry about checking that, for now.
+    if ( p() -> buff.omen_of_clarity -> check() )
+      return 0;
+
+    return druid_heal_t::cost();
+  }
+
+  virtual void consume_resource()
+  {
+    druid_heal_t::consume_resource();
+    double c = druid_heal_t::cost();
+
+    if ( c > 0 && p() -> buff.omen_of_clarity -> up() )
+    {
+      // Treat the savings like a mana gain for tracking purposes.
+      p() -> gain.omen_of_clarity -> add( RESOURCE_MANA, c );
+      p() -> buff.omen_of_clarity -> expire();
+    }
   }
 
   virtual void impact( action_state_t* state )
@@ -3678,7 +3670,10 @@ struct renewal_t : public druid_heal_t
 {
   renewal_t( druid_t* p, const std::string& options_str ) :
     druid_heal_t( "renewal", p, p -> find_talent_spell( "Renewal" ), options_str )
-  {}
+  {
+    may_crit = false;
+    may_multistrike = 0;
+  }
 
   virtual void init()
   {
@@ -3722,8 +3717,6 @@ struct swiftmend_t : public druid_heal_t
     druid_heal_t( "swiftmend", p, p -> find_class_spell( "Swiftmend" ), options_str ),
     aoe_heal( new swiftmend_aoe_heal_t( p, &data() ) )
   {
-    consume_ooc = true;
-
     init_living_seed();
   }
 
@@ -5814,7 +5807,8 @@ void druid_t::create_buffs()
                                .source( get_stats( "primal_tenacity" ) )
                                .gain( get_gain( "primal_tenacity" ) );
   buff.pulverize             = buff_creator_t( this, "pulverize", find_spell( 158792 ) )
-                               .default_value( find_spell( 158792 ) -> effectN( 1 ).percent() );
+                               .default_value( find_spell( 158792 ) -> effectN( 1 ).percent() )
+                               .duration( timespan_t::from_seconds( 12.0 ) );
   buff.savage_defense        = buff_creator_t( this, "savage_defense", find_class_spell( "Savage Defense" ) -> ok() ? find_spell( 132402 ) : spell_data_t::not_found() )
                                .add_invalidate( CACHE_DODGE )
                                .duration( find_spell( 132402 ) -> duration() + talent.guardian_of_elune -> effectN( 2 ).time_value() )
@@ -6050,39 +6044,41 @@ void druid_t::apl_feral()
   for ( size_t i = 0; i < racial_actions.size(); i++ )
     def -> add_action( racial_actions[ i ] + ",sync=tigers_fury" );
   def -> add_action( this, "Tiger's Fury", "if=(!buff.omen_of_clarity.react&energy.max-energy>=60)|energy.max-energy>=80" );
-  if ( race == RACE_NIGHT_ELF && glyph.savage_roar -> ok() )
-    def -> add_action( "shadowmeld,if=buff.savage_roar.remains<3|(buff.bloodtalons.up&buff.savage_roar.remains<6)" );
+  if ( race == RACE_NIGHT_ELF )
+    def -> add_action( "shadowmeld,if=(buff.bloodtalons.up|!talent.bloodtalons.enabled)&dot.rake.remains<0.3*dot.rake.duration" );
   def -> add_action( this, "Ferocious Bite", "cycle_targets=1,if=dot.rip.ticking&dot.rip.remains<=3&target.health.pct<25",
                      "Keep Rip from falling off during execute range." );
-  def -> add_action( this, "Healing Touch", "if=talent.bloodtalons.enabled&buff.predatory_swiftness.up&(combo_points>=4|buff.predatory_swiftness.remains<1.5)" );
+  if( glyph.cat_form -> ok() )
+    def -> add_action( this, "Healing Touch", "target_self=1,if=talent.bloodtalons.enabled&buff.predatory_swiftness.up&(combo_points>=4|buff.predatory_swiftness.remains<1.5)" , "Take advantage of Glyph of Cat Form");
+  else
+    def -> add_action( this, "Healing Touch", "if=talent.bloodtalons.enabled&buff.predatory_swiftness.up&(combo_points>=4|buff.predatory_swiftness.remains<1.5)" );
   def -> add_action( this, "Savage Roar", "if=buff.savage_roar.remains<3" );
   if ( sim -> allow_potions && level >= 80 )
     def -> add_action( potion_action + ",sync=berserk,if=target.health.pct<25" );
   def -> add_action( "thrash_cat,if=buff.omen_of_clarity.react&remains<=duration*0.3&active_enemies>1" );
 
   // Finishers
-  def -> add_action( this, "Rip", "cycle_targets=1,if=combo_points=5&dot.rip.ticking&persistent_multiplier>dot.rip.pmultiplier" );
   def -> add_action( this, "Ferocious Bite", "cycle_targets=1,if=combo_points=5&target.health.pct<25&dot.rip.ticking" );
   def -> add_action( this, "Rip", "cycle_targets=1,if=combo_points=5&remains<=duration*0.3" );
   def -> add_action( this, "Savage Roar", "if=combo_points=5&(energy.time_to_max<=1|buff.berserk.up|cooldown.tigers_fury.remains<3)&buff.savage_roar.remains<42*0.3" );
   def -> add_action( this, "Ferocious Bite", "if=combo_points=5&(energy.time_to_max<=1|buff.berserk.up|cooldown.tigers_fury.remains<3)" );
 
-  def -> add_action( this, "Rake", "cycle_targets=1,if=remains<=duration*0.3&active_enemies<9&combo_points<5" );
+  def -> add_action( this, "Rake", "cycle_targets=1,if=remains<=duration*0.3&combo_points<5" );
   def -> add_action( "pool_resource,for_next=1" );
-  def -> add_action( "thrash_cat,if=dot.thrash_cat.remains<4.5&active_enemies>1" );
-  def -> add_action( this, "Rake", "cycle_targets=1,if=persistent_multiplier>dot.rake.pmultiplier&active_enemies<9&combo_points<5" );
+  def -> add_action( "thrash_cat,if=remains<=duration*0.3&active_enemies>1" );
   if ( level >= 100 )
-    def -> add_action( "moonfire,cycle_targets=1,if=remains<=duration*0.3&active_enemies=1" );
+    def -> add_action( "moonfire,cycle_targets=1,if=remains<=duration*0.3&active_enemies<=10" );
+  def -> add_action( this, "Rake", "cycle_targets=1,if=persistent_multiplier>dot.rake.pmultiplier&combo_points<5" );
 
   // Fillers
-  def -> add_action( this, "Swipe", "if=combo_points<5&active_enemies>1" );
-  // Disabled until Rake perk + Incarnation is fixed.
-  /* def -> add_action( this, "Rake", "if=combo_points<5&hit_damage>=action.shred.hit_damage",
-                        "Rake for CP if it hits harder than Shred." ); */
-  def -> add_action( this, "Shred", "if=combo_points<5&active_enemies=1" );
+  def -> add_action( this, "Swipe", "if=combo_points<5&active_enemies>=3" );
+  def -> add_action( this, "Shred", "if=combo_points<5&active_enemies<3" );
 
   // Add in rejuv blanketing for nature's vigil -- not fully optimized
   def -> add_talent( this, "Nature's Vigil" );
+  if( glyph.cat_form -> ok() )
+    def -> add_action( this, "rejuvenation", "target_self=1,if=!ticking&(buff.natures_vigil.up|cooldown.natures_vigil.remains<15)" , "Take advantage of Glyph of Cat Form");    
+  def -> add_action( this, "rejuvenation", "cycle_targets=1,if=!ticking&(buff.natures_vigil.up|cooldown.natures_vigil.remains<15)" );  
   def -> add_action( this, "rejuvenation", "cycle_targets=1,if=!ticking&(buff.natures_vigil.up|cooldown.natures_vigil.remains<15)" );  
   def -> add_action( this, "rejuvenation", "cycle_targets=1,if=buff.natures_vigil.up" );  
 
@@ -6429,6 +6425,10 @@ void druid_t::invalidate_cache( cache_e c )
         player_t::invalidate_cache( CACHE_ATTACK_POWER );
       if ( mastery.total_eclipse -> ok() )
         player_t::invalidate_cache( CACHE_PLAYER_DAMAGE_MULTIPLIER );
+      break;
+    case CACHE_BONUS_ARMOR:
+      if ( spec.bladed_armor -> ok() )
+        player_t::invalidate_cache( CACHE_ATTACK_POWER );
       break;
     default: break;
   }
@@ -7032,7 +7032,6 @@ void druid_t::assess_heal( school_e school,
 {
   s -> result_amount *= 1.0 + buff.frenzied_regeneration -> check();
   s -> result_amount *= 1.0 + buff.cat_form -> check() * glyph.cat_form -> effectN( 1 ).percent();
-
   player_t::assess_heal( school, dmg_type, s );
 }
 

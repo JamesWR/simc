@@ -8,8 +8,8 @@ race=Troll
 spec=fury
 role=attack
 position=back
-talents=1231322
-glyphs=unending_rage/death_from_above/bull_rush
+talents=2221322
+glyphs=unending_rage/death_from_above/raging_wind
 head=blackhands_faceguard,id=115584
 neck=vertebrae_protector,id=113900,enchant=gift_of_critical_strike
 shoulders=overdriven_spaulders,id=113990
@@ -35,8 +35,8 @@ race=Troll
 spec=fury
 role=attack
 position=back
-talents=2231322
-glyphs=unending_rage/death_from_above/bull_rush
+talents=2221322
+glyphs=unending_rage/death_from_above/raging_wind
 head=blackhands_faceguard,id=115584
 neck=vertebrae_protector,id=113900,enchant=gift_of_critical_strike
 shoulders=overdriven_spaulders,id=113990

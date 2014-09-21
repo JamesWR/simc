@@ -1851,6 +1851,8 @@ void player_t::init_scaling()
     scales_with[ STAT_MULTISTRIKE_RATING        ] = true;
     scales_with[ STAT_READINESS_RATING          ] = false; // No longer a stat in game.
     scales_with[ STAT_VERSATILITY_RATING        ] = true;
+    scales_with[ STAT_SPEED_RATING              ] = true;
+    scales_with[ STAT_AVOIDANCE_RATING          ] = true;
 
     scales_with[ STAT_WEAPON_DPS   ] = attack;
     scales_with[ STAT_WEAPON_OFFHAND_DPS   ] = false;
@@ -1900,6 +1902,14 @@ void player_t::init_scaling()
 
         case STAT_VERSATILITY_RATING:
           initial.stats.versatility_rating += v;
+          break;
+
+        case STAT_SPEED_RATING:
+          initial.stats.speed_rating += v;
+          break;
+
+        case STAT_AVOIDANCE_RATING:
+          initial.stats.avoidance_rating += v;
           break;
 
         case STAT_WEAPON_DPS:
@@ -2704,6 +2714,22 @@ double player_t::composite_leech() const
   return composite_leech_rating() / current.rating.leech;
 }
 
+
+// player_t::composite_run_speed ================================================
+
+double player_t::composite_run_speed() const
+{
+  return composite_speed_rating() / current.rating.speed;
+}
+
+// player_t::composite_avoidance ================================================
+
+double player_t::composite_avoidance() const
+{
+  return composite_avoidance_rating() / current.rating.avoidance;
+}
+
+
 // player_t::composite_player_multiplier ====================================
 
 double player_t::composite_player_multiplier( school_e /* school */ ) const
@@ -2796,6 +2822,7 @@ double player_t::passive_movement_modifier() const
   double passive = passive_modifier;
 
   passive += racials.quickness -> effectN( 2 ).percent();
+  passive += composite_run_speed();
 
   return passive;
 }
@@ -2926,6 +2953,10 @@ double player_t::composite_rating( rating_e rating ) const
       v = current.stats.readiness_rating; break;
     case RATING_LEECH:
       v = current.stats.leech_rating; break;
+    case RATING_SPEED:
+      v = current.stats.speed_rating; break;
+    case RATING_AVOIDANCE:
+      v = current.stats.avoidance_rating; break;
     default: break;
   }
 
@@ -2995,8 +3026,6 @@ void player_t::invalidate_cache( cache_e c )
       break;
     case CACHE_BONUS_ARMOR:
       invalidate_cache( CACHE_ARMOR );
-      if ( primary_role() == ROLE_TANK || specialization() == WARRIOR_PROTECTION ) //Gladiator Stance
-        invalidate_cache( CACHE_ATTACK_POWER );
     default: break;
   }
 
@@ -3514,7 +3543,7 @@ void player_t::reset()
     action_list[ i ] -> reset();
 
   for ( size_t i = 0; i < cooldown_list.size(); ++i )
-    cooldown_list[ i ] -> reset( false );
+    cooldown_list[ i ] -> reset_init();
 
   for ( size_t i = 0; i < dot_list.size(); ++i )
     dot_list[ i ] -> reset();
@@ -4644,8 +4673,17 @@ double account_absorb_buffs( player_t& p, action_state_t* s, school_e school )
         p.sim -> out_debug.printf( "Damage to %s after %s is %f", s -> target -> name(), ab -> name(), s -> result_amount );
     }
 
-    ab -> expire();
-    assert( p.absorb_buff_list.empty() || p.absorb_buff_list[ 0 ] != ab );
+    // So, it turns out it's possible to have absorb buff behavior, where
+    // there's a "minimum value" for the absorb buff, even after absorbing
+    // damage more than its current value. In this case, the absorb buff should
+    // not be expired, as the current_value still has something left.
+    if ( ab -> current_value <= 0 )
+    {
+      ab -> expire();
+      assert( p.absorb_buff_list.empty() || p.absorb_buff_list[ 0 ] != ab );
+    }
+    else
+      offset++;
   } // end of absorb list loop
 
   p.iteration_absorb_taken += result_ignoring_external_absorbs - s -> result_amount;
@@ -4832,6 +4870,9 @@ void player_t::target_mitigation( school_e school,
     }
   }
 
+  if ( s -> action -> is_aoe() )
+    s -> result_amount *= 1.0 - cache.avoidance();
+
   // TODO-WOD: Where should this be? Or does it matter?
   s -> result_amount *= 1.0 - cache.mitigation_versatility();
   
@@ -4856,13 +4897,13 @@ void player_t::target_mitigation( school_e school,
 
     if ( s -> block_result == BLOCK_RESULT_BLOCKED )
     {
-      s -> result_amount *= ( 1 - composite_block_reduction() );
+      s -> result_amount *= std::max( 0.0, 1 - composite_block_reduction() );
       if ( s -> result_amount <= 0 ) return;
     }
 
     if ( s -> block_result == BLOCK_RESULT_CRIT_BLOCKED )
     {
-      s -> result_amount *= ( 1 - 2 * composite_block_reduction() );
+      s -> result_amount *=  std::max( 0.0, 1 - 2 * composite_block_reduction() );
       if ( s -> result_amount <= 0 ) return;
     }
 
@@ -5184,7 +5225,7 @@ action_priority_list_t* player_t::get_action_priority_list( const std::string& n
     a = new action_priority_list_t( name, this );
     a -> action_list_comment_str = comment;
     a -> internal_id = static_cast<int>( action_list_id_++ );
-    a -> internal_id_mask = ( 1 << a -> internal_id );
+    a -> internal_id_mask = ( 1 << static_cast<uint64_t>( a -> internal_id ) );
     if ( action_list_id_ == 64 )
     {
       sim -> errorf( "%s maximum number of action lists is 64", name_str.c_str() );
@@ -5737,6 +5778,8 @@ struct snapshot_stats_t : public action_t
     buffed_stats.damage_versatility = p -> cache.damage_versatility();
     buffed_stats.heal_versatility = p -> cache.heal_versatility();
     buffed_stats.mitigation_versatility = p -> cache.mitigation_versatility();
+    buffed_stats.run_speed = p -> cache.run_speed();
+    buffed_stats.avoidance = p -> cache.avoidance();
 
     buffed_stats.spell_power  = util::round( p -> cache.spell_power( SCHOOL_MAX ) * p -> composite_spell_power_multiplier() );
     buffed_stats.spell_hit    = p -> cache.spell_hit();
@@ -7384,6 +7427,15 @@ expr_t* player_t::create_expression( action_t* a,
       };
       return new spell_haste_expr_t( *this );
     }
+    else if ( util::str_compare_ci( "multistrike_pct", splits[ 1 ] ) )
+    {
+      struct ms_expr_t : public player_expr_t
+      {
+        ms_expr_t( player_t& p ) : player_expr_t( "ms_pct", p ) { }
+        double evaluate() { return player.cache.multistrike() * 100.0; }
+      };
+      return new ms_expr_t( *this );
+    }
 
     stat_e stat = util::parse_stat_type( splits[ 1 ] );
     switch ( stat )
@@ -8339,6 +8391,7 @@ void player_t::create_options()
     opt_float( "gear_versatility_rating", gear.versatility_rating ),
     opt_float( "gear_bonus_armor",      gear.bonus_armor ),
     opt_float( "gear_leech_rating",     gear.leech_rating ),
+    opt_float( "gear_run_speed_rating", gear.speed_rating ),
 
     // Stat Enchants
     opt_float( "enchant_strength",         enchant.attribute[ ATTR_STRENGTH  ] ),
@@ -8359,6 +8412,7 @@ void player_t::create_options()
     opt_float( "enchant_versatility_rating", enchant.versatility_rating ),
     opt_float( "enchant_bonus_armor",      enchant.bonus_armor ),
     opt_float( "enchant_leech_rating",     enchant.leech_rating ),
+    opt_float( "enchant_run_speed_rating", enchant.speed_rating ),
     opt_float( "enchant_health",           enchant.resource[ RESOURCE_HEALTH ] ),
     opt_float( "enchant_mana",             enchant.resource[ RESOURCE_MANA   ] ),
     opt_float( "enchant_rage",             enchant.resource[ RESOURCE_RAGE   ] ),
@@ -9268,7 +9322,30 @@ double player_stat_cache_t::leech() const
   return _leech;
 }
 
-// player_stat_cache_t::mastery =============================================
+double player_stat_cache_t::run_speed() const
+{
+  if ( !active || !valid[CACHE_RUN_SPEED] )
+  {
+    valid[CACHE_RUN_SPEED] = true;
+    _run_speed = player -> composite_run_speed();
+  }
+  else assert( _leech == player -> composite_run_speed() );
+  return _run_speed;
+}
+
+double player_stat_cache_t::avoidance() const
+{
+  if ( !active || !valid[CACHE_AVOIDANCE] )
+  {
+    valid[CACHE_AVOIDANCE] = true;
+    _avoidance = player -> composite_avoidance();
+  }
+  else assert( _avoidance == player -> composite_avoidance() );
+  return _avoidance;
+}
+
+
+// player_stat_cache_t::player_multiplier =============================================
 
 double player_stat_cache_t::player_multiplier( school_e s ) const
 {
@@ -9281,7 +9358,7 @@ double player_stat_cache_t::player_multiplier( school_e s ) const
   return _player_mult[ s ];
 }
 
-// player_stat_cache_t::mastery =============================================
+// player_stat_cache_t::player_heal_multiplier =============================================
 
 double player_stat_cache_t::player_heal_multiplier( const action_state_t* s ) const
 {
