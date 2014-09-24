@@ -45,6 +45,12 @@ struct alt_chart_formatter_t : public sc_chart_formatter_t
   alt_chart_formatter_t();
 };
 
+struct data_entry_t
+{
+  std::string color, name;
+  double value;
+};
+
 struct chart_t
 {
   std::string id_str_;
@@ -63,10 +69,10 @@ struct chart_t
   void set_xaxis_title( const std::string& label );
   void set_yaxis_title( const std::string& label );
   void set_xaxis_max( double max );
-  void add_series( const std::string& color, const std::string& name, const std::vector<double>& series );
 
-  struct entry_t { std::string color, name; double value; };
-  void add_series( const std::string& type, const std::string& color, const std::string& name, const std::vector<entry_t>& d );
+  void add_simple_series( const std::string& type, const std::string& color, const std::string& name, const std::vector<double>& series );
+  void add_data_series( const std::string& type, const std::string& name, const std::vector<data_entry_t>& d );
+  void add_data_series( const std::vector<data_entry_t>& d );
 
   virtual std::string to_string() const;
   virtual std::string to_aggregate_string() const;
@@ -146,14 +152,11 @@ struct time_series_t : public chart_t
 struct bar_chart_t : public chart_t
 {
   bar_chart_t( const std::string& id_str, const sim_t* sim );
-
-  void add_series( const std::vector<entry_t>& d, const std::string& color = std::string(), const std::string& name = std::string() );
 };
 
 struct pie_chart_t : public chart_t
 {
   pie_chart_t( const std::string& id_str, const sim_t* sim );
-  void add_series( const std::vector<entry_t>& d, const std::string& color = std::string(), const std::string& name = std::string() );
 };
 
 struct histogram_chart_t : public bar_chart_t

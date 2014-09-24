@@ -2115,7 +2115,7 @@ void print_html_player_action_priority_list( report::sc_html_stream& os, sim_t* 
 
 // print_html_player_statistics =============================================
 
-void print_html_player_statistics( report::sc_html_stream& os, player_t* p, player_processed_report_information_t& ri )
+void print_html_player_statistics( report::sc_html_stream& os, player_t* p, player_processed_report_information_t& )
 {
   // Statistics & Data Analysis
 
@@ -2186,7 +2186,7 @@ void get_total_player_gains( player_t& p, std::array<double, RESOURCE_MAX>& tota
 }
 // print_html_player_resources ==============================================
 
-void print_html_player_resources( report::sc_html_stream& os, player_t* p, player_processed_report_information_t& ri )
+void print_html_player_resources( report::sc_html_stream& os, player_t* p, player_processed_report_information_t& )
 {
 
   // Resources Section
@@ -2517,7 +2517,7 @@ void print_html_player_charts( report::sc_html_stream& os, sim_t* sim, player_t*
     p -> collected_data.timeline_dmg_taken.build_derivative_timeline( timeline_dps_taken );
     dps_taken.set_yaxis_title( "Damage taken per second" );
     dps_taken.set_title( p -> name_str + " Damage taken per second" );
-    dps_taken.add_series( "#FDD017", "DPS taken", timeline_dps_taken.data() );
+    dps_taken.add_simple_series( "area", "#FDD017", "DPS taken", timeline_dps_taken.data() );
     dps_taken.set_mean( timeline_dps_taken.mean() );
     dps_taken.set_toggle_id( "player" + util::to_string( p -> index ) + "toggle" );
 
@@ -2588,7 +2588,7 @@ void print_html_player_charts( report::sc_html_stream& os, sim_t* sim, player_t*
     resolve.set_toggle_id( "player" + util::to_string( p -> index ) + "toggle" );
     resolve.set_yaxis_title( "Attack Power" );
     resolve.set_title( p -> name_str + " Resolve attack power" );
-    resolve.add_series( "#FF0000", "Attack Power", p -> collected_data.resolve_timeline.merged_timeline.data() );
+    resolve.add_simple_series( "area", "#FF0000", "Attack Power", p -> collected_data.resolve_timeline.merged_timeline.data() );
     resolve.set_mean( p -> collected_data.resolve_timeline.merged_timeline.mean() );
     resolve.set_max( p -> collected_data.resolve_timeline.merged_timeline.max() );
     resolve.set_xaxis_max( p -> sim -> simulation_length.max() );
@@ -2817,7 +2817,7 @@ void print_html_player_buff( report::sc_html_stream& os, buff_t* b, int report_d
       highchart::time_series_t buff_uptime( highchart::build_id( b, "uptime" ), b -> sim );
       buff_uptime.set_yaxis_title( "Average uptime" );
       buff_uptime.set_title( b -> name_str + " Uptime" );
-      buff_uptime.add_series( "#FF0000", "Uptime", b -> uptime_array.data() );
+      buff_uptime.add_simple_series( "area", "#FF0000", "Uptime", b -> uptime_array.data() );
       buff_uptime.set_mean( b -> uptime_array.mean() );
       buff_uptime.set_xaxis_max( b -> sim -> simulation_length.max() );
 

@@ -275,18 +275,24 @@ void chart_t::set_yaxis_title( const std::string& label )
 void chart_t::set_title( const std::string& title )
 { set( "title.text", title ); }
 
-void chart_t::add_series( const std::string& type, const std::string& color, const std::string& name, const std::vector<entry_t>& d )
+void chart_t::add_data_series( const std::string& type,
+                               const std::string& name,
+                               const std::vector<data_entry_t>& d )
 {
 
   rapidjson::Value obj( rapidjson::kObjectType );
 
-  set(obj, "type", type.c_str() );
+  if ( ! type.empty() )
+    set( obj, "type", type );
+
+  if ( ! name.empty() )
+    set( obj, "name", name );
 
   rapidjson::Value data(rapidjson::kArrayType);
 
   for ( size_t i = 0; i < d.size(); ++i )
   {
-    const entry_t& entry = d[ i ];
+    const data_entry_t& entry = d[ i ];
 
     rapidjson::Value dataKeys;
 
@@ -308,12 +314,17 @@ void chart_t::add_series( const std::string& type, const std::string& color, con
   add("series", obj);
 }
 
-void chart_t::add_series( const std::string& color,
-                          const std::string& name,
-                          const std::vector<double>& series )
+void chart_t::add_data_series( const std::vector<data_entry_t>& d )
+{ add_data_series( "", "", d ); }
+
+void chart_t::add_simple_series( const std::string& type,
+                                 const std::string& color,
+                                 const std::string& name,
+                                 const std::vector<double>& series )
 {
   rapidjson::Value obj( rapidjson::kObjectType );
 
+  set( obj, "type", type );
   set( obj, "data", series );
   set( obj, "name", name );
 
@@ -525,11 +536,6 @@ bar_chart_t::bar_chart_t( const std::string& id_str, const sim_t* sim ) :
   set( "xAxis.offset", -10 );
 }
 
-void bar_chart_t::add_series( const std::vector<entry_t>& d, const std::string& color, const std::string& name )
-{
-  chart_t::add_series( "bar", color, name, d );
-}
-
 pie_chart_t::pie_chart_t( const std::string& id_str, const sim_t* sim ) :
     chart_t( id_str, sim )
 {
@@ -538,7 +544,7 @@ pie_chart_t::pie_chart_t( const std::string& id_str, const sim_t* sim ) :
   set( "credits", false);
   set( "legend.enabled", false );
 
-  set( "chart.type", "area" );
+  set( "chart.type", "pie" );
 
   add( "chart.spacing", 5 ).add( "chart.spacing", 5 ).add( "chart.spacing", 5 ).add( "chart.spacing", 5 );
 
@@ -549,11 +555,6 @@ pie_chart_t::pie_chart_t( const std::string& id_str, const sim_t* sim ) :
 
   set( "plotOptions.pie.dataLabels.enabled", true );
 
-}
-
-void pie_chart_t::add_series( const std::vector<entry_t>& d, const std::string& color, const std::string& name )
-{
-  chart_t::add_series( "pie", color, name, d );
 }
 
 histogram_chart_t::histogram_chart_t( const std::string& id_str, const sim_t* sim ) :

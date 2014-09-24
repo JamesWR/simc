@@ -1585,14 +1585,14 @@ bool chart::generate_distribution( highchart::histogram_chart_t& hc,
   if ( p )
     hc.set_toggle_id( "player" + util::to_string( p -> index ) + "toggle" );
 
-  std::vector<highchart::chart_t::entry_t> data;
+  std::vector<highchart::data_entry_t> data;
   for ( int i = 0; i < max_buckets; i++ )
   {
-    highchart::chart_t::entry_t e;
+    highchart::data_entry_t e;
     e.value = dist_data[ i ];
     data.push_back( e );
   }
-  hc.add_series( data );
+  hc.add_data_series( "column", "", data );
 
   //snprintf( buffer, sizeof( buffer ), "chxl=0:|min=%.0f|avg=%.0f|max=%.0f", min, avg, max ); s += buffer;
 
@@ -2174,7 +2174,7 @@ highchart::pie_chart_t& chart::generate_gains( highchart::pie_chart_t& pc, const
 
 
   // Build Data
-  std::vector<highchart::pie_chart_t::entry_t> data;
+  std::vector<highchart::data_entry_t> data;
    if ( ! gains_list.empty() )
    {
      for ( size_t i = 0; i < gains_list.size(); ++i )
@@ -2182,7 +2182,7 @@ highchart::pie_chart_t& chart::generate_gains( highchart::pie_chart_t& pc, const
        const gain_t* gain = gains_list[ i ];
        std::string color_hex = "#" + resource_color( type );;
 
-       highchart::pie_chart_t::entry_t e;
+       highchart::data_entry_t e;
        e.color = color_hex;
        e.value = gain -> actual[ type ];
        e.name = gain -> name_str;
@@ -2191,7 +2191,7 @@ highchart::pie_chart_t& chart::generate_gains( highchart::pie_chart_t& pc, const
    }
 
    // Add Data to Chart
-   pc.add_series( data );
+   pc.add_data_series( data );
 
   return pc;
 }
@@ -2214,7 +2214,7 @@ bool chart::generate_spent_time( highchart::pie_chart_t& pc, const player_t* p )
   range::sort( filtered_waiting_stats, compare_stats_time() );
 
   // Build Data
-  std::vector<highchart::pie_chart_t::entry_t> data;
+  std::vector<highchart::data_entry_t> data;
    if ( ! filtered_waiting_stats.empty() )
    {
      for ( size_t i = 0; i < filtered_waiting_stats.size(); ++i )
@@ -2230,7 +2230,7 @@ bool chart::generate_spent_time( highchart::pie_chart_t& pc, const player_t* p )
 
        std::string color_hex = "#" + color;
 
-       highchart::pie_chart_t::entry_t e;
+       highchart::data_entry_t e;
        e.color = color_hex;
        e.value = stats -> total_time.total_seconds();
        e.name = stats -> name_str;
@@ -2239,7 +2239,7 @@ bool chart::generate_spent_time( highchart::pie_chart_t& pc, const player_t* p )
    }
    if ( p -> collected_data.waiting_time.mean() > 0 )
    {
-     highchart::pie_chart_t::entry_t e;
+     highchart::data_entry_t e;
      e.color = "#000000";
      e.value = p -> collected_data.waiting_time.mean();
      e.name = "player waiting time";
@@ -2247,7 +2247,7 @@ bool chart::generate_spent_time( highchart::pie_chart_t& pc, const player_t* p )
    }
 
    // Add Data to Chart
-   pc.add_series( data );
+   pc.add_data_series( data );
 
   return true;
 }
@@ -2259,7 +2259,7 @@ highchart::pie_chart_t& chart::generate_stats_sources( highchart::pie_chart_t& p
   pc.set_toggle_id( "player" + util::to_string( p -> index ) + "toggle" );
 
   // Build Data
-  std::vector<highchart::pie_chart_t::entry_t> data;
+  std::vector<highchart::data_entry_t> data;
    if ( ! stats_list.empty() )
    {
      for ( size_t i = 0; i < stats_list.size(); ++i )
@@ -2275,7 +2275,7 @@ highchart::pie_chart_t& chart::generate_stats_sources( highchart::pie_chart_t& p
 
        std::string color_hex = "#" + color;
 
-       highchart::pie_chart_t::entry_t e;
+       highchart::data_entry_t e;
        e.color = color_hex;
        e.value = stats -> portion_amount;
        e.name = stats -> name_str;
@@ -2284,7 +2284,7 @@ highchart::pie_chart_t& chart::generate_stats_sources( highchart::pie_chart_t& p
    }
 
    // Add Data to Chart
-   pc.add_series( data );
+   pc.add_data_series( data );
 
   return pc;
 }
@@ -2371,7 +2371,7 @@ highchart::bar_chart_t& chart::generate_player_waiting_time( highchart::bar_char
   range::sort( waiting_list, compare_downtime() );
 
   // Create Data
-  std::vector<highchart::chart_t::entry_t> data;
+  std::vector<highchart::data_entry_t> data;
   for ( size_t i = 0; i < waiting_list.size(); ++i )
   {
     const player_t* p = waiting_list[ i ];
@@ -2382,14 +2382,14 @@ highchart::bar_chart_t& chart::generate_player_waiting_time( highchart::bar_char
           p -> name(), util::player_type_string( p -> type ) );
       assert( 0 );
     }
-    highchart::chart_t::entry_t e;
+    highchart::data_entry_t e;
     e.color = "#" + color;
     e.name = p -> name_str;
     e.value = p -> collected_data.waiting_time.mean();
     data.push_back( e );
   }
 
-  bc.add_series( data );
+  bc.add_data_series( data );
 
   return bc;
 
@@ -2428,7 +2428,7 @@ bool chart::generate_raid_aps( highchart::bar_chart_t& bc,
   if ( player_list.size() == 0 )
     return false;
 
-  std::vector<highchart::chart_t::entry_t> data;
+  std::vector<highchart::data_entry_t> data;
 
   for ( size_t i = 0; i < player_list.size(); ++i )
   {
@@ -2441,7 +2441,7 @@ bool chart::generate_raid_aps( highchart::bar_chart_t& bc,
       assert( 0 );
     }
 
-    highchart::chart_t::entry_t e;
+    highchart::data_entry_t e;
     e.color = "#" + color;
     e.name = p -> name_str;
     if ( util::str_compare_ci( type, "dps" ) )
@@ -2468,7 +2468,7 @@ bool chart::generate_raid_aps( highchart::bar_chart_t& bc,
   bc.set( "plotOptions.bar.dataLabels.enabled", true );
   bc.set( "plotOptions.bar.dataLabels.verticalAlign", "middle" );
 
-  bc.add_series( data, "", long_type );
+  bc.add_data_series( data );
 
   return true;
 }
@@ -2503,7 +2503,7 @@ highchart::bar_chart_t& chart::generate_dpet( highchart::bar_chart_t& bc , sim_t
     //bc.height_ = num_stats * 30 + 30;
     bc.height_ = 0;
 
-    std::vector<highchart::chart_t::entry_t> data;
+    std::vector<highchart::data_entry_t> data;
     for ( size_t i = 0; i < num_stats; ++i )
     {
       const stats_t* stats = stats_list[ i ];
@@ -2514,14 +2514,14 @@ highchart::bar_chart_t& chart::generate_dpet( highchart::bar_chart_t& bc , sim_t
             stats -> name_str.c_str(), stats -> player-> name(), util::school_type_string( stats -> school ) );
         assert( 0 );
       }
-      highchart::chart_t::entry_t e;
+      highchart::data_entry_t e;
       e.color = "#" + color;
       e.name = stats -> name_str;
       e.value = stats -> apet;
       data.push_back( e );
     }
 
-    bc.add_series( data );
+    bc.add_data_series( data );
   }
   return bc;
 }
@@ -2571,7 +2571,7 @@ highchart::time_series_t& chart::generate_stats_timeline( highchart::time_series
   if ( s -> action_list.size() > 0 )
     area_color = school_color( s -> action_list[ 0 ] -> school );
 
-  ts.add_series( area_color, s -> type == STATS_DMG ? "DPS" : "HPS", timeline_aps.data() );
+  ts.add_simple_series( "area", area_color, s -> type == STATS_DMG ? "DPS" : "HPS", timeline_aps.data() );
   ts.set_mean( s -> portion_aps.mean() );
 
   return ts;
@@ -2586,7 +2586,7 @@ highchart::time_series_t& chart::generate_actor_dps_series( highchart::time_seri
   ts.set( "yAxis.min", 0 );
   ts.set_yaxis_title( "Damage per second" );
   ts.set_title( p -> name_str + " Damage per second" );
-  ts.add_series( class_color( p -> type ), "DPS", timeline_dps.data() );
+  ts.add_simple_series( "area", class_color( p -> type ), "DPS", timeline_dps.data() );
   ts.set_mean( p -> collected_data.dps.mean() );
 
   return ts;
@@ -2602,7 +2602,7 @@ highchart::time_series_t& chart::generate_actor_timeline( highchart::time_series
   ts.set_toggle_id( "player" + util::to_string( p -> index ) + "toggle" );
   ts.set_title( p -> name_str + " " + attr_str );
   ts.set_yaxis_title( "Average " + attr_str );
-  ts.add_series( series_color, attr_str, data.data() );
+  ts.add_simple_series( "area", series_color, attr_str, data.data() );
   ts.set_xaxis_max( p -> sim -> simulation_length.max() );
 
   return ts;
