@@ -4,7 +4,7 @@
 #ifndef MAX_CLASS
 #define MAX_CLASS (12)
 #endif
-// Class based active abilities, wow build 18912
+// Class based active abilities, wow build 18922
 static unsigned __class_ability_data[][CLASS_ABILITY_TREE_SIZE][CLASS_ABILITY_SIZE] = {
   {
     {
@@ -1003,7 +1003,7 @@ static unsigned __class_ability_data[][CLASS_ABILITY_TREE_SIZE][CLASS_ABILITY_SI
 
 #define TREE_SPECIALIZATION_SIZE (28)
 
-// Talent tree specialization abilities, wow build 18912
+// Talent tree specialization abilities, wow build 18922
 static unsigned __tree_specialization_data[][MAX_SPECS_PER_CLASS][TREE_SPECIALIZATION_SIZE] = {
   // Specialization abilities for Hunter pets
   {
@@ -1941,7 +1941,7 @@ static unsigned __tree_specialization_data[][MAX_SPECS_PER_CLASS][TREE_SPECIALIZ
 
 #define CLASS_MASTERY_ABILITY_SIZE (1)
 
-// Class mastery abilities, wow build 18912
+// Class mastery abilities, wow build 18922
 static unsigned __class_mastery_ability_data[MAX_CLASS][MAX_SPECS_PER_CLASS][CLASS_MASTERY_ABILITY_SIZE] = {
   {
     {
@@ -2164,7 +2164,7 @@ static unsigned __class_mastery_ability_data[MAX_CLASS][MAX_SPECS_PER_CLASS][CLA
 #define MAX_RACE (28)
 #endif
 
-// Racial abilities, wow build 18912
+// Racial abilities, wow build 18922
 static unsigned __race_ability_data[MAX_RACE][MAX_CLASS][RACE_ABILITY_SIZE] = {
   {
     {     0, },
@@ -2887,7 +2887,7 @@ static unsigned __race_ability_data[MAX_RACE][MAX_CLASS][RACE_ABILITY_SIZE] = {
 
 #define GLYPH_ABILITIES_SIZE (41)
 
-// Glyph spells for classes, wow build 18912
+// Glyph spells for classes, wow build 18922
 static unsigned __glyph_abilities_data[][3][GLYPH_ABILITIES_SIZE] = {
   {
     {
@@ -3527,7 +3527,7 @@ static unsigned __glyph_abilities_data[][3][GLYPH_ABILITIES_SIZE] = {
 
 #define TIER_BONUSES_TIER_BASE (13)
 
-// Tier item set bonuses for class, wow build 18912
+// Tier item set bonuses for class, wow build 18922
 static unsigned __tier_bonuses_data[][TIER_BONUSES_MAX_TIER][TIER_BONUSES_SIZE] = {
   {
     {
@@ -3903,24 +3903,24 @@ static unsigned __tier_bonuses_data[][TIER_BONUSES_MAX_TIER][TIER_BONUSES_SIZE] 
   {
     // Tier 13 bonuses (6 spells)
     {
+      60142, // Deep Earth Battlegarb - 4 Piece Bonus (Barkskin Duration Increase)
       105715, // Deep Earth Vestments - 2 Piece Bonus (Item - Druid T13 Restoration 2P Bonus (Healing Touch and Rejuv))
       105717, // Deep Earth Regalia - 4 Piece Bonus (Item - Druid T13 Balance 4P Bonus (Starsurge))
       105722, // Deep Earth Regalia - 2 Piece Bonus (Item - Druid T13 Balance 2P Bonus (Insect Swarm))
       105725, // Deep Earth Battlegarb - 2 Piece Bonus (Item - Druid T13 Feral 2P Bonus (Savage Defense and Blood In The Water))
-      105735, // Deep Earth Battlegarb - 4 Piece Bonus (Item - Druid T13 Feral 4P Bonus (Might of Ursoc and Stampede))
       105770, // Deep Earth Vestments - 4 Piece Bonus (Item - Druid T13 Restoration 4P Bonus (Rejuvenation))
           0,
     },
-    // Tier 14 bonuses (8 spells)
+    // Tier 14 bonuses (7 spells)
     {
       123082, // Regalia of the Eternal Blossom - 2 Piece Bonus (Item - Druid T14 Balance 2P Bonus)
       123083, // Regalia of the Eternal Blossom - 4 Piece Bonus (Item - Druid T14 Balance 4P Bonus)
       123084, // Battlegear of the Eternal Blossom - 2 Piece Bonus (Item - Druid T14 Feral 2P Bonus)
       123085, // Battlegear of the Eternal Blossom - 4 Piece Bonus (Item - Druid T14 Feral 4P Bonus)
-      123086, // Armor of the Eternal Blossom - 2 Piece Bonus (Item - Druid T14 Guardian 2P Bonus)
       123087, // Armor of the Eternal Blossom - 4 Piece Bonus (Item - Druid T14 Guardian 4P Bonus)
       123088, // Vestments of the Eternal Blossom - 2 Piece Bonus (Item - Druid T14 Restoration 2P Bonus)
       123089, // Vestments of the Eternal Blossom - 4 Piece Bonus (Item - Druid T14 Restoration 4P Bonus)
+          0,
     },
     // Tier 15 bonuses (8 spells)
     {
@@ -3952,52 +3952,52 @@ static unsigned __tier_bonuses_data[][TIER_BONUSES_MAX_TIER][TIER_BONUSES_SIZE] 
 
 #define SET_BONUS_DATA_SIZE (543)
 
-// Set bonus data, wow build 18912
+// Set bonus data, wow build 18922
 static item_set_bonus_t __set_bonus_data[SET_BONUS_DATA_SIZE] = {
   //                                    Tier name, SetID, Tier, Bns, Cls,         Derived Spec, Role, Spec,  Spell, Items
-  { "Gladiator's Battlegear"                     ,  1230,    0,   2,   1,                { 0 },    3,   71, 165636, { 111239, 111240, 111241, 111242, 111243,  0 } },
-  { "Gladiator's Battlegear"                     ,  1230,    0,   4,   1,                { 0 },    3,   71, 165670, { 111239, 111240, 111241, 111242, 111243,  0 } },
-  { "Gladiator's Battlegear"                     ,  1230,    0,   2,   1,                { 0 },    3,   72, 165639, { 111239, 111240, 111241, 111242, 111243,  0 } },
-  { "Gladiator's Battlegear"                     ,  1230,    0,   4,   1,                { 0 },    3,   72, 165670, { 111239, 111240, 111241, 111242, 111243,  0 } },
-  { "Gladiator's Battlegear"                     ,  1230,    0,   2,   1,                { 0 },    3,   73, 165641, { 111239, 111240, 111241, 111242, 111243,  0 } },
-  { "Gladiator's Battlegear"                     ,  1230,    0,   4,   1,                { 0 },    3,   73, 165670, { 111239, 111240, 111241, 111242, 111243,  0 } },
-  { "Gladiator's Vindication"                    ,  1225,    0,   2,   2,                { 0 },    3,   65, 170860, { 111169, 111170, 111171, 111172, 111173,  0 } },
-  { "Gladiator's Vindication"                    ,  1225,    0,   4,   2,                { 0 },    3,   65, 165881, { 111169, 111170, 111171, 111172, 111173,  0 } },
-  { "Gladiator's Vindication"                    ,  1225,    0,   2,   2,                { 0 },    3,   66, 165905, { 111169, 111170, 111171, 111172, 111173,  0 } },
-  { "Gladiator's Vindication"                    ,  1225,    0,   4,   2,                { 0 },    3,   66, 171427, { 111169, 111170, 111171, 111172, 111173,  0 } },
-  { "Gladiator's Vindication"                    ,  1225,    0,   2,   2,                { 0 },    3,   70, 165886, { 111169, 111170, 111171, 111172, 111173,  0 } },
-  { "Gladiator's Vindication"                    ,  1225,    0,   4,   2,                { 0 },    3,   70, 165895, { 111169, 111170, 111171, 111172, 111173,  0 } },
-  { "Gladiator's Pursuit"                        ,  1222,    0,   2,   3,                { 0 },    3,  253, 166005, { 111112, 111113, 111114, 111115, 111116,  0 } },
-  { "Gladiator's Pursuit"                        ,  1222,    0,   4,   3,                { 0 },    3,  253, 171478, { 111112, 111113, 111114, 111115, 111116,  0 } },
-  { "Gladiator's Pursuit"                        ,  1222,    0,   2,   3,                { 0 },    3,  254, 166005, { 111112, 111113, 111114, 111115, 111116,  0 } },
-  { "Gladiator's Pursuit"                        ,  1222,    0,   4,   3,                { 0 },    3,  254, 170884, { 111112, 111113, 111114, 111115, 111116,  0 } },
-  { "Gladiator's Pursuit"                        ,  1222,    0,   2,   3,                { 0 },    3,  255, 166005, { 111112, 111113, 111114, 111115, 111116,  0 } },
-  { "Gladiator's Pursuit"                        ,  1222,    0,   4,   3,                { 0 },    3,  255, 166012, { 111112, 111113, 111114, 111115, 111116,  0 } },
-  { "Gladiator's Vestments"                      ,  1227,    0,   2,   4,                { 0 },    3,  259, 165995, { 111188, 111189, 111190, 111191, 111192,  0 } },
-  { "Gladiator's Vestments"                      ,  1227,    0,   4,   4,                { 0 },    3,  259, 170883, { 111188, 111189, 111190, 111191, 111192,  0 } },
-  { "Gladiator's Vestments"                      ,  1227,    0,   2,   4,                { 0 },    3,  260, 165995, { 111188, 111189, 111190, 111191, 111192,  0 } },
-  { "Gladiator's Vestments"                      ,  1227,    0,   4,   4,                { 0 },    3,  260, 165997, { 111188, 111189, 111190, 111191, 111192,  0 } },
-  { "Gladiator's Vestments"                      ,  1227,    0,   2,   4,                { 0 },    3,  261, 165995, { 111188, 111189, 111190, 111191, 111192,  0 } },
-  { "Gladiator's Vestments"                      ,  1227,    0,   4,   4,                { 0 },    3,  261, 170877, { 111188, 111189, 111190, 111191, 111192,  0 } },
-  { "Gladiator's Investiture"                    ,  1226,    0,   2,   5,                { 0 },    3,  256, 171124, { 111183, 111184, 111185, 111186, 111187,  0 } },
+  { "Gladiator's Battlegear"                     ,  1230,    0,   2,   1,                { 0 },    2,   71, 165636, { 111239, 111240, 111241, 111242, 111243,  0 } },
+  { "Gladiator's Battlegear"                     ,  1230,    0,   4,   1,                { 0 },    2,   71, 165670, { 111239, 111240, 111241, 111242, 111243,  0 } },
+  { "Gladiator's Battlegear"                     ,  1230,    0,   2,   1,                { 0 },    2,   72, 165639, { 111239, 111240, 111241, 111242, 111243,  0 } },
+  { "Gladiator's Battlegear"                     ,  1230,    0,   4,   1,                { 0 },    2,   72, 165670, { 111239, 111240, 111241, 111242, 111243,  0 } },
+  { "Gladiator's Battlegear"                     ,  1230,    0,   2,   1,                { 0 },    0,   73, 165641, { 111239, 111240, 111241, 111242, 111243,  0 } },
+  { "Gladiator's Battlegear"                     ,  1230,    0,   4,   1,                { 0 },    0,   73, 165670, { 111239, 111240, 111241, 111242, 111243,  0 } },
+  { "Gladiator's Vindication"                    ,  1225,    0,   2,   2,                { 0 },    1,   65, 170860, { 111169, 111170, 111171, 111172, 111173,  0 } },
+  { "Gladiator's Vindication"                    ,  1225,    0,   4,   2,                { 0 },    1,   65, 165881, { 111169, 111170, 111171, 111172, 111173,  0 } },
+  { "Gladiator's Vindication"                    ,  1225,    0,   2,   2,                { 0 },    0,   66, 165905, { 111169, 111170, 111171, 111172, 111173,  0 } },
+  { "Gladiator's Vindication"                    ,  1225,    0,   4,   2,                { 0 },    0,   66, 171427, { 111169, 111170, 111171, 111172, 111173,  0 } },
+  { "Gladiator's Vindication"                    ,  1225,    0,   2,   2,                { 0 },    2,   70, 165886, { 111169, 111170, 111171, 111172, 111173,  0 } },
+  { "Gladiator's Vindication"                    ,  1225,    0,   4,   2,                { 0 },    2,   70, 165895, { 111169, 111170, 111171, 111172, 111173,  0 } },
+  { "Gladiator's Pursuit"                        ,  1222,    0,   2,   3,                { 0 },    2,  253, 166005, { 111112, 111113, 111114, 111115, 111116,  0 } },
+  { "Gladiator's Pursuit"                        ,  1222,    0,   4,   3,                { 0 },    2,  253, 171478, { 111112, 111113, 111114, 111115, 111116,  0 } },
+  { "Gladiator's Pursuit"                        ,  1222,    0,   2,   3,                { 0 },    2,  254, 166005, { 111112, 111113, 111114, 111115, 111116,  0 } },
+  { "Gladiator's Pursuit"                        ,  1222,    0,   4,   3,                { 0 },    2,  254, 170884, { 111112, 111113, 111114, 111115, 111116,  0 } },
+  { "Gladiator's Pursuit"                        ,  1222,    0,   2,   3,                { 0 },    2,  255, 166005, { 111112, 111113, 111114, 111115, 111116,  0 } },
+  { "Gladiator's Pursuit"                        ,  1222,    0,   4,   3,                { 0 },    2,  255, 166012, { 111112, 111113, 111114, 111115, 111116,  0 } },
+  { "Gladiator's Vestments"                      ,  1227,    0,   2,   4,                { 0 },    2,  259, 165995, { 111188, 111189, 111190, 111191, 111192,  0 } },
+  { "Gladiator's Vestments"                      ,  1227,    0,   4,   4,                { 0 },    2,  259, 170883, { 111188, 111189, 111190, 111191, 111192,  0 } },
+  { "Gladiator's Vestments"                      ,  1227,    0,   2,   4,                { 0 },    2,  260, 165995, { 111188, 111189, 111190, 111191, 111192,  0 } },
+  { "Gladiator's Vestments"                      ,  1227,    0,   4,   4,                { 0 },    2,  260, 165997, { 111188, 111189, 111190, 111191, 111192,  0 } },
+  { "Gladiator's Vestments"                      ,  1227,    0,   2,   4,                { 0 },    2,  261, 165995, { 111188, 111189, 111190, 111191, 111192,  0 } },
+  { "Gladiator's Vestments"                      ,  1227,    0,   4,   4,                { 0 },    2,  261, 170877, { 111188, 111189, 111190, 111191, 111192,  0 } },
+  { "Gladiator's Investiture"                    ,  1226,    0,   2,   5,                { 0 },    1,  256, 171124, { 111183, 111184, 111185, 111186, 111187,  0 } },
   //                                    Tier name, SetID, Tier, Bns, Cls,         Derived Spec, Role, Spec,  Spell, Items
-  { "Gladiator's Investiture"                    ,  1226,    0,   4,   5,                { 0 },    3,  256, 171141, { 111183, 111184, 111185, 111186, 111187,  0 } },
-  { "Gladiator's Investiture"                    ,  1226,    0,   2,   5,                { 0 },    3,  257, 171158, { 111183, 111184, 111185, 111186, 111187,  0 } },
-  { "Gladiator's Investiture"                    ,  1226,    0,   4,   5,                { 0 },    3,  257, 171142, { 111183, 111184, 111185, 111186, 111187,  0 } },
+  { "Gladiator's Investiture"                    ,  1226,    0,   4,   5,                { 0 },    1,  256, 171141, { 111183, 111184, 111185, 111186, 111187,  0 } },
+  { "Gladiator's Investiture"                    ,  1226,    0,   2,   5,                { 0 },    1,  257, 171158, { 111183, 111184, 111185, 111186, 111187,  0 } },
+  { "Gladiator's Investiture"                    ,  1226,    0,   4,   5,                { 0 },    1,  257, 171142, { 111183, 111184, 111185, 111186, 111187,  0 } },
   { "Gladiator's Investiture"                    ,  1226,    0,   2,   5,                { 0 },    3,  258, 171146, { 111183, 111184, 111185, 111186, 111187,  0 } },
   { "Gladiator's Investiture"                    ,  1226,    0,   4,   5,                { 0 },    3,  258, 171151, { 111183, 111184, 111185, 111186, 111187,  0 } },
-  { "Gladiator's Desecration"                    ,  1220,    0,   2,   6,                { 0 },    3,  250, 166020, { 111102, 111103, 111104, 111105, 111106,  0 } },
-  { "Gladiator's Desecration"                    ,  1220,    0,   4,   6,                { 0 },    3,  250, 171456, { 111102, 111103, 111104, 111105, 111106,  0 } },
-  { "Gladiator's Desecration"                    ,  1220,    0,   2,   6,                { 0 },    3,  251, 166020, { 111102, 111103, 111104, 111105, 111106,  0 } },
-  { "Gladiator's Desecration"                    ,  1220,    0,   4,   6,                { 0 },    3,  251, 166056, { 111102, 111103, 111104, 111105, 111106,  0 } },
-  { "Gladiator's Desecration"                    ,  1220,    0,   2,   6,                { 0 },    3,  252, 166020, { 111102, 111103, 111104, 111105, 111106,  0 } },
-  { "Gladiator's Desecration"                    ,  1220,    0,   4,   6,                { 0 },    3,  252, 166061, { 111102, 111103, 111104, 111105, 111106,  0 } },
+  { "Gladiator's Desecration"                    ,  1220,    0,   2,   6,                { 0 },    0,  250, 166020, { 111102, 111103, 111104, 111105, 111106,  0 } },
+  { "Gladiator's Desecration"                    ,  1220,    0,   4,   6,                { 0 },    0,  250, 171456, { 111102, 111103, 111104, 111105, 111106,  0 } },
+  { "Gladiator's Desecration"                    ,  1220,    0,   2,   6,                { 0 },    2,  251, 166020, { 111102, 111103, 111104, 111105, 111106,  0 } },
+  { "Gladiator's Desecration"                    ,  1220,    0,   4,   6,                { 0 },    2,  251, 166056, { 111102, 111103, 111104, 111105, 111106,  0 } },
+  { "Gladiator's Desecration"                    ,  1220,    0,   2,   6,                { 0 },    2,  252, 166020, { 111102, 111103, 111104, 111105, 111106,  0 } },
+  { "Gladiator's Desecration"                    ,  1220,    0,   4,   6,                { 0 },    2,  252, 166061, { 111102, 111103, 111104, 111105, 111106,  0 } },
   { "Gladiator's Wartide"                        ,  1228,    0,   2,   7,                { 0 },    3,  262, 166096, { 111193, 111194, 111195, 111196, 111197,  0 } },
   { "Gladiator's Wartide"                        ,  1228,    0,   4,   7,                { 0 },    3,  262, 171109, { 111193, 111194, 111195, 111196, 111197,  0 } },
-  { "Gladiator's Wartide"                        ,  1228,    0,   2,   7,                { 0 },    3,  263, 166103, { 111193, 111194, 111195, 111196, 111197,  0 } },
-  { "Gladiator's Wartide"                        ,  1228,    0,   4,   7,                { 0 },    3,  263, 171121, { 111193, 111194, 111195, 111196, 111197,  0 } },
-  { "Gladiator's Wartide"                        ,  1228,    0,   2,   7,                { 0 },    3,  264, 171381, { 111193, 111194, 111195, 111196, 111197,  0 } },
-  { "Gladiator's Wartide"                        ,  1228,    0,   4,   7,                { 0 },    3,  264, 166063, { 111193, 111194, 111195, 111196, 111197,  0 } },
+  { "Gladiator's Wartide"                        ,  1228,    0,   2,   7,                { 0 },    2,  263, 166103, { 111193, 111194, 111195, 111196, 111197,  0 } },
+  { "Gladiator's Wartide"                        ,  1228,    0,   4,   7,                { 0 },    2,  263, 171121, { 111193, 111194, 111195, 111196, 111197,  0 } },
+  { "Gladiator's Wartide"                        ,  1228,    0,   2,   7,                { 0 },    1,  264, 171381, { 111193, 111194, 111195, 111196, 111197,  0 } },
+  { "Gladiator's Wartide"                        ,  1228,    0,   4,   7,                { 0 },    1,  264, 166063, { 111193, 111194, 111195, 111196, 111197,  0 } },
   { "Gladiator's Regalia"                        ,  1223,    0,   2,   8,                { 0 },    3,   62, 171349, { 111150, 111151, 111152, 111153, 111154,  0 } },
   { "Gladiator's Regalia"                        ,  1223,    0,   4,   8,                { 0 },    3,   62, 171351, { 111150, 111151, 111152, 111153, 111154,  0 } },
   { "Gladiator's Regalia"                        ,  1223,    0,   2,   8,                { 0 },    3,   63, 165977, { 111150, 111151, 111152, 111153, 111154,  0 } },
@@ -4011,20 +4011,20 @@ static item_set_bonus_t __set_bonus_data[SET_BONUS_DATA_SIZE] = {
   { "Gladiator's Felshroud"                      ,  1229,    0,   4,   9,                { 0 },    3,  266, 165967, { 111234, 111235, 111236, 111237, 111238,  0 } },
   { "Gladiator's Felshroud"                      ,  1229,    0,   2,   9,                { 0 },    3,  267, 171383, { 111234, 111235, 111236, 111237, 111238,  0 } },
   { "Gladiator's Felshroud"                      ,  1229,    0,   4,   9,                { 0 },    3,  267, 165970, { 111234, 111235, 111236, 111237, 111238,  0 } },
-  { "Gladiator's Ironskin"                       ,  1224,    0,   2,  10,                { 0 },    3,  268, 165691, { 111168, 111164, 111165, 111166, 111167,  0 } },
-  { "Gladiator's Ironskin"                       ,  1224,    0,   4,  10,                { 0 },    3,  268, 171445, { 111168, 111164, 111165, 111166, 111167,  0 } },
-  { "Gladiator's Ironskin"                       ,  1224,    0,   2,  10,                { 0 },    3,  269, 165691, { 111168, 111164, 111165, 111166, 111167,  0 } },
-  { "Gladiator's Ironskin"                       ,  1224,    0,   4,  10,                { 0 },    3,  269, 165696, { 111168, 111164, 111165, 111166, 111167,  0 } },
-  { "Gladiator's Ironskin"                       ,  1224,    0,   2,  10,                { 0 },    3,  270, 170799, { 111168, 111164, 111165, 111166, 111167,  0 } },
-  { "Gladiator's Ironskin"                       ,  1224,    0,   4,  10,                { 0 },    3,  270, 165697, { 111168, 111164, 111165, 111166, 111167,  0 } },
+  { "Gladiator's Ironskin"                       ,  1224,    0,   2,  10,                { 0 },    0,  268, 165691, { 111168, 111164, 111165, 111166, 111167,  0 } },
+  { "Gladiator's Ironskin"                       ,  1224,    0,   4,  10,                { 0 },    0,  268, 171445, { 111168, 111164, 111165, 111166, 111167,  0 } },
+  { "Gladiator's Ironskin"                       ,  1224,    0,   2,  10,                { 0 },    2,  269, 165691, { 111168, 111164, 111165, 111166, 111167,  0 } },
+  { "Gladiator's Ironskin"                       ,  1224,    0,   4,  10,                { 0 },    2,  269, 165696, { 111168, 111164, 111165, 111166, 111167,  0 } },
+  { "Gladiator's Ironskin"                       ,  1224,    0,   2,  10,                { 0 },    1,  270, 170799, { 111168, 111164, 111165, 111166, 111167,  0 } },
+  { "Gladiator's Ironskin"                       ,  1224,    0,   4,  10,                { 0 },    1,  270, 165697, { 111168, 111164, 111165, 111166, 111167,  0 } },
   { "Gladiator's Sanctuary"                      ,  1221,    0,   2,  11,                { 0 },    3,  102, 165701, { 111107, 111108, 111109, 111110, 111111,  0 } },
   { "Gladiator's Sanctuary"                      ,  1221,    0,   4,  11,                { 0 },    3,  102, 165705, { 111107, 111108, 111109, 111110, 111111,  0 } },
-  { "Gladiator's Sanctuary"                      ,  1221,    0,   2,  11,                { 0 },    3,  103, 170848, { 111107, 111108, 111109, 111110, 111111,  0 } },
-  { "Gladiator's Sanctuary"                      ,  1221,    0,   4,  11,                { 0 },    3,  103, 165698, { 111107, 111108, 111109, 111110, 111111,  0 } },
-  { "Gladiator's Sanctuary"                      ,  1221,    0,   2,  11,                { 0 },    3,  104, 171408, { 111107, 111108, 111109, 111110, 111111,  0 } },
-  { "Gladiator's Sanctuary"                      ,  1221,    0,   4,  11,                { 0 },    3,  104, 171489, { 111107, 111108, 111109, 111110, 111111,  0 } },
-  { "Gladiator's Sanctuary"                      ,  1221,    0,   2,  11,                { 0 },    3,  105, 170853, { 111107, 111108, 111109, 111110, 111111,  0 } },
-  { "Gladiator's Sanctuary"                      ,  1221,    0,   4,  11,                { 0 },    3,  105, 165707, { 111107, 111108, 111109, 111110, 111111,  0 } },
+  { "Gladiator's Sanctuary"                      ,  1221,    0,   2,  11,                { 0 },    2,  103, 170848, { 111107, 111108, 111109, 111110, 111111,  0 } },
+  { "Gladiator's Sanctuary"                      ,  1221,    0,   4,  11,                { 0 },    2,  103, 165698, { 111107, 111108, 111109, 111110, 111111,  0 } },
+  { "Gladiator's Sanctuary"                      ,  1221,    0,   2,  11,                { 0 },    0,  104, 171408, { 111107, 111108, 111109, 111110, 111111,  0 } },
+  { "Gladiator's Sanctuary"                      ,  1221,    0,   4,  11,                { 0 },    0,  104, 171489, { 111107, 111108, 111109, 111110, 111111,  0 } },
+  { "Gladiator's Sanctuary"                      ,  1221,    0,   2,  11,                { 0 },    1,  105, 170853, { 111107, 111108, 111109, 111110, 111111,  0 } },
+  { "Gladiator's Sanctuary"                      ,  1221,    0,   4,  11,                { 0 },    1,  105, 165707, { 111107, 111108, 111109, 111110, 111111,  0 } },
   { "Siegebreaker Battlegear"                    ,   830,    8,   2,   1,      {  71,  72, 0 },    2,    0,  64938, {  46278,  46280,  46282,  46285,  46287,  0 } },
   { "Siegebreaker Battlegear"                    ,   830,    8,   4,   1,      {  71,  72, 0 },    2,    0,  64939, {  46278,  46280,  46282,  46285,  46287,  0 } },
   { "Siegebreaker Plate"                         ,   831,    8,   2,   1,           {  73, 0 },    0,    0,  64933, {  46279,  46281,  46283,  46284,  46286,  0 } },
@@ -4299,7 +4299,7 @@ static item_set_bonus_t __set_bonus_data[SET_BONUS_DATA_SIZE] = {
   { "Deep Earth Regalia"                         ,  1059,   13,   2,  11,           { 102, 0 },    3,    0, 105722, {  77018,  77019,  77020,  77021,  77022,  0 } },
   { "Deep Earth Regalia"                         ,  1059,   13,   4,  11,           { 102, 0 },    3,    0, 105717, {  77018,  77019,  77020,  77021,  77022,  0 } },
   { "Deep Earth Battlegarb"                      ,  1058,   13,   2,  11,           { 103, 0 },    2,    0, 105725, {  77013,  77014,  77015,  77016,  77017,  0 } },
-  { "Deep Earth Battlegarb"                      ,  1058,   13,   4,  11,           { 103, 0 },    2,    0, 105735, {  77013,  77014,  77015,  77016,  77017,  0 } },
+  { "Deep Earth Battlegarb"                      ,  1058,   13,   4,  11,           { 103, 0 },    2,    0,  60142, {  77013,  77014,  77015,  77016,  77017,  0 } },
   { "Deep Earth Vestments"                       ,  1060,   13,   2,  11,           { 105, 0 },    1,    0, 105715, {  76749,  76750,  76751,  76752,  76753,  0 } },
   { "Deep Earth Vestments"                       ,  1060,   13,   4,  11,           { 105, 0 },    1,    0, 105770, {  76749,  76750,  76751,  76752,  76753,  0 } },
   { "Battleplate of Resounding Rings"            ,  1144,   14,   2,   1,      {  71,  72, 0 },    2,    0, 123142, {  85329,  85330,  85331,  85332,  85333,  0 } },
@@ -4346,7 +4346,7 @@ static item_set_bonus_t __set_bonus_data[SET_BONUS_DATA_SIZE] = {
   { "Battlegear of the Eternal Blossom"          ,  1127,   14,   2,  11,           { 103, 0 },    2,    0, 123084, {  85309,  85310,  85311,  85312,  85313,  0 } },
   //                                    Tier name, SetID, Tier, Bns, Cls,         Derived Spec, Role, Spec,  Spell, Items
   { "Battlegear of the Eternal Blossom"          ,  1127,   14,   4,  11,           { 103, 0 },    2,    0, 123085, {  85309,  85310,  85311,  85312,  85313,  0 } },
-  { "Armor of the Eternal Blossom"               ,  1128,   14,   2,  11,           { 104, 0 },    0,    0, 123086, {  85383,  85382,  85381,  85380,  85379,  0 } },
+  { "Armor of the Eternal Blossom"               ,  1128,   14,   2,  11,           { 104, 0 },    0,    0, 144879, {  85383,  85382,  85381,  85380,  85379,  0 } },
   { "Armor of the Eternal Blossom"               ,  1128,   14,   4,  11,           { 104, 0 },    0,    0, 123087, {  85383,  85382,  85381,  85380,  85379,  0 } },
   { "Vestments of the Eternal Blossom"           ,  1125,   14,   2,  11,           { 105, 0 },    1,    0, 123088, {  85354,  85355,  85356,  85357,  85358,  0 } },
   { "Vestments of the Eternal Blossom"           ,  1125,   14,   4,  11,           { 105, 0 },    1,    0, 123089, {  85354,  85355,  85356,  85357,  85358,  0 } },
@@ -4416,22 +4416,22 @@ static item_set_bonus_t __set_bonus_data[SET_BONUS_DATA_SIZE] = {
   { "Vestments of Ternion Glory"                 ,  1187,   16,   4,   5,      { 256, 257, 0 },    1,    0, 145334, {  99117,  99118,  99119,  99120,  99131,  0 } },
   { "Regalia of Ternion Glory"                   ,  1186,   16,   2,   5,           { 258, 0 },    3,    0, 145174, {  99123,  99110,  99111,  99121,  99122,  0 } },
   { "Regalia of Ternion Glory"                   ,  1186,   16,   4,   5,           { 258, 0 },    3,    0, 145179, {  99123,  99110,  99111,  99121,  99122,  0 } },
-  { "6.0 test set"                               ,  1219,   16,   2,   5,                { 0 },    1,  256, 145306, { 109278, 109379,  0 } },
-  { "6.0 test set"                               ,  1219,   16,   2,   5,                { 0 },    1,  257, 145174, { 109278, 109379,  0 } },
-  { "6.0 test set"                               ,  1219,   16,   2,   5,                { 0 },    3,  258, 145251, { 109278, 109379,  0 } },
   { "Plate of Cyclopean Dread"                   ,  1201,   16,   2,   6,           { 250, 0 },    0,    0, 144934, {  99179,  99188,  99189,  99190,  99191,  0 } },
   { "Plate of Cyclopean Dread"                   ,  1201,   16,   4,   6,           { 250, 0 },    0,    0, 144950, {  99179,  99188,  99189,  99190,  99191,  0 } },
   { "Battleplate of Cyclopean Dread"             ,  1200,   16,   2,   6,      { 251, 252, 0 },    2,    0, 144899, {  99186,  99187,  99192,  99193,  99194,  0 } },
-  //                                    Tier name, SetID, Tier, Bns, Cls,         Derived Spec, Role, Spec,  Spell, Items
   { "Battleplate of Cyclopean Dread"             ,  1200,   16,   4,   6,      { 251, 252, 0 },    2,    0, 144907, {  99186,  99187,  99192,  99193,  99194,  0 } },
   { "Celestial Harmony Regalia"                  ,  1182,   16,   2,   7,           { 262, 0 },    3,    0, 144998, {  99092,  99093,  99094,  99095,  99106,  0 } },
   { "Celestial Harmony Regalia"                  ,  1182,   16,   4,   7,           { 262, 0 },    3,    0, 145003, {  99092,  99093,  99094,  99095,  99106,  0 } },
+  //                                    Tier name, SetID, Tier, Bns, Cls,         Derived Spec, Role, Spec,  Spell, Items
   { "Celestial Harmony Battlegear"               ,  1183,   16,   2,   7,           { 263, 0 },    2,    0, 144962, {  99101,  99102,  99103,  99104,  99105,  0 } },
   { "Celestial Harmony Battlegear"               ,  1183,   16,   4,   7,           { 263, 0 },    2,    0, 144966, {  99101,  99102,  99103,  99104,  99105,  0 } },
   { "Celestial Harmony Vestment"                 ,  1184,   16,   2,   7,           { 264, 0 },    1,    0, 145378, {  99099,  99100,  99107,  99108,  99109,  0 } },
   { "Celestial Harmony Vestment"                 ,  1184,   16,   4,   7,           { 264, 0 },    1,    0, 145380, {  99099,  99100,  99107,  99108,  99109,  0 } },
   { "Chronomancer Regalia"                       ,  1194,   16,   2,   8, {  62,  63,  64, 0 },    3,    0, 145251, {  99152,  99153,  99160,  99161,  99162,  0 } },
   { "Chronomancer Regalia"                       ,  1194,   16,   4,   8, {  62,  63,  64, 0 },    3,    0, 145257, {  99152,  99153,  99160,  99161,  99162,  0 } },
+  { "6.0 test set"                               ,  1219,   16,   2,   8,                { 0 },    1,  256, 145306, { 109278, 109379,  0 } },
+  { "6.0 test set"                               ,  1219,   16,   2,   8,                { 0 },    1,  257, 145174, { 109278, 109379,  0 } },
+  { "6.0 test set"                               ,  1219,   16,   2,   8,                { 0 },    3,  258, 145251, { 109278, 109379,  0 } },
   { "Regalia of the Horned Nightmare"            ,  1181,   16,   2,   9, { 265, 266, 267, 0 },    3,    0, 145072, {  99096,  99097,  99098,  99204,  99205,  0 } },
   { "Regalia of the Horned Nightmare"            ,  1181,   16,   4,   9, { 265, 266, 267, 0 },    3,    0, 145091, {  99096,  99097,  99098,  99204,  99205,  0 } },
   { "Armor of Seven Sacred Seals"                ,  1191,   16,   2,  10,           { 268, 0 },    0,    0, 145049, {  99142,  99143,  99144,  99140,  99141,  0 } },
@@ -4523,7 +4523,7 @@ static item_set_bonus_t __set_bonus_data[SET_BONUS_DATA_SIZE] = {
 
 #define PERK_SIZE (4)
 
-// Perk specialization abilities, wow build 18912
+// Perk specialization abilities, wow build 18922
 static unsigned __perk_data[][MAX_SPECS_PER_CLASS][PERK_SIZE] = {
   {
     {
@@ -4550,7 +4550,7 @@ static unsigned __perk_data[][MAX_SPECS_PER_CLASS][PERK_SIZE] = {
     // Fury
     {
       157452, // 0: Improved Die by the Sword
-      157457, // 1: Improved Colossus Smash
+      157454, // 1: Empowered Execute
       157473, // 2: Enhanced Whirlwind
       176051, // 3: Improved Recklessness
     },
@@ -4831,8 +4831,8 @@ static unsigned __perk_data[][MAX_SPECS_PER_CLASS][PERK_SIZE] = {
   },
 };
 
-// Glyph properties, wow build 18912
-static glyph_property_data_t __glyph_property_data[499] = {
+// Glyph properties, wow build 18922
+static glyph_property_data_t __glyph_property_data[500] = {
   {   162,  54811 },
   {   163,  54812 },
   {   164, 114338 },
@@ -5201,6 +5201,7 @@ static glyph_property_data_t __glyph_property_data[499] = {
   {  1052, 126745 },
   {  1053, 126746 },
   {  1054, 131113 },
+  {  1055, 132005 },
   {  1058, 135557 },
   {  1060, 145722 },
   {  1061, 147707 },

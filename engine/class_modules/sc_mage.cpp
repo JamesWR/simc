@@ -3,6 +3,8 @@
 // Send questions to natehieter@gmail.com
 // ==========================================================================
 
+// TODO:
+//  Add proper travel time to Welly:water_jet
 
 
 
@@ -450,26 +452,20 @@ struct water_elemental_pet_t : public pet_t
       if ( result_is_hit( s -> result ) )
         p -> o() -> buffs.fingers_of_frost -> trigger( 1, buff_t::DEFAULT_VALUE(), 1 );
     }
+
   };
 
-  struct water_jet_tick_t : public spell_t
-  {
-    water_jet_tick_t( water_elemental_pet_t* p ) :
-      spell_t( "water_jet_tick", p, p -> find_pet_spell( "water_jet" ) )
-    {
-      background = true;
-      dot_duration = timespan_t::zero();
-    }
-  };
   struct water_jet_t : public spell_t
   {
+    // queued water jet spell, auto cast water jet spell
+    bool queued, autocast;
+
     water_jet_t( water_elemental_pet_t* p, const std::string& options_str ) :
-      spell_t( "water_jet", p, p -> find_pet_spell( "water_jet" ) )
+      spell_t( "water_jet", p, p -> find_spell( 135029 ) ),
+      queued( false ), autocast( true )
     {
       parse_options( NULL, options_str );
-      channeled = true;
-      dynamic_tick_action = true;
-      tick_action = new water_jet_tick_t( p );
+      channeled = tick_may_crit = true;
     }
 
     water_elemental_pet_td_t* td( player_t* t = 0 ) const
@@ -481,11 +477,42 @@ struct water_elemental_pet_t : public pet_t
     const water_elemental_pet_t* p() const
     { return static_cast<water_elemental_pet_t*>( player ); }
 
+    void execute()
+    {
+      spell_t::execute();
+
+      // If this is a queued execute, disable queued status
+      if ( ! autocast && queued )
+        queued = false;
+    }
+
     virtual void impact( action_state_t* s )
     {
       spell_t::impact( s );
 
       td( s -> target ) -> water_jet -> trigger();
+    }
+
+    virtual void last_tick( dot_t* d )
+    {
+      spell_t::last_tick( d );
+      td( p() -> target ) -> water_jet -> expire();
+    }
+
+    bool ready()
+    {
+      // Not ready, until the owner gives permission to cast
+      if ( ! autocast && ! queued )
+        return false;
+
+      return spell_t::ready();
+    }
+
+    void reset()
+    {
+      spell_t::reset();
+
+      queued = false;
     }
   };
 
@@ -514,9 +541,9 @@ struct water_elemental_pet_t : public pet_t
   water_elemental_pet_t( sim_t* sim, mage_t* owner ) :
     pet_t( sim, owner, "water_elemental" )
   {
-    action_list_str  = "waterbolt";
-
     owner_coeff.sp_from_sp = 0.75;
+
+    action_list_str  = "water_jet/waterbolt";
   }
 
   mage_t* o()
@@ -814,14 +841,7 @@ struct prismatic_crystal_t : public pet_t
   {
     double m = pet_t::composite_player_vulnerability( school );
 
-    if ( o() -> specialization() == MAGE_FROST )
-    {
-      m *= 1.5;
-    }
-    else
-    {
-      m *= 1.0 + damage_taken -> effectN( 1 ).percent();
-    }
+    m *= 1.0 + damage_taken -> effectN( 1 ).percent();
 
     return m;
   }
@@ -1108,8 +1128,6 @@ public:
 
     if ( p() -> cooldowns.bolt -> up() && p() -> specialization() == MAGE_FROST )
       p() -> buffs.enhanced_frostbolt -> trigger();
-
-
 
     return spell_t::ready();
   }
@@ -1446,7 +1464,7 @@ struct icicle_t : public mage_spell_t
   icicle_t( mage_t* p ) : mage_spell_t( "icicle", p, p -> find_spell( 148022 ) ),
     splitting_ice_aoe( p -> glyphs.splitting_ice -> effectN( 1 ).base_value() + 1 )
   {
-    may_crit = false;
+    may_crit = may_multistrike = false;
     proc = background = true;
 
     if ( p -> glyphs.splitting_ice -> ok() )
@@ -1456,19 +1474,51 @@ struct icicle_t : public mage_spell_t
     }
   }
 
+  int n_targets() const
+  {
+    if ( target == p() -> pets.prismatic_crystal )
+      return 0;
+
+    return aoe;
+  }
+
+  // To correctly record damage and execute information to the correct source
+  // action (FB or FFB), we set the stats object of the icicle cast to the
+  // source stats object, carried from trigger_icicle() to here through the
+  // execute_event_t.
   void execute()
   {
-    assert( pre_execute_state );
-
     const icicle_state_t* is = debug_cast<const icicle_state_t*>( pre_execute_state );
+    assert( is -> source );
     stats = is -> source;
 
-    if ( pre_execute_state -> target == p() -> pets.prismatic_crystal )
-    {
-      aoe = 0;
-    }
     mage_spell_t::execute();
-    aoe = splitting_ice_aoe;
+  }
+
+  // Due to the mage targeting system, the pre_execute_state in is emptied by
+  // the mage_spell_t::execute() call (before getting to action_t::execute()),
+  // thus we need to "re-set" the stats object into the state object that is
+  // used for the next leg of the execution path (execute() using travel event
+  // to impact()). This is done in schedule_travel().
+  void schedule_travel( action_state_t* state )
+  {
+    icicle_state_t* is = debug_cast<icicle_state_t*>( state );
+    is -> source = stats;
+
+    mage_spell_t::schedule_travel( state );
+  }
+
+  // And again, once the icicle impacts, we set the stats object here again
+  // because multiple icicles can be executing, causing the state object to be
+  // set to another object between the execution of this specific icicle, and
+  // the impact.
+  void impact( action_state_t* state )
+  {
+    const icicle_state_t* is = debug_cast<const icicle_state_t*>( state );
+    assert( is -> source );
+    stats = is -> source;
+
+    mage_spell_t::impact( state );
   }
 
   action_state_t* new_state()
@@ -1508,19 +1558,20 @@ void mage_spell_t::trigger_ignite( action_state_t* state )
 static void Frost_orb_FoF_renew( action_state_t* s )
 {
 
-  struct frost_orb_FoF_renew_t : public mage_spell_t
+  struct frost_orb_FoF_renew_t: public mage_spell_t
   {
-    frost_orb_FoF_renew_t( mage_t* p ) :
+    frost_orb_FoF_renew_t( mage_t* p ):
       mage_spell_t( "FoF_Renew", p )
     {
       may_miss = may_dodge = may_parry = may_crit = may_block = callbacks = false;
-      base_costs[ RESOURCE_MANA ] = 0;
-      cooldown -> duration  = timespan_t::zero();
+      base_costs[RESOURCE_MANA] = 0;
+      cooldown -> duration = timespan_t::zero();
       trigger_gcd = timespan_t::zero();
-      background=true;
-      harmful=false;
+      background = true;
+      harmful = false;
+      base_execute_time = timespan_t::zero();
       base_tick_time = timespan_t::from_seconds( 0.5 );
-      dot_duration   = timespan_t::from_seconds( 10.5 );
+      dot_duration = timespan_t::from_seconds( 10.5 );
       hasted_ticks = false;
     }
 
@@ -1529,12 +1580,10 @@ static void Frost_orb_FoF_renew( action_state_t* s )
       mage_spell_t::tick( d );
 
       if ( td( d -> target ) -> dots.frozen_orb -> is_ticking() )
-      { p() -> buffs.fingers_of_frost -> trigger( 1, buff_t::DEFAULT_VALUE(), 1.0 ); }
+      {
+        p() -> buffs.fingers_of_frost -> trigger( 1, buff_t::DEFAULT_VALUE(), 1.0 );
+      }
     }
-
-    virtual timespan_t execute_time()
-    { return timespan_t::zero(); }
-
   };
 
 
@@ -1825,15 +1874,13 @@ struct arcane_missiles_t : public mage_spell_t
     parse_options( NULL, options_str );
     may_miss = false;
     may_proc_missiles = false;
-
     dot_duration      = timespan_t::from_seconds( 2.0 );
-
-
     base_tick_time = timespan_t::from_seconds( 0.4 );
     channeled         = true;
     hasted_ticks      = false;
     dynamic_tick_action = true;
     tick_action = new arcane_missiles_tick_t( p );
+    may_miss = false;
   }
 
 
@@ -2644,6 +2691,7 @@ struct frostbolt_t : public mage_spell_t
     parse_options( NULL, options_str );
 
     stats -> add_child( icicle );
+    icicle -> school = school;
     icicle -> action_list.push_back( p -> icicle );
   }
 
@@ -2781,6 +2829,7 @@ struct frostfire_bolt_t : public mage_spell_t
     }
 
     stats -> add_child( icicle );
+    icicle -> school = school;
     icicle -> action_list.push_back( p -> icicle );
   }
 
@@ -3021,17 +3070,20 @@ struct ice_lance_t : public mage_spell_t
     fof_multiplier = p -> find_specialization_spell( "Fingers of Frost" ) -> ok() ? p -> find_spell( 44544 ) -> effectN( 2 ).percent() : 0.0;
   }
 
+  int n_targets() const
+  {
+    if ( target == p() -> pets.prismatic_crystal )
+      return 0;
+
+    return aoe;
+  }
+
   virtual void execute()
   {
     // Ice Lance treats the target as frozen with FoF up
     frozen = p() -> buffs.fingers_of_frost -> check() > 0;
 
-    if ( pre_execute_state -> target == p() -> pets.prismatic_crystal )
-    {
-      aoe = 0;
-    }
     mage_spell_t::execute();
-    aoe = splitting_ice_aoe;
 
     if ( p() -> sets.has_set_bonus( MAGE_FROST, T17, B4 ) && td( execute_state -> target) -> dots.frozen_orb -> is_ticking() )
       p() -> buffs.ice_shard -> trigger();
@@ -3831,7 +3883,7 @@ struct summon_water_elemental_t : public mage_spell_t
   }
 };
 
-// Prismatic Crystal =========================================================
+// Prismatic Crystal Spell =========================================================
 
 struct prismatic_crystal_t : public mage_spell_t
 {
@@ -3840,6 +3892,7 @@ struct prismatic_crystal_t : public mage_spell_t
   {
     parse_options( NULL, options_str );
     may_miss = may_crit = harmful = callbacks = false;
+    trigger_gcd = timespan_t::zero();
   }
 
   void execute()
@@ -3920,6 +3973,10 @@ struct choose_target_t : public action_t
       sim -> out_debug.printf( "%s swapping target from %s to %s", player -> name(), p -> current_target -> name(), selected_target -> name() );
 
     p -> current_target = selected_target;
+
+    // Invalidate target caches
+    for ( size_t i = 0, end = p -> action_list.size(); i < end; i++ )
+      p -> action_list[ i ] -> target_cache.is_valid = false;
   }
 
   bool ready()
@@ -4228,6 +4285,61 @@ struct choose_rotation_t : public action_t
     return true;
   }
 };
+
+// Proxy cast Water Jet ====================================================
+
+struct water_jet_t : public action_t
+{
+  pets::water_elemental_pet_t::water_jet_t* action;
+
+  water_jet_t( mage_t* p, const std::string& options_str ) :
+    action_t( ACTION_OTHER, "water_jet", p ), action( 0 )
+  {
+    parse_options( 0, options_str );
+
+    may_miss = may_crit = callbacks = false;
+    quiet = dual = true;
+    trigger_gcd = timespan_t::zero();
+  }
+
+  void reset()
+  {
+    action_t::reset();
+
+    if ( ! action )
+    {
+      mage_t* m = debug_cast<mage_t*>( player );
+      action = debug_cast<pets::water_elemental_pet_t::water_jet_t*>( m -> pets.water_elemental -> find_action( "water_jet" ) );
+      assert( action );
+      action -> autocast = false;
+    }
+  }
+
+  // Execute simply enables water jet, on next available cast on the Water
+  // Elemental
+  void execute()
+  {
+    action -> queued = true;
+  }
+
+  bool ready()
+  {
+    // Ensure that the Water Elemental's water_jet is ready. Note that this
+    // skips the water_jet_t::ready() call, and simply checks the "base" ready
+    // properties of the spell (most importantly, the cooldown). If normal
+    // ready() was called, this would always return false, as queued = false,
+    // before this action executes.
+    if ( ! action -> spell_t::ready() )
+      return false;
+
+    // Don't re-execute if water jet is already queued
+    if ( action -> queued == true )
+      return false;
+
+    return action_t::ready();
+  }
+};
+
 /*
 // Alter Time Spell =========================================================
 
@@ -4421,6 +4533,7 @@ action_t* mage_t::create_action( const std::string& name,
   if ( name == "water_elemental"   ) return new  summon_water_elemental_t( this, options_str );
   if ( name == "prismatic_crystal" ) return new prismatic_crystal_t( this, options_str );
   if ( name == "choose_target"     ) return new choose_target_t( this, options_str );
+  if ( name == "water_jet"         ) return new water_jet_t( this, options_str );
   //if ( name == "alter_time"        ) return new              alter_time_t( this, options_str );
 
   return player_t::create_action( name, options_str );
@@ -4849,7 +4962,7 @@ void mage_t::apl_arcane()
   action_priority_list_t* aoe                 = get_action_priority_list( "aoe"              );
   action_priority_list_t* burn                = get_action_priority_list( "burn"             );
   action_priority_list_t* conserve            = get_action_priority_list( "conserve"         );
-  action_priority_list_t* evocation           = get_action_priority_list( "evocation"        );
+
 
   default_list -> add_action( this, "Counterspell",
                               "if=target.debuff.casting.react" );
@@ -4868,7 +4981,8 @@ void mage_t::apl_arcane()
   default_list -> add_action( "call_action_list,name=crystal_sequence,if=pet.prismatic_crystal.active" );
   default_list -> add_action( "call_action_list,name=aoe,if=active_enemies>=6" );
   default_list -> add_action( "call_action_list,name=burn,if=buff.arcane_power.up&cooldown.evocation.remains<buff.arcane_power.remains&mana.pct>15&talent.prismatic_crystal.enabled" );
-  default_list -> add_action( "call_action_list,name=evocation" );
+  default_list -> add_action( "call_action_list,name=conserve" );
+
 
   init_crystal -> add_talent( this, "Prismatic Crystal",
                               "if=cooldown.arcane_power.remains=0&buff.arcane_charge.stack=4",
@@ -4882,7 +4996,7 @@ void mage_t::apl_arcane()
   crystal_sequence -> add_talent( this, "Nether Tempest",
                                   "if=current_target=prismatic_crystal&buff.arcane_charge.stack=4&!ticking&cooldown.prismatic_crystal.remains>58" );
   crystal_sequence -> add_action( "call_action_list,name=burn,if=cooldown.evocation.remains<cooldown.prismatic_crystal.remains-50" );
-  crystal_sequence -> add_action( "call_action_list,name=evocation" );
+  crystal_sequence -> add_action( "call_action_list,name=conserve" );
 
 
   cooldowns -> add_action( this, "Arcane Power",
@@ -4926,12 +5040,10 @@ void mage_t::apl_arcane()
   burn -> add_action( this, "Presence of Mind" );
   burn -> add_action( this, "Arcane Blast" );
 
-//Proxy Action List to work around the behavior of interrupt_if, as it only interrupts if there is a higher priority action available
-  evocation -> add_action( "call_action_list,name=conserve,if=cooldown.evocation.remains>0", "Makes Evocation interrupt channeling properly" );
-  evocation -> add_action( this, "Evocation", "interrupt_if=mana.pct>92,if=mana.pct<65" );
-  evocation -> add_action( this, "Evocation", "interrupt_if=mana.pct>0,if=buff.arcane_charge.stack=0" );
-  evocation -> add_action( "call_action_list,name=conserve" );
-  
+
+  conserve -> add_action( this, "Evocation",
+                          "interrupt_if=mana.pct>92,if=mana.pct<65",
+                          "Low mana usage, \"Conserve\" sequence" );
   conserve -> add_action( "call_action_list,name=cooldowns,if=time_to_die<30|(buff.arcane_charge.stack=4&!(glyph.arcane_power.enabled&talent.prismatic_crystal.enabled)&(!talent.prismatic_crystal.enabled|cooldown.prismatic_crystal.remains>20))" );
   conserve -> add_action( this, "Arcane Missiles",
                           "if=buff.arcane_missiles.react=3|(talent.overpowered.enabled&buff.arcane_power.up&buff.arcane_power.remains<3)" );
@@ -5793,11 +5905,17 @@ void mage_t::trigger_icicle( const action_state_t* trigger_state, bool chain )
   if ( chain && ! icicle_event )
   {
     d = get_icicle_object();
+    if ( d.first == 0 )
+      return;
+
     icicle_event = new ( *sim ) events::icicle_event_t( *this, d, trigger_state -> target, true );
   }
   else if ( ! chain )
   {
     d = get_icicle_object();
+    if ( d.first == 0 )
+      return;
+
     icicle -> base_dd_min = icicle -> base_dd_max = d.first;
 
     actions::icicle_state_t* new_state = debug_cast<actions::icicle_state_t*>( icicle -> get_state() );

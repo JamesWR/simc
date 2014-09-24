@@ -1,3 +1,13 @@
+# TxM
+# Tier x Mythic
+# * Ilvl Cap: 695
+# * No Random Gems (ie. Bonus RNG Gem Slots)
+# * No Tertiary Stats
+# * No Ranked Gear (ie. Thunderforged/Warforged)
+# * No Legendaries
+# * If Bonus Bosses are accessible in this raid tier, use it. (ie. Sinestra/Ra'den)
+# * EXCEPTION: 710 Legendary Ring can be used. (accessibility)
+
 
 talent_format=armory
 
@@ -87,7 +97,7 @@ level=100
 race=tauren
 role=tank
 position=front
-talents=2213323
+talents=2113323
 glyphs=unending_rage/death_from_above/cleave
 spec=prot
 head=blackhands_faceguard,id=115584,bonus_id=567

@@ -924,7 +924,7 @@ struct yseras_gift_t : public heal_t
     heal_t( "yseras_gift", p, p -> talent.yseras_gift )
   {
     base_tick_time = data().effectN( 1 ).period();
-    dot_duration   = base_tick_time * 2;
+    dot_duration   = 2 * sim -> expected_iteration_time; // infinite duration
     harmful = tick_may_crit = hasted_ticks = false;
     may_multistrike = 0;
     background = proc = dual = true;
@@ -938,13 +938,6 @@ struct yseras_gift_t : public heal_t
     heal_t::init();
 
     snapshot_flags &= ~STATE_RESOLVE; // Is not affected by resolve.
-  }
-
-  virtual void tick( dot_t* d )
-  {
-    d -> refresh_duration(); // ticks indefinitely
-
-    heal_t::tick( d );
   }
 
   // Override calculate_tick_amount for unique mechanic (heals smart target for % of own health)
@@ -1789,7 +1782,7 @@ public:
     ab::tick( d );
 
     if ( ab::p() -> sets.has_set_bonus( DRUID_FERAL, T17, B2 ) && dbc::is_school( ab::school, SCHOOL_PHYSICAL ) )
-      ab::p() -> resource_gain( RESOURCE_ENERGY, 3.0, ab::p() -> gain.tier17_2pc_melee );
+      ab::p() -> resource_gain( RESOURCE_ENERGY, 2.0, ab::p() -> gain.tier17_2pc_melee );
   }
 
   virtual double composite_persistent_multiplier( const action_state_t* s ) const

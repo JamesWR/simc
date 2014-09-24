@@ -1,5 +1,4 @@
-paladin="Paladin_Holy_T17P”
-"
+paladin="Paladin_Holy_T17P"
 level=100
 race=blood_elf
 role=heal
@@ -21,12 +20,13 @@ actions.precombat+=/food,type=blackrock_barbecue
 actions.precombat+=/blessing_of_kings,if=(!aura.str_agi_int.up)&(aura.mastery.up)
 actions.precombat+=/blessing_of_might,if=!aura.mastery.up
 actions.precombat+=/seal_of_insight
+actions.precombat+=/beacon_of_light,target=healing_target
 # Snapshot raid buffed stats before combat begins and pre-potting is done.
 actions.precombat+=/snapshot_stats
 
 # Executed every time the actor is available.
 
-actions=potion,name=draenic_intellect
+actions=mana_potion,if=mana.pct<=75
 actions+=//auto_attack
 actions+=/speed_of_light,if=movement.remains>1
 actions+=//use_item,name=primal_gladiators_badge_of_dominance
@@ -34,9 +34,15 @@ actions+=/blood_fury
 actions+=/berserking
 actions+=/arcane_torrent
 actions+=/avenging_wrath
+actions+=/lay_on_hands,if=incoming_damage_5s>health.max*0.7
+actions+=/judgment,if=talent.selfless_healer.enabled&buff.selfless_healer.stack<3
+actions+=/sacred_shield,if=buff.sacred_shield.down
 actions+=/word_of_glory,if=holy_power>=3
+actions+=/wait,if=target.health.pct>=75&mana.pct<=10
 actions+=/holy_shock,if=holy_power<=3
 actions+=/flash_of_light,if=target.health.pct<=30
+actions+=/judgment,if=holy_power<3
+actions+=/lay_on_hands,if=mana.pct<5
 actions+=/holy_light
 
 head=primal_gladiators_plate_helm,id=111211
