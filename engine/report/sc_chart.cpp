@@ -1572,30 +1572,57 @@ std::string chart::timeline(  player_t* p,
 
 bool chart::generate_distribution( highchart::histogram_chart_t& hc,
                                   const player_t* p,
-                                 const std::vector<size_t>& dist_data,
-                                 const std::string& distribution_name,
-                                 double avg, double min, double max )
+                                  const std::vector<size_t>& dist_data,
+                                  const std::string& distribution_name,
+                                  double avg, double min, double max )
 {
   int max_buckets = ( int ) dist_data.size();
 
   if ( ! max_buckets )
     return false;
 
+  hc.set( "plotOptions.column.color", "#" + color::yellow );
   hc.set_title( distribution_name + " Distribution" );
   if ( p )
     hc.set_toggle_id( "player" + util::to_string( p -> index ) + "toggle" );
+
+  hc.set( "xAxis.tickInterval", 25 );
+  hc.set( "xAxis.tickAtEnd", true );
+  hc.set( "yAxis.title.text", "# Iterations" );
+
+  double step = ( max - min ) / dist_data.size();
+
+  std::vector<int> tick_indices;
 
   std::vector<highchart::data_entry_t> data;
   for ( int i = 0; i < max_buckets; i++ )
   {
     highchart::data_entry_t e;
     e.value = dist_data[ i ];
+    if ( i == 0 )
+    {
+      tick_indices.push_back( i );
+      e.name = util::to_string( static_cast<unsigned>( min ) );
+      e.color = "#" + color::darker_yellow;
+    }
+    else if ( i == max_buckets - 1 )
+    {
+      tick_indices.push_back( i );
+      e.name = util::to_string( static_cast<unsigned>( max ) );
+      e.color = "#" + color::darker_yellow;
+    }
+    else if ( avg >= min + i * step && avg <= min + ( i + 1 ) * step )
+    {
+      tick_indices.push_back( i );
+      e.name = util::to_string( static_cast<unsigned>( avg ) );
+      e.color = "#" + color::darker_yellow;
+    }
+
     data.push_back( e );
   }
-  hc.add_data_series( "column", "", data );
-
-  //snprintf( buffer, sizeof( buffer ), "chxl=0:|min=%.0f|avg=%.0f|max=%.0f", min, avg, max ); s += buffer;
-
+  for ( size_t i = 0; i < tick_indices.size(); i++ )
+    hc.add( "xAxis.tickPositions", tick_indices[ i ] );
+  hc.add_data_series( data );
 
   return true;
 }

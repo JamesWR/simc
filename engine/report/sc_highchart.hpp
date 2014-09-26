@@ -75,7 +75,7 @@ struct chart_t
   void add_data_series( const std::vector<data_entry_t>& d );
 
   virtual std::string to_string() const;
-  virtual std::string to_aggregate_string() const;
+  virtual std::string to_aggregate_string( bool on_click = true ) const;
   virtual std::string to_target_div() const;
   virtual std::string to_json() const;
   virtual std::string to_xml() const;
@@ -159,7 +159,7 @@ struct pie_chart_t : public chart_t
   pie_chart_t( const std::string& id_str, const sim_t* sim );
 };
 
-struct histogram_chart_t : public bar_chart_t
+struct histogram_chart_t : public chart_t
 {
   histogram_chart_t( const std::string& id_str, const sim_t* sim );
 };

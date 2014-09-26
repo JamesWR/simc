@@ -2390,7 +2390,7 @@ void print_html_player_resources( report::sc_html_stream& os, player_t* p, playe
       highchart::pie_chart_t pc( highchart::build_id( p, std::string("resource_gain_") + util::resource_type_string( r ) ), p -> sim );
       chart::generate_gains( pc, p, r );
       os << pc.to_target_div();
-      p -> sim -> highcharts_str += pc.to_aggregate_string();
+      p -> sim -> highcharts_str += pc.to_aggregate_string( p -> sim -> player_no_pet_list.size() > 1 );
       //os << pc.to_string();
     }
   }
@@ -2414,7 +2414,7 @@ void print_html_player_resources( report::sc_html_stream& os, player_t* p, playe
     ts.set_mean( timeline.timeline.mean() );
 
     os << ts.to_target_div();
-    p -> sim -> highcharts_str += ts.to_aggregate_string();
+    p -> sim -> highcharts_str += ts.to_aggregate_string( p -> sim -> player_no_pet_list.size() > 1 );
     //os << ts.to_string();
   }
 
@@ -2425,7 +2425,7 @@ void print_html_player_resources( report::sc_html_stream& os, player_t* p, playe
     chart.set_mean( p -> collected_data.health_changes.merged_timeline.mean() );
 
     os << chart.to_target_div();
-    p -> sim -> highcharts_str += chart.to_aggregate_string();
+    p -> sim -> highcharts_str += chart.to_aggregate_string( p -> sim -> player_no_pet_list.size() > 1 );
 
     //os << chart.to_string();
 
@@ -2436,7 +2436,7 @@ void print_html_player_resources( report::sc_html_stream& os, player_t* p, playe
     chart2.set_mean( sliding_average_tl.mean() );
 
     os << chart2.to_target_div();
-    p -> sim -> highcharts_str += chart2.to_aggregate_string();
+    p -> sim -> highcharts_str += chart2.to_aggregate_string( p -> sim -> player_no_pet_list.size() > 1 );
 
     //os << chart2.to_string();
 
@@ -2447,7 +2447,7 @@ void print_html_player_resources( report::sc_html_stream& os, player_t* p, playe
     if ( chart::generate_distribution( tmi_chart, p, tmi_hist.data(), "TMI", p -> collected_data.theck_meloree_index.mean(), tmi_hist.min(), tmi_hist.max() ) )
     {
       os << tmi_chart.to_target_div();
-      p -> sim -> highcharts_str += tmi_chart.to_aggregate_string();
+      p -> sim -> highcharts_str += tmi_chart.to_aggregate_string( p -> sim -> player_no_pet_list.size() > 1 );
 
       //os << tmi_chart.to_string();
     }
@@ -2476,7 +2476,7 @@ void print_html_player_charts( report::sc_html_stream& os, sim_t* sim, player_t*
     if ( chart::generate_action_dpet( bc, p ) )
     {
       os << bc.to_target_div();
-      p -> sim -> highcharts_str += bc.to_aggregate_string();
+      p -> sim -> highcharts_str += bc.to_aggregate_string( p -> sim -> player_no_pet_list.size() > 1 );
 
       //os << bc.to_string();
     }
@@ -2485,7 +2485,7 @@ void print_html_player_charts( report::sc_html_stream& os, sim_t* sim, player_t*
     if ( chart::generate_damage_stats_sources( damage_pie, p ) )
     {
       os << damage_pie.to_target_div();
-      p -> sim -> highcharts_str += damage_pie.to_aggregate_string();
+      p -> sim -> highcharts_str += damage_pie.to_aggregate_string( p -> sim -> player_no_pet_list.size() > 1 );
 
       //os << damage_pie.to_string();
     }
@@ -2494,7 +2494,7 @@ void print_html_player_charts( report::sc_html_stream& os, sim_t* sim, player_t*
     if ( chart::generate_heal_stats_sources( heal_pie, p ) )
     {
       os << heal_pie.to_target_div();
-      p -> sim -> highcharts_str += heal_pie.to_aggregate_string();
+      p -> sim -> highcharts_str += heal_pie.to_aggregate_string( p -> sim -> player_no_pet_list.size() > 1 );
 
       //os << heal_pie.to_string();
     }
@@ -2522,7 +2522,7 @@ void print_html_player_charts( report::sc_html_stream& os, sim_t* sim, player_t*
     dps_taken.set_toggle_id( "player" + util::to_string( p -> index ) + "toggle" );
 
     os << dps_taken.to_target_div();
-    p -> sim -> highcharts_str += dps_taken.to_aggregate_string();
+    p -> sim -> highcharts_str += dps_taken.to_aggregate_string( p -> sim -> player_no_pet_list.size() > 1 );
 
     //os << dps_taken.to_string();
   }
@@ -2577,7 +2577,7 @@ void print_html_player_charts( report::sc_html_stream& os, sim_t* sim, player_t*
     chart::generate_actor_dps_series( ts, p );
 
     os << ts.to_target_div();
-    p -> sim -> highcharts_str += ts.to_aggregate_string();
+    p -> sim -> highcharts_str += ts.to_aggregate_string( p -> sim -> player_no_pet_list.size() > 1 );
 
     // os << ts.to_string();
   }
@@ -2594,21 +2594,21 @@ void print_html_player_charts( report::sc_html_stream& os, sim_t* sim, player_t*
     resolve.set_xaxis_max( p -> sim -> simulation_length.max() );
 
     os << resolve.to_target_div();
-    p -> sim -> highcharts_str += resolve.to_aggregate_string();
+    p -> sim -> highcharts_str += resolve.to_aggregate_string( p -> sim -> player_no_pet_list.size() > 1 );
 
     //os << resolve.to_string();
   }
 
   if ( p -> collected_data.dps.mean() > 0 )
   {
-    highchart::histogram_chart_t chart( highchart::build_id( p, "hdps_dist" ), p -> sim );
+    highchart::histogram_chart_t chart( highchart::build_id( p, "dps_dist" ), p -> sim );
     if ( chart::generate_distribution( chart, p, p -> collected_data.dps.distribution, p -> name_str + " DPS",
         p -> collected_data.dps.mean(),
         p -> collected_data.dps.min(),
         p -> collected_data.dps.max() ) )
     {
       os << chart.to_target_div();
-      p -> sim -> highcharts_str += chart.to_aggregate_string();
+      p -> sim -> highcharts_str += chart.to_aggregate_string( p -> sim -> player_no_pet_list.size() > 1 );
 
       //os <<  chart.to_string();
     }
@@ -2623,7 +2623,7 @@ void print_html_player_charts( report::sc_html_stream& os, sim_t* sim, player_t*
         p -> collected_data.hps.max() ) )
     {
       os << chart.to_target_div();
-      p -> sim -> highcharts_str += chart.to_aggregate_string();
+      p -> sim -> highcharts_str += chart.to_aggregate_string( p -> sim -> player_no_pet_list.size() > 1 );
 
       //os <<  chart.to_string();
     }
@@ -2633,7 +2633,7 @@ void print_html_player_charts( report::sc_html_stream& os, sim_t* sim, player_t*
   if ( chart::generate_spent_time( time_spent, p ) )
   {
     os << time_spent.to_target_div();
-    p -> sim -> highcharts_str += time_spent.to_aggregate_string();
+    p -> sim -> highcharts_str += time_spent.to_aggregate_string( p -> sim -> player_no_pet_list.size() > 1 );
 
     //os << time_spent.to_string();
   }
@@ -2649,7 +2649,7 @@ void print_html_player_charts( report::sc_html_stream& os, sim_t* sim, player_t*
     ts.set_mean( p -> collected_data.stat_timelines[ i ].timeline.mean() );
 
     os << ts.to_target_div();
-    p -> sim -> highcharts_str += ts.to_aggregate_string();
+    p -> sim -> highcharts_str += ts.to_aggregate_string( p -> sim -> player_no_pet_list.size() > 1 );
 
     //os << ts.to_string();
   }
@@ -3961,7 +3961,7 @@ void print_html_player_deaths( report::sc_html_stream& os, player_t* p, player_p
     //std::string distribution_deaths_str = chart.to_string();
       os << chart.to_target_div();
 
-      p -> sim -> highcharts_str += chart.to_aggregate_string();
+      p -> sim -> highcharts_str += chart.to_aggregate_string( p -> sim -> player_no_pet_list.size() > 1 );
     }
 
     os << "</div>\n"

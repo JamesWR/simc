@@ -130,7 +130,7 @@ std::string chart_t::to_target_div() const
   return str_;
 }
 
-std::string chart_t::to_aggregate_string() const
+std::string chart_t::to_aggregate_string( bool on_click ) const
 {
     rapidjson::StringBuffer b;
     rapidjson::Writer< rapidjson::StringBuffer > writer( b );
@@ -140,11 +140,18 @@ std::string chart_t::to_aggregate_string() const
     assert( ! toggle_id_str_.empty() );
 
     std::string str_;
-    str_ += "$('#" + toggle_id_str_ + "').on('click', function() {\n";
-    str_ += "console.log(\"Loading " + id_str_ + ": " + toggle_id_str_ + " ...\" );\n";
+    if ( on_click )
+    {
+      str_ += "$('#" + toggle_id_str_ + "').on('click', function() {\n";
+      str_ += "console.log(\"Loading " + id_str_ + ": " + toggle_id_str_ + " ...\" );\n";
+    }
     str_ += "$('#" + id_str_ + "').highcharts(";
     str_ += javascript;
-    str_ += ");\n});\n";
+    str_ += ");\n";
+    if ( on_click )
+    {
+      str_ += "});\n";
+    }
 
     return str_;
 }
@@ -295,21 +302,36 @@ void chart_t::add_data_series( const std::string& type,
     const data_entry_t& entry = d[ i ];
 
     rapidjson::Value dataKeys;
-
-    std::string html_name = "<span style=\"color:" + entry.color;
-    html_name += "\">" + entry.name + "</span>";
-
     dataKeys.SetObject();
-    rapidjson::Value val(entry.value);
-    rapidjson::Value color(entry.color.c_str(), js_.GetAllocator());
-    rapidjson::Value name(html_name.c_str(), js_.GetAllocator());
+
+    std::string formatted_name;
+
+    if ( ! entry.color.empty() )
+    {
+      rapidjson::Value color(entry.color.c_str(), js_.GetAllocator());
+      dataKeys.AddMember( "color", js_.GetAllocator(), color, js_.GetAllocator() );
+
+      if ( ! entry.name.empty() )
+      {
+        formatted_name = "<span style=\"color:" + entry.color;
+        formatted_name += "\">" + entry.name + "</span>";
+      }
+    }
+    else if ( ! entry.name.empty() )
+      formatted_name = entry.name;
+
+    rapidjson::Value val( entry.value );
     dataKeys.AddMember( "y", js_.GetAllocator(), val, js_.GetAllocator() );
-    dataKeys.AddMember("color", js_.GetAllocator(), color, js_.GetAllocator() );
-    dataKeys.AddMember("name", js_.GetAllocator(), name, js_.GetAllocator() );
+
+    if ( ! formatted_name.empty() )
+    {
+      rapidjson::Value name( formatted_name.c_str(), js_.GetAllocator() );
+      dataKeys.AddMember( "name", js_.GetAllocator(), name, js_.GetAllocator() );
+    }
 
     data.PushBack(dataKeys, js_.GetAllocator() );
-
   }
+
   obj.AddMember("data", js_.GetAllocator(), data, js_.GetAllocator() );
   add("series", obj);
 }
@@ -558,22 +580,20 @@ pie_chart_t::pie_chart_t( const std::string& id_str, const sim_t* sim ) :
 }
 
 histogram_chart_t::histogram_chart_t( const std::string& id_str, const sim_t* sim ) :
-    bar_chart_t( id_str, sim )
+    chart_t( id_str, sim )
 {
+  height_ = 300;
 
-  // See http://stackoverflow.com/questions/18042165/plot-histograms-in-highcharts
-  // and the two linked examples
-
+  set( "credits", false);
   set( "legend.enabled", false );
-
   set( "chart.type", "column" );
-
 
   add( "chart.spacing", 5 ).add( "chart.spacing", 5 ).add( "chart.spacing", 5 ).add( "chart.spacing", 5 );
 
-  set( "plotOptions.series.shadow", true );
+  set( "plotOptions.column.borderWidth", 0 );
+  set( "plotOptions.column.pointWidth", 8 );
 
-
-  set( "plotOptions.pie.dataLabels.enabled", true );
-
+  set( "xAxis.tickLength", 0 );
+  set( "xAxis.type", "category" );
+  set( "xAxis.labels.style.textShadow", TEXT_OUTLINE );
 }
