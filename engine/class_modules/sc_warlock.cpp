@@ -3874,17 +3874,6 @@ struct rain_of_fire_tick_t: public warlock_spell_t
       trigger_ember_gain( p(), 0.2, p() -> gains.rain_of_fire, 0.125 );
   }
 
-  virtual double action_multiplier() const
-  {
-    double m = warlock_spell_t::action_multiplier();
-
-    if ( p() -> buffs.mannoroths_fury -> up() )
-    {
-      m *= 1.0 + p() -> talents.mannoroths_fury -> effectN( 3 ).percent();
-    }
-    return m;
-  }
-
   virtual proc_types proc_type() const override
   {
     return PROC1_PERIODIC;
@@ -3922,7 +3911,13 @@ struct rain_of_fire_t: public warlock_spell_t
     if ( td( t ) -> dots_immolate -> is_ticking() )
       m *= 1.5;
 
+    if ( p() -> buffs.mannoroths_fury -> up() )
+    {
+      m *= 1.0 + p() -> talents.mannoroths_fury -> effectN( 3 ).percent();
+    }
+
     return m;
+
   }
 };
 
@@ -5469,7 +5464,7 @@ void warlock_t::apl_demonology()
     add_action( "metamorphosis", "if=(action.hand_of_guldan.charges=0|(!dot.shadowflame.ticking&!action.hand_of_guldan.in_flight_to_target))&demonic_fury>=750&cooldown.dark_soul.remains>=8" );
     add_action( "metamorphosis", "if=(action.hand_of_guldan.charges=0|(!dot.shadowflame.ticking&!action.hand_of_guldan.in_flight_to_target))&demonic_fury%(40%gcd)>=target.time_to_die" );
     add_action( "metamorphosis", "if=(action.hand_of_guldan.charges=0|(!dot.shadowflame.ticking&!action.hand_of_guldan.in_flight_to_target))&demonic_fury>=500&cooldown.dark_soul.remains>=8&dot.corruption.remains<=(dot.corruption.duration*0.3)" );
-    add_action( "Hand of Gul'dan", "if=!in_flight&dot.shadowflame.remains<travel_time+action.shadow_bolt.cast_time&(((charges=2&set_bonus.tier17_4pc=0)|(charges=3&set_bonus.tier17_4pc=1))|dot.shadowflame.remains>travel_time|(charges=1&recharge_time<4))" );
+    add_action( "Hand of Gul'dan", "if=!in_flight&dot.shadowflame.remains<travel_time+action.shadow_bolt.cast_time&(((charges=2&set_bonus.tier17_2pc=0)|(charges=3&set_bonus.tier17_2pc=1))|dot.shadowflame.remains>travel_time|(charges=1&recharge_time<4))" );
     add_action( "Soul Fire", "if=buff.molten_core.react&(buff.dark_soul.remains<action.shadow_bolt.cast_time|buff.dark_soul.remains>cast_time)" );
     add_action( "Life Tap", "if=mana.pct<40" );
     add_action( "Shadow Bolt" );
@@ -5491,6 +5486,7 @@ void warlock_t::apl_destruction()
   add_action( "Chaos Bolt", "if=talent.charred_remains.enabled&buff.backdraft.stack<3&(burning_ember>=2.5|(trinket.proc.intellect.react&trinket.proc.intellect.remains>cast_time)|buff.dark_soul.up)" );
   add_action( "Chaos Bolt", "if=buff.backdraft.stack<3&(burning_ember>=3.5|(trinket.proc.intellect.react&trinket.proc.intellect.remains>cast_time)|buff.dark_soul.up)" );
   add_action( "Immolate", "if=remains<=(duration*0.3)" );
+  add_action( "Rain of Fire", "if=(!ticking|(talent.mannoroths_fury.enabled&buff.mannoroths_fury.up&buff.mannoroths_fury.remains<1))&(!buff.backdraft.down|(talent.mannoroths_fury.enabled&buff.mannoroths_fury.up))" );
   add_action( "Conflagrate" );
   add_action( "Incinerate" );
 }

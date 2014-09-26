@@ -1736,11 +1736,7 @@ struct molten_earth_spell_event_t : public event_t
 {
   molten_earth_driver_t* driver;
 
-  molten_earth_spell_event_t( shaman_t* shaman, molten_earth_driver_t* driver ) :
-    event_t( *shaman, "molten_earth" ), driver( driver )
-  {
-    sim().add_event( this, timespan_t::from_seconds( rng().range( 0, 4.0 * shaman -> cache.spell_speed() ) ) );
-  }
+  molten_earth_spell_event_t( shaman_t*, molten_earth_driver_t* );
 
   // Execute the nuke
   void execute();
@@ -1796,6 +1792,12 @@ struct molten_earth_driver_t : public spell_t
     scheduled_bolts.clear();
   }
 };
+
+inline molten_earth_spell_event_t::molten_earth_spell_event_t( shaman_t* shaman, molten_earth_driver_t* driver ) :
+  event_t( *shaman, "molten_earth" ), driver( driver )
+{
+  sim().add_event( this, timespan_t::from_seconds( rng().range( 0, ( driver -> base_tick_time * 2 * shaman -> cache.spell_speed() ).total_seconds() ) ) );
+}
 
 inline void molten_earth_spell_event_t::execute()
 {
@@ -4767,6 +4769,9 @@ void shaman_t::trigger_molten_earth( const action_state_t* state )
   if ( ! mastery.molten_earth -> ok() )
     return;
 
+  if ( ! state -> action -> harmful )
+    return;
+
   if ( ! state -> action -> result_is_hit( state -> result ) )
     return;
 
@@ -5398,7 +5403,7 @@ void shaman_t::init_action_list()
     single -> add_action( this, spec.fulmination, "earth_shock", "if=buff.lightning_shield.react=buff.lightning_shield.max_stack" );
     single -> add_action( this, "Lava Burst", "if=dot.flame_shock.remains>cast_time&(buff.ascendance.up|cooldown_react)" );
     single -> add_action( this, "Flame Shock", "if=dot.flame_shock.remains<=9" );
-    single -> add_action( this, spec.fulmination, "earth_shock", "if=(set_bonus.tier17_4pc&buff.lightning_shield.react>12&!buff.lava_surge.up)|(!set_bonus.tier17_4pc&buff.lightning_shield.react>=15)" );
+    single -> add_action( this, spec.fulmination, "earth_shock", "if=(set_bonus.tier17_4pc&buff.lightning_shield.react>15&!buff.lava_surge.up)|(!set_bonus.tier17_4pc&buff.lightning_shield.react>15)" );
     single -> add_action( this, "Earthquake", "if=!talent.unleashed_fury.enabled&((1+stat.spell_haste)*(1+(mastery_value*2%4.5))>=(1.5+(1.25*0.226305)+1.25*(2*0.226305*stat.multistrike_pct%100)))&target.time_to_die>10&buff.elemental_mastery.down&buff.bloodlust.down" );
     single -> add_action( this, "Earthquake", "if=!talent.unleashed_fury.enabled&((1+stat.spell_haste)*(1+(mastery_value*2%4.5))>=1.3*(1.5+(1.25*0.226305)+1.25*(2*0.226305*stat.multistrike_pct%100)))&target.time_to_die>10&(buff.elemental_mastery.up|buff.bloodlust.up)" );
     single -> add_action( this, "Earthquake", "if=!talent.unleashed_fury.enabled&((1+stat.spell_haste)*(1+(mastery_value*2%4.5))>=(1.5+(1.25*0.226305)+1.25*(2*0.226305*stat.multistrike_pct%100)))&target.time_to_die>10&(buff.elemental_mastery.remains>=10|buff.bloodlust.remains>=10)" );

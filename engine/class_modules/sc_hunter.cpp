@@ -10,7 +10,6 @@ namespace
 
 // ==========================================================================
 // Hunter
-// Currently on beta enhanced basic attacks seem to proc 50% of the time, rather than 15% from spell data.
 // ==========================================================================
 
 struct hunter_t;
@@ -41,7 +40,7 @@ public:
   core_event_t* sniper_training;
   const spell_data_t* sniper_training_cd;
   timespan_t movement_ended;
-  double enhanced_auto;
+  
   // Active
   std::vector<pets::hunter_main_pet_t*> hunter_main_pets;
   struct actives_t
@@ -140,7 +139,6 @@ public:
 
   real_ppm_t ppm_tier15_2pc_melee;
   real_ppm_t ppm_tier15_4pc_melee;
-  real_ppm_t tier17_2pc_bm;
 
   // Talents
   struct talents_t
@@ -308,7 +306,6 @@ public:
     procs( procs_t() ),
     ppm_tier15_2pc_melee( *this, std::numeric_limits<double>::min(), RPPM_HASTE ),
     ppm_tier15_4pc_melee( *this, std::numeric_limits<double>::min(), RPPM_HASTE ),
-    tier17_2pc_bm( *this, std::numeric_limits<double>::min(), RPPM_HASTE ),
     talents( talents_t() ),
     specs( specs_t() ),
     glyphs( glyphs_t() ),
@@ -329,7 +326,6 @@ public:
     summon_pet_str = "";
     base.distance = 40;
     base_gcd = timespan_t::from_seconds( 1.0 );
-    enhanced_auto = 0.5;
 
     regen_type = REGEN_DYNAMIC;
     regen_caches[ CACHE_HASTE ] = true;
@@ -445,8 +441,7 @@ public:
   virtual double composite_multistrike_multiplier( const action_state_t* s ) const
   { 
     double m = ab::composite_multistrike_multiplier( s );
-    m *= 1.0 + p() -> buffs.heavy_shot -> value();
-    m *= 1.0 + p() -> specs.survivalist -> effectN( 2 ).percent();
+    m *= 1.0 + p() -> buffs.heavy_shot -> value() + p() -> specs.survivalist -> effectN( 2 ).percent();
     return m; 
   }
 
@@ -1232,7 +1227,7 @@ struct basic_attack_t: public hunter_main_pet_attack_t
   {
     hunter_main_pet_attack_t::update_ready( cd_duration ); // Currently on beta enhanced basic attacks seems to proc 50% of the time, rather than 15%.
     // Added in an option to tweak it for now, default set at 50%
-    if ( o() -> rng().roll( o() -> bugs ? o() -> enhanced_auto : o() -> perks.enhanced_basic_attacks -> effectN( 1 ).percent() ) )
+    if ( o() -> rng().roll( o() -> perks.enhanced_basic_attacks -> effectN( 1 ).percent() ) )
     {
       cooldown -> reset( true );
       p() -> buffs.enhanced_basic_attacks -> trigger();
@@ -1516,10 +1511,6 @@ struct dire_critter_t: public hunter_pet_t
       may_crit = true;
       special = false;
       focus_gain = player -> find_spell( 120694 ) -> effectN( 1 ).base_value();
-      
-      // Dire Beast is only giving 2 focus per hit in game
-      if ( p.o() -> bugs )
-        focus_gain = 2;
     }
 
     virtual void impact( action_state_t* s )
@@ -2166,7 +2157,8 @@ struct explosive_trap_t: public hunter_ranged_attack_t
       cooldown -> duration *= ( 1.0 + p() -> perks.enhanced_traps -> effectN( 1 ).percent() );
 
     tick_zero = true;
-    hasted_ticks = harmful = false;
+    hasted_ticks = false;
+    harmful = false;
     dot_duration  = p() -> find_spell( 13812 ) -> duration();
     base_tick_time = p() -> find_spell( 13812 ) -> effectN( 2 ).period();
     add_child( explosive_trap_tick );
@@ -2275,11 +2267,13 @@ struct explosive_shot_tick_t: public residual_action::residual_periodic_action_t
   explosive_shot_tick_t( hunter_t* p ):
     base_t( "explosive_shot_tick", p, p -> specs.explosive_shot )
   {
-    tick_may_crit = dual = true;
+    tick_may_crit = true;
+    dual = true;
     may_multistrike = 1;
 
     // suppress direct damage in the dot.
-    base_dd_min = base_dd_max = 0;
+    base_dd_min = 0;
+    base_dd_max = 0;
 
     if ( p -> perks.empowered_explosive_shot -> ok() )
       dot_duration += p -> perks.empowered_explosive_shot -> effectN( 1 ).time_value();
@@ -2425,7 +2419,10 @@ struct serpent_sting_t: public hunter_ranged_attack_t
   serpent_sting_t( hunter_t* player ):
     hunter_ranged_attack_t( "serpent_sting", player, player -> find_spell( 118253 ) )
   {
-    background = proc = tick_may_crit = tick_zero = true;
+    background = true;
+    proc = true;
+    tick_may_crit = true;
+    tick_zero = true;
     hasted_ticks = false;
   }
 };
@@ -2620,7 +2617,8 @@ struct lightning_arrow_t: public hunter_ranged_attack_t
     hunter_ranged_attack_t( "lightning_arrow" + attack_suffix, p, p -> find_spell( 138366 ) )
   {
     school = SCHOOL_NATURE;
-    proc = background = true;
+    proc = true;
+    background = true;
   }
 };
 
@@ -2730,7 +2728,8 @@ struct barrage_t: public hunter_spell_t
     barrage_damage_t( hunter_t* player ):
       attacks::hunter_ranged_attack_t( "barrage_primary", player, player -> talents.barrage -> effectN( 2 ).trigger() )
     {
-      background = may_crit = true;
+      background = true;
+      may_crit = true;
       weapon = &( player -> main_hand_weapon );
       base_execute_time = weapon -> swing_time;
 
@@ -2745,8 +2744,11 @@ struct barrage_t: public hunter_spell_t
   {
     parse_options( NULL, options_str );
 
-    may_block = hasted_ticks = false;
-    channeled = tick_zero = dynamic_tick_action = true;
+    may_block = false;
+    hasted_ticks = false;
+    channeled = true;
+    tick_zero = true;
+    dynamic_tick_action = true;
     travel_speed = 0.0;
     // FIXME still needs to AoE component
     tick_action = new barrage_damage_t( player );
@@ -2774,8 +2776,10 @@ struct peck_t: public ranged_attack_t
   peck_t( hunter_t* player, const std::string& name ):
     ranged_attack_t( name, player, player -> find_spell( 131900 ) )
   {
-    dual = may_crit = true;
-    may_parry = may_block = false;
+    dual = true;
+    may_crit = true;
+    may_parry = false;
+    may_block = false;
     travel_speed = 0.0;
 
     attack_power_mod.direct = data().effectN( 1 ).ap_coeff();
@@ -2801,7 +2805,10 @@ struct moc_t: public ranged_attack_t
   {
     parse_options( NULL, options_str );
     add_child( peck );
-    hasted_ticks = callbacks = may_crit = may_miss = false;
+    hasted_ticks = false;
+    callbacks = false;
+    may_crit = false;
+    may_miss = false;
   }
 
   hunter_t* p() const { return static_cast<hunter_t*>( player ); }
@@ -2835,7 +2842,10 @@ struct dire_beast_t: public hunter_spell_t
     hunter_spell_t( "dire_beast", player, player -> talents.dire_beast )
   {
     parse_options( NULL, options_str );
-    harmful = hasted_ticks = may_crit = may_miss = false;
+    harmful = false;
+    hasted_ticks = false;
+    may_crit = false;
+    may_miss = false;
     school = SCHOOL_PHYSICAL;
   }
 
@@ -2918,7 +2928,9 @@ struct fervor_t: public hunter_spell_t
   {
     parse_options( NULL, options_str );
 
-    harmful = callbacks = hasted_ticks = false;
+    harmful = false;
+    callbacks = false;
+    hasted_ticks = false;
     trigger_gcd = timespan_t::zero();
     base_gain = data().effectN( 1 ).base_value();
     tick_gain = data().effectN( 2 ).base_value();
@@ -3033,9 +3045,9 @@ struct kill_command_t: public hunter_spell_t
     if ( !p() -> sets.has_set_bonus( HUNTER_BEAST_MASTERY, T17, B2 ) )
       return false;
 
-    bool procced;
-
-    if ( ( procced = p() -> tier17_2pc_bm.trigger() ) != false )
+    // from Nimox
+    bool procced = rng().roll( p() -> sets.set( HUNTER_BEAST_MASTERY, T17, B2 ) -> proc_chance() );
+    if ( procced )
     {
       p() -> cooldowns.bestial_wrath -> reset( true );
       p() -> procs.tier17_2pc_bm -> occur();
@@ -3074,7 +3086,8 @@ struct summon_pet_t: public hunter_spell_t
     hunter_spell_t( "summon_pet", player ),
     pet( 0 )
   {
-    harmful = callbacks = false;
+    harmful = false;
+    callbacks = false;
     std::string pet_name = options_str.empty() ? p() -> summon_pet_str : options_str;
     pet = p() -> find_pet( pet_name );
     if ( !pet )
@@ -3110,7 +3123,8 @@ struct stampede_t: public hunter_spell_t
     hunter_spell_t( "stampede", p, p -> talents.stampede )
   {
     parse_options( NULL, options_str );
-    harmful = callbacks = false;
+    harmful = false;
+    callbacks = false;
     school = SCHOOL_PHYSICAL;
   }
 
@@ -3452,6 +3466,7 @@ void hunter_t::create_buffs()
   buffs.tier16_4pc_bm_brutal_kinship = buff_creator_t( this, 144670, "tier16_4pc_brutal_kinship" )
     .add_invalidate( CACHE_PLAYER_DAMAGE_MULTIPLIER );
 
+  // from Nimox
   buffs.heavy_shot   = buff_creator_t( this, 167165, "heavy_shot" )
     .default_value( find_spell( 167165 ) -> effectN( 1 ).percent() )
     .refresh_behavior( BUFF_REFRESH_EXTEND );
@@ -3532,8 +3547,6 @@ void hunter_t::init_rng()
 
   ppm_tier15_2pc_melee.set_frequency( tier15_2pc_melee_rppm );
   ppm_tier15_4pc_melee.set_frequency( 3.0 );
-
-  tier17_2pc_bm.set_frequency( 1.0 );
 
   player_t::init_rng();
 }
@@ -3816,7 +3829,6 @@ void hunter_t::reset()
 
   sniper_training = 0;
   movement_ended = - sniper_training_cd -> duration();
-  tier17_2pc_bm.reset();
 }
 
 // hunter_t::arise ==========================================================
@@ -3949,7 +3961,9 @@ double hunter_t::composite_player_critical_damage_multiplier() const
   {
     // deadly_aim_driver
     double seconds_buffed = floor( buffs.rapid_fire -> elapsed( sim -> current_time ).total_seconds() );
-    cdm += seconds_buffed * sets.set( HUNTER_MARKSMANSHIP, T17, B4 ) -> effectN( 1 ).percent();
+    // from Nimox
+    cdm += bugs ? std::min(15.0, seconds_buffed) * 0.03 
+                : seconds_buffed * sets.set( HUNTER_MARKSMANSHIP, T17, B4 ) -> effectN( 1 ).percent();
   }
 
   return cdm;
@@ -4012,7 +4026,6 @@ void hunter_t::create_options()
   option_t hunter_options[] =
   {
     opt_string( "summon_pet", summon_pet_str ),
-    opt_float( "enhanced_auto", enhanced_auto ),
     opt_null()
   };
 
@@ -4039,7 +4052,6 @@ void hunter_t::copy_from( player_t* source )
   hunter_t* p = debug_cast<hunter_t*>( source );
 
   summon_pet_str = p -> summon_pet_str;
-  enhanced_auto = p -> enhanced_auto;
 }
 
 // hunter_t::armory_extensions ==============================================

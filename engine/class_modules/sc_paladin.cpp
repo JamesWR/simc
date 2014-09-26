@@ -4689,19 +4689,14 @@ void paladin_t::init_base_stats()
   // Holy Insight increases max mana for Holy
   resources.base_multiplier[ RESOURCE_MANA ] = 1.0 + passives.holy_insight -> effectN( 1 ).percent();
   
-  switch ( specialization() )
-  {
-    case PALADIN_HOLY:
-      role = ROLE_HEAL;
-      base.distance = 30;
-      break;
-    case PALADIN_PROTECTION:
-      if ( role == ROLE_HYBRID )
-        role = ROLE_TANK;
-      break;
-    default:
-      break;
-  }
+  // move holy paladins to range
+  if ( specialization() == PALADIN_HOLY)
+    base.distance = 30;
+
+  // initialize resolve for prot
+  if ( specialization() == PALADIN_PROTECTION )
+    resolve_manager.init();
+
 }
 
 // paladin_t::reset =========================================================
@@ -4874,10 +4869,9 @@ void paladin_t::create_buffs()
 
   // T17
   buffs.crusaders_fury         = buff_creator_t( this, "crusaders_fury", sets.set( PALADIN_RETRIBUTION, T17, B2 ) -> effectN( 1 ).trigger() )
-                                 .chance( sets.set( PALADIN_RETRIBUTION, T17, B2 ) -> effectN( 1 ).trigger() -> proc_chance() );
+                                 .chance( sets.set( PALADIN_RETRIBUTION, T17, B2 ) -> proc_chance() );
   buffs.blazing_contempt       = buff_creator_t( this, "blazing_contempt", sets.set( PALADIN_RETRIBUTION, T17, B4 ) -> effectN( 1 ).trigger() )
-                                 .default_value( sets.set( PALADIN_RETRIBUTION, T17, B4 ) -> effectN( 1 ).trigger() -> effectN( 1 ).base_value() )
-                                 .chance( sets.has_set_bonus( PALADIN_RETRIBUTION, T17, B2 ) ? 1 : 0 );
+                                 .default_value( sets.set( PALADIN_RETRIBUTION, T17, B4 ) -> effectN( 1 ).trigger() -> effectN( 1 ).base_value() );
   buffs.faith_barricade        = buff_creator_t( this, "faith_barricade", sets.set( PALADIN_PROTECTION, T17, B2 ) -> effectN( 1 ).trigger() )
                                  .default_value( sets.set( PALADIN_PROTECTION, T17, B2 ) -> effectN( 1 ).trigger() -> effectN( 1 ).percent() )
                                  .add_invalidate( CACHE_BLOCK );
@@ -4931,7 +4925,7 @@ void paladin_t::generate_action_prio_list_prot()
     else if ( level > 85 )
       food_type += "chun_tian_spring_rolls";
     else if ( level >= 80 )
-        "seafood_magnifique_feast";
+        food_type += "seafood_magnifique_feast";
 
     if ( food_type.length() > 0 )
       precombat -> add_action( "food,type=" + food_type );
@@ -5232,7 +5226,7 @@ void paladin_t::generate_action_prio_list_ret()
   single -> add_action( "wait,sec=cooldown.hammer_of_wrath.remains,if=cooldown.hammer_of_wrath.remains>0&cooldown.hammer_of_wrath.remains<=0.2" );
   single -> add_action( this, "Exorcism","if=buff.blazing_contempt.up&holy_power<=2" );
   single -> add_action( "wait,sec=cooldown.exorcism.remains,if=cooldown.exorcism.remains>0&cooldown.exorcism.remains<=0.2&buff.blazing_contempt.up" );
-  single -> add_action( this, "Divine Storm","if=buff.divine_crusader.react&buff.avenging_wrath.up&talent.final_verdict.enabled&buff.final_verdict.up" );
+  single -> add_action( this, "Divine Storm","if=buff.divine_crusader.react&talent.final_verdict.enabled&buff.final_verdict.up" );
   single -> add_action( this, "Templar's Verdict","if=buff.avenging_wrath.up&(!talent.seraphim.enabled|cooldown.seraphim.remains>3)" );
   single -> add_talent( this, "Final Verdict" );
   single -> add_action( this, "Divine Storm","if=buff.divine_crusader.react&buff.avenging_wrath.up&(!talent.final_verdict.enabled|buff.final_verdict.up)" );
@@ -5240,7 +5234,6 @@ void paladin_t::generate_action_prio_list_ret()
   single -> add_action( "wait,sec=cooldown.crusader_strike.remains,if=cooldown.crusader_strike.remains>0&cooldown.crusader_strike.remains<=0.2");
   single -> add_action( this, "Judgment" );
   single -> add_action( "wait,sec=cooldown.judgment.remains,if=cooldown.judgment.remains>0&cooldown.judgment.remains<=0.2" );
-  single -> add_action( this, "Divine Storm","if=buff.divine_crusader.react&talent.final_verdict.enabled&buff.final_verdict.up" );
   single -> add_action( this, "Templar's Verdict","if=buff.divine_purpose.react" );
   single -> add_action( this, "Divine Storm","if=buff.divine_crusader.react&(!talent.final_verdict.enabled|buff.final_verdict.up)" );
   single -> add_action( this, "Exorcism" );
@@ -5591,13 +5584,16 @@ void paladin_t::init_spells()
 
 role_e paladin_t::primary_role() const
 {
-  if ( player_t::primary_role() == ROLE_DPS || player_t::primary_role() == ROLE_ATTACK || specialization() == PALADIN_RETRIBUTION )
+  if ( player_t::primary_role() != ROLE_NONE )
+    return player_t::primary_role();
+  
+  if ( specialization() == PALADIN_RETRIBUTION )
     return ROLE_ATTACK;
 
-  if ( player_t::primary_role() == ROLE_TANK || specialization() == PALADIN_PROTECTION  )
+  if ( specialization() == PALADIN_PROTECTION  )
     return ROLE_TANK;
 
-  if ( player_t::primary_role() == ROLE_HEAL || specialization() == PALADIN_HOLY )
+  if ( specialization() == PALADIN_HOLY )
     return ROLE_HEAL; 
 
   return ROLE_HYBRID;

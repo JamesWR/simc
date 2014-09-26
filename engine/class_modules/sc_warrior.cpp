@@ -5,10 +5,6 @@
 
 #include "simulationcraft.hpp"
 
-// ==========================================================================
-//
-// ==========================================================================
-
 namespace
 { // UNNAMED NAMESPACE
 // ==========================================================================
@@ -448,7 +444,6 @@ public:
 
   // Character Definition
   virtual void      init_spells();
-  virtual void      init_defense();
   virtual void      init_base_stats();
   virtual void      init_scaling();
   virtual void      create_buffs();
@@ -487,7 +482,6 @@ public:
   virtual action_t* create_proc_action( const std::string& name );
   virtual bool      create_profile( std::string& profile_str, save_e type, bool save_html );
   virtual void      invalidate_cache( cache_e );
-  virtual double    passive_movement_modifier() const;
   virtual double    temporary_movement_modifier() const;
 
   void              apl_precombat(bool);
@@ -1471,13 +1465,6 @@ struct charge_t: public warrior_attack_t
       cooldown -> duration += p -> talents.juggernaut -> effectN( 1 ).time_value();
   }
 
-  timespan_t travel_time() const
-  {
-    if ( p() -> buff.heroic_charge -> check() )
-      return p() -> buff.heroic_charge -> remains();
-    return timespan_t::zero();
-  }
-
   void execute()
   {
     if ( p() -> current.distance_to_move > data().min_range() )
@@ -1667,8 +1654,6 @@ struct execute_off_hand_t: public warrior_attack_t
     dual = true;
     may_miss = may_dodge = may_parry = may_block = false;
     weapon = &( p -> off_hand_weapon );
-    if ( !p -> bugs )
-      weapon_multiplier = 3.0;
 
     if ( p -> main_hand_weapon.group() == WEAPON_1H &&
          p -> off_hand_weapon.group() == WEAPON_1H )
@@ -1709,7 +1694,7 @@ struct execute_t: public warrior_attack_t
         am *= 4.0 * std::min( 40.0, p() -> resources.current[RESOURCE_RAGE] ) / 40;
     }
     else if ( p() -> has_shield_equipped() )
-      am *= 1.0 + p() -> spec.protection -> effectN( 1 ).percent();
+      am *= 1.0 + p() -> spec.protection -> effectN( 2 ).percent();
 
     return am;
   }
@@ -1790,7 +1775,7 @@ struct heroic_strike_t: public warrior_attack_t
     double am = warrior_attack_t::action_multiplier();
 
     if ( p() -> buff.shield_charge -> up() )
-      am *= 1.0 + p() -> buff.shield_charge -> default_value;
+      am *= 1.0 + p() -> find_spell( 169667 ) -> effectN( 1 ).percent() + ( p() -> sets.has_set_bonus( WARRIOR_PROTECTION, T17, B4 ) ? 0.05 : 0 );
 
     return am;
   }
@@ -2277,7 +2262,7 @@ struct revenge_t: public warrior_attack_t
     double am = warrior_attack_t::action_multiplier();
 
     if ( p() -> buff.shield_charge -> up() )
-      am *= 1.0 + p() -> buff.shield_charge -> default_value;
+      am *= 1.0 + p() -> find_spell( 169667 ) -> effectN( 1 ).percent() + ( p() -> sets.has_set_bonus( WARRIOR_PROTECTION, T17, B4 ) ? 0.05 : 0 );
 
     return am;
   }
@@ -2579,7 +2564,7 @@ struct shield_slam_t: public warrior_attack_t
 
     if ( p() -> buff.shield_charge -> up() )
     {
-      am *= 1.0 + p() -> buff.shield_charge -> default_value;
+      am *= 1.0 + p() -> find_spell( 169667 ) -> effectN( 1 ).percent() + ( p() -> sets.has_set_bonus( WARRIOR_PROTECTION, T17, B4 ) ? 0.05 : 0 );
       if ( p() -> talents.heavy_repercussions -> ok() )
         am *= 1.0 + p() -> talents.heavy_repercussions -> effectN( 1 ).percent();
     }
@@ -2606,12 +2591,15 @@ struct shield_slam_t: public warrior_attack_t
   {
     warrior_attack_t::execute();
 
-    if ( rng().roll( p() -> sets.set( WARRIOR_PROTECTION, T17, B2 ) -> proc_chance() ) )
+    if ( p() -> sets.has_set_bonus( WARRIOR_PROTECTION, T17, B2 ) )
     {
-      if ( p() -> active_stance == STANCE_GLADIATOR )
-        shield_charge_2pc -> execute();
-      else
-        shield_block_2pc -> execute();
+      if ( rng().roll( p() -> bugs ? 0.08 : p() -> sets.set( WARRIOR_PROTECTION, T17, B2 ) -> proc_chance() ) )
+      {
+        if ( p() -> active_stance == STANCE_GLADIATOR )
+          shield_charge_2pc -> execute();
+        else
+          shield_block_2pc -> execute();
+      }
     }
 
     double rage_from_snb = 0;
@@ -3376,7 +3364,9 @@ struct shield_barrier_t: public warrior_action_t < absorb_t >
     stancemask = STANCE_GLADIATOR | STANCE_DEFENSE;
     use_off_gcd = true;
     melee_range = -1;
+    may_crit = 0;
     target = player;
+    attack_power_mod.direct = 1.125; // No spell data.
   }
 
   double cost() const
@@ -3690,7 +3680,6 @@ struct sweeping_strikes_t: public warrior_spell_t
   {
     parse_options( NULL, options_str );
     stancemask = STANCE_BATTLE;
-    use_off_gcd = true;
     cooldown -> duration = data().cooldown();
     cooldown -> duration += p -> perk.enhanced_sweeping_strikes -> effectN( 2 ).time_value();
   }
@@ -3945,13 +3934,6 @@ void warrior_t::init_spells()
   active_t16_2pc            = new tier16_2pc_tank_heal_t( this );
 }
 
-// warrior_t::init_defense ==================================================
-
-void warrior_t::init_defense()
-{
-  player_t::init_defense();
-}
-
 // warrior_t::init_base =====================================================
 
 void warrior_t::init_base_stats()
@@ -3973,6 +3955,10 @@ void warrior_t::init_base_stats()
   base.dodge += spec.bastion_of_defense -> effectN( 3 ).percent();
 
   base_gcd = timespan_t::from_seconds( 1.5 );
+
+  // initialize resolve for prot
+  if ( specialization() == WARRIOR_PROTECTION )
+    resolve_manager.init();
 }
 
 //Pre-combat Action Priority List============================================
@@ -4684,7 +4670,6 @@ void warrior_t::create_buffs()
     .add_invalidate( CACHE_BLOCK );
 
   buff.shield_charge = buff_creator_t( this, "shield_charge", find_spell( 169667 ) )
-    .default_value( find_spell( 169667 ) -> effectN( 1 ).percent() + sets.set( WARRIOR_PROTECTION, T17, B4 ) -> effectN( 2 ).percent() )
     .cd( timespan_t::zero() );
 
   buff.shield_wall = buff_creator_t( this, "shield_wall", spec.shield_wall )
@@ -4853,7 +4838,7 @@ void warrior_t::init_action_list()
   }
   clear_action_priority_lists();
   bool probablynotgladiator = find_proc( "Mark of Blackrock" ) != 0; // Let's hope that non-gladiator protection warriors use the bonus armor weapon enchant.
-  if ( !talents.gladiators_resolve -> ok() || role == ROLE_TANK )
+  if ( !talents.gladiators_resolve -> ok() || primary_role() == ROLE_TANK )
     probablynotgladiator = true;
 
   apl_precombat( probablynotgladiator );
@@ -5121,7 +5106,6 @@ double warrior_t::composite_block() const
   return b;
 }
 
-
 // warrior_t::composite_block_reduction =======================================
 
 double warrior_t::composite_block_reduction() const
@@ -5132,14 +5116,11 @@ double warrior_t::composite_block_reduction() const
   if ( buff.shield_block -> up() )
   {
       if ( sets.has_set_bonus( WARRIOR_PROTECTION, T17, B4 ) )
-          br += find_spell( 169688 ) -> effectN( 1 ).percent();
+          br += ( bugs ? 0.05 : find_spell( 169688 ) -> effectN( 1 ).percent() );
   }
 
   return br;
 }
-
-
-
 
 // warrior_t::composite_melee_attack_power ==================================
 
@@ -5265,15 +5246,6 @@ double warrior_t::temporary_movement_modifier() const
     temporary = std::max( buff.heroic_charge -> value(), temporary );
 
   return temporary;
-}
-
-// warrior_t::passive_movement_modifier===================================
-
-double warrior_t::passive_movement_modifier() const
-{
-  double ms = player_t::passive_movement_modifier();
-
-  return ms;
 }
 
 // warrior_t::invalidate_cache ==============================================

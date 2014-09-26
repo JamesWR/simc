@@ -2608,15 +2608,14 @@ struct sim_t : public core_sim_t, private sc_thread_t
   double      confidence, confidence_estimator;
   // Latency
   timespan_t  world_lag, world_lag_stddev;
-  double     travel_variance, default_skill;
+  double      travel_variance, default_skill;
   timespan_t  reaction_time, regen_periodicity;
   timespan_t  ignite_sampling_delta;
-  bool         fixed_time;
+  bool        fixed_time;
   int         seed, current_slot;
-  int         armor_update_interval, weapon_speed_scale_factors;
   int         optimal_raid, log, debug_each;
   int         save_profiles, default_actions;
-  stat_e normalized_stat;
+  stat_e      normalized_stat;
   std::string current_name, default_region_str, default_server_str, save_prefix_str, save_suffix_str;
   int         save_talent_str;
   talent_format_e talent_format;
@@ -2644,7 +2643,7 @@ struct sim_t : public core_sim_t, private sc_thread_t
   // Default stat enchants
   gear_stats_t enchant;
 
-  bool challenge_mode; // if active, players will get scaled down to 620 and set bonusses are deactivated
+  bool challenge_mode; // if active, players will get scaled down to 620 and set bonuses are deactivated
   int scale_to_itemlevel; //itemlevel to scale to. if -1, we don't scale down
 
   // Actor tracking
@@ -2736,6 +2735,7 @@ public:
   std::string reference_player_str;
   std::vector<player_t*> players_by_dps;
   std::vector<player_t*> players_by_hps;
+  std::vector<player_t*> players_by_hps_plus_aps;
   std::vector<player_t*> players_by_dtps;
   std::vector<player_t*> players_by_tmi;
   std::vector<player_t*> players_by_name;
@@ -2747,7 +2747,6 @@ public:
   std::string reforge_plot_output_file_str;
   std::string csv_output_file_str;
   std::vector<std::string> error_list;
-  int debug_exp;
   int report_precision;
   int report_pets_separately;
   int report_targets;
@@ -4222,11 +4221,14 @@ namespace resolve {
 struct manager_t
 {
   manager_t( player_t& );
+  void init();
   void start();
   void stop();
   void update();
   bool is_started() const
   { return _started; }
+  bool is_init() const
+  { return _init; }
   void add_diminishing_return_entry( const player_t* actor, double raw_dps, timespan_t current_time );
   int get_diminsihing_return_rank( int actor_spawn_index );
   void add_damage_event( double amount, timespan_t current_time );
@@ -4237,6 +4239,7 @@ private:
   player_t& _player;
   core_event_t* _update_event;
   bool _started;
+  bool _init;
   std::shared_ptr<diminishing_returns_list_t> _diminishing_return_list;
   std::shared_ptr<damage_event_list_t >_damage_list;
 };

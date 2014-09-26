@@ -504,7 +504,7 @@ player_t::player_t( sim_t*             s,
 
   // (static) attributes
   race( r ),
-  role( ROLE_HYBRID ),
+  role( ROLE_NONE ),
   level( default_level ),
   party( 0 ),
   ready_type( READY_POLL ),
@@ -4175,7 +4175,7 @@ stat_e player_t::normalize_by() const
   role_e role = primary_role();
   if ( role == ROLE_SPELL || role == ROLE_HEAL )
     return STAT_INTELLECT;
-  else if ( role == ROLE_TANK && ( sm == SCALE_METRIC_TMI || sm == SCALE_METRIC_TMI || sm == SCALE_METRIC_DEATHS ) )
+  else if ( role == ROLE_TANK && ( sm == SCALE_METRIC_TMI || sm == SCALE_METRIC_DEATHS ) )
     return STAT_STAMINA;
   else if ( type == DRUID || type == HUNTER || type == SHAMAN || type == ROGUE || type == MONK )
     return STAT_AGILITY;
@@ -4928,7 +4928,7 @@ void player_t::assess_heal( school_e, dmg_e, action_state_t* s )
   s -> result_amount = resource_gain( RESOURCE_HEALTH, s -> result_total, 0, s -> action );
 
   // if the target is a tank record this event on damage timeline
-  if ( ! is_pet() && role == ROLE_TANK )
+  if ( ! is_pet() && primary_role() == ROLE_TANK )
   {
     // health_changes and timeline_healing_taken record everything, accounting for overheal and so on
     collected_data.timeline_healing_taken.add( sim -> current_time, - ( s -> result_amount ) );
@@ -8624,6 +8624,7 @@ void player_t::analyze( sim_t& s )
   {
     s.players_by_dps.push_back( this );
     s.players_by_hps.push_back( this );
+    s.players_by_hps_plus_aps.push_back( this );
     s.players_by_dtps.push_back( this );
     s.players_by_tmi.push_back( this );
     s.players_by_name.push_back( this );
@@ -10003,11 +10004,20 @@ struct manager_t::update_event_t final : public event_t
 manager_t::manager_t( player_t& p ) :
     _player( p ),
     _update_event( nullptr ),
+    _init( false ),
     _started( false ),
     _diminishing_return_list( new diminishing_returns_list_t() ),
     _damage_list( new damage_event_list_t() )
 {
 
+}
+
+/* Initialize Resolve
+*/
+void manager_t::init()
+{
+  // this is just for testing if the spec has the effect
+  _init = true;
 }
 
 /* Start Resolve

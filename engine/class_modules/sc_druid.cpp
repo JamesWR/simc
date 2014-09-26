@@ -211,6 +211,7 @@ public:
   struct cooldowns_t
   {
     cooldown_t* berserk;
+    cooldown_t* celestial_alignment;
     cooldown_t* faerie_fire;
     cooldown_t* growl;
     cooldown_t* mangle;
@@ -502,6 +503,7 @@ public:
     }
     
     cooldown.berserk             = get_cooldown( "berserk"             );
+    cooldown.celestial_alignment = get_cooldown( "celestial_alignment" );
     cooldown.faerie_fire         = get_cooldown( "faerie_fire"         );
     cooldown.growl               = get_cooldown( "growl"               );
     cooldown.mangle              = get_cooldown( "mangle"              );
@@ -1792,6 +1794,11 @@ public:
     if ( ab::p() -> talent.bloodtalons -> ok() && consume_bloodtalons && ab::p() -> buff.bloodtalons -> check() )
       pm *= 1.0 + ab::p() -> buff.bloodtalons -> data().effectN( 1 ).percent();
 
+
+    if ( ! ab::p() -> buff.bear_form -> check() && dbc::is_school( ab::school, SCHOOL_PHYSICAL ) )
+      pm *= 1.0 + ab::p() -> buff.savage_roar -> check() * ab::p() -> buff.savage_roar -> default_value; // Avoid using value() to prevent skewing benefit_pct.
+
+
     return pm;
   }
   
@@ -2228,11 +2235,12 @@ struct ferocious_bite_t : public cat_attack_t
     {
       if ( p() -> glyph.ferocious_bite -> ok() )
       {
-        double heal_pct = p() -> glyph.ferocious_bite -> effectN( 1 ).percent() *
+        double heal_pct = p() -> glyph.ferocious_bite -> effectN( 1 ).percent() / 10.0 * //off by factor of 10 in spell data
                           ( excess_energy + cost() ) /
                           p() -> glyph.ferocious_bite -> effectN( 2 ).base_value();
         double amount = p() -> resources.max[ RESOURCE_HEALTH ] * heal_pct;
         p() -> resource_gain( RESOURCE_HEALTH, amount, p() -> gain.glyph_ferocious_bite );
+        p() -> active.natures_vigil -> trigger( amount , 0 ); // Natures Vigil procs from glyph
       }
 
       double health_percentage = 25.0;
@@ -4094,6 +4102,7 @@ struct celestial_alignment_t : public druid_spell_t
     druid_spell_t( "celestial_alignment", player, player -> spec.celestial_alignment , options_str )
   {
     parse_options( NULL, options_str );
+    cooldown = player -> cooldown.celestial_alignment;
     harmful = false;
     dot_duration = timespan_t::zero();
   }
@@ -4961,6 +4970,7 @@ struct starfire_t : public druid_spell_t
     druid_spell_t( "starfire", player, player -> spec.starfire )
   {
     parse_options( NULL, options_str );
+    base_execute_time *= 1 + player -> sets.set( DRUID_BALANCE, T17, B2 ) -> effectN( 1 ).percent();
   }
 
   double action_multiplier() const
@@ -4979,7 +4989,7 @@ struct starfire_t : public druid_spell_t
     timespan_t casttime = druid_spell_t::execute_time();
 
     if ( p() -> buff.lunar_empowerment -> up() && p() -> talent.euphoria -> ok() )
-      casttime /= 1 + std::abs( p() -> talent.euphoria -> effectN( 2 ).percent() );
+      casttime *= 1 + p() -> talent.euphoria -> effectN( 2 ).percent();
 
     return casttime;
   }
@@ -4987,6 +4997,9 @@ struct starfire_t : public druid_spell_t
   void execute()
   {
     druid_spell_t::execute();
+
+    if ( p() -> sets.has_set_bonus( DRUID_BALANCE, T17, B4 ) )
+      p() -> cooldown.celestial_alignment -> adjust( -1 * p() -> sets.set( DRUID_BALANCE, T17, B4 ) -> effectN( 1 ).time_value() );
 
     if ( p() -> eclipse_amount < 0 && !p() -> buff.celestial_alignment -> up() )
       p() -> proc.wrong_eclipse_starfire -> occur();
@@ -5224,6 +5237,7 @@ struct wrath_t : public druid_spell_t
     druid_spell_t( "wrath", player, player -> find_class_spell( "Wrath" ) )
   {
     parse_options( NULL, options_str );
+    base_execute_time *= 1 + player -> sets.set( DRUID_BALANCE, T17, B2 ) -> effectN( 1 ).percent();
   }
 
   double action_multiplier() const
@@ -5249,7 +5263,7 @@ struct wrath_t : public druid_spell_t
     timespan_t casttime = druid_spell_t::execute_time();
 
     if ( p() -> buff.solar_empowerment -> up() && p() -> talent.euphoria -> ok() )
-      casttime /= 1 + std::abs( p() -> talent.euphoria -> effectN( 2 ).percent() );
+      casttime *= 1 + p() -> talent.euphoria -> effectN( 2 ).percent();
 
     return casttime;
   }
@@ -5265,6 +5279,9 @@ struct wrath_t : public druid_spell_t
   void execute()
   {
     druid_spell_t::execute();
+
+    if ( p() -> sets.has_set_bonus( DRUID_BALANCE, T17, B4 ) )
+      p() -> cooldown.celestial_alignment -> adjust( -1 * p() -> sets.set( DRUID_BALANCE, T17, B4 ) -> effectN( 1 ).time_value() );
 
     if ( p() -> eclipse_amount > 0 && !p() -> buff.celestial_alignment -> up() )
       p() -> proc.wrong_eclipse_wrath -> occur();
@@ -5681,6 +5698,10 @@ void druid_t::init_base_stats()
   base.mana_regen_per_second *= 1.0 + spec.mana_attunement -> effectN( 1 ).percent();
 
   base_gcd = timespan_t::from_seconds( 1.5 );
+
+  // initialize resolve for Guardians
+  if ( specialization() == DRUID_GUARDIAN )
+    resolve_manager.init();
 }
 
 // druid_t::init_buffs ======================================================
@@ -6474,9 +6495,6 @@ double druid_t::composite_player_multiplier( school_e school ) const
         m *= 1.0 + buff.chosen_of_elune -> default_value;
     }
   }
-
-  if ( ! buff.bear_form -> check() && dbc::is_school( school, SCHOOL_PHYSICAL ) )
-    m *= 1.0 + buff.savage_roar -> check() * buff.savage_roar -> default_value; // Avoid using value() to prevent skewing benefit_pct.
 
   return m;
 }

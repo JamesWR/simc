@@ -641,7 +641,7 @@ void print_html_raid_summary( report::sc_html_stream& os, sim_t* sim, const sim_
   }
   os << "</div>\n";
 
-  // Right side charts: hps
+  // Right side charts: hps+aps
   os << "<div class=\"charts\">\n";
 
   highchart::bar_chart_t raid_hps( "raid_hps", sim );

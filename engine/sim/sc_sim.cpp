@@ -930,7 +930,6 @@ sim_t::sim_t( sim_t* p, int index ) :
   ignite_sampling_delta( timespan_t::from_seconds( 0.2 ) ),
   fixed_time( false ),
   seed( 0 ), current_slot( -1 ),
-  armor_update_interval( 20 ), weapon_speed_scale_factors( 0 ),
   optimal_raid( 0 ), log( 0 ), debug_each( 0 ), save_profiles( 0 ), default_actions( 0 ),
   normalized_stat( STAT_NONE ),
   default_region_str( "us" ),
@@ -958,7 +957,6 @@ sim_t::sim_t( sim_t* p, int index ) :
   simulation_length( "Simulation Length", false ),
   report_progress( 1 ),
   bloodlust_percent( 25 ), bloodlust_time( timespan_t::from_seconds( 0.5 ) ),
-  debug_exp( 0 ),
   // Report
   report_precision( 2 ), report_pets_separately( 0 ), report_targets( 1 ), report_details( 1 ), report_raw_abilities( 1 ),
   report_rng( 0 ), hosted_html( 0 ), print_styles( 0 ),
@@ -1705,6 +1703,16 @@ struct compare_hps
   }
 };
 
+// compare_hps_plus_aps ====================================================
+
+struct compare_hps_plus_aps
+{
+  bool operator()( player_t* l, player_t* r ) const
+  {
+    return ( l -> collected_data.hps.mean() + l -> collected_data.aps.mean() ) > ( r -> collected_data.hps.mean() + r -> collected_data.aps.mean() );
+  }
+};
+
 // compare_dtps ==============================================================
 
 struct compare_dtps
@@ -1773,6 +1781,7 @@ void sim_t::analyze()
 
   range::sort( players_by_dps,  compare_dps() );
   range::sort( players_by_hps,  compare_hps() );
+  range::sort( players_by_hps_plus_aps, compare_hps_plus_aps() );
   range::sort( players_by_dtps, compare_dtps() );
   range::sort( players_by_tmi,  compare_tmi() );
   range::sort( players_by_name, compare_name() );
@@ -2314,7 +2323,6 @@ void sim_t::create_options()
     // Misc
     opt_list( "party", party_encoding ),
     opt_func( "active", parse_active ),
-    opt_int( "armor_update_internval", armor_update_interval ),
     opt_int( "seed", seed ),
     opt_float( "wheel_granularity", em.wheel_granularity ),
     opt_int( "wheel_seconds", em.wheel_seconds ),
@@ -2323,8 +2331,6 @@ void sim_t::create_options()
     opt_string( "raid_events", raid_events_str ),
     opt_append( "raid_events+", raid_events_str ),
     opt_func( "fight_style", parse_fight_style ),
-    opt_int( "debug_exp", debug_exp ),
-    opt_bool( "weapon_speed_scale_factors", weapon_speed_scale_factors ),
     opt_string( "main_target", main_target_str ),
     opt_float( "target_death_pct", target_death_pct ),
     opt_int( "target_level", target_level ),
@@ -2380,6 +2386,8 @@ void sim_t::create_options()
     opt_float( "default_enchant_haste_rating", enchant.haste_rating ),
     opt_float( "default_enchant_mastery_rating", enchant.mastery_rating ),
     opt_float( "default_enchant_crit_rating", enchant.crit_rating ),
+    opt_float( "default_enchant_multistrike_rating", enchant.multistrike_rating ),
+    opt_float( "default_enchant_versatility_rating", enchant.versatility_rating ),
     opt_float( "default_enchant_health", enchant.resource[ RESOURCE_HEALTH ] ),
     opt_float( "default_enchant_mana", enchant.resource[ RESOURCE_MANA   ] ),
     opt_float( "default_enchant_rage", enchant.resource[ RESOURCE_RAGE   ] ),

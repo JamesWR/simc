@@ -29,6 +29,7 @@
   - Non-glyphed Mana Tea
 
   BREWMASTER:
+  - Fix Tier 16 2-piece to properly lower the cooldown by 30 seconds.
   - Purifying Brew - mostly implemented
   - Level 75 talents - dampen harm added - currently stacks are consumed on all attacks, not just above 15% max hp
   - Black Ox Statue
@@ -154,6 +155,7 @@ public:
     gain_t* surging_mist;
     gain_t* tier15_2pc_melee;
     gain_t* tier16_4pc_melee;
+    gain_t* tier16_4pc_tank;
     gain_t* healing_elixirs;
   } gain;
 
@@ -706,7 +708,7 @@ public:
     double m = ab::composite_multistrike_multiplier( s );
 
     if ( p() -> buff.forceful_winds -> up() )
-      m += p() -> buff.forceful_winds -> value();
+      m *= 1 + p() -> buff.forceful_winds -> value();
 
     return m;
   }
@@ -1257,6 +1259,9 @@ struct chi_explosion_t: public monk_melee_attack_t
       if ( ( resource_consumed >= 3 ) && ( p() -> has_stagger() ) )
       {
         p() -> clear_stagger();
+
+        if (p()->sets.has_set_bonus(MONK_BREWMASTER, T17, B4))
+          trigger_brew(p()->sets.set(MONK_BREWMASTER, T17, B4)->effectN(1).base_value());
       }
     }
     else if ( p() -> specialization() == MONK_WINDWALKER )
@@ -2012,11 +2017,14 @@ struct tigereye_brew_t: public monk_spell_t
     // EEIN: Seperated teb_stacks_used from use_value so it can be used to track focus of xuen.
     double use_value = value() * teb_stacks_used;
 
-    if ( p() -> sets.has_set_bonus( MONK_WINDWALKER, T17, B4 ) )
-      p() -> buff.forceful_winds-> trigger( (int)teb_stacks_used, buff_t::DEFAULT_VALUE(), 100.0 );
-
     p() -> buff.tigereye_brew_use -> trigger( 1, use_value );
     p() -> buff.tigereye_brew -> decrement( max_stacks_consumable );
+
+    if (p()->sets.has_set_bonus(MONK_WINDWALKER, T17, B4))
+    {
+      double fw_use_value = teb_stacks_used * p() -> buff.forceful_winds -> s_data -> effectN( 1 ).percent();
+      p() -> buff.forceful_winds -> trigger( 1, fw_use_value );
+    }
   }
 };
 
@@ -2564,10 +2572,18 @@ struct purifying_brew_t: public monk_spell_t
   {
     monk_spell_t::execute();
 
+    // Tier 16 4 pieces Brewmaster: Purifying Brew also heals you for 15% of the amount of staggered damage cleared.
+    if ( p() -> sets.has_set_bonus( SET_TANK, T16, B4 ) )
+    {
+      double stagger_heal = p() -> current_stagger_dmg() * p() -> sets.set( SET_TANK, T16, B4 ) -> effectN( 1 ).percent();
+      player -> resource_gain( RESOURCE_HEALTH, stagger_heal, p() -> gain.tier16_4pc_tank, this);
+    }
+
     // Optional addition: Track and report amount of damage cleared
     p() -> active_actions.stagger_self_damage -> clear_all_damage();
 
-    if ( p() -> sets.has_set_bonus(MONK_BREWMASTER, T17, B4) )
+    // Tier 17 4 pieces Brewmaster: Purifying Brew generates 1 stacks of Elusive Brew.
+    if ( p() -> sets.has_set_bonus( MONK_BREWMASTER, T17, B4 ) )
       trigger_brew( p() -> sets.set( MONK_BREWMASTER, T17, B4 ) -> effectN( 1 ).base_value() );
   }
 
@@ -3005,7 +3021,7 @@ struct surging_mist_t: public monk_heal_t
       player -> resource_gain( RESOURCE_CHI, p() -> passives.surging_mist -> effectN( 2 ).base_value(), p() -> gain.surging_mist, this );
   }
 
-  virtual void impact(action_state_t* s)
+  virtual void impact(action_state_t* /*s*/)
   {
     //if (result_is_multistrike(s->result) && p() -> sets.has_set_bonus( MONK_MISTWEAVER, T17, B4 ) )
 
@@ -3474,6 +3490,10 @@ void monk_t::init_base_stats()
   // Mistweaver
   if ( spec.mana_meditation -> ok() )
     base.mana_regen_from_spirit_multiplier = spec.mana_meditation -> effectN( 1 ).percent();
+
+  // initialize resolve for Berwmaster
+  if ( specialization() == MONK_BREWMASTER )
+    resolve_manager.init();
 }
 
 // monk_t::init_scaling =====================================================
@@ -3583,7 +3603,7 @@ void monk_t::create_buffs()
 
   buff.storm_earth_and_fire = buff_creator_t( this, "storm_earth_and_fire", spec.storm_earth_and_fire );
 
-  buff.forceful_winds = buff_creator_t( this, "forceful_winds", find_spell( 166603 ) );
+  buff.forceful_winds = buff_creator_t( this, "forceful_winds", find_spell(166603) );
 }
 
 // monk_t::init_gains =======================================================
@@ -3611,6 +3631,8 @@ void monk_t::init_gains()
   gain.rushing_jade_wind = get_gain( "rushing_jade_wind" );
   gain.surging_mist = get_gain( "surging_mist" );
   gain.tier15_2pc_melee = get_gain( "tier15_2pc_melee" );
+  gain.tier16_4pc_melee = get_gain( "tier16_4pc_melee" );
+  gain.tier16_4pc_tank = get_gain( "tier16_4pc_tank" );
   gain.gift_of_the_ox = get_gain( "gift_of_the_ox" );
 }
 
@@ -4342,6 +4364,7 @@ void monk_t::apl_combat_brewmaster()
 
   st -> add_action( this, "Blackout Kick", "if=buff.shuffle.down");
   st -> add_action( this, "Purifying Brew", "if=!talent.chi_explosion.enabled&stagger.heavy" );
+  st -> add_action( this, "Purifying Brew", "if=!buff.serenity.up" );
   st -> add_action( this, "Guard" );
   st -> add_action( this, "Keg Smash", "if=chi.max-chi>=2&!buff.serenity.remains" );
   st -> add_talent( this, "Chi Burst", "if=talent.chi_burst.enabled&energy.time_to_max>3" );

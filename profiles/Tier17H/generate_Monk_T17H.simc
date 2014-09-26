@@ -65,7 +65,7 @@ save=Monk_Windwalker_2h_T17H.simc
 # Brewmaster 1h Chi Explosion
 monk="Monk_Brewmaster_1h_CE_T17H"
 level=100
-race=blood_elf
+race=night_elf
 spec=brewmaster
 role=tank
 position=front
@@ -80,7 +80,7 @@ wrists=bracers_of_shattered_limbs,id=119333,bonus_id=566
 hands=handwraps_of_the_somber_gaze,id=115555,bonus_id=566
 waist=belt_of_bloody_guts,id=113636,bonus_id=566
 legs=legwraps_of_the_somber_gaze,id=115557,bonus_id=566
-feet=sandals_of_mycoid_musing,id=113664,bonus_id=566
+feet=iron-flecked_sandals,id=119340,bonus_id=566
 finger1=spellbound_solium_band_of_sorcerous_invincibility,id=118303,enchant=gift_of_versatility
 finger2=stonefist_band,id=113938,bonus_id=566,enchant=gift_of_versatility
 trinket1=blast_furnace_door,id=113893,bonus_id=566
@@ -92,11 +92,11 @@ save=Monk_Brewmaster_1h_CE_T17H.simc
 # Brewmaster 1h Serenity
 monk="Monk_Brewmaster_1h_Serenity_T17H"
 level=100
-race=blood_elf
+race=night_elf
 spec=brewmaster
 role=tank
 position=front
-talents=http://us.battle.net/wow/en/tool/talent-calculator#fa!.01.112
+talents=http://us.battle.net/wow/en/tool/talent-calculator#fa!.02.112
 
 head=acidic_jaws,id=113880,bonus_id=566
 neck=fiery_links_of_courage,id=113923,bonus_id=566,enchant=gift_of_versatility
@@ -107,7 +107,7 @@ wrists=bracers_of_shattered_limbs,id=119333,bonus_id=566
 hands=handwraps_of_the_somber_gaze,id=115555,bonus_id=566
 waist=belt_of_bloody_guts,id=113636,bonus_id=566
 legs=legwraps_of_the_somber_gaze,id=115557,bonus_id=566
-feet=sandals_of_mycoid_musing,id=113664,bonus_id=566
+feet=iron-flecked_sandals,id=119340,bonus_id=566
 finger1=spellbound_solium_band_of_sorcerous_invincibility,id=118303,enchant=gift_of_versatility
 finger2=stonefist_band,id=113938,bonus_id=566,enchant=gift_of_versatility
 trinket1=blast_furnace_door,id=113893,bonus_id=566
@@ -119,7 +119,7 @@ save=Monk_Brewmaster_1h_Serenity_T17H.simc
 # Brewmaster 2h Chi Explosion
 monk="Monk_Brewmaster_2h_CE_T17H"
 level=100
-race=blood_elf
+race=night_elf
 spec=brewmaster
 role=tank
 position=front
@@ -134,7 +134,7 @@ wrists=bracers_of_shattered_limbs,id=119333,bonus_id=566
 hands=handwraps_of_the_somber_gaze,id=115555,bonus_id=566
 waist=belt_of_bloody_guts,id=113636,bonus_id=566
 legs=legwraps_of_the_somber_gaze,id=115557,bonus_id=566
-feet=sandals_of_mycoid_musing,id=113664,bonus_id=566
+feet=iron-flecked_sandals,id=119340,bonus_id=566
 finger1=spellbound_solium_band_of_sorcerous_invincibility,id=118303,enchant=gift_of_versatility
 finger2=stonefist_band,id=113938,bonus_id=566,enchant=gift_of_versatility
 trinket1=blast_furnace_door,id=113893,bonus_id=566
@@ -145,11 +145,11 @@ save=Monk_Brewmaster_2h_CE_T17H.simc
 # Brewmaster 2h Serenity
 monk="Monk_Brewmaster_2h_Serenity_T17H"
 level=100
-race=blood_elf
+race=night_elf
 spec=brewmaster
 role=tank
 position=front
-talents=http://us.battle.net/wow/en/tool/talent-calculator#fa!.01.112
+talents=http://us.battle.net/wow/en/tool/talent-calculator#fa!.02.112
 
 head=acidic_jaws,id=113880,bonus_id=566
 neck=fiery_links_of_courage,id=113923,bonus_id=566,enchant=gift_of_versatility
@@ -160,7 +160,7 @@ wrists=bracers_of_shattered_limbs,id=119333,bonus_id=566
 hands=handwraps_of_the_somber_gaze,id=115555,bonus_id=566
 waist=belt_of_bloody_guts,id=113636,bonus_id=566
 legs=legwraps_of_the_somber_gaze,id=115557,bonus_id=566
-feet=sandals_of_mycoid_musing,id=113664,bonus_id=566
+feet=iron-flecked_sandals,id=119340,bonus_id=566
 finger1=spellbound_solium_band_of_sorcerous_invincibility,id=118303,enchant=gift_of_versatility
 finger2=stonefist_band,id=113938,bonus_id=566,enchant=gift_of_versatility
 trinket1=blast_furnace_door,id=113893,bonus_id=566
