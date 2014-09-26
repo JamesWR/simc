@@ -2500,8 +2500,7 @@ highchart::bar_chart_t& chart::generate_dpet( highchart::bar_chart_t& bc , sim_t
   {
     size_t num_stats = stats_list.size();
 
-    //bc.height_ = num_stats * 30 + 30;
-    bc.height_ = 0;
+    bc.height_ = 92 + num_stats * 16;
 
     std::vector<highchart::data_entry_t> data;
     for ( size_t i = 0; i < num_stats; ++i )
@@ -2521,7 +2520,7 @@ highchart::bar_chart_t& chart::generate_dpet( highchart::bar_chart_t& bc , sim_t
       data.push_back( e );
     }
 
-    bc.add_data_series( data );
+    bc.add_data_series( "bar", "Damage per Execute Time",data );
   }
   return bc;
 }
