@@ -1,5 +1,5 @@
 
-SimulationCraft 602-1 for World of Warcraft 6.0.2 Live (build level 18927)
+SimulationCraft 602-1 for World of Warcraft 6.0.2 Live (build level 18935)
 Name             : Eye of Kilrogg (Summon) (id=126) [Spell Family (5)] 
 Class            : Warlock
 Resource         : 4% Base Mana (6400 @Level 100)
@@ -981,6 +981,7 @@ Spell Level      : 10
 Range            : 40 yards
 GCD              : 1.5 seconds
 Duration         : 5 seconds
+Charges          : 2 (12 seconds cooldown)
 Affecting spells : Glyph of Conflagrate (56235), Item - Warlock T8 2P Bonus (64931), Mastery: Emberstorm (77220), Havoc (80240), Metamorphosis (103958), Fire and Brimstone (108683), Chaotic Energy (111546), Kil'jaeden's Cunning (137587), Charred Remains (157696), 
 Attributes       : ........ ........ x....... ........   ........ ........ .x...... ........ 
                  : ........ ........ ........ ........   ........ ........ ........ ........ 
@@ -3436,6 +3437,7 @@ Spell Level      : 19
 Range            : 40 yards
 GCD              : 1.5 seconds
 Velocity         : 1.3 yards/sec
+Charges          : 2 (15 seconds cooldown)
 Affecting spells : Glyph of Hand of Gul'dan (56248), Metamorphosis (103958), Kil'jaeden's Cunning (137587)
 Attributes       : ........ ........ x....... ........   ........ ........ ........ ........ 
                  : ........ ........ ........ ........   ........ ........ ..x..... ........ 
@@ -3848,6 +3850,7 @@ Spell Level      : 10
 Range            : 40 yards
 GCD              : 1.5 seconds
 Duration         : 5 seconds
+Charges          : 2 (12 seconds cooldown)
 Affecting spells : Glyph of Conflagrate (56235), Glyph of Hand of Gul'dan (56248), Item - Warlock T8 2P Bonus (64931), Mastery: Emberstorm (77220), Metamorphosis (103958), Fire and Brimstone (108683), Chaotic Energy (111546), Kil'jaeden's Cunning (137587), Charred Remains (157696), 
 Attributes       : ........ ........ x....... ........   ........ ........ .x...... ........ 
                  : ........ ........ ........ ........   ........ ........ ........ ........ 
@@ -4459,6 +4462,7 @@ Resource         : 5% Base Mana (8000 @Level 100)
 Spell Level      : 84
 Duration         : 20 seconds
 Cooldown         : 120 seconds
+Charges          : 0 (120 seconds cooldown)
 Affecting spells : Glyph of Dark Soul (56228), Metamorphosis (103958), Archimonde's Darkness (108505), Chaotic Energy (111546), Kil'jaeden's Cunning (137587), Glyph of Dark Soul (159665), 
 Attributes       : ........ ........ x.x..... ........   ........ ..x..... ........ ........ 
                  : ........ ........ ...x.... ........   ........ ........ ........ ........ 
@@ -4482,6 +4486,7 @@ Resource         : 5% Base Mana (8000 @Level 100)
 Spell Level      : 84
 Duration         : 20 seconds
 Cooldown         : 120 seconds
+Charges          : 0 (120 seconds cooldown)
 Affecting spells : Glyph of Dark Soul (56228), Metamorphosis (103958), Archimonde's Darkness (108505), Chaotic Energy (111546), Kil'jaeden's Cunning (137587), Glyph of Dark Soul (159665), 
 Attributes       : ........ ........ x.x..... ........   ........ ..x..... ........ ........ 
                  : ........ ........ ...x.... ........   ........ ........ ........ ........ 
@@ -4505,6 +4510,7 @@ Resource         : 5% Base Mana (8000 @Level 100)
 Spell Level      : 84
 Duration         : 20 seconds
 Cooldown         : 120 seconds
+Charges          : 0 (120 seconds cooldown)
 Affecting spells : Glyph of Dark Soul (56228), Metamorphosis (103958), Archimonde's Darkness (108505), Chaotic Energy (111546), Kil'jaeden's Cunning (137587), Glyph of Dark Soul (159665), 
 Attributes       : ........ ........ x.x..... ........   ........ ........ ........ ........ 
                  : ..x..... ........ ...x.... ........   ........ ........ ........ ........ 
@@ -5423,6 +5429,7 @@ Spell Level      : 62
 Range            : 40 yards
 GCD              : 1.5 seconds
 Velocity         : 24 yards/sec
+Charges          : 2 (15 seconds cooldown)
 Affecting spells : Glyph of Hand of Gul'dan (56248), Metamorphosis (103958), Kil'jaeden's Cunning (137587), Dark Soul (138483)
 Attributes       : ........ ........ x....... ........   ........ ........ ........ ........ 
                  : ........ ........ ........ ........   ........ ........ ..x..... ........ 
@@ -6942,4 +6949,32 @@ Effects          :
 #1 (id=251184)   : Dummy (3)
                    Base Value: 0 | Scaled Value: 0
 Description      : Choose a level 30 talent.
+
+Name             : Player Damage Reduction Level 95 (id=178839) [Passive, Hidden] 
+Class            : Death Knight, Shaman, Mage, Warlock, Monk
+Spell Level      : 95
+Attributes       : ......xx ........ ........ ........   ........ ........ ........ ........ 
+                 : ........ ........ ........ ........   ........ ........ ........ ....x... 
+                 : ........ ........ ....x... ........   ........ ........ ........ ........ 
+                 : ........ ........ ........ ........   ........ ........ ........ ........ 
+                 : ........ ........ ........ ........   ........ ........ ........ ........ 
+                 : ........ ........ ........ ........   ........ ........ ........ ........ 
+Effects          :
+#1 (id=256906)   : Apply Aura (6) | Unknown effect sub type (309)
+                   Base Value: 0 | Scaled Value: 0 | Misc Value: 2
+Description      : Reduces all damage taken from players or their pets by ${$m1/-100}%.
+
+Name             : Player Damage Reduction Level 100 (id=178840) [Passive, Hidden] 
+Class            : Death Knight, Shaman, Mage, Warlock, Monk
+Spell Level      : 100
+Attributes       : ......xx ........ ........ ........   ........ ........ ........ ........ 
+                 : ........ ........ ........ ........   ........ ........ ........ ....x... 
+                 : ........ ........ ....x... ........   ........ ........ ........ ........ 
+                 : ........ ........ ........ ........   ........ ........ ........ ........ 
+                 : ........ ........ ........ ........   ........ ........ ........ ........ 
+                 : ........ ........ ........ ........   ........ ........ ........ ........ 
+Effects          :
+#1 (id=256907)   : Apply Aura (6) | Unknown effect sub type (309)
+                   Base Value: 0 | Scaled Value: 0 | Misc Value: 2
+Description      : Reduces all damage taken from players or their pets by ${$m1/-100}%.
 

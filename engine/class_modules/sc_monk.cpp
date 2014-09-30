@@ -373,7 +373,6 @@ public:
   virtual double    composite_attribute_multiplier( attribute_e attr ) const override;
   virtual double    composite_player_multiplier( school_e school ) const;
   virtual double    composite_player_heal_multiplier( const action_state_t* s ) const;
-  virtual double    composite_player_absorb_multiplier( const action_state_t* s ) const;
   virtual double    composite_melee_expertise( weapon_t* weapon ) const;
   virtual double    composite_melee_attack_power() const;
   virtual double    composite_parry() const;
@@ -2064,8 +2063,8 @@ struct chi_brew_t: public monk_spell_t
     parse_options( nullptr, options_str );
 
     harmful = false;
-    cooldown -> duration = timespan_t::from_seconds( 60.0 ); // Hardcoded in Cooldown
-    cooldown -> charges = 2;
+    cooldown -> duration = data().charge_cooldown();
+    cooldown -> charges = data().charges();
     trigger_gcd = timespan_t::zero();
   }
 
@@ -3567,6 +3566,7 @@ void monk_t::create_buffs()
     .cd( timespan_t::zero() );
 
   buff.guard = absorb_buff_creator_t( this, "guard", spec.guard )
+    .add_invalidate( CACHE_PLAYER_HEAL_MULTIPLIER )
     .source( get_stats( "guard" ) )
     .cd( timespan_t::zero() );
 
@@ -3814,24 +3814,7 @@ double monk_t::composite_player_heal_multiplier( const action_state_t* s ) const
 
   if ( buff.guard -> up() )
     m *= 1.0 + spec.guard -> effectN( 2 ).percent();
-
-  // Resolve applies a blanket -60% healing for tanks
-  if ( spec.resolve -> ok() )
-    m *= 1.0 + spec.resolve -> effectN( 2 ).percent();
-
-  return m;
-}
-
-// monk_t::composite_player_absorb_multiplier ==================================
-
-double monk_t::composite_player_absorb_multiplier( const action_state_t* s ) const
-{
-  double m = base_t::composite_player_absorb_multiplier( s );
-
-  // Resolve applies a blanket -60% healing & absorb for tanks
-  if ( spec.resolve -> ok() )
-    m *= 1.0 + spec.resolve -> effectN( 3 ).percent();
-
+  
   return m;
 }
 

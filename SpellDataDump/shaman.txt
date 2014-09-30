@@ -1,5 +1,5 @@
 
-SimulationCraft 602-1 for World of Warcraft 6.0.2 Live (build level 18927)
+SimulationCraft 602-1 for World of Warcraft 6.0.2 Live (build level 18935)
 Name             : Block (Passive) (id=107) [Passive] 
 Class            : Warrior, Paladin, Shaman
 Spell Level      : 1
@@ -66,12 +66,12 @@ Name             : Earth Shield (id=379) [Spell Family (11)]
 Class            : Shaman
 Range            : 300 yards
 Affecting spells : Mastery: Deep Healing (77226)
-Attributes       : ........ ........ ..x..... ........   ........ ..x..... ........ ........ 
-                 : ..x..... ........ ........ ........   ........ ........ ........ ........ 
-                 : ........ .......x ........ ........   ........ ........ ........ ........ 
-                 : ........ ........ ........ ........   ........ ........ ........ ........ 
-                 : ........ ........ ........ ........   ........ ........ ........ ........ 
-                 : ........ ........ ........ ........   ........ ........ ........ ........ 
+Attributes       : ........ ........ ..x..... x..x....   .....x.. ..x..... ........ ........ 
+                 : ..x..... ......x. ........ ........   ........ ........ ........ ........ 
+                 : ........ .......x ........ ........   ...x.... ........ .xx..... ........ 
+                 : ........ ....x... ........ ........   ........ ........ ........ ........ 
+                 : .....x.. ........ ........ ........   ........ ...x.... ........ ........ 
+                 : ........ ........ ......x. ........   ........ ........ ........ ..x..... 
 Effects          :
 #1 (id=150)      : Direct Heal (10)
                    Base Value: 0 | Scaled Value: 0 | SP Coefficient: 0.63000
@@ -510,7 +510,7 @@ Attributes       : ........ ........ x....... ........   ........ ........ .....
 Effects          :
 #1 (id=3235)     : Direct Heal (10)
                    Base Value: 0 | Scaled Value: 0 | SP Coefficient: 4.12500
-Description      : Heals a friendly target for $s1.$?s62099[  Healing increased by 100% when cast on self][]
+Description      : Heals a friendly target for $s1.
 
 Name             : Earth Shock (id=8042) [Spell Family (11)] 
 Class            : Elemental Shaman
@@ -698,7 +698,7 @@ Attributes       : ........ .x...... x.x..... ........   ........ ........ .x...
                  : ........ ........ ........ ........   ........ ........ ........ ........ 
 Effects          :
 #1 (id=3379)     : Unknown effect type (54)
-                   Base Value: 1800 | Scaled Value: 1800 | Misc Value: 283
+                   Base Value: 1800 | Scaled Value: 1800
 #2 (id=3380)     : Dummy (3)
                    Base Value: 46 | Scaled Value: 1305 (avg=5)
 Description      : Imbue the Shaman's weapon with wind.  Each hit has a $33757h% chance of triggering three extra attacks dealing $25504sw2 Physical damage. Lasts 60 minutes.$?s73680[
@@ -1649,7 +1649,7 @@ Effects          :
                    Base Value: -20 | Scaled Value: -20 | Misc Value: 14
                    Affected Spells: Lightning Bolt (403), Chain Lightning (421), Healing Surge (8004), Healing Rain (73920), Conductivity (108282), Elemental Blast (117014)
 #3 (id=90327)    : Apply Aura (6) | Add Percent Modifier: Generic Modifier (108)
-                   Base Value: 20 | Scaled Value: 20
+                   Base Value: 10 | Scaled Value: 10
                    Affected Spells: Chain Heal (1064), Healing Surge (8004)
 #4 (id=139281)   : Apply Aura (6) | Unknown effect sub type (272)
                    Base Value: 0 | Scaled Value: 0
@@ -2806,6 +2806,8 @@ Attributes       : ......xx ........ ........ ........   ........ ........ .....
 Effects          :
 #1 (id=57399)    : Apply Aura (6) | Unknown effect sub type (403)
                    Base Value: 0 | Scaled Value: 0 | Misc Value: 1064 | Misc Value 2: 0x1eda3
+#2 (id=256832)   : Apply Aura (6) | Unknown effect sub type (403)
+                   Base Value: 0 | Scaled Value: 0 | Misc Value: 177972 | Misc Value 2: 0x1eda3
 Description      : Your Chain Heal now has a watery appearance.
 
 Name             : Glyph of Shamanistic Rage (Elemental, Enhancement) (id=63280) [Spell Family (11), Passive, Hidden] 
@@ -3222,6 +3224,7 @@ Resource         : 16.4% Base Mana (5247 @Level 100)
 Spell Level      : 18
 Range            : 40 yards
 GCD              : 1.5 seconds
+Charges          : 1 (8 seconds cooldown)
 Affecting spells : Lucidity (137326), Echo of the Elements (159105), 
 Attributes       : ........ ........ x....... ........   ........ ........ ........ ........ 
                  : ........ ........ ........ ........   ........ ........ ........ ........ 
@@ -6619,4 +6622,32 @@ Effects          :
 #1 (id=254397)   : School Damage: fire (2)
                    Base Value: 1 | Scaled Value: 1 | SP Coefficient: 0.19000 | Radius: 0 - 4 yards
 Description      : $@spelldesc152255
+
+Name             : Player Damage Reduction Level 95 (id=178839) [Passive, Hidden] 
+Class            : Death Knight, Shaman, Mage, Warlock, Monk
+Spell Level      : 95
+Attributes       : ......xx ........ ........ ........   ........ ........ ........ ........ 
+                 : ........ ........ ........ ........   ........ ........ ........ ....x... 
+                 : ........ ........ ....x... ........   ........ ........ ........ ........ 
+                 : ........ ........ ........ ........   ........ ........ ........ ........ 
+                 : ........ ........ ........ ........   ........ ........ ........ ........ 
+                 : ........ ........ ........ ........   ........ ........ ........ ........ 
+Effects          :
+#1 (id=256906)   : Apply Aura (6) | Unknown effect sub type (309)
+                   Base Value: 0 | Scaled Value: 0 | Misc Value: 2
+Description      : Reduces all damage taken from players or their pets by ${$m1/-100}%.
+
+Name             : Player Damage Reduction Level 100 (id=178840) [Passive, Hidden] 
+Class            : Death Knight, Shaman, Mage, Warlock, Monk
+Spell Level      : 100
+Attributes       : ......xx ........ ........ ........   ........ ........ ........ ........ 
+                 : ........ ........ ........ ........   ........ ........ ........ ....x... 
+                 : ........ ........ ....x... ........   ........ ........ ........ ........ 
+                 : ........ ........ ........ ........   ........ ........ ........ ........ 
+                 : ........ ........ ........ ........   ........ ........ ........ ........ 
+                 : ........ ........ ........ ........   ........ ........ ........ ........ 
+Effects          :
+#1 (id=256907)   : Apply Aura (6) | Unknown effect sub type (309)
+                   Base Value: 0 | Scaled Value: 0 | Misc Value: 2
+Description      : Reduces all damage taken from players or their pets by ${$m1/-100}%.
 

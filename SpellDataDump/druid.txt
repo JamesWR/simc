@@ -1,5 +1,5 @@
 
-SimulationCraft 602-1 for World of Warcraft 6.0.2 Live (build level 18927)
+SimulationCraft 602-1 for World of Warcraft 6.0.2 Live (build level 18935)
 Name             : Incapacitating Roar (id=99) [Spell Family (7)] 
 Class            : Druid
 Spell Level      : 1
@@ -70,7 +70,7 @@ Tooltip          : Healing all party and raid members within $a1 yards for $1579
 
 Name             : Cat Form (Shapeshift) (id=768) [Spell Family (7)] 
 Class            : Druid
-Resource         : 3.7% Base Mana (1184 @Level 100)
+Resource         : 7.4% Base Mana (2368 @Level 100)
 Spell Level      : 6
 GCD              : 1.5 seconds
 Duration         : Aura (infinite)
@@ -153,7 +153,7 @@ $bloom=${$<gift>*$<genesis3>*$<mstrshape>*$<gotem3>*$<tol>}
 
 Name             : Travel Form (Shapeshift) (id=783) [Spell Family (7)] 
 Class            : Druid
-Resource         : 5.6% Base Mana (1791 @Level 100)
+Resource         : 7.4% Base Mana (2368 @Level 100)
 Spell Level      : 16
 GCD              : 1.5 seconds
 Duration         : Aura (infinite)
@@ -597,7 +597,7 @@ Description      : Increases swimming speed by $s1% and allow's the druid to bre
 
 Name             : Bear Form (Shapeshift) (id=5487) [Spell Family (7)] 
 Class            : Druid
-Resource         : 3.7% Base Mana (1184 @Level 100)
+Resource         : 7.4% Base Mana (2368 @Level 100)
 Spell Level      : 8
 GCD              : 1.5 seconds
 Duration         : Aura (infinite)
@@ -1167,7 +1167,7 @@ Attributes       : ....x... ........ ..x..... ........   ........ .x...... ....x
                  : ........ ........ ........ ........   ........ ........ ........ ........ 
 Effects          :
 #1 (id=12790)    : School Damage: physical (2)
-                   Base Value: 1 | Scaled Value: 1 | SP Coefficient: 1.00000 | AP Coefficient: 5.00000 | Chain Multiplier: 0.7
+                   Base Value: 1 | Scaled Value: 1 | SP Coefficient: 1.00000 | AP Coefficient: 4.25000 | Chain Multiplier: 0.7
 #2 (id=12791)    : None (0)
                    Base Value: 25 | Scaled Value: 25
 Description      : Finishing move that causes damage per combo point$?s67598[, consumes up to 25 additional Energy to increase damage by up to 100%, and heals you for $67598m1% of your total maximum health for each $67598m2 Energy used.][ and consumes up to 25 additional Energy to increase damage by up to 100%.]$?s1079[
@@ -1480,6 +1480,7 @@ Class            : Druid
 Spell Level      : 1
 Range            : 40 yards
 Duration         : 15 seconds
+Charges          : 3 (20 seconds cooldown)
 Attributes       : ........ ........ ........ ........   ........ ........ ........ ....x... 
                  : ........ ........ ........ ........   ........ ........ .x...... ........ 
                  : ........ ........ ........ ........   ........ ........ ........ ........ 
@@ -1790,6 +1791,7 @@ Spell Level      : 76
 GCD              : 1.5 seconds
 Duration         : 10 seconds
 Cooldown         : 10 seconds
+Charges          : 3 (30 seconds cooldown)
 Affecting spells : Hurricane (16914), Astral Storm (106996), Item - Druid T14 Balance 2P Bonus (123082), Lucidity (137247)
 Attributes       : ........ ........ x....... ........   ........ ..x..... ........ ........ 
                  : ........ ........ ...x.... ........   ........ ........ ........ ........ 
@@ -2400,6 +2402,7 @@ Class            : Feral Guardian Druid
 Spell Level      : 56
 Duration         : 6 seconds
 Cooldown         : 12 seconds
+Charges          : 2 (180 seconds cooldown)
 Affecting spells : Item - Druid T8 Feral 4P Bonus (64754), Item - Druid T11 Feral 4P Bonus (90165), Glyph of Survival Instincts (114223), 
 Attributes       : ....x... ........ ........ ........   ........ ..x..... ........ ........ 
                  : ........ ........ ........ ........   ........ ........ ........ ........ 
@@ -2495,6 +2498,7 @@ Class            : Guardian Druid
 Resource         : 60 Rage
 Spell Level      : 10
 Cooldown         : 1.5 seconds
+Charges          : 2 (12 seconds cooldown)
 Affecting spells : Bear Form (5487), Item - Druid T13 Feral 2P Bonus (Savage Defense and Blood In The Water) (105725), Item - Druid T14 Guardian 4P Bonus (123087), Guardian of Elune (155578), 
 Attributes       : ........ ........ ..x..... ........   ........ ..x..... ........ ........ 
                  : ........ ........ ........ ........   ........ ........ ........ ........ 
@@ -2711,7 +2715,7 @@ Effects          :
                    Base Value: -100 | Scaled Value: -100 | Misc Value: 10
                    Affected Spells: Entangling Roots (339), Healing Touch (5185), Rebirth (20484), Entangling Roots (113770)
 #4 (id=232446)   : Apply Aura (6) | Add Percent Modifier: Generic Modifier (108)
-                   Base Value: 50 | Scaled Value: 50
+                   Base Value: 20 | Scaled Value: 20
                    Affected Spells: Healing Touch (5185)
 Description      : $@spelldesc16974
 Tooltip          : Your next Entangling Roots, Healing Touch, or Rebirth will be instant, free, and castable in all forms, and heal for $s4% more.
@@ -2800,6 +2804,7 @@ Range            : 40 yards
 Cast Time        : 2 seconds
 GCD              : 1.5 seconds
 Velocity         : 20 yards/sec
+Charges          : 3 (30 seconds cooldown)
 Affecting spells : Item - Druid T11 Balance 4P Bonus (90163), Item - Druid T13 Balance 4P Bonus (Starsurge) (105717), Item - Druid T13 Balance 2P Bonus (Insect Swarm) (105722), Lucidity (137247), Item - Druid T15 Balance 2P Bonus (138348), Item - Druid T16 Balance 2P Bonus (144767), Empowered Moonkin (157228), Enhanced Starsurge (157232)
 Attributes       : ........ ........ x....... ........   ........ ........ ........ ........ 
                  : ........ ........ ...x.... ........   ........ ........ ........ ........ 
@@ -3078,6 +3083,7 @@ Resource         : 15.8% Base Mana (5056 @Level 100)
 Spell Level      : 22
 Range            : 40 yards
 GCD              : 1.5 seconds
+Charges          : 1 (8 seconds cooldown)
 Affecting spells : Lucidity (137247)
 Attributes       : ....x... ........ ........ ........   ........ ........ ........ ........ 
                  : ........ ........ ........ ........   ........ ........ ........ ........ 
@@ -3636,6 +3642,7 @@ Class            : Druid
 Spell Level      : 1
 Range            : 40 yards
 Duration         : 15 seconds
+Charges          : 3 (20 seconds cooldown)
 Attributes       : ........ ........ ........ ........   ........ ........ ........ ....x... 
                  : ........ ........ ........ ........   ........ ........ .x...... ........ 
                  : ........ ........ ........ ........   ........ ........ ........ ........ 
@@ -3654,6 +3661,7 @@ Class            : Druid
 Spell Level      : 1
 Range            : 40 yards
 Duration         : 15 seconds
+Charges          : 3 (20 seconds cooldown)
 Attributes       : ........ ........ ........ ........   ........ ........ ........ ....x... 
                  : ........ ........ ........ ........   ........ ........ .x...... ........ 
                  : ........ ........ ........ ........   ........ ........ ........ ........ 
@@ -3672,6 +3680,7 @@ Class            : Druid
 Spell Level      : 1
 Range            : 40 yards
 Duration         : 15 seconds
+Charges          : 3 (20 seconds cooldown)
 Attributes       : ........ ........ ........ ........   ........ ........ ........ ....x... 
                  : ........ ........ ........ ........   ........ ........ .x...... ........ 
                  : ........ ........ ........ ........   ........ ........ ........ ........ 
@@ -3943,7 +3952,7 @@ Tooltip          : Bleeding for $w2 damage every $t2 sec.
 
 Name             : Thrash (id=106832) [Spell Family (7)] 
 Class            : Druid
-Spell Level      : 28
+Spell Level      : 14
 Range            : 5 yards
 Attributes       : ........ x....... ..x..... ........   ........ ........ ........ ........ 
                  : ........ ........ ........ ........   ........ ........ ........ ........ 
@@ -4806,7 +4815,7 @@ Effects          :
                    Base Value: 30 | Scaled Value: 30
 #4 (id=215347)   : Apply Aura (6) | Dummy (4)
                    Base Value: 40 | Scaled Value: 40
-Description      : While active, all single-target healing spells also damage a nearby enemy target for $s3% of the healing done, and all single-target healing and damage spells and abilities also heal a nearby friendly target based on the amount done, $s3% for heals, $s4% for damage spells.
+Description      : While active, $?s85101[all single-target healing spells also damage a nearby enemy target for $s3% of the healing done, and ][]all single-target healing and damage spells and abilities also heal a nearby friendly target based on the amount done, $s3% for heals, $s4% for damage spells.
 Tooltip          : Single-target damage and healing done also heals a nearby target and single-target healing done also damages a nearby target.
 
 Name             : Nature's Vigil (id=124988) [Spell Family (7)] 
@@ -5986,6 +5995,7 @@ Spell Level      : 76
 GCD              : 1.5 seconds
 Duration         : 10 seconds
 Cooldown         : 10 seconds
+Charges          : 3 (30 seconds cooldown)
 Affecting spells : Hurricane (16914), Astral Storm (106996), Item - Druid T14 Balance 2P Bonus (123082), Lucidity (137247)
 Attributes       : ........ ........ x....... ........   ........ ..x..... ........ ........ 
                  : ........ ........ ...x.... ........   ........ ........ ........ ........ 
@@ -7633,7 +7643,7 @@ Tooltip          : Increases the damage of your next Sunfire by $s1%.
 
 Name             : Claws of Shirvallah (Shapeshift) (id=171745) [Spell Family (7)] 
 Class            : Druid
-Resource         : 3.7% Base Mana (1184 @Level 100)
+Resource         : 7.4% Base Mana (2368 @Level 100)
 Spell Level      : 6
 GCD              : 1.5 seconds
 Duration         : Aura (infinite)

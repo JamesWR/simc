@@ -4,7 +4,7 @@ race=night_elf
 role=attack
 position=back
 talents=http://us.battle.net/wow/en/tool/talent-calculator#UZ!.0.1.21
-glyphs=savage_roar/master_shapeshifter/cat_form
+glyphs=savage_roar/ferocious_bite/cat_form
 spec=feral
 
 # This default action priority list is automatically created based on your character.
@@ -48,10 +48,12 @@ actions+=/savage_roar,if=buff.savage_roar.remains<3
 actions+=/potion,name=draenic_agility,sync=berserk,if=target.health.pct<25
 actions+=/thrash_cat,if=buff.omen_of_clarity.react&remains<=duration*0.3&active_enemies>1
 actions+=/ferocious_bite,cycle_targets=1,if=combo_points=5&target.health.pct<25&dot.rip.ticking
-actions+=/rip,cycle_targets=1,if=combo_points=5&remains<=duration*0.3
+actions+=/rip,cycle_targets=1,if=combo_points=5&remains<=3
+actions+=/rip,cycle_targets=1,if=combo_points=5&remains<=duration*0.3&persistent_multiplier>dot.rip.pmultiplier
 actions+=/savage_roar,if=combo_points=5&(energy.time_to_max<=1|buff.berserk.up|cooldown.tigers_fury.remains<3)&buff.savage_roar.remains<42*0.3
 actions+=/ferocious_bite,if=combo_points=5&(energy.time_to_max<=1|buff.berserk.up|cooldown.tigers_fury.remains<3)
-actions+=/rake,cycle_targets=1,if=remains<=duration*0.3&combo_points<5
+actions+=/rake,cycle_targets=1,if=remains<=3&combo_points<5
+actions+=/rake,cycle_targets=1,if=remains<=duration*0.3&combo_points<5&persistent_multiplier>dot.rake.pmultiplier
 actions+=/pool_resource,for_next=1
 actions+=/thrash_cat,if=remains<=duration*0.3&active_enemies>1
 actions+=/moonfire,cycle_targets=1,if=remains<=duration*0.3&active_enemies<=10
@@ -61,9 +63,9 @@ actions+=/shred,if=combo_points<5&active_enemies<3
 actions+=/natures_vigil
 # Take advantage of Glyph of Cat Form
 actions+=/rejuvenation,target_self=1,if=!ticking&(buff.natures_vigil.up|cooldown.natures_vigil.remains<15)
-actions+=/rejuvenation,cycle_targets=1,if=!ticking&(buff.natures_vigil.up|cooldown.natures_vigil.remains<15)
-actions+=/rejuvenation,cycle_targets=1,if=!ticking&(buff.natures_vigil.up|cooldown.natures_vigil.remains<15)
-actions+=/rejuvenation,cycle_targets=1,if=buff.natures_vigil.up
+actions+=/rejuvenation,cycle_players=1,if=!ticking&(buff.natures_vigil.up|cooldown.natures_vigil.remains<15)
+actions+=/rejuvenation,cycle_players=1,if=!ticking&(buff.natures_vigil.up|cooldown.natures_vigil.remains<15)
+actions+=/rejuvenation,cycle_players=1,if=buff.natures_vigil.up
 
 head=acidic_jaws,id=113880
 neck=darklight_necklace,id=113865,enchant=gift_of_critical_strike

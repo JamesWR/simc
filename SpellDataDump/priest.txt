@@ -1,5 +1,5 @@
 
-SimulationCraft 602-1 for World of Warcraft 6.0.2 Live (build level 18927)
+SimulationCraft 602-1 for World of Warcraft 6.0.2 Live (build level 18935)
 Name             : Power Word: Shield (id=17) [Spell Family (6)] 
 Class            : Priest
 Resource         : 2.4% Base Mana (3840 @Level 100)
@@ -55,6 +55,7 @@ Resource         : 2.6% Base Mana (4160 @Level 100)
 Spell Level      : 22
 Range            : 40 yards
 GCD              : 1.5 seconds
+Charges          : 1 (8 seconds cooldown)
 Affecting spells : Lucidity (137323)
 Attributes       : ........ ........ x.x..... ........   ........ ........ ........ ........ 
                  : ........ ........ ...x.... ........   ........ ........ ........ ........ 
@@ -4028,6 +4029,7 @@ Class            : Priest
 Spell Level      : 30
 Range            : 40 yards
 GCD              : 1.5 seconds
+Charges          : 3 (10 seconds cooldown)
 Attributes       : ........ ........ x....... ........   ........ ........ ........ ........ 
                  : ........ ........ ...x.... ........   ........ ........ ........ ........ 
                  : ........ ........ ........ ........   ........ ........ ........ ........ 
@@ -5910,7 +5912,7 @@ Attributes       : ......xx ........ ........ ........   ........ ........ .....
                  : ........ ........ ........ ........   ........ ........ x....... ........ 
 Effects          :
 #1 (id=233816)   : Apply Aura (6) | Add Flat Modifier (107)
-                   Base Value: 2 | Scaled Value: 2 | Misc Value: 37
+                   Base Value: 4 | Scaled Value: 4 | Misc Value: 37
                    Affected Spells: Prayer of Mending (41635)
 Description      : Prayer of Mending jumps to $s1 additional targets.
 
@@ -5978,7 +5980,7 @@ Tooltip          : Haste increased by $s1%.
 
 Name             : Item - Priest T17 Holy 4P Bonus (id=167684) [Spell Family (6), Passive, Hidden] 
 Class            : Priest
-Proc Chance      : 40%
+Proc Chance      : 20%
 Proc Flags       : ........ ......x. ........ ........ 
                  : Heal
 Attributes       : ......xx ........ ........ ........   ........ ........ ........ ........ 
@@ -6010,7 +6012,7 @@ Description      : When you activate Archangel, the mana cost of Prayer of Heali
 
 Name             : Clear Thoughts (id=167695) [Spell Family (6)] 
 Class            : Priest
-Duration         : 8 seconds
+Duration         : 6 seconds
 Attributes       : ........ ........ ........ ........   ........ ........ ........ ........ 
                  : ........ ........ ........ ........   ........ ........ ........ ........ 
                  : ........ ........ x....... ........   ........ ........ ........ ........ 

@@ -1053,26 +1053,15 @@ bool player_t::init_items()
     item_stats += item.stats;
   }
 
-
-  switch ( type )
-  {
-    case MAGE:
-    case PRIEST:
-    case WARLOCK:
-      matching_gear = true;
-      break;
-    default:
-      matching_gear = true;
-      for ( slot_e i = SLOT_MIN; i < SLOT_MAX; i++ )
+    matching_gear = true;
+    for ( slot_e i = SLOT_MIN; i < SLOT_MAX; i++ )
+    {
+      if ( !slots[i] )
       {
-        if ( ! slots[ i ] )
-        {
-          matching_gear = false;
-          break;
-        }
+        matching_gear = false;
+        break;
       }
-      break;
-  }
+    }
 
   init_meta_gem( item_stats );
 
@@ -1171,7 +1160,7 @@ void player_t::init_race()
   else
   {
     race = util::parse_race_type( race_str );
-    if ( race == RACE_NONE )
+    if ( race == RACE_UNKNOWN )
     {
       sim -> errorf( "%s has unknown race string specified", name() );
       race_str = util::race_type_string( race );
@@ -1716,6 +1705,8 @@ void player_t::init_spells()
   racials.brawn                   = find_racial_spell( "Brawn" );
   racials.endurance               = find_racial_spell( "Endurance" );
   racials.viciousness             = find_racial_spell( "Viciousness" );
+
+  resolve_manager.resolve = find_specialization_spell( "Resolve" );
 
   if ( ! is_enemy() )
   {
@@ -10007,9 +9998,9 @@ manager_t::manager_t( player_t& p ) :
     _init( false ),
     _started( false ),
     _diminishing_return_list( new diminishing_returns_list_t() ),
-    _damage_list( new damage_event_list_t() )
+    _damage_list( new damage_event_list_t() ),
+    resolve( spell_data_t::not_found() )
 {
-
 }
 
 /* Initialize Resolve

@@ -20,8 +20,8 @@ actions.precombat=flask,type=greater_draenic_strength_flask
 actions.precombat+=/food,type=sleeper_surprise
 actions.precombat+=/blessing_of_kings,if=!aura.str_agi_int.up
 actions.precombat+=/blessing_of_might,if=!aura.mastery.up
-actions.precombat+=/seal_of_truth,if=active_enemies<6
-actions.precombat+=/seal_of_righteousness,if=active_enemies>=6
+actions.precombat+=/seal_of_truth,if=active_enemies<5
+actions.precombat+=/seal_of_righteousness,if=active_enemies>=5
 # Snapshot raid buffed stats before combat begins and pre-potting is done.
 actions.precombat+=/snapshot_stats
 actions.precombat+=/potion,name=draenic_strength
@@ -34,7 +34,6 @@ actions+=/auto_attack
 actions+=/speed_of_light,if=movement.remains>1
 actions+=/execution_sentence
 actions+=/lights_hammer
-actions+=/judgment,if=buff.maraads_truth.down&talent.empowered_seals.enabled
 actions+=/holy_avenger,sync=seraphim,if=talent.seraphim.enabled
 actions+=/holy_avenger,if=holy_power<=2&!talent.seraphim.enabled
 actions+=/avenging_wrath,sync=seraphim,if=talent.seraphim.enabled
@@ -45,24 +44,25 @@ actions+=/arcane_torrent
 actions+=/seraphim
 actions+=/judgment,if=talent.empowered_seals.enabled&buff.maraads_truth.down
 actions+=/call_action_list,name=single,if=active_enemies<=2
-actions+=/call_action_list,name=cleave,if=active_enemies>=3
+actions+=/call_action_list,name=cleave,if=active_enemies<=4
 actions+=/call_action_list,name=aoe,if=active_enemies>=5
 
-actions.single=divine_storm,if=buff.divine_crusader.react&holy_power=5&talent.final_verdict.enabled&buff.final_verdict.up
-actions.single+=/templars_verdict,if=holy_power=5|buff.holy_avenger.up&holy_power>=3&(!talent.seraphim.enabled|cooldown.seraphim.remains>3)
+actions.single=divine_storm,if=buff.divine_crusader.react&holy_power>=5&talent.final_verdict.enabled&buff.final_verdict.up
+actions.single+=/templars_verdict,if=holy_power>=5|buff.holy_avenger.up&holy_power>=3&(!talent.seraphim.enabled|cooldown.seraphim.remains>3)
 actions.single+=/templars_verdict,if=buff.divine_purpose.react&buff.divine_purpose.remains<4
-actions.single+=/final_verdict,if=holy_power=5|buff.holy_avenger.up&holy_power>=3
+actions.single+=/final_verdict,if=holy_power>=5|buff.holy_avenger.up&holy_power>=3
 actions.single+=/final_verdict,if=buff.divine_purpose.react&buff.divine_purpose.remains<4
 actions.single+=/divine_storm,if=buff.divine_crusader.react&holy_power=5&(!talent.final_verdict.enabled|buff.final_verdict.up)
 actions.single+=/judgment,if=talent.empowered_seals.enabled&buff.maraads_truth.remains<=3
+actions.single+=/wait,sec=cooldown.judgment.remains,if=cooldown.judgment.remains>0&cooldown.judgment.remains<=0.2&talent.empowered_seals.enabled
 actions.single+=/hammer_of_wrath
 actions.single+=/wait,sec=cooldown.hammer_of_wrath.remains,if=cooldown.hammer_of_wrath.remains>0&cooldown.hammer_of_wrath.remains<=0.2
-actions.single+=/exorcism,if=buff.blazing_contempt.up&holy_power<=2
+actions.single+=/exorcism,if=buff.blazing_contempt.up&holy_power<=2&buff.holy_avenger.down
 actions.single+=/wait,sec=cooldown.exorcism.remains,if=cooldown.exorcism.remains>0&cooldown.exorcism.remains<=0.2&buff.blazing_contempt.up
 actions.single+=/divine_storm,if=buff.divine_crusader.react&talent.final_verdict.enabled&buff.final_verdict.up
 actions.single+=/templars_verdict,if=buff.avenging_wrath.up&(!talent.seraphim.enabled|cooldown.seraphim.remains>3)
 actions.single+=/final_verdict
-actions.single+=/divine_storm,if=buff.divine_crusader.react&buff.avenging_wrath.up&(!talent.final_verdict.enabled|buff.final_verdict.up)
+actions.single+=/divine_storm,if=talent.divine_purpose.enabled&buff.divine_crusader.react&buff.avenging_wrath.up&(!talent.final_verdict.enabled|buff.final_verdict.up)
 actions.single+=/crusader_strike
 actions.single+=/wait,sec=cooldown.crusader_strike.remains,if=cooldown.crusader_strike.remains>0&cooldown.crusader_strike.remains<=0.2
 actions.single+=/judgment
@@ -78,25 +78,25 @@ actions.cleave=final_verdict,if=buff.final_verdict.down
 actions.cleave+=/divine_storm,if=buff.divine_crusader.react&talent.final_verdict.enabled&buff.final_verdict.up
 actions.cleave+=/divine_storm,if=talent.final_verdict.enabled&buff.final_verdict.up
 actions.cleave+=/judgment,if=talent.empowered_seals.enabled&buff.maraads_truth.remains<=3
-actions.cleave+=/exorcism,if=buff.blazing_contempt.up&holy_power<=2
+actions.cleave+=/wait,sec=cooldown.judgment.remains,if=cooldown.judgment.remains>0&cooldown.judgment.remains<=0.2&talent.empowered_seals.enabled
+actions.cleave+=/exorcism,if=buff.blazing_contempt.up&holy_power<=2&buff.holy_avenger.down
 actions.cleave+=/wait,sec=cooldown.exorcism.remains,if=cooldown.exorcism.remains>0&cooldown.exorcism.remains<=0.2&buff.blazing_contempt.up
-actions.cleave+=/divine_storm,if=active_enemies>=3&(!talent.seraphim.enabled|cooldown.seraphim.remains>3)
 actions.cleave+=/hammer_of_wrath
 actions.cleave+=/wait,sec=cooldown.hammer_of_wrath.remains,if=cooldown.hammer_of_wrath.remains>0&cooldown.hammer_of_wrath.remains<=0.2
+actions.cleave+=/divine_storm,if=active_enemies>=3&(!talent.seraphim.enabled|cooldown.seraphim.remains>3)
 actions.cleave+=/crusader_strike
 actions.cleave+=//wait,sec=cooldown.crusader_strike.remains,if=cooldown.crusader_strike.remains>0&cooldown.crusader_strike.remains<=0.2
-actions.cleave+=/exorcism,if=active_enemies>=3&glyph.mass_exorcism.enabled
+actions.cleave+=/divine_storm,if=(!talent.seraphim.enabled|cooldown.seraphim.remains>3)
 actions.cleave+=/judgment
 actions.cleave+=/wait,sec=cooldown.judgment.remains,if=cooldown.judgment.remains>0&cooldown.judgment.remains<=0.2
 actions.cleave+=/exorcism
 actions.cleave+=/wait,sec=cooldown.exorcism.remains,if=cooldown.exorcism.remains>0&cooldown.exorcism.remains<=0.2
 actions.cleave+=/holy_prism
 
-actions.aoe=final_verdict,if=buff.final_verdict.down&buff.divine_crusader.up
-actions.aoe+=/divine_storm,if=buff.divine_crusader.react&talent.final_verdict.enabled&buff.final_verdict.up
-actions.aoe+=/divine_storm,if=(!talent.seraphim.enabled|cooldown.seraphim.remains>3)
+actions.aoe=divine_storm,if=(!talent.seraphim.enabled|cooldown.seraphim.remains>3)
 actions.aoe+=/judgment,if=talent.empowered_seals.enabled&buff.maraads_truth.remains<=3
-actions.aoe+=/exorcism,if=buff.blazing_contempt.up&holy_power<=2
+actions.aoe+=/wait,sec=cooldown.judgment.remains,if=cooldown.judgment.remains>0&cooldown.judgment.remains<=0.2&talent.empowered_seals.enabled
+actions.aoe+=/exorcism,if=buff.blazing_contempt.up&holy_power<=2&buff.holy_avenger.down
 actions.aoe+=/wait,sec=cooldown.exorcism.remains,if=cooldown.exorcism.remains>0&cooldown.exorcism.remains<=0.2&buff.blazing_contempt.up
 actions.aoe+=/hammer_of_wrath
 actions.aoe+=/wait,sec=cooldown.hammer_of_wrath.remains,if=cooldown.hammer_of_wrath.remains>0&cooldown.hammer_of_wrath.remains<=0.2
@@ -109,30 +109,29 @@ actions.aoe+=/exorcism
 actions.aoe+=/wait,sec=cooldown.exorcism.remains,if=cooldown.exorcism.remains>0&cooldown.exorcism.remains<=0.2
 actions.aoe+=/holy_prism
 
-head=helmet_of_winged_triumph,id=99379,upgrade=2,gems=capacitive_primal_8haste_8haste_9str
-neck=juggernauts_ignition_keys,id=105513,upgrade=2
-shoulders=pauldrons_of_winged_triumph,id=99373,upgrade=2,gems=8haste_8haste_8haste_8haste_6str,enchant=10str_5crit
-back=gonglu_strength_of_xuen,id=102249,upgrade=2,gems=4str_8haste_3str,enchant=9hit
-chest=battleplate_of_winged_triumph,id=99387,upgrade=2,gems=8haste_8haste_8haste_8haste_8haste_8haste_9str,enchant=4all
-wrists=bubbleburst_bracers,id=105411,upgrade=2,enchant=9str
-hands=gauntlets_of_winged_triumph,id=99380,upgrade=2,gems=4str_8haste_4str_8haste_6str,enchant=9str
-waist=demolishers_reinforced_belt,id=105509,upgrade=2,gems=8haste_8haste_16haste_16haste_6str
-legs=legplates_of_unthinking_strife,id=105640,upgrade=2,gems=8crit_8haste_8crit_8haste_8haste_8haste_9str,enchant=14str_8crit
-feet=wolfrider_spurs,id=105531,upgrade=2,gems=16haste_3crit,enchant=9haste
-finger1=asgorathian_blood_seal,id=105620,upgrade=2,gems=4str_8haste_3haste
-finger2=seal_of_the_forgotten_kings,id=105589,upgrade=2,gems=4str_8haste_3haste
-trinket1=evil_eye_of_galakras,id=105491,upgrade=2
-trinket2=thoks_tail_tip,id=105609,upgrade=2
-main_hand=britomarts_jagged_pike,id=105610,upgrade=2,gems=16haste_3str,enchant=dancing_steel
+head=helmet_of_winged_triumph,id=99379,upgrade=4,gems=capacitive_primal_20haste_11str
+neck=juggernauts_ignition_keys,id=105513,upgrade=4
+shoulders=pauldrons_of_winged_triumph,id=99373,upgrade=4,gems=20haste_20haste_8str,enchant=15str_5crit
+back=gonglu_strength_of_xuen,id=102249,upgrade=4,gems=5str_10haste_4str,enchant=12crit
+chest=battleplate_of_winged_triumph,id=99387,upgrade=4,gems=20haste_20haste_20haste_11str,enchant=5all
+wrists=bubbleburst_bracers,id=105411,upgrade=4,enchant=18str
+hands=gauntlets_of_winged_triumph,id=99380,upgrade=4,gems=5str_10haste_5str_10haste_8str,enchant=11str
+waist=demolishers_reinforced_belt,id=105509,upgrade=4,gems=20haste_20haste_20haste_8str
+legs=legplates_of_unthinking_strife,id=105640,upgrade=4,gems=10crit_10haste_10crit_10haste_20haste_11str,enchant=19str_11crit
+feet=wolfrider_spurs,id=105531,upgrade=4,gems=20haste_4crit,enchant=9haste
+finger1=asgorathian_blood_seal,id=105620,upgrade=4,gems=5str_10haste_4haste
+finger2=seal_of_the_forgotten_kings,id=105589,upgrade=4,gems=5str_10haste_4haste
+trinket1=evil_eye_of_galakras,id=105491,upgrade=4
+trinket2=thoks_tail_tip,id=105609,upgrade=4
+main_hand=britomarts_jagged_pike,id=105610,upgrade=4,gems=20haste_4str,enchant=dancing_steel
 
 # Gear Summary
-# gear_strength=1062
-# gear_stamina=1539
-# gear_hit_rating=9
-# gear_crit_rating=341
-# gear_haste_rating=845
-# gear_mastery_rating=416
-# gear_armor=1284
+# gear_strength=1187
+# gear_stamina=1663
+# gear_crit_rating=384
+# gear_haste_rating=957
+# gear_mastery_rating=451
+# gear_armor=1416
 # meta_gem=capacitive_primal
 # set_bonus=tier16_2pc_melee=1
 # set_bonus=tier16_4pc_melee=1

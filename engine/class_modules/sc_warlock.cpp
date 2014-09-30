@@ -8,12 +8,14 @@
 // ==========================================================================
 //
 // TODO:
+// Shadow bolt costs no mana
 // T17 Set bonusses.
-//  2PC Demo, 2->3 Charges, 10% chance on corruption to add a charge. (Currently works not only for the latest but all)
+//  4PC Destro, fix multistrike mechanic
 //  4PC Demo,proc on HoG/CW
 //    proc has an ICD of 45 secs.
 //    Inner Demon Summon(166862) .c.f wild IMP
 //    Demon casts  Soul Fire (166864)
+// Determine why cancel metamorphosis APL isn't dumping resource properly.
 // check pet coefficients
 // Update action lists, especially AoE
 // Proper spell ids for drain_soul triggered Corruption/UA/Agony ticks.
@@ -5396,7 +5398,7 @@ void warlock_t::apl_precombat()
     action_list_str += "/felguard:felstorm";
     action_list_str += "/wrathguard:wrathstorm";
   }
-
+  /*
   int multidot_max = 3;
 
   switch ( specialization() )
@@ -5412,7 +5414,7 @@ void warlock_t::apl_precombat()
     break;
   default:
     break;
-  }
+  }*/
 
   //  action_list_str += "/run_action_list,name=aoe,if=active_enemies>"
   //      + util::to_string( multidot_max );
@@ -5458,6 +5460,7 @@ void warlock_t::apl_demonology()
     action_list_str += "/cancel_metamorphosis,if=buff.metamorphosis.up&cooldown.metamorphosis.remains<=3&action.hand_of_guldan.charges=2";
     action_list_str += "/demonbolt,if=buff.dark_soul.up|(cooldown.dark_soul.remains>(40%(1%spell_haste))&buff.demonbolt.stack<2)";
 
+    add_action( "Soul Fire", "if=buff.metamorphosis.up&buff.dark_soul.up&buff.molten_core.react" );
     add_action( "touch of chaos", "if=buff.metamorphosis.up" );
     add_action( "metamorphosis", "if=buff.dark_soul.remains>gcd" );
     add_action( "metamorphosis", "if=demonic_fury>=950" );

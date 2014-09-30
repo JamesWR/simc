@@ -124,6 +124,7 @@ const std::string teal          = "009090";
 const std::string darker_blue   = "59ADCC";
 const std::string darker_silver = "8A8A8A";
 const std::string darker_yellow = "C0B84F";
+const std::string red_blue      = "9900CC"; // Our color mixer thinks red + blue = poo brown.
 
 /* Creates the average color of two given colors
  */
@@ -287,7 +288,7 @@ std::string school_color( school_e type )
     case SCHOOL_SHADOWSTRIKE: return color::mix( school_color( SCHOOL_PHYSICAL ), school_color( SCHOOL_SHADOW ) );
     case SCHOOL_HOLYSTRIKE:   return color::mix( school_color( SCHOOL_PHYSICAL ), school_color( SCHOOL_HOLY ) );
       // -- Two Magical Schools
-    case SCHOOL_FROSTFIRE:    return color::mix( school_color( SCHOOL_FROST ), school_color( SCHOOL_FIRE ) );
+    case SCHOOL_FROSTFIRE:    return color::red_blue;
     case SCHOOL_SPELLFIRE:    return color::mix( school_color( SCHOOL_ARCANE ), school_color( SCHOOL_FIRE ) );
     case SCHOOL_FIRESTORM:    return color::mix( school_color( SCHOOL_FIRE ), school_color( SCHOOL_NATURE ) );
     case SCHOOL_SHADOWFLAME:  return color::mix( school_color( SCHOOL_SHADOW ), school_color( SCHOOL_FIRE ) );
@@ -303,9 +304,7 @@ std::string school_color( school_e type )
     case SCHOOL_HOLYSTORM:    return color::mix( school_color( SCHOOL_HOLY ), school_color( SCHOOL_NATURE ) );
     case SCHOOL_SHADOWLIGHT:  return color::mix( school_color( SCHOOL_SHADOW ), school_color( SCHOOL_HOLY ) );
       //-- Three or more schools
-    case SCHOOL_ELEMENTAL:    return color::mix_multiple( school_color( SCHOOL_FIRE ) +
-                                       school_color( SCHOOL_FROST ) +
-                                       school_color( SCHOOL_NATURE ) );
+    case SCHOOL_ELEMENTAL:    return color::jade_green;
     case SCHOOL_CHROMATIC:    return color::mix_multiple( school_color( SCHOOL_FIRE ) +
                                        school_color( SCHOOL_FROST ) +
                                        school_color( SCHOOL_ARCANE ) +

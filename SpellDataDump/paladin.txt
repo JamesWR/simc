@@ -1,5 +1,5 @@
 
-SimulationCraft 602-1 for World of Warcraft 6.0.2 Live (build level 18927)
+SimulationCraft 602-1 for World of Warcraft 6.0.2 Live (build level 18935)
 Name             : Block (Passive) (id=107) [Passive] 
 Class            : Warrior, Paladin, Shaman
 Spell Level      : 1
@@ -134,6 +134,7 @@ Range            : 40 yards
 GCD              : 1.5 seconds
 Duration         : 10 seconds
 Cooldown         : 300 seconds
+Charges          : 0 (300 seconds cooldown)
 Affecting spells : Clemency (105622), Lucidity (137288)
 Attributes       : ........ ........ x.x..... ........   ........ .......x ........ ........ 
                  : ........ ........ .....x.. ........   ........ ........ ........ ........ 
@@ -157,6 +158,7 @@ Range            : 40 yards
 GCD              : 1.5 seconds
 Duration         : 10 seconds
 Cooldown         : 120 seconds
+Charges          : 0 (120 seconds cooldown)
 Affecting spells : Clemency (105622), Lucidity (137288)
 Attributes       : ........ ........ x.x..... ........   ........ ........ .x...... ........ 
                  : ........ ........ ........ ........   ........ ........ ........ ........ 
@@ -178,6 +180,7 @@ Range            : 40 yards
 GCD              : 1.5 seconds
 Duration         : 6 seconds
 Cooldown         : 25 seconds
+Charges          : 0 (25 seconds cooldown)
 Affecting spells : Clemency (105622), Item - Paladin T13 Protection 2P Bonus (Judgment) (105800), Lucidity (137288)
 Attributes       : ........ ........ x.x..... ........   ........ .......x .x...... ........ 
                  : ........ ........ ........ ........   ........ ........ ........ ........ 
@@ -262,6 +265,7 @@ Spell Level      : 20
 Range            : 40 yards
 GCD              : 1.5 seconds
 Cooldown         : 8 seconds
+Charges          : 1 (8 seconds cooldown)
 Affecting spells : Sacred Cleansing (53551), Guarded by the Light (53592), Lucidity (137288)
 Attributes       : ........ ........ x.x..... ........   ........ ........ ........ ........ 
                  : ........ ........ ........ ........   ........ ........ ........ ........ 
@@ -285,6 +289,7 @@ Spell Level      : 80
 Range            : 40 yards
 Duration         : 12 seconds
 Cooldown         : 120 seconds
+Charges          : 0 (120 seconds cooldown)
 Proc Chance      : 100%
 Proc Flags       : ...x.x.x .x.x.x.x .x.x.... .......x 
                  : White Melee Taken, Yellow Melee Taken, White Ranged Taken , Yellow Ranged Taken, AOE Heal Taken, AOE Hostile Spell Taken, Heal Taken, Hostile Spell Taken, Periodic Taken
@@ -1017,7 +1022,7 @@ Attributes       : ....x... ........ ........ ........   ........ ..x..... .....
                  : ........ ........ ........ ....x...   ........ ........ ........ ........ 
 Effects          :
 #1 (id=21513)    : Apply Aura (6) | Absorb Damage (69)
-                   Base Value: 20 | Scaled Value: 20 | Misc Value: 127
+                   Base Value: 8 | Scaled Value: 8 | Misc Value: 127
 #2 (id=21514)    : Apply Aura (6) | Dummy (4)
                    Base Value: 12 | Scaled Value: 12
 Description      : $?s159548[][Reduce damage taken by $s1% for $d. ]While Ardent Defender is active, the next attack that would otherwise kill you will instead cause you to be healed for $s2% of your maximum health.$?s159548[ If this effect expires without triggering, its cooldown will be reset to $159548s1 sec.][]
@@ -5274,6 +5279,7 @@ Resource         : 14.4% Base Mana (4608 @Level 100)
 Range            : 40 yards
 GCD              : 1.5 seconds
 Duration         : 30 seconds
+Charges          : 3 (10 seconds cooldown)
 Affecting spells : Sacred Shield Overridde (Holy) (148040)
 Attributes       : ........ ...x.... ........ ........   ........ ........ ........ ........ 
                  : ........ ........ ........ ........   ........ ........ ........ ........ 

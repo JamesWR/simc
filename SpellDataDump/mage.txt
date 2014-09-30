@@ -1,5 +1,5 @@
 
-SimulationCraft 602-1 for World of Warcraft 6.0.2 Live (build level 18927)
+SimulationCraft 602-1 for World of Warcraft 6.0.2 Live (build level 18935)
 Name             : Blizzard (id=10) [Spell Family (3)] 
 Class            : Frost Mage
 Resource         : 5% Base Mana (8000 @Level 100)
@@ -241,6 +241,7 @@ Spell Level      : 7
 GCD              : 1.5 seconds
 Duration         : 1 seconds
 Cooldown         : 15 seconds
+Charges          : 0 (15 seconds cooldown)
 Affecting spells : Arcane Power (12042), Reduced Blink GCD (44301), Glyph of Blink (56365), Tome of Blink (168795)
 Attributes       : ........ ........ x....... ........   ........ ..x....x ........ ....x... 
                  : ........ ........ ........ ........   ........ ........ ........ ........ 
@@ -486,7 +487,7 @@ Attributes       : ........ ........ x....... ........   ..x..... ........ .....
                  : ........ ........ ........ ........   ........ ........ ........ ........ 
 Effects          :
 #1 (id=2716)     : School Damage: arcane (2)
-                   Base Value: 1 | Scaled Value: 1 | SP Coefficient: 0.26500
+                   Base Value: 1 | Scaled Value: 1 | SP Coefficient: 0.20000
 Description      : $@spelldesc5143
 
 Name             : Frost Armor (id=7302) [Spell Family (3), Passive] 
@@ -936,7 +937,7 @@ Tooltip          : Healing $/5;s2% every $t1 seconds.
 Name             : Arcane Blast (id=30451) [Spell Family (3)] 
 Replaces         : Frostfire Bolt (id=44614)
 Class            : Arcane Mage
-Resource         : 1.67% Base Mana (2672 @Level 100)
+Resource         : 2% Base Mana (3200 @Level 100)
 Spell Level      : 10
 Range            : 40 yards
 Cast Time        : 2.25 seconds
@@ -950,7 +951,7 @@ Attributes       : ........ ........ ..x..... ........   ........ ........ .....
                  : ........ ........ ........ ........   ........ ........ ........ ........ 
 Effects          :
 #1 (id=20028)    : School Damage: arcane (2)
-                   Base Value: 1 | Scaled Value: 1 | SP Coefficient: 0.86520
+                   Base Value: 1 | Scaled Value: 1 | SP Coefficient: 0.85000
 #2 (id=20029)    : Trigger Spell: Arcane Charge (64)
                    Base Value: 0 | Scaled Value: 0 | Trigger Spell: 36032
 Description      : Blasts the target with energy, dealing $30451s1 Arcane damage and generating an Arcane Charge.
@@ -1073,7 +1074,7 @@ Cast Time        : 1.5 seconds
 GCD              : 1.5 seconds
 Duration         : Aura (infinite)
 Cooldown         : 60 seconds
-Affecting spells : Presence of Mind (12043), Glyph of Polymorph (56375), Glyph of Remove Curse (115700), Glyph of Ice Block (115723), Improved Water Elemental (157738)
+Affecting spells : Presence of Mind (12043), Glyph of Remove Curse (115700), Glyph of Ice Block (115723), Improved Water Elemental (157738)
 Attributes       : ........ ........ x....... ........   x....... ........ .x...... ........ 
                  : ........ ........ ........ ........   ........ ........ ........ ........ 
                  : ........ ........ ........ ........   ........ ........ ........ ........ 
@@ -1208,7 +1209,7 @@ Effects          :
                    Base Value: 50 | Scaled Value: 50
                    Affected Spells: Arcane Missiles (7268), Arcane Blast (30451), Arcane Barrage (44425)
 #2 (id=26314)    : Apply Aura (6) | Add Percent Modifier: Spell Resource Cost (108)
-                   Base Value: 150 | Scaled Value: 150 | Misc Value: 14
+                   Base Value: 100 | Scaled Value: 100 | Misc Value: 14
                    Affected Spells: Arcane Blast (30451)
 #3 (id=127870)   : Apply Aura (6) | Add Flat Modifier: Spell Targets (107)
                    Base Value: 1 | Scaled Value: 1 | Misc Value: 17
@@ -1301,7 +1302,7 @@ Attributes       : ........ ........ x....... ........   ........ ........ .....
                  : ........ ........ ........ ........   ........ ........ ........ ........ 
 Effects          :
 #1 (id=36330)    : School Damage: arcane (2)
-                   Base Value: 1 | Scaled Value: 1 | SP Coefficient: 0.75000
+                   Base Value: 1 | Scaled Value: 1 | SP Coefficient: 0.57500
 #2 (id=157070)   : Dummy (3)
                    Base Value: 50 | Scaled Value: 50
 Description      : Launches bolts of arcane energy at the enemy target, causing $s1 Arcane damage. Consumes all Arcane Charges.
@@ -1674,7 +1675,6 @@ Attributes       : ......xx ........ ........ ........   ........ ........ .....
 Effects          :
 #1 (id=49435)    : Apply Aura (6) | Dummy (4)
                    Base Value: 2 | Scaled Value: 2 | Misc Value: 11
-                   Affected Spells: Summon Water Elemental (31687)
 Description      : Your Polymorph spell also removes all damage over time effects from the target.
 
 Name             : Glyph of Frost Nova (id=56376) [Spell Family (3), Passive, Hidden] 
@@ -2807,6 +2807,7 @@ Name             : Ice Floes (id=108839) [Spell Family (3)]
 Class            : Mage
 Spell Level      : 1
 Duration         : 15 seconds
+Charges          : 3 (20 seconds cooldown)
 Internal Cooldown: 0.1 seconds
 Stacks           : 1 initial, 3 maximum
 Proc Chance      : 100%
@@ -2850,6 +2851,7 @@ Resource         : 2% Base Mana (3200 @Level 100)
 Spell Level      : 24
 Range            : 40 yards
 GCD              : 1.5 seconds
+Charges          : 1 (8 seconds cooldown)
 Affecting spells : Glyph of Inferno Blast (89926), Improved Inferno Blast (157629), Item - Mage T17 Fire 2P Bonus (165458)
 Attributes       : ........ ........ x....... ........   ........ ........ ........ ........ 
                  : ........ ........ ........ ........   ........ ........ ........ ........ 
@@ -3038,7 +3040,6 @@ Name             : Frost Bomb (id=113092) [Scaling Spell (4), Spell Family (3)]
 Class            : Mage
 Spell Level      : 60
 Range            : 50000 yards
-Velocity         : 38 yards/sec
 Affecting spells : Shatter (12982)
 Attributes       : ........ ........ x.x....x x..x....   ........ ........ ........ ........ 
                  : ..x..... ........ ........ ......x.   ........ ........ ........ ......x. 
@@ -4055,8 +4056,9 @@ Description      : $@spelldesc76613
 Name             : Prismatic Crystal (id=152087) 
 Class            : Mage
 Range            : 40 yards
+GCD              : 0.5 seconds
 Duration         : 10 seconds
-Cooldown         : 60 seconds
+Cooldown         : 90 seconds
 Attributes       : ........ ........ ........ ........   ........ ........ ........ ........ 
                  : ........ ........ ........ ........   ........ ........ ........ ........ 
                  : ........ ........ ........ ........   ........ ........ ........ ........ 
@@ -4069,7 +4071,7 @@ Effects          :
 #2 (id=215516)   : Summon (28)
                    Base Value: 90 | Scaled Value: 90 | Misc Value: 76933 | Misc Value 2: 0xd96
 #3 (id=256214)   : Dummy (3)
-                   Base Value: 30 | Scaled Value: 30
+                   Base Value: 10 | Scaled Value: 10
 Description      : Conjures a prismatic crystal at the target location, which is attackable by only the Mage, and takes $?s84714[$s3][$155153s1]% additional damage. 
 
 When the crystal takes damage, it instantly releases a burst of energy dealing that damage, split evenly between all enemies within 8 yards.
@@ -4613,6 +4615,7 @@ Class            : Mage
 Spell Level      : 1
 Range            : 40 yards
 GCD              : 1.5 seconds
+Charges          : 2 (25 seconds cooldown)
 Attributes       : ........ ........ ........ ........   ........ ........ ........ ........ 
                  : ........ ........ ........ ........   ........ ........ ........ ........ 
                  : .....x.. ........ ........ ........   ........ ........ ........ ........ 
@@ -4636,6 +4639,7 @@ Spell Level      : 1
 Range            : 40 yards
 GCD              : 1.5 seconds
 Duration         : 4 seconds
+Charges          : 2 (25 seconds cooldown)
 Attributes       : ........ ........ ........ ........   ........ ........ ........ ........ 
                  : ........ ........ ........ ........   ........ ........ ........ ........ 
                  : ........ ........ ........ ........   ........ ........ ........ ........ 
@@ -4660,6 +4664,7 @@ Spell Level      : 1
 Range            : 40 yards
 GCD              : 1.5 seconds
 Duration         : 2 seconds
+Charges          : 2 (25 seconds cooldown)
 Proc Chance      : 100%
 Proc Flags       : ...x.x.x .x...x.. .x.x.... .......x 
                  : White Melee Taken, Yellow Melee Taken, White Ranged Taken , Yellow Ranged Taken, AOE Hostile Spell Taken, Hostile Spell Taken, Periodic Taken
@@ -4870,4 +4875,32 @@ Attributes       : .......x ........ ........ ........   ........ ........ .....
 Effects          :
 #1 (id=253822)   : Unknown effect type (179)
                    Base Value: 0 | Scaled Value: 0 | Misc Value: 3467
+
+Name             : Player Damage Reduction Level 95 (id=178839) [Passive, Hidden] 
+Class            : Death Knight, Shaman, Mage, Warlock, Monk
+Spell Level      : 95
+Attributes       : ......xx ........ ........ ........   ........ ........ ........ ........ 
+                 : ........ ........ ........ ........   ........ ........ ........ ....x... 
+                 : ........ ........ ....x... ........   ........ ........ ........ ........ 
+                 : ........ ........ ........ ........   ........ ........ ........ ........ 
+                 : ........ ........ ........ ........   ........ ........ ........ ........ 
+                 : ........ ........ ........ ........   ........ ........ ........ ........ 
+Effects          :
+#1 (id=256906)   : Apply Aura (6) | Unknown effect sub type (309)
+                   Base Value: 0 | Scaled Value: 0 | Misc Value: 2
+Description      : Reduces all damage taken from players or their pets by ${$m1/-100}%.
+
+Name             : Player Damage Reduction Level 100 (id=178840) [Passive, Hidden] 
+Class            : Death Knight, Shaman, Mage, Warlock, Monk
+Spell Level      : 100
+Attributes       : ......xx ........ ........ ........   ........ ........ ........ ........ 
+                 : ........ ........ ........ ........   ........ ........ ........ ....x... 
+                 : ........ ........ ....x... ........   ........ ........ ........ ........ 
+                 : ........ ........ ........ ........   ........ ........ ........ ........ 
+                 : ........ ........ ........ ........   ........ ........ ........ ........ 
+                 : ........ ........ ........ ........   ........ ........ ........ ........ 
+Effects          :
+#1 (id=256907)   : Apply Aura (6) | Unknown effect sub type (309)
+                   Base Value: 0 | Scaled Value: 0 | Misc Value: 2
+Description      : Reduces all damage taken from players or their pets by ${$m1/-100}%.
 
