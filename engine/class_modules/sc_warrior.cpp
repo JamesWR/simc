@@ -50,6 +50,7 @@ public:
   simple_sample_data_t cs_damage;
   simple_sample_data_t priority_damage;
   simple_sample_data_t all_damage;
+  simple_sample_data_t shield_charge_damage;
 
   // Active
   action_t* active_blood_craze;
@@ -493,6 +494,7 @@ public:
     cs_damage.merge( other_p.cs_damage );
     all_damage.merge( other_p.all_damage );
     priority_damage.merge( other_p.priority_damage );
+    shield_charge_damage.merge( other_p.shield_charge_damage );
 
     player_t::merge( other );
   }
@@ -617,7 +619,7 @@ public:
     if ( !ab::ready() )
       return false;
 
-    if ( p() -> current.distance_to_move > melee_range && melee_range != -1 ) 
+    if ( p() -> current.distance_to_move > melee_range && melee_range != -1 )
       // -1 melee range implies that the ability can be used at any distance from the target. Battle shout, stance swaps, etc.
       return false;
 
@@ -1026,10 +1028,14 @@ void warrior_attack_t::impact( action_state_t* s )
 
   if ( s -> result_amount > 0 )
   {
-    if ( p() -> buff.bloodbath -> up() )
-      trigger_bloodbath_dot( s -> target, s -> result_amount );
     if ( ( result_is_hit( s -> result ) || result_is_multistrike( s -> result ) ) )
     {
+      if ( p() -> buff.bloodbath -> up() )
+        trigger_bloodbath_dot( s -> target, s -> result_amount );
+
+      if ( p() -> buff.sweeping_strikes -> up() && !aoe )
+        trigger_sweeping_strikes( s );
+
       if ( p() -> talents.second_wind -> ok() )
       {
         if ( p() -> resources.current[RESOURCE_HEALTH] < p() -> resources.max[RESOURCE_HEALTH] * 0.35 )
@@ -1045,30 +1051,10 @@ void warrior_attack_t::impact( action_state_t* s )
         p() -> active_rallying_cry_heal -> base_dd_max = s -> result_amount;
         p() -> active_rallying_cry_heal -> execute();
       }
-
-      if ( !proc ) // No procs allowed.
-      {
-        if ( p() -> buff.sweeping_strikes -> up() && !aoe )
-          trigger_sweeping_strikes( s );
-        if ( special )
-        {
-          if ( p() -> sets.has_set_bonus( SET_MELEE, T16, B2 ) && p() -> specialization() == WARRIOR_ARMS )
-          {
-            if ( td( s -> target ) -> debuffs_colossus_smash -> up() )
-            {
-              if ( this ->  weapon == &( p() -> main_hand_weapon ) && this -> id != 12328 ) // Doesn't proc from sweeping strikes.
-              {
-                p() -> resource_gain( RESOURCE_RAGE,
-                                      p() -> sets.set( SET_MELEE, T16, B2 ) -> effectN( 1 ).base_value(),
-                                      p() -> gain.tier16_2pc_melee );
-              }
-            }
-          }
-        }
-      }
     }
   }
 }
+
 
 // Melee Attack =============================================================
 
@@ -1358,7 +1344,8 @@ struct bloodthirst_t: public warrior_attack_t
 
     weapon = &( p -> main_hand_weapon );
     bloodthirst_heal = new bloodthirst_heal_t( p );
-    weapon_multiplier += p -> sets.set( SET_MELEE, T14, B2 ) -> effectN( 2 ).percent();
+    weapon_multiplier *= 1.0 +  p -> sets.set( SET_MELEE, T14, B2 ) -> effectN( 2 ).percent();
+    weapon_multiplier *= 1.0 +  p -> sets.set( SET_MELEE, T16, B2 ) -> effectN( 1 ).percent();
   }
 
   double composite_crit() const
@@ -1736,6 +1723,17 @@ struct heroic_strike_t: public warrior_attack_t
     return am;
   }
 
+  void assess_damage( dmg_e type, action_state_t* s )
+  {
+    warrior_attack_t::assess_damage( type, s );
+
+    if ( p() -> buff.shield_charge -> check() && s -> result_amount > 0 )
+    {
+      double original_damage = s -> result_amount;
+      p() -> shield_charge_damage.add( original_damage );
+    }
+  }
+
   double cost() const
   {
     double c = warrior_attack_t::cost();
@@ -2067,7 +2065,8 @@ struct mortal_strike_t: public warrior_attack_t
     stancemask = STANCE_BATTLE | STANCE_DEFENSE;
 
     weapon = &( p -> main_hand_weapon );
-    weapon_multiplier += p -> sets.set( SET_MELEE, T14, B2 ) -> effectN( 1 ).percent();
+    weapon_multiplier *= 1.0 + p -> sets.set( SET_MELEE, T14, B2 ) -> effectN( 1 ).percent();
+    weapon_multiplier *= 1.0 + p -> sets.set( SET_MELEE, T16, B2 ) -> effectN( 1 ).percent();
   }
 
   void impact( action_state_t* s )
@@ -2267,6 +2266,17 @@ struct revenge_t: public warrior_attack_t
     }
   }
 
+  void assess_damage( dmg_e type, action_state_t* s )
+  {
+    warrior_attack_t::assess_damage( type, s );
+
+    if ( p() -> buff.shield_charge -> check() && s -> result_amount > 0 )
+    {
+      double original_damage = s -> result_amount;
+      p() -> shield_charge_damage.add( original_damage );
+    }
+  }
+
   void impact( action_state_t* s )
   {
     warrior_attack_t::impact( s );
@@ -2397,10 +2407,6 @@ struct rend_t: public warrior_attack_t
     if ( p() -> mastery_rend )
       am *= 1.0 + p() -> cache.mastery_value();
 
-    if ( p() -> bugs )
-      am /= 1.0 + p() -> spec.seasoned_soldier -> effectN( 1 ).percent(); // Seasoned Soldier isn't being applied to the rend dot, but it does apply to the burst.
-      //Divide it out here to cancel it out in composite_player_multiplier.
-
     return am;
   }
 
@@ -2492,6 +2498,8 @@ struct shield_charge_2pc_t: public warrior_attack_t
     warrior_attack_t( "shield_charge_t17_2pc_proc", p, p -> find_spell( 156321 ) )
   {
     background = true;
+    base_costs[ RESOURCE_RAGE ] = 0;
+    cooldown -> duration = timespan_t::zero();
   }
 
   void execute()
@@ -2510,6 +2518,8 @@ struct shield_block_2pc_t: public warrior_attack_t
     warrior_attack_t( "shield_block_t17_2pc_proc", p, p -> find_class_spell( "Shield Block" ) )
   {
     background = true;
+    base_costs[RESOURCE_RAGE] = 0;
+    cooldown -> duration = timespan_t::zero();
   }
 
   void execute()
@@ -2537,7 +2547,7 @@ struct shield_slam_t: public warrior_attack_t
     stancemask = STANCE_GLADIATOR | STANCE_DEFENSE;
     cooldown = p -> cooldown.shield_slam;
     rage_gain = data().effectN( 3 ).resource( RESOURCE_RAGE );
-    attack_power_mod.direct = 3.18; //Hard-coded in tooltip.
+    attack_power_mod.direct = 3; //Hard-coded in tooltip.
   }
 
   double action_multiplier() const
@@ -2547,10 +2557,9 @@ struct shield_slam_t: public warrior_attack_t
     if ( p() -> buff.shield_charge -> up() )
     {
       am *= 1.0 + p() -> buff.shield_charge -> default_value;
-      if ( p() -> talents.heavy_repercussions -> ok() )
-        am *= 1.0 + p() -> talents.heavy_repercussions -> effectN( 1 ).percent();
+      am *= 1.0 + p() -> talents.heavy_repercussions -> effectN( 1 ).percent();
     }
-    else if ( p() -> buff.shield_block -> up() && p() -> talents.heavy_repercussions -> ok() )
+    else if ( p() -> buff.shield_block -> up() )
       am *= 1.0 + p() -> talents.heavy_repercussions -> effectN( 1 ).percent();
 
     return am;
@@ -2567,6 +2576,17 @@ struct shield_slam_t: public warrior_attack_t
     }
 
     return c;
+  }
+
+  void assess_damage( dmg_e type, action_state_t* s )
+  {
+    warrior_attack_t::assess_damage( type, s );
+
+    if ( p() -> buff.shield_charge -> check() && s -> result_amount > 0 )
+    {
+      double original_damage = s -> result_amount;
+      p() -> shield_charge_damage.add( original_damage );
+    }
   }
 
   void execute()
@@ -2891,9 +2911,7 @@ struct whirlwind_t: public warrior_attack_t
       oh_attack = new whirlwind_off_hand_t( p );
       add_child( oh_attack );
     }
-    else if ( !p -> bugs )
-      weapon_multiplier = p -> find_spell( 168695 ) -> effectN( 2 ).percent();
-    else // Arms whirlwind got an accidental buff in game when they merged in perks. The whirlwind damage perk was fury-only.
+    else
       weapon_multiplier *= 2;
 
     weapon = &( p -> main_hand_weapon );
@@ -5487,6 +5505,7 @@ public:
     double cs_damage = p.cs_damage.sum();
     double all_damage = p.all_damage.sum();
     double priority_damage = p.priority_damage.sum();
+    double shield_charge_dmg = p.shield_charge_damage.sum();
 
     // Custom Class Section
     os << "\t\t\t\t<div class=\"player-section custom_section\">\n"
@@ -5496,13 +5515,22 @@ public:
     os << p.name() << "\n<br>";
     os << "\t\t\t\t\t<p>Percentage of damage dealt to primary target</p>\n";
     os << "%" << ( ( priority_damage / all_damage ) * 100 ) << "</p>\n";
-    if ( p.specialization() != WARRIOR_PROTECTION )
+    if ( cs_damage > 0 )
     {
       os << "\t\t\t\t\t<p>Percentage of primary target damage that occurs inside of Colossus Smash</p>\n";
       os << "%" << ( ( cs_damage / priority_damage ) * 100 ) << "</p>\n";
     }
     os << "\t\t\t\t\t<p> Dps done to primary target </p>\n";
     os << ( ( priority_damage / all_damage ) * p.collected_data.dps.mean() ) << "</p>\n";
+
+    if ( shield_charge_dmg > 0 )
+    {
+      os << "\t\t\t\t\t<p> DPS occuring inside of shield charge + benefiting from shield charge </p>\n";
+      os << ( ( shield_charge_dmg / all_damage ) * p.collected_data.dps.mean() ) << "</p>\n";
+
+      os << "\t\t\t\t\t<p> Percentage of overall damage </p>\n";
+      os << ( ( shield_charge_dmg / all_damage ) * 100 ) << "</p>\n";
+    }
 
     os << "\t\t\t\t\t\t</div>\n" << "\t\t\t\t\t</div>\n";
   }

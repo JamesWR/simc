@@ -217,6 +217,7 @@ public:
     buff_t* shadow_of_death;
     buff_t* conversion;
     buff_t* frozen_runeblade;
+    buff_t* lichborne;
   } buffs;
 
   struct runeforge_t
@@ -346,6 +347,8 @@ public:
     const spell_data_t* plaguebearer;
     const spell_data_t* plague_leech;
     const spell_data_t* unholy_blight;
+
+    const spell_data_t* lichborne;
 
     const spell_data_t* deaths_advance;
 
@@ -495,6 +498,7 @@ public:
   virtual double    composite_parry() const;
   virtual double    composite_dodge() const;
   virtual double    composite_multistrike() const;
+  virtual double    composite_leech() const;
   virtual double    composite_melee_expertise( weapon_t* ) const;
   virtual double    composite_player_multiplier( school_e school ) const;
   virtual double    composite_crit_avoidance() const;
@@ -2568,6 +2572,7 @@ void death_knight_spell_t::consume_resource()
 void death_knight_spell_t::execute()
 {
   base_t::execute();
+  p() -> trigger_t17_4pc_frost( execute_state );
 }
 
 // death_knight_spell_t::impact() ===========================================
@@ -2954,13 +2959,12 @@ struct necrosis_t : public death_knight_spell_t
 
 struct frozen_runeblade_attack_t : public melee_attack_t
 {
-  frozen_runeblade_attack_t( death_knight_t* player ) :
-    melee_attack_t( "frozen_runeblade", player, player -> find_spell( 170205 ) -> effectN( 1 ).trigger() )
+  frozen_runeblade_attack_t( death_knight_t* player, const std::string& name, const spell_data_t* spell, weapon_t* w ) :
+    melee_attack_t( name, player, spell  )
   {
     background = may_crit = special = true;
     callbacks = false;
-    // Implicitly uses main hand weapon
-    weapon = &( player -> main_hand_weapon );
+    weapon = w;
   }
 
   bool usable_moving() const
@@ -2969,21 +2973,45 @@ struct frozen_runeblade_attack_t : public melee_attack_t
 
 struct frozen_runeblade_driver_t : public death_knight_spell_t
 {
-  frozen_runeblade_attack_t* attack;
+  frozen_runeblade_attack_t* attack, * oh_attack;
 
   frozen_runeblade_driver_t( death_knight_t* player ) :
     death_knight_spell_t( "frozen_runeblade_driver", player, player -> find_spell( 170205 ) ),
-    attack( new frozen_runeblade_attack_t( player ) )
+    attack( 0 ), oh_attack( 0 )
   {
     background = proc = dual = quiet = true;
     callbacks = may_miss = may_crit = hasted_ticks = tick_may_crit = false;
+
+    if ( player -> main_hand_weapon.type != WEAPON_NONE )
+    {
+      attack = new frozen_runeblade_attack_t( player, "frozen_runeblade",
+                                              data().effectN( 1 ).trigger(),
+                                              &( player -> main_hand_weapon ) );
+    }
+
+    if ( player -> off_hand_weapon.type != WEAPON_NONE )
+    {
+      oh_attack = new frozen_runeblade_attack_t( player, "frozen_runeblade_offhand",
+                                                 data().effectN( 2 ).trigger(),
+                                                 &( player -> off_hand_weapon ) );
+    }
   }
 
   void tick( dot_t* dot )
   {
     death_knight_spell_t::tick( dot );
 
-    attack -> schedule_execute();
+    if ( attack )
+    {
+      attack -> target = dot -> target;
+      attack -> schedule_execute();
+    }
+
+    if ( oh_attack )
+    {
+      oh_attack -> target = dot -> target;
+      oh_attack -> schedule_execute();
+    }
   }
 };
 
@@ -4710,6 +4738,24 @@ struct deaths_advance_t: public death_knight_spell_t
   }
 };
 
+// Lichborne ===============================================================
+
+struct lichborne_t: public death_knight_spell_t
+{
+  lichborne_t( death_knight_t* p, const std::string& options_str ):
+    death_knight_spell_t( "lichborne", p, p -> talent.lichborne )
+  {
+    parse_options( NULL, options_str );
+  }
+
+  virtual void execute()
+  {
+    death_knight_spell_t::execute();
+
+    p() -> buffs.lichborne -> trigger();
+  }
+};
+
 // Raise Dead ===============================================================
 
 struct raise_dead_t : public death_knight_spell_t
@@ -5360,16 +5406,12 @@ struct frozen_runeblade_buff_t : public buff_t
 
   void expire_override()
   {
-    // The set bonus seems to give stacks + 1 hits with Frozen Runeblade.
-    // Simulationcraft procs the initial stack instantly when Pillar of Frost
-    // is executed, so the "extra" stack is already included in the stack
-    // count. If the buff only has a single stack, the actor never used a
-    // special attack during the Pillar of Frost, and thus the set bonus isnt
-    // triggered.
+    // Stack_count - 1 is used, because Simulationcraft uses the initial stack
+    // to "enable" the bonus when Pillar of Frost is used.
     if ( stack_count > 1 )
     {
       death_knight_t* p = debug_cast< death_knight_t* >( player );
-      p -> active_spells.frozen_runeblade -> dot_duration = stack_count * p -> active_spells.frozen_runeblade -> data().effectN( 1 ).period();
+      p -> active_spells.frozen_runeblade -> dot_duration = ( stack_count - 1 ) * p -> active_spells.frozen_runeblade -> data().effectN( 1 ).period();
       p -> active_spells.frozen_runeblade -> schedule_execute();
     }
 
@@ -5445,6 +5487,7 @@ action_t* death_knight_t::create_action( const std::string& name, const std::str
   if ( name == "breath_of_sindragosa"     ) return new breath_of_sindragosa_t     ( this, options_str );
   if ( name == "defile"                   ) return new defile_t                   ( this, options_str );
   if ( name == "conversion"               ) return new conversion_t               ( this, options_str );
+  if ( name == "lichborne"                ) return new lichborne_t                ( this, options_str );
 
   return player_t::create_action( name, options_str );
 }
@@ -5774,6 +5817,8 @@ void death_knight_t::init_spells()
   talent.plague_leech             = find_talent_spell( "Plague Leech" );
   talent.unholy_blight            = find_talent_spell( "Unholy Blight" );
 
+  talent.lichborne                = find_talent_spell( "Lichborne" );
+
   talent.deaths_advance           = find_talent_spell( "Death's Advance" );
   spell.deaths_advance            = find_spell( 124285 ); // Passive movement speed is in a completely unlinked spell id.
 
@@ -5920,6 +5965,7 @@ void death_knight_t::default_apl_blood()
 
     def -> add_action( this, "Anti-Magic Shell" );
     def -> add_talent( this, "Conversion", "if=!buff.conversion.up&runic_power>50&health.pct<90" );
+    def -> add_talent( this, "Lichborne", "if=health.pct<90" );
     def -> add_action( this, "Death Strike", "if=incoming_damage_5s>=health.max*0.65" );
     def -> add_action( this, "Army of the Dead", "if=buff.bone_shield.down&buff.dancing_rune_weapon.down&buff.icebound_fortitude.down&buff.vampiric_blood.down" );
     def -> add_action( this, "Bone Shield", "if=buff.army_of_the_dead.down&buff.bone_shield.down&buff.dancing_rune_weapon.down&buff.icebound_fortitude.down&buff.vampiric_blood.down" );
@@ -6226,18 +6272,17 @@ void death_knight_t::init_action_list()
 
     // Diseases for free
     st -> add_talent( this, "Unholy Blight", "if=!talent.necrotic_plague.enabled&(dot.frost_fever.remains<3|dot.blood_plague.remains<3)" );
-    st -> add_talent( this, "Unholy Blight", "if=talent.necrotic_plague.enabled&(dot.necrotic_plague.remains<3)" );
+    st -> add_talent( this, "Unholy Blight", "if=talent.necrotic_plague.enabled&dot.necrotic_plague.remains<1" );
     st -> add_action( this, "Outbreak", "if=!talent.necrotic_plague.enabled&(dot.frost_fever.remains<3|dot.blood_plague.remains<3)" );
-    st -> add_action( this, "Outbreak", "if=talent.necrotic_plague.enabled&(dot.necrotic_plague.remains<3)" );
+    st -> add_action( this, "Outbreak", "if=talent.necrotic_plague.enabled&!dot.necrotic_plague.ticking" );
 
     // Soul Reaper
     st -> add_action( this, "Soul Reaper", "if=target.health.pct-3*(target.health.pct%target.time_to_die)<=" + soul_reaper_pct );
     st -> add_talent( this, "Blood Tap", "if=(target.health.pct-3*(target.health.pct%target.time_to_die)<=" + soul_reaper_pct + "&cooldown.soul_reaper.remains=0)" );
 
-
     // Diseases for Runes
     st -> add_action( this, "Plague Strike", "if=!talent.necrotic_plague.enabled&(!dot.blood_plague.ticking|!dot.frost_fever.ticking)" );
-    st -> add_action( this, "Plague Strike", "if=talent.necrotic_plague.enabled&(!dot.necrotic_plague.ticking)" );
+    st -> add_action( this, "Plague Strike", "if=talent.necrotic_plague.enabled&!dot.necrotic_plague.ticking" );
 
     // GCD Cooldowns
     st -> add_action( this, "Summon Gargoyle" );
@@ -6246,6 +6291,8 @@ void death_knight_t::init_action_list()
 
     // Don't waste runic power
     st -> add_action( this, "Death Coil", "if=runic_power>90" );
+
+    st -> add_talent( this, "Defile" );
 
     // Get runes on cooldown
     st -> add_action( this, "Death and Decay", "if=unholy=2" );
@@ -6260,6 +6307,8 @@ void death_knight_t::init_action_list()
     st -> add_action( this, "Death Coil", "if=buff.sudden_doom.react|(buff.dark_transformation.down&rune.unholy<=1)" );
     st -> add_action( this, "Scourge Strike" );
     st -> add_talent( this, "Plague Leech", "if=cooldown.outbreak.remains<1" );
+    st -> add_talent( this, "Plague Leech", "if=!talent.necrotic_plague.enabled&(dot.blood_plague.remains<1&dot.frost_fever.remains<1)" );
+    st -> add_talent( this, "Plague Leech", "if=talent.necrotic_plague.enabled&(dot.necrotic_plague.remains<1)" );
     st -> add_action( this, "Festering Strike" );
     st -> add_action( this, "Death Coil" );
 
@@ -6275,6 +6324,7 @@ void death_knight_t::init_action_list()
     aoe -> add_action( this, "Summon Gargoyle" );
     aoe -> add_action( this, "Dark Transformation" );
     aoe -> add_talent( this, "Blood Tap", "if=buff.shadow_infusion.stack=5" );
+    aoe -> add_talent( this, "Defile" );
     aoe -> add_action( this, "Death and Decay", "if=unholy=1" );
     aoe -> add_action( this, "Soul Reaper", "if=target.health.pct-3*(target.health.pct%target.time_to_die)<=" + soul_reaper_pct );
     aoe -> add_action( this, "Scourge Strike", "if=unholy=2" );
@@ -6376,6 +6426,7 @@ void runeforge::fallen_crusader( special_effect_t& effect,
         death_knight_heal_t( "unholy_strength", dk, data )
       {
         background = true;
+        target = player;
         callbacks = may_crit = may_multistrike = false;
         pct_heal = data -> effectN( 2 ).percent();
         pct_heal += dk -> perk.enhanced_fallen_crusader -> effectN( 1 ).percent();
@@ -6592,6 +6643,8 @@ void death_knight_t::create_buffs()
                                           .add_invalidate( CACHE_STRENGTH );
 
   runeforge.rune_of_the_stoneskin_gargoyle = buff_creator_t( this, "stoneskin_gargoyle", find_spell( 62157 ) )
+                                             .add_invalidate( CACHE_ARMOR )
+                                             .add_invalidate( CACHE_STAMINA )
                                              .chance( 0 );
   runeforge.rune_of_spellshattering = buff_creator_t( this, "rune_of_spellshattering", find_spell( 53362 ) )
                                       .chance( 0 );
@@ -6603,6 +6656,10 @@ void death_knight_t::create_buffs()
   buffs.conversion = buff_creator_t( this, "conversion", talent.conversion ).duration( timespan_t::zero() );
 
   buffs.frozen_runeblade = new frozen_runeblade_buff_t( this );
+
+  buffs.lichborne = buff_creator_t( this, "lichborne", talent.lichborne )
+                    .cd( timespan_t::zero() )
+                    .add_invalidate( CACHE_LEECH );
 }
 
 // death_knight_t::init_gains ===============================================
@@ -6934,6 +6991,18 @@ double death_knight_t::composite_multistrike() const
   return multistrike;
 }
 
+// death_knight_t::composite_leech ========================================
+
+double death_knight_t::composite_leech() const
+{
+  double leech = player_t::composite_leech();
+
+  // TODO: Additive or multiplicative?
+  leech += buffs.lichborne -> data().effectN( 1 ).percent();
+
+  return leech;
+}
+
 // death_knight_t::composite_melee_expertise ===============================
 
 double death_knight_t::composite_melee_expertise( weapon_t* ) const
@@ -6944,6 +7013,7 @@ double death_knight_t::composite_melee_expertise( weapon_t* ) const
 
   return expertise;
 }
+
 // warrior_t::composite_parry_rating() ========================================
 
 double death_knight_t::composite_parry_rating() const

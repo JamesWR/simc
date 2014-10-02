@@ -1621,11 +1621,12 @@ void player_t::override_talent( std::string override_str )
       talent_data_t* td = talent_data_t::find( type, j, i, SPEC_NONE, dbc.ptr );
       if ( td && ( td -> spell_id() == spell_id ) )
       {
-        if ( level < ( j + 1 ) * 15 )
+        if ( level < std::min( ( j + 1 ) * 15, 100 ) )
         {
           sim -> errorf( "Override talent %s is too high level for player %s.\n", override_str.c_str(), name() );
           return;
         }
+
         if ( sim -> debug )
         {
           if ( talent_points.has_row_col( j, i ) )
@@ -3065,7 +3066,7 @@ void player_t::sequence_add( const action_t* a, const player_t* target, const ti
     if ( ( a -> sim -> iterations <= 1 && a -> sim -> current_iteration == 0 ) ||
          ( a -> sim -> iterations > 1 && a -> sim -> current_iteration == 1 ) )
     {
-      if ( collected_data.action_sequence.size() <= sim -> expected_max_time() * 2.0 )
+      if ( collected_data.action_sequence.size() <= sim -> expected_max_time() * 2.0 + 3.0 )
       {
         if ( in_combat )
           collected_data.action_sequence.push_back( new player_collected_data_t::action_sequence_data_t( a, target, ts, this ) );
@@ -6803,7 +6804,7 @@ void player_t::replace_spells()
   {
     for ( int i = 0; i < MAX_TALENT_COLS; i++ )
     {
-      if ( talent_points.has_row_col( j, i ) && ( level >= ( ( j + 1 ) * 15 ) ) )
+      if ( talent_points.has_row_col( j, i ) && level < std::min( ( j + 1 ) * 15, 100 ) )
       {
         talent_data_t* td = talent_data_t::find( type, j, i, SPEC_NONE, dbc.ptr );
         if ( td && td -> replace_id() )
@@ -8292,12 +8293,12 @@ void player_t::create_options()
     opt_string( "glyphs", glyphs_str ),
     opt_string( "race", race_str ),
     opt_func( "timeofday", parse_timeofday ),
-    opt_int( "level", level ),
+    opt_int( "level", level, 0, MAX_LEVEL ),
     opt_bool( "ready_trigger", ready_type ),
     opt_func( "role", parse_role_string ),
     opt_string( "target", target_str ),
-    opt_float( "skill", base.skill ),
-    opt_float( "distance", base.distance ),
+    opt_float( "skill", base.skill, 0, 1.0 ),
+    opt_float( "distance", base.distance, 0, std::numeric_limits<double>::max() ),
     opt_string( "position", position_str ),
     opt_string( "professions", professions_str ),
     opt_string( "actions", action_list_str ),
@@ -8318,7 +8319,7 @@ void player_t::create_options()
     opt_func( "brain_lag_stddev", parse_brain_lag_stddev ),
     opt_bool( "scale_player", scale_player ),
     opt_string( "tmi_output", tmi_debug_file_str ),
-    opt_float( "tmi_window", tmi_window ),
+    opt_float( "tmi_window", tmi_window, 0, std::numeric_limits<double>::max() ),
     opt_func( "spec", parse_specialization ),
     opt_func( "specialization", parse_specialization ),
     opt_func( "stat_timelines", parse_stat_timelines ),

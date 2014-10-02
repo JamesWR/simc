@@ -256,7 +256,7 @@ private:
   { return s.size() == 2; }
 
 public:
-  struct error {};
+  typedef std::runtime_error error;
   struct option_error : public error {};
 
   std::vector<std::string> names;
@@ -288,10 +288,7 @@ public:
     {
       if ( names[ i ].find( '=' ) != std::string::npos )
       {
-        if ( ! option_t::parse( sim, context.c_str(), options, names[ i ] ) )
-        {
-          throw option_error();
-        }
+        option_t::parse( sim, context.c_str(), options, names[ i ] );
       }
       else
       {
@@ -561,7 +558,7 @@ bool parse_fight_style( sim_t*             sim,
   }
   else
   {
-    sim -> out_std.printf( "Custom fight style specified: %s", value.c_str() );
+    std::cout << "Custom fight style specified: " << value << std::endl;
     sim -> fight_style = value;
   }
 
@@ -1030,7 +1027,6 @@ void sim_t::combat( int iteration )
       out_std = o;
       out_debug = o;
       out_log = o;
-      out_error = o;
 
       out_std.printf( "------ Iteration #%i ------", iteration + 1 );
       std::flush( *out_std.get_stream() );
@@ -2245,12 +2241,12 @@ void sim_t::create_options()
     opt_int( "iterations", iterations ),
     opt_func( "thread_priority", parse_thread_priority ),
     // General
-    opt_timespan( "max_time", max_time ),
+    opt_timespan( "max_time", max_time, timespan_t::zero(), timespan_t::max() ),
     opt_bool( "fixed_time", fixed_time ),
-    opt_float( "vary_combat_length", vary_combat_length ),
+    opt_float( "vary_combat_length", vary_combat_length, 0.0, 1.0 ),
     opt_func( "ptr", parse_ptr ),
     opt_int( "threads", threads ),
-    opt_float( "confidence", confidence ),
+    opt_float( "confidence", confidence, 0.0, 1.0 ),
     opt_func( "spell_query", parse_spell_query ),
     opt_string( "spell_query_xml_output_file", spell_query_xml_output_file_str ),
     opt_func( "item_db_source", parse_item_sources ),
@@ -2446,7 +2442,7 @@ void sim_t::setup( sim_control_t* c )
   // Global Options
   for ( size_t i = 0; i < control -> options.size(); i++ )
   {
-    option_tuple_t& o = control -> options[ i ];
+    const option_tuple_t& o = control -> options[ i ];
     if ( o.scope != "global" ) continue;
     if ( ! parse_option( o.name, o.value ) )
     {
@@ -2508,7 +2504,6 @@ void sim_t::setup( sim_control_t* c )
       out_std = o;
       out_debug = o;
       out_log = o;
-      out_error = o;
     }
     else
     {
@@ -2650,7 +2645,7 @@ void sim_t::errorf( const char* format, ... )
 
   util::replace_all( s, "\n", "" );
 
-  out_error.raw() << s << "\n";
+  std::cerr << s << "\n";
   error_list.push_back( s );
 }
 

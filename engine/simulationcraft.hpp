@@ -1128,6 +1128,8 @@ public:
 private:
   const char* name;
   option_e type;
+  bool clamp;
+  double min, max;
   union data_t
   {
     void* address;
@@ -1139,9 +1141,12 @@ private:
   } data;
 
 public:
-  option_t( const char* n, option_e t, void* a ) : name( n ), type( t ), data( a ) {}
-  option_t( const char* n, const char* str ) : name( n ), type( DEPRECATED ), data( str ) {}
-  option_t( const char* n, function_t* f ) : name( n ), type( FUNC ), data( f ) {}
+  option_t( const char* n, option_e t, void* a ) :
+    name( n ), type( t ), clamp(), min(), max(), data( a ) {}
+  option_t( const char* n, option_e t, void* a, double min, double max ) :
+    name( n ), type( t ), clamp( true ), min( min ), max( max ), data( a ) {}
+  option_t( const char* n, const char* str ) : name( n ), type( DEPRECATED ), clamp(), min(),max(), data( str ) {}
+  option_t( const char* n, function_t* f ) : name( n ), type( FUNC ), clamp(), min(),max(), data( f ) {}
 
   const char* name_cstr() const { return name; }
 
@@ -1150,10 +1155,10 @@ public:
 
   static void copy( std::vector<option_t>& opt_vector, const option_t* opt_array );
   static bool parse( sim_t*, std::vector<option_t>&, const std::string& name, const std::string& value );
-  static bool parse( sim_t*, const char* context, std::vector<option_t>&, const std::string& options_str );
-  static bool parse( sim_t*, const char* context, std::vector<option_t>&, const std::vector<std::string>& strings );
-  static bool parse( sim_t*, const char* context, const option_t*,        const std::vector<std::string>& strings );
-  static bool parse( sim_t*, const char* context, const option_t*,        const std::string& options_str );
+  static void parse( sim_t*, const char* context, std::vector<option_t>&, const std::string& options_str );
+  static void parse( sim_t*, const char* context, std::vector<option_t>&, const std::vector<std::string>& strings );
+  static void parse( sim_t*, const char* context, const option_t*,        const std::vector<std::string>& strings );
+  static void parse( sim_t*, const char* context, const option_t*,        const std::string& options_str );
   static bool parse_file( sim_t*, FILE* file );
   static bool parse_line( sim_t*, const char* line );
   static bool parse_token( sim_t*, const std::string& token );
@@ -1176,14 +1181,26 @@ inline option_t opt_bool( const char* n, bool& v )
 inline option_t opt_int( const char* n, int& v )
 { return option_t( n, option_t::INT, &v ); }
 
+inline option_t opt_int( const char* n, int& v, int min, int max )
+{ return option_t( n, option_t::INT, &v, min, max ); }
+
 inline option_t opt_uint( const char* n, unsigned& v )
 { return option_t( n, option_t::UINT, &v ); }
+
+inline option_t opt_uint( const char* n, unsigned& v, unsigned min, unsigned max )
+{ return option_t( n, option_t::UINT, &v, min, max ); }
 
 inline option_t opt_float( const char* n, double& v )
 { return option_t( n, option_t::FLT, &v ); }
 
+inline option_t opt_float( const char* n, double& v, double min, double max )
+{ return option_t( n, option_t::FLT, &v, min, max ); }
+
 inline option_t opt_timespan( const char* n, timespan_t& v )
 { return option_t( n, option_t::TIMESPAN, &v ); }
+
+inline option_t opt_timespan( const char* n, timespan_t& v, timespan_t min, timespan_t max )
+{ return option_t( n, option_t::TIMESPAN, &v, min.total_seconds(), max.total_seconds() ); }
 
 inline option_t opt_list( const char* n, option_t::list_t& v )
 { return option_t( n, option_t::LIST, &v ); }
@@ -1430,6 +1447,10 @@ std::ostream& stream_printf( std::ostream&, const char* format, ... );
 // Data Access ==============================================================
 #ifndef MAX_LEVEL
 #define MAX_LEVEL (100)
+#endif
+
+#ifndef MAX_SCALING_LEVEL
+#define MAX_SCALING_LEVEL (105)
 #endif
 
 // Include DBC Module
@@ -2144,6 +2165,7 @@ enum token_e
   TOK_SUB,
   TOK_AND,
   TOK_OR,
+  TOK_XOR,
   TOK_NOT,
   TOK_EQ,
   TOK_NOTEQ,
@@ -2324,7 +2346,7 @@ struct option_tuple_t
 
 struct option_db_t : public std::vector<option_tuple_t>
 {
-  std::string auto_path;
+  std::vector<std::string> auto_path;
   std::unordered_map<std::string, std::string> var_map;
 
   option_db_t();
@@ -2534,7 +2556,6 @@ public:
 
   // Output
   sim_ostream_t out_std;
-  sim_ostream_t out_error;
   sim_ostream_t out_log;
   sim_ostream_t out_debug;
   bool debug;

@@ -446,7 +446,8 @@ public:
   virtual double composite_multistrike_multiplier( const action_state_t* s ) const
   { 
     double m = ab::composite_multistrike_multiplier( s );
-    m *= 1.0 + p() -> buffs.heavy_shot -> value() + p() -> specs.survivalist -> effectN( 2 ).percent();
+    m *= 1.0 + p() -> specs.survivalist -> effectN( 2 ).percent();
+    m *= 1.0 + p() -> buffs.heavy_shot -> value();
     return m; 
   }
 
@@ -2309,7 +2310,7 @@ struct explosive_shot_t: public hunter_ranged_attack_t
     parse_options( NULL, options_str );
     may_block = false;
 
-    attack_power_mod.tick = 0.39; //Welcome to the hard-coded tooltip club!
+    attack_power_mod.tick = 0.429; //Welcome to the hard-coded tooltip club!
     attack_power_mod.direct = attack_power_mod.tick;
     // the inital impact is not part of the rolling dot
     dot_duration = timespan_t::zero();
@@ -2770,6 +2771,7 @@ struct barrage_t: public hunter_spell_t
       p() -> main_hand_attack -> execute_event -> reschedule( time_to_next_hit );
     }
     trigger_tier16_bm_4pc_melee();
+    trigger_thrill_of_the_hunt();
   }
 };
 
@@ -3601,6 +3603,7 @@ void hunter_t::init_action_list()
     precombat -> add_action( "summon_pet" );
     precombat -> add_action( "snapshot_stats", "Snapshot raid buffed stats before combat begins and pre-potting is done." );
     precombat -> add_action( "exotic_munitions,ammo_type=poisoned" );
+    precombat -> add_action( "exotic_munitions,ammo_type=incendiary,if=active_enemies>=3" );
 
     //Pre-pot
     add_potion_action( precombat, "draenic_agility", "virmens_bite" );
@@ -3660,10 +3663,12 @@ void hunter_t::add_potion_action( action_priority_list_t* list, const std::strin
 {
   std::string action_options = options.empty() ? options : "," + options;
   if ( sim -> allow_potions )    
+  {
     if ( level >= 90 )
       list -> add_action( "potion,name=" + big_potion + action_options );
     else if ( level >= 85 )
       list -> add_action( "potion,name=" + little_potion + action_options );
+  }
     
 }
 
@@ -3671,7 +3676,9 @@ void hunter_t::add_potion_action( action_priority_list_t* list, const std::strin
 
 void hunter_t::apl_bm()
 {
-  action_priority_list_t* default_list        = get_action_priority_list( "default" );
+  action_priority_list_t* default_list = get_action_priority_list( "default" );
+  action_priority_list_t* single_target = get_action_priority_list( "single_target" );
+  action_priority_list_t* two_targets = get_action_priority_list( "two_targets" );
 
   default_list -> add_action( "auto_shot" );
 
@@ -3686,6 +3693,7 @@ void hunter_t::apl_bm()
   default_list -> add_talent( this, "Dire Beast");
   default_list -> add_talent( this, "Fervor", "if=focus<=65");
   default_list -> add_action( this, "Bestial Wrath", "if=focus>60&!buff.bestial_wrath.up");
+  default_list -> add_talent( this, "Barrage", "if=active_enemies>2" );
   default_list -> add_action( this, "Multi-Shot", "if=active_enemies>5|(active_enemies>1&pet.cat.buff.beast_cleave.down)");
   default_list -> add_talent( this, "Barrage", "if=active_enemies>1");
   default_list -> add_talent( this, "A Murder of Crows");
@@ -3758,7 +3766,9 @@ void hunter_t::apl_mm()
 
 void hunter_t::apl_surv()
 {
-  action_priority_list_t* default_list        = get_action_priority_list( "default" );
+  action_priority_list_t* default_list  = get_action_priority_list( "default" );
+  action_priority_list_t* single_target = get_action_priority_list( "single" );
+  action_priority_list_t* aoe = get_action_priority_list( "aoe" );
 
   default_list -> add_action( "auto_shot" );
 
@@ -3766,30 +3776,46 @@ void hunter_t::apl_surv()
   add_racial_actions( default_list );
 
   add_potion_action( default_list, "draenic_agility", "virmens_bite", 
-    "if=(!talent.stampede.enabled|cooldown.stampede.remains<1)&(!talent.a_murder_of_crows.enabled|cooldown.a_murder_of_crows.remains<1)|target.time_to_die<=20" );
-  default_list -> add_talent( this, "Stampede", "", "Add a test for trinket.proc.multistrike.up'here and in potion if you have a multistrike trinket");
-  
-  default_list -> add_action( this, "Explosive Trap", "if=active_enemies>1" );
-  default_list -> add_action( this, "Explosive Shot" );
-  default_list -> add_action( this, "Black Arrow", "if=!ticking" );
-  default_list -> add_talent( this, "A Murder of Crows" );
-  default_list -> add_talent( this, "Dire Beast" );
-  default_list -> add_action( this, "Arcane Shot", "if=buff.thrill_of_the_hunt.react&focus>35&focus.time_to_max<=gcd|dot.serpent_sting.remains<=3",
-    "Cast arcane when it's cheap or when it is neeed to keep up serpent_sting");
-  default_list -> add_talent( this, "Glaive Toss" );
-  default_list -> add_talent( this, "Powershot" );
-  default_list -> add_talent( this, "Barrage" );
-  default_list -> add_action( this, "Multi-Shot" , "if=active_enemies>3" );
-  default_list -> add_action( this, "Arcane Shot", "if=buff.thrill_of_the_hunt.react" );
-  default_list -> add_action( this, "Cobra Shot","if=buff.pre_steady_focus.up&buff.steady_focus.remains<5&focus+14+8*(1+buff.steady_focus.value)<80" );
-  default_list -> add_action( this, "Arcane Shot", "if=focus>=67&active_enemies<2" );
-  default_list -> add_action( this, "Arcane Shot", "if=talent.focusing_shot.enabled&active_enemies<2" );
-  default_list -> add_action( this, "Multi-Shot", "if=focus>67&active_enemies>1" );
-  default_list-> add_talent( this, "Focusing Shot" );
+    "if=(((cooldown.stampede.remains<1|!talent.stampede.enabled)&(!talent.a_murder_of_crows.enabled|cooldown.a_murder_of_crows.remains<1))&(trinket.stat.any.up|buff.archmages_greater_incandescence_agi.up))|target.time_to_die<=20" );
+
+  default_list -> add_action( "call_action_list,name=single,if=active_enemies=1" );
+  default_list -> add_action( "call_action_list,name=aoe,if=active_enemies>1" );
+
+  single_target -> add_talent( this, "Stampede", "if=buff.potion.up|(cooldown.potion.remains&(buff.archmages_greater_incandescence_agi.up|trinket.stat.any.up))" );
+  single_target -> add_action( this, "Explosive Shot" );
+  single_target -> add_action( this, "Black Arrow", "if=!ticking" );
+  single_target -> add_talent( this, "A Murder of Crows" );
+  single_target -> add_talent( this, "Dire Beast" );
+  single_target -> add_action( this, "Arcane Shot", "if=buff.thrill_of_the_hunt.react&focus>35&focus.time_to_max<=gcd|dot.serpent_sting.remains<=5|target.time_to_die<4.5" );
+  single_target -> add_talent( this, "Glaive Toss" );
+  single_target -> add_talent( this, "Powershot" );
+  single_target -> add_talent( this, "Barrage" );
+  single_target -> add_action( this, "Cobra Shot", "if=buff.pre_steady_focus.up&buff.steady_focus.remains<5&focus+14+8*(1+buff.steady_focus.value)<80" );
+  single_target -> add_action( this, "Arcane Shot", "if=focus>=70|talent.focusing_shot.enabled" );
+  single_target -> add_talent( this, "Focusing Shot" );
   if ( level >= 81 )
-    default_list -> add_action( this, "Cobra Shot" );
+    single_target -> add_action( this, "Cobra Shot" );
   else
-    default_list -> add_action( this, "Steady Shot" );
+    single_target -> add_action( this, "Steady Shot" );
+
+  aoe -> add_talent( this, "Stampede", "if=buff.potion.up|(cooldown.potion.remains&(buff.archmages_greater_incandescence_agi.up|trinket.stat.any.up|buff.archmages_incandescence_agi.up))" );
+  aoe -> add_action( this, "Explosive Shot", "if=buff.lock_and_load.react&cooldown.barrage.remains>0" );
+  aoe -> add_talent( this, "Barrage" );
+  aoe -> add_action( this, "Explosive Shot", "if=active_enemies<5" );
+  aoe -> add_action( this, "Black Arrow", "if=!ticking" );
+  aoe -> add_action( this, "Explosive Trap", "if=dot.explosive_trap.remains<=5" );
+  aoe -> add_talent( this, "A Murder of Crows" );
+  aoe -> add_talent( this, "Dire Beast" );
+  aoe -> add_action( this, "Multi-shot", "if=buff.thrill_of_the_hunt.react&focus>50&focus.time_to_max<=gcd|dot.serpent_sting.remains<=5|target.time_to_die<4.5" );
+  aoe -> add_talent( this, "Glaive Toss" );
+  aoe -> add_talent( this, "Powershot" );
+  aoe -> add_action( this, "Cobra Shot", "if=buff.pre_steady_focus.up&buff.steady_focus.remains<5&focus+14+8*(1+buff.steady_focus.value)<80" );
+  aoe -> add_action( this, "Multi-shot", "if=focus>=70|talent.focusing_shot.enabled" );
+  aoe -> add_talent( this, "Focusing Shot" );
+  if ( level >= 81 )
+    aoe -> add_action( this, "Cobra Shot" );
+  else
+    aoe -> add_action( this, "Steady Shot" );
 }
 
 // NO Spec Combat Action Priority List ======================================

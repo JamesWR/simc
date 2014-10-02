@@ -1045,6 +1045,14 @@ void print_html_head( report::sc_html_stream& os, sim_t* sim )
   print_html_styles( os, sim );
 }
 
+void print_nothing_to_report( report::sc_html_stream& os, const std::string& reason )
+{
+  os << "<div id=\"notice\" class=\"section section-open\">\n"
+     << "<h2>Nothing to report</h2>\n"
+     << "<p>" << reason << "<p>\n"
+     << "</div>\n\n";
+}
+
 /* Main function building the html document and calling subfunctions
  */
 void print_html_( report::sc_html_stream& os, sim_t* sim )
@@ -1076,6 +1084,11 @@ void print_html_( report::sc_html_stream& os, sim_t* sim )
   print_html_masthead( os, sim );
 
   print_html_beta_warning( os );
+
+
+  if ( sim -> simulation_length.sum() == 0 ) {
+    print_nothing_to_report( os, "Sum of all Simulation Durations is zero." );
+  }
 
   size_t num_players = sim -> players_by_name.size();
 
@@ -1167,7 +1180,6 @@ namespace report {
 
 void print_html( sim_t* sim )
 {
-  if ( sim -> simulation_length.mean() == 0 ) return;
   if ( sim -> html_file_str.empty() ) return;
 
 

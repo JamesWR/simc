@@ -152,27 +152,27 @@ int sim_t::main( const std::vector<std::string>& args )
 
   sim_control_t control;
 
- try
- {
-   control.options.parse_args( args );
- }
- catch (const std::exception& e) {
-  errorf("ERROR! Incorrect option format: %s\n", e.what());
-  return 1;
- }
+  try
+  {
+    control.options.parse_args(args);
+  }
+  catch (const std::exception& e) {
+    std::cerr << "ERROR! Incorrect option format: " << e.what() << std::endl;
+    return 1;
+  }
 
   try
   {
     setup( &control );
   }
   catch( const std::exception& e ){
-    errorf( "ERROR! Setup failure: %s\n", e.what() );
+    std::cerr <<  "ERROR! Setup failure: " << e.what() << std::endl;
     return 1;
   }
 
   if ( canceled ) return 1;
 
-  out_std.raw().printf( "\nSimulationCraft %s for World of Warcraft %s %s (build level %s)\n",
+  util::printf( "\nSimulationCraft %s for World of Warcraft %s %s (build level %s)\n",
                  SC_VERSION, dbc.wow_version(), dbc.wow_ptr_status(), util::to_string( dbc.build_level() ).c_str() );
 
   if ( spell_query )
@@ -183,32 +183,15 @@ int sim_t::main( const std::vector<std::string>& args )
   else if ( need_to_save_profiles( this ) )
   {
     init();
-    out_std.raw() << "\nGenerating profiles... \n";
+    std::cout << "\nGenerating profiles... \n";
     report::print_profiles( this );
   }
   else
   {
-    if ( max_time <= timespan_t::zero() )
-    {
-      out_error.raw() << "simulationcraft: One of -max_time or -target_health must be specified.\n";
-      return 1;
-    }
-    if ( fabs( vary_combat_length ) >= 1.0 )
-    {
-      out_std.raw() << "\n |vary_combat_length| >= 1.0, overriding to 0.0.\n";
-      vary_combat_length = 0.0;
-    }
-    if ( confidence <= 0.0 || confidence >= 1.0 )
-    {
-      out_std.raw() << "\nInvalid confidence, reseting to 0.95.\n";
-      confidence = 0.95;
-    }
-
-    out_std.raw().printf(
-                   "\nSimulating... ( iterations=%d, max_time=%.0f, vary_combat_length=%0.2f, optimal_raid=%d, fight_style=%s )\n",
+    util::printf( "\nSimulating... ( iterations=%d, max_time=%.0f, vary_combat_length=%0.2f, optimal_raid=%d, fight_style=%s )\n",
                    iterations, max_time.total_seconds(), vary_combat_length, optimal_raid, fight_style.c_str() );
 
-    out_std.raw() << "\nGenerating baseline... \n";
+    std::cout << "\nGenerating baseline... " << std::endl;
 
     sim_phase_str = "Generating baseline:   ";
     if ( execute() )
@@ -216,12 +199,13 @@ int sim_t::main( const std::vector<std::string>& args )
       scaling      -> analyze();
       plot         -> analyze();
       reforge_plot -> analyze();
-      util::fprintf( stdout, "\nGenerating reports...\n" ); fflush( stdout );
       report::print_suite( this );
     }
     else
       canceled = 1;
   }
+
+  std::cout << std::endl;
 
   return canceled;
 }

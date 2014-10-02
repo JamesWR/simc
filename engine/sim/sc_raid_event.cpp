@@ -457,16 +457,17 @@ struct heal_event_t : public raid_event_t
 {
   double amount;
   double amount_range;
-  double to_pct;
+  double to_pct, to_pct_range;
 
   heal_event_t( sim_t* s, const std::string& options_str ) :
-    raid_event_t( s, "heal" ), amount( 1 ), amount_range( 0 ), to_pct( 0 )
+    raid_event_t( s, "heal" ), amount( 1 ), amount_range( 0 ), to_pct( 0 ), to_pct_range( 0 )
   {
     option_t options[] =
     {
       opt_float( "amount",       amount       ),
       opt_float( "amount_range", amount_range ),
       opt_float( "to_pct",       to_pct ),
+      opt_float( "to_pct_range",   to_pct_range ),
       opt_null()
     };
     parse_options( options, options_str );
@@ -480,23 +481,34 @@ struct heal_event_t : public raid_event_t
     {
       player_t* p = affected_players[ i ];
       double x; // amount to heal
-      
+
       // to_pct tells this event to heal each player up to a percent of their max health
       if ( to_pct > 0 )
       {
-        x = p -> resources.max[ RESOURCE_HEALTH ] * to_pct / 100;
+        double pct_actual = to_pct;
+        if ( to_pct_range > 0 )
+          pct_actual = sim -> rng().range( to_pct - to_pct_range, to_pct + to_pct_range );
+        if ( sim -> debug )
+          sim -> out_debug.printf( "%s healing to %.3f%% (%.0f) of max health, current health %.0f",
+              p -> name(), pct_actual, p -> resources.max[ RESOURCE_HEALTH ] * pct_actual / 100,
+              p -> resources.current[ RESOURCE_HEALTH ] );
+        x = p -> resources.max[ RESOURCE_HEALTH ] * pct_actual / 100;
         x -= p -> resources.current[ RESOURCE_HEALTH ];
       }
       else
       {
         x = sim -> rng().range( amount - amount_range, amount + amount_range );
-        if ( sim -> log ) sim -> out_log.printf( "%s takes %.0f raid heal.", p -> name(), x );
         p -> resource_gain( RESOURCE_HEALTH, x );
       }
-      
+
       // heal if there's any healing to be done
       if ( x > 0 )
+      {
+        if ( sim -> log )
+          sim -> out_log.printf( "%s takes %.0f raid heal.", p -> name(), x );
+
         p -> resource_gain( RESOURCE_HEALTH, x );
+      }
     }
   }
 
@@ -824,9 +836,13 @@ void raid_event_t::parse_options( option_t*          options,
   std::vector<option_t> merged_options;
   option_t::merge( merged_options, options, base_options );
 
-  if ( ! option_t::parse( sim, name_str.c_str(), merged_options, options_str ) )
+  try
   {
-    sim -> errorf( "Raid Event %s: Unable to parse options str '%s'.\n", name_str.c_str(), options_str.c_str() );
+    option_t::parse( sim, name_str.c_str(), merged_options, options_str );
+  }
+  catch( const std::exception& e )
+  {
+    sim -> errorf( "Raid Event %s: Unable to parse options str '%s': %s", name_str.c_str(), options_str.c_str(), e.what() );
     sim -> cancel();
   }
 

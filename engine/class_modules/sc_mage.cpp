@@ -123,11 +123,11 @@ public:
   // Cooldowns
   struct cooldowns_t
   {
-    cooldown_t* evocation;
-    cooldown_t* inferno_blast;
     cooldown_t* combustion;
-    cooldown_t* prismatic_crystal;
-    cooldown_t* bolt; // Cooldown to handle enhanced_frostbolt perk.
+    cooldown_t* evocation;
+    cooldown_t* enhanced_frostbolt;
+    cooldown_t* frozen_orb;
+    cooldown_t* inferno_blast;
   } cooldowns;
 
   // Gains
@@ -337,11 +337,11 @@ public:
     FoF_renew                = 0;
 
     // Cooldowns
-    cooldowns.evocation         = get_cooldown( "evocation"     );
-    cooldowns.inferno_blast     = get_cooldown( "inferno_blast" );
-    cooldowns.combustion        = get_cooldown( "combustion"    );
-    cooldowns.bolt              = get_cooldown( "enhanced_frostbolt" );
-    cooldowns.prismatic_crystal = get_cooldown( "prismatic_crystal" );
+    cooldowns.combustion         = get_cooldown( "combustion"         );
+    cooldowns.enhanced_frostbolt = get_cooldown( "enhanced_frostbolt" );
+    cooldowns.evocation          = get_cooldown( "evocation"          );
+    cooldowns.frozen_orb         = get_cooldown( "frozen_orb"         );
+    cooldowns.inferno_blast      = get_cooldown( "inferno_blast"      );
 
     // Miscellaneous
     incanters_flow_stack_mult = find_spell( 116267 ) -> effectN( 1 ).percent();
@@ -788,7 +788,7 @@ struct prismatic_crystal_t : public pet_t
     aoe_spell( 0 ),
     damage_taken( owner -> find_spell( 155153 ) ),
     frost_damage_taken( owner -> find_spell( 152087 ) )
-  { }
+  { level = 101; }
 
   void add_proxy_stats( action_t* owner_action )
   {
@@ -1756,9 +1756,10 @@ struct arcane_blast_t : public mage_spell_t
   {
     timespan_t t = mage_spell_t::execute_time();
 
-    if ( p() -> buffs.arcane_charge -> check() )
+    if ( p() -> perks.enhanced_arcane_blast -> ok() )
     {
-      t *=  1.0 - p() -> buffs.arcane_charge -> stack() * p() -> perks.enhanced_arcane_blast -> effectN( 1 ).percent();
+      t *=  1.0 - p() -> buffs.arcane_charge -> stack() *
+                  p() -> perks.enhanced_arcane_blast -> effectN( 1 ).percent();
     }
 
     if ( p() -> buffs.arcane_affinity -> check() )
@@ -1854,10 +1855,9 @@ struct arcane_missiles_tick_t : public mage_spell_t
   virtual void execute()
   {
     mage_spell_t::execute();
+
     if ( p() -> sets.has_set_bonus( MAGE_ARCANE, T17, B4 ) && p() -> buffs.arcane_instability -> up() )
       p() -> buffs.arcane_instability -> expire();
-  
-  
   }
 };
 
@@ -1937,6 +1937,9 @@ struct arcane_missiles_t : public mage_spell_t
   {
     mage_spell_t::last_tick( d );
     p() -> buffs.arcane_charge -> trigger();
+
+    if ( p() -> sets.has_set_bonus( MAGE_ARCANE, T17, B4 ) && p() -> rppm_arcane_instability.trigger() )
+      p() -> buffs.arcane_instability -> trigger();
   }
 
   virtual bool ready()
@@ -2133,6 +2136,14 @@ struct blizzard_shard_t : public mage_spell_t
       {
         fof_proc_chance *= 1.2;
       }*/
+
+      if ( p() -> perks.improved_blizzard -> ok() )
+      {
+        p() -> cooldowns.frozen_orb -> adjust(
+          - p() -> perks.improved_blizzard -> effectN( 1 ).time_value() * 10.0
+        );
+      }
+
       p() -> buffs.fingers_of_frost -> trigger( 1, buff_t::DEFAULT_VALUE(), fof_proc_chance );
     }
   }
@@ -2442,7 +2453,11 @@ public:
     hasted_ticks      = false;
 
     cooldown = p -> cooldowns.evocation;
-    cooldown -> duration = data().cooldown() + timespan_t::from_millis( p -> perks.improved_evocation -> effectN( 1 ).base_value() );
+    if ( p -> perks.improved_evocation -> ok() )
+    {
+      cooldown -> duration += p -> perks.improved_evocation
+                                -> effectN( 1 ).time_value();
+    }
 
     timespan_t duration = data().duration();
 
@@ -2583,11 +2598,16 @@ struct fireball_t : public mage_spell_t
 
   virtual double composite_crit() const
   {
-      double c = mage_spell_t::composite_crit();
+    double c = mage_spell_t::composite_crit();
 
-      c += ( p() -> buffs.enhanced_pyrotechnics -> check() ) * p() -> perks.enhanced_pyrotechnics -> effectN( 1 ).trigger() -> effectN( 1 ).percent();
+    if ( p() -> perks.enhanced_pyrotechnics -> ok() )
+    {
+      c += p() -> buffs.enhanced_pyrotechnics -> stack() *
+           p() -> perks.enhanced_pyrotechnics -> effectN( 1 ).trigger()
+                                              -> effectN( 1 ).percent();
+    }
 
-      return c;
+    return c;
   }
 
   double composite_crit_multiplier() const
@@ -2702,7 +2722,8 @@ struct frostbolt_t : public mage_spell_t
 
   virtual void schedule_execute( action_state_t* execute_state )
   {
-    if ( p() -> cooldowns.bolt -> up() && p() -> specialization() == MAGE_FROST )
+    if ( p() -> cooldowns.enhanced_frostbolt -> up() &&
+         p() -> specialization() == MAGE_FROST )
       p() -> buffs.enhanced_frostbolt -> trigger();
 
     mage_spell_t::schedule_execute( execute_state );
@@ -2738,8 +2759,8 @@ struct frostbolt_t : public mage_spell_t
 
     if ( p() -> buffs.enhanced_frostbolt -> up() )
     {
-      p() -> cooldowns.bolt -> duration = enhanced_frostbolt_duration;
-      p() -> cooldowns.bolt -> start();
+      p() -> cooldowns.enhanced_frostbolt -> duration = enhanced_frostbolt_duration;
+      p() -> cooldowns.enhanced_frostbolt -> start();
       p() -> buffs.enhanced_frostbolt -> expire();
     }
 
@@ -2934,11 +2955,16 @@ struct frostfire_bolt_t : public mage_spell_t
 
   virtual double composite_crit() const
   {
-      double c = mage_spell_t::composite_crit();
+    double c = mage_spell_t::composite_crit();
 
-      if ( p() -> specialization() == MAGE_FIRE )  c += ( p() -> buffs.enhanced_pyrotechnics -> check() ) * p() -> perks.enhanced_pyrotechnics -> effectN( 1 ).trigger() -> effectN( 1 ).percent();
+    if ( p() -> perks.enhanced_pyrotechnics -> ok() )
+    {
+      c += p() -> buffs.enhanced_pyrotechnics -> stack() *
+           p() -> perks.enhanced_pyrotechnics -> effectN( 1 ).trigger()
+                                              -> effectN( 1 ).percent();
+    }
 
-      return c;
+    return c;
   }
 
   double composite_target_crit( player_t* target ) const
@@ -3227,8 +3253,16 @@ struct inferno_blast_t : public mage_spell_t
       cooldown -> duration = timespan_t::from_seconds( 8.0 );
 
     max_spread_targets = 3;
-    max_spread_targets += p -> glyphs.inferno_blast -> ok() ? p -> glyphs.inferno_blast -> effectN( 1 ).base_value() : 0;
-    max_spread_targets += p -> perks.improved_inferno_blast ? p -> perks.improved_inferno_blast -> effectN( 1 ).base_value() : 0;
+    if ( p -> glyphs.inferno_blast -> ok() )
+    {
+      max_spread_targets += p -> glyphs.inferno_blast
+                              -> effectN( 1 ).base_value();
+    }
+    if ( p -> perks.improved_inferno_blast -> ok() )
+    {
+      max_spread_targets += p -> perks.improved_inferno_blast
+                              -> effectN( 1 ).base_value();
+    }
   }
 
   virtual void impact( action_state_t* s )
@@ -3897,7 +3931,7 @@ struct prismatic_crystal_t : public mage_spell_t
   {
     parse_options( NULL, options_str );
     may_miss = may_crit = harmful = callbacks = false;
-    trigger_gcd = timespan_t::zero();
+    min_gcd = data().gcd();
   }
 
   void execute()
@@ -4798,7 +4832,7 @@ void mage_t::create_buffs()
                                 .chance( 1.0 );
 
   buffs.incanters_flow        = new incanters_flow_t( this );
-  buffs.ice_shard             = buff_creator_t( this, "ice_shard" ).duration( timespan_t::from_seconds( 10.0 ) ).max_stack( 10 );
+  buffs.ice_shard             = buff_creator_t( this, "ice_shard", find_spell( 166869 ) );
 }
 
 // mage_t::init_gains =======================================================
@@ -4989,7 +5023,7 @@ void mage_t::apl_arcane()
   default_list -> add_talent( this, "Mirror Image" );
   default_list -> add_action( "call_action_list,name=init_crystal,if=talent.prismatic_crystal.enabled" );
   default_list -> add_action( "call_action_list,name=crystal_sequence,if=pet.prismatic_crystal.active" );
-  default_list -> add_action( "call_action_list,name=aoe,if=active_enemies>=6" );
+  default_list -> add_action( "call_action_list,name=aoe,if=active_enemies>=5" );
   default_list -> add_action( "call_action_list,name=burn,if=time_to_die<mana.pct*0.2*spell_haste|((cooldown.evocation.remains<buff.arcane_power.remains|cooldown.evocation.remains<(mana.pct-40)*0.2)&mana.pct>40)" );
   default_list -> add_action( "call_action_list,name=conserve,if=!cooldown.evocation.up" );
   default_list -> add_action( this, "Evocation",
@@ -5099,7 +5133,6 @@ void mage_t::apl_fire()
 
   action_priority_list_t* default_list        = get_action_priority_list( "default"           );
 
-  action_priority_list_t* init_crystal        = get_action_priority_list( "init_crystal"      );
   action_priority_list_t* crystal_sequence    = get_action_priority_list( "crystal_sequence"  );
   action_priority_list_t* init_combust        = get_action_priority_list( "init_combust"      );
   action_priority_list_t* combust_sequence    = get_action_priority_list( "combust_sequence"  );
@@ -5123,39 +5156,36 @@ void mage_t::apl_fire()
                               "if=buff.rune_of_power.remains<cast_time" );
   default_list -> add_action( "call_action_list,name=combust_sequence,if=pyro_chain" );
   default_list -> add_action( "call_action_list,name=crystal_sequence,if=pet.prismatic_crystal.active" );
-  default_list -> add_action( "call_action_list,name=init_combust" );
-  default_list -> add_action( "call_action_list,name=init_crystal,if=talent.prismatic_crystal.enabled" );
+  default_list -> add_action( "call_action_list,name=init_combust,if=!pyro_chain" );
   default_list -> add_talent( this, "Rune of Power",
-                              "if=buff.rune_of_power.remains<2*(action.fireball.execute_time+gcd)&(buff.heating_up.down|buff.pyroblast.down|!action.fireball.in_flight)",
+                              "if=buff.rune_of_power.remains<action.fireball.execute_time+gcd&!(buff.heating_up.up&action.fireball.in_flight)",
                               "Utilize level 90 active talents while avoiding pyro munching" );
   default_list -> add_talent( this, "Mirror Image",
-                              "if=buff.heating_up.down|buff.pyroblast.down|!action.fireball.in_flight" );
+                              "if=!(buff.heating_up.up&action.fireball.in_flight)" );
   default_list -> add_action( "call_action_list,name=aoe,if=active_enemies>=5" );
   default_list -> add_action( "call_action_list,name=single_target");
 
 
-// TODO: Add multi LB explosions on multitarget fights.
-  init_crystal -> add_action( "prismatic_crystal,if=cooldown.combustion.remains>0&buff.pyroblast.up&buff.heating_up.up&(!talent.living_bomb.enabled|(dot.living_bomb.ticking&dot.living_bomb.remains<10))",
-                              "Prismatic Crystal sequence initialization\n"
-                              "# This sequence is triggered only when Combustion is glyphed, on even numbered PCs which are not used in conjunction with it" );
-  init_crystal -> add_action( "prismatic_crystal,if=buff.pyromaniac.react" );
-
-
+  // TODO: Add multi LB explosions on multitarget fights.
   crystal_sequence -> add_action( this, "Inferno Blast",
-                                  "cycle_targets=1,if=dot.combustion.ticking&active_dot.combustion<active_enemies",
-                                  "Action list while Prismatic Crystal is up" );
+                                  "cycle_targets=1,if=dot.combustion.ticking&active_dot.combustion<active_enemies+1",
+                                  "Action list while Prismatic Crystal is up\n"
+                                  "# Spread Combustion from PC; \"active_enemies+1\" because PC is not counted" );
   crystal_sequence -> add_action( this, "Pyroblast",
-                                  "if=current_target=prismatic_crystal&buff.pyroblast.up&cooldown.prismatic_crystal.remains-50<gcd+travel_time&cooldown.prismatic_crystal.remains-50>travel_time",
+                                  "if=execute_time=gcd&pet.prismatic_crystal.remains<gcd+travel_time&pet.prismatic_crystal.remains>travel_time",
                                   "Use pyros before PC's expiration" );
-  crystal_sequence -> add_action( "call_action_list,name=single_target,if=current_target=prismatic_crystal" );
+  crystal_sequence -> add_action( "call_action_list,name=single_target" );
 
 
-  init_combust -> add_action( "start_pyro_chain,if=talent.meteor.enabled&cooldown.combustion.remains<action.scorch.gcd*3&cooldown.meteor.up&buff.pyroblast.up&((buff.heating_up.down&action.fireball.in_flight)|(buff.heating_up.up&!action.fireball.in_flight))",
+  init_combust -> add_action( "start_pyro_chain,if=talent.meteor.enabled&cooldown.meteor.up&((cooldown.combustion.remains<action.pyroblast.gcd*3&buff.pyroblast.up&(buff.heating_up.up^action.fireball.in_flight))|(buff.pyromaniac.up&(cooldown.combustion.remains<ceil(buff.pyromaniac.remains%action.pyroblast.gcd)*action.pyroblast.gcd)))",
                               "Combustion sequence initialization\n"
-                              "# This sequence lists the requirements for preparing a Combustion combo with each talent choice" );
-  init_combust -> add_action( "start_pyro_chain,if=talent.prismatic_crystal.enabled&(!talent.living_bomb.enabled|dot.living_bomb.remains>action.scorch.execute_time*3)&cooldown.combustion.remains<action.scorch.gcd*2&cooldown.prismatic_crystal.up&buff.pyroblast.up&buff.heating_up.up&action.fireball.in_flight" );
-  init_combust -> add_action( "start_pyro_chain,if=!(talent.prismatic_crystal.enabled|talent.meteor.enabled)&cooldown.combustion.remains<action.scorch.gcd*4&buff.pyroblast.up&buff.heating_up.up&action.fireball.in_flight" );
-  init_combust -> add_action( "start_pyro_chain,if=buff.pyromaniac.up&(cooldown.combustion.remains<ceil(buff.pyromaniac.remains%action.pyroblast.gcd)*action.pyroblast.gcd|(talent.kindling.enabled&cooldown.combustion.remains<ceil(buff.pyromaniac.remains%action.pyroblast.gcd)*(1+action.pyroblast.gcd)))" );
+                              "# This sequence lists the requirements for preparing a Combustion combo with each talent choice\n"
+                              "# Meteor Combustion" );
+  init_combust -> add_action( "start_pyro_chain,if=talent.prismatic_crystal.enabled&cooldown.prismatic_crystal.up&((cooldown.combustion.remains<action.pyroblast.gcd*2&buff.pyroblast.up&(buff.heating_up.up^action.fireball.in_flight))|(buff.pyromaniac.up&(cooldown.combustion.remains<ceil(buff.pyromaniac.remains%action.pyroblast.gcd)*action.pyroblast.gcd)))",
+                              "Prismatic Crystal Combustion" );
+  init_combust -> add_action( "start_pyro_chain,if=talent.prismatic_crystal.enabled&!glyph.combustion.enabled&cooldown.prismatic_crystal.remains>20&((cooldown.combustion.remains<action.pyroblast.gcd*2&buff.pyroblast.up&buff.heating_up.up&action.fireball.in_flight)|(buff.pyromaniac.up&(cooldown.combustion.remains<ceil(buff.pyromaniac.remains%action.pyroblast.gcd)*action.pyroblast.gcd)))" );
+  init_combust -> add_action( "start_pyro_chain,if=!talent.prismatic_crystal.enabled&!talent.meteor.enabled&((cooldown.combustion.remains<action.pyroblast.gcd*4&buff.pyroblast.up&buff.heating_up.up&action.fireball.in_flight)|(buff.pyromaniac.up&cooldown.combustion.remains<ceil(buff.pyromaniac.remains%action.pyroblast.gcd)*(action.pyroblast.gcd+talent.kindling.enabled)))",
+                              "Kindling or Level 90 Combustion" );
 
 
   combust_sequence -> add_action( "stop_pyro_chain,if=cooldown.combustion.duration-cooldown.combustion.remains<15",
@@ -5170,17 +5200,20 @@ void mage_t::apl_fire()
 
   combust_sequence -> add_talent( this, "Meteor" );
   combust_sequence -> add_action( this, "Pyroblast",
-                                  "if=execute_time=gcd" );
+                                  "if=buff.pyromaniac.up" );
+  combust_sequence -> add_action( this, "Fireball",
+                                  "if=!dot.ignite.ticking&!in_flight" );
+  combust_sequence -> add_action( this, "Pyroblast",
+                                  "if=buff.pyroblast.up" );
   combust_sequence -> add_action( this, "Inferno Blast",
                                   "if=talent.meteor.enabled&cooldown.meteor.duration-cooldown.meteor.remains<gcd*3",
-                                  "Meteor Combustions may run out of Pyro procs before impact. IB fills the GCD before Combustion should be triggered" );
+                                  "Meteor Combustions can run out of Pyro procs before impact. Use IB to delay Combustion" );
   combust_sequence -> add_action( this, "Combustion" );
 
 
   active_talents -> add_talent( this, "Meteor",
-                                "if=glyph.combustion.enabled&(!talent.incanters_flow.enabled|buff.incanters_flow.stack+incanters_flow_dir>=4)&cooldown.meteor.duration-cooldown.combustion.remains<10",
-                                "Active talents usage\n"
-                                "# This sequence summarizes all usage of active talents (BW, LB, Met), and their optimizations with Incanter's Flow and Prismatic Crystal" );
+                                "if=active_enemies>=5|(glyph.combustion.enabled&(!talent.incanters_flow.enabled|buff.incanters_flow.stack+incanters_flow_dir>=4)&cooldown.meteor.duration-cooldown.combustion.remains<10)",
+                                "Active talents usage" );
   active_talents -> add_action( "call_action_list,name=living_bomb,if=talent.living_bomb.enabled" );
   active_talents -> add_talent( this, "Blast Wave",
                                 "if=(!talent.incanters_flow.enabled|buff.incanters_flow.stack>=4)&(time_to_die<10|!talent.prismatic_crystal.enabled|(charges=1&cooldown.prismatic_crystal.remains>recharge_time)|charges=2|current_target=prismatic_crystal)" );
@@ -5190,18 +5223,21 @@ void mage_t::apl_fire()
                              "cycle_targets=1,if=dot.living_bomb.ticking&active_dot.living_bomb<active_enemies",
                              "Living Bomb application" );
   living_bomb -> add_talent( this, "Living Bomb",
-                             "cycle_targets=1,if=(((!talent.incanters_flow.enabled|incanters_flow_dir<0|buff.incanters_flow.stack=5)&remains<3.6)|((incanters_flow_dir>0|buff.incanters_flow.stack=1)&remains<gcd)|!ticking)&target.time_to_die>remains+12&current_target!=prismatic_crystal" );
+                             "cycle_targets=1,if=target!=prismatic_crystal&(active_dot.living_bomb=0|(ticking&active_dot.living_bomb=1))&(((!talent.incanters_flow.enabled|incanters_flow_dir<0|buff.incanters_flow.stack=5)&remains<3.6)|((incanters_flow_dir>0|buff.incanters_flow.stack=1)&remains<gcd))&target.time_to_die>remains+12" );
 
 
   aoe -> add_action( this, "Inferno Blast",
-                     "cycle_targets=1,if=(dot.combustion.ticking&active_dot.combustion<active_enemies)|(dot.living_bomb.ticking&active_dot.living_bomb<active_enemies)|(dot.pyroblast.ticking&active_dot.pyroblast<active_enemies)",
+                     "cycle_targets=1,if=(dot.combustion.ticking&active_dot.combustion<active_enemies)|(dot.pyroblast.ticking&active_dot.pyroblast<active_enemies)",
                      "AoE sequence" );
   aoe -> add_action( "call_action_list,name=active_talents" );
+  aoe -> add_action( this, "Pyroblast",
+                     "if=buff.pyroblast.react|buff.pyromaniac.react" );
+  aoe -> add_action( this, "Pyroblast",
+                     "if=active_dot.pyroblast=0&!in_flight" );
   aoe -> add_action( this, "Dragon's Breath",
                      "if=glyph.dragons_breath.enabled" );
-  aoe -> add_action( this, "Pyroblast",
-                     "if=active_dot.pyroblast=0" );
-  aoe -> add_action( this, "Flamestrike" );
+  aoe -> add_action( this, "Flamestrike",
+                     "if=mana.pct>10&remains<2.4"  );
 
 
   single_target -> add_action( this, "Inferno Blast",
@@ -5254,7 +5290,7 @@ void mage_t::apl_frost()
   default_list -> add_action( "call_action_list,name=cooldowns,if=time_to_die<24" );
   default_list -> add_action( "call_action_list,name=init_crystal,if=talent.prismatic_crystal.enabled&cooldown.prismatic_crystal.remains<action.frozen_orb.gcd" );
   default_list -> add_action( "call_action_list,name=crystal_sequence,if=pet.prismatic_crystal.active" );
-  default_list -> add_action( "call_action_list,name=aoe,if=active_enemies>5" );
+  default_list -> add_action( "call_action_list,name=aoe,if=active_enemies>=5" );
   default_list -> add_action( "call_action_list,name=single_target" );
 
 
@@ -5274,6 +5310,8 @@ void mage_t::apl_frost()
   crystal_sequence -> add_action( this, "Ice Lance",
                                   "if=buff.fingers_of_frost.react" );
   crystal_sequence -> add_talent( this, "Ice Nova" );
+  crystal_sequence -> add_action( this, "Blizzard",
+                                 "interrupt_if=cooldown.frozen_orb.up|(talent.frost_bomb.enabled&buff.fingers_of_frost.react=2),if=active_enemies>=5" );
   crystal_sequence -> add_action( this, "Frostbolt" );
 
 
@@ -5340,7 +5378,7 @@ void mage_t::apl_frost()
   single_target -> add_action( this, "Ice Lance",
                                "if=talent.thermal_void.enabled&buff.icy_veins.up&buff.icy_veins.remains<6&buff.icy_veins.remains<cooldown.icy_veins.remains",
                                "Thermal Void IV extension" );
-  single_target -> add_action( "water_elemental:water_jet,if=buff.fingers_of_frost.react=0" );
+  single_target -> add_action( "water_jet,if=buff.fingers_of_frost.react=0" );
   single_target -> add_action( this, "Frostbolt" );
   single_target -> add_talent( this, "Ice Floes", "moving=1" );
   single_target -> add_action( this, "Ice Lance", "moving=1" );
@@ -5466,11 +5504,13 @@ double mage_t::composite_multistrike() const
 
   if ( buffs.icy_veins -> up() && glyphs.icy_veins -> ok() )
   {
-    ms += buffs.icy_veins -> data().effectN( 3 ).percent();
-    if ( perks.improved_icy_veins -> ok() )
-      ms += perks.improved_icy_veins -> effectN( 2 ).percent();
-  }
+    ms += glyphs.icy_veins -> effectN( 1 ).percent();
 
+    if ( perks.improved_icy_veins -> ok() )
+    {
+      ms += perks.improved_icy_veins -> effectN( 2 ).percent();
+    }
+  }
 
   return ms;
 }
@@ -5481,11 +5521,18 @@ double mage_t::composite_spell_haste() const
 {
   double h = player_t::composite_spell_haste();
 
-  if ( buffs.icy_veins -> up() && !glyphs.icy_veins -> ok() && perks.improved_icy_veins -> ok() )
-    h *= 1.0 / ( 1.0 + buffs.icy_veins -> data().effectN( 1 ).percent() + perks.improved_icy_veins -> effectN( 1 ).percent() );
-  else if ( buffs.icy_veins -> up() && !glyphs.icy_veins -> ok() )
-    h *= 1.0 / ( 1.0 + buffs.icy_veins -> data().effectN( 1 ).percent() );
-  
+  if ( buffs.icy_veins -> up() && !glyphs.icy_veins -> ok() )
+  {
+    double iv_haste = buffs.icy_veins -> data().effectN( 1 ).percent();
+
+    if ( perks.improved_icy_veins -> ok() )
+    {
+      iv_haste += perks.improved_icy_veins -> effectN( 1 ).percent();
+    }
+
+    h /= 1.0 + iv_haste ;
+  }
+
   return h;
 }
 

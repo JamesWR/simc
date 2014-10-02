@@ -124,9 +124,7 @@ struct action_execute_event_t : public event_t
 
     if ( ! p() -> channeling )
     {
-      if ( p() -> readying )
-        sim().out_error.printf( "Danger Will Robinson!  Danger!  action %s player %s\n",
-                    action -> name(), p() -> name() );
+      assert( ! p() -> readying && "Danger Will Robinson!  Danger! Channeling action is trying to block player readying state, but player is already in it." );
 
       p() -> schedule_ready( timespan_t::zero() );
     }
@@ -155,7 +153,9 @@ struct aoe_target_list_callback_t
     action -> target_cache.is_valid = false;
   }
 };
-
+struct power_entry_without_aura {
+  bool operator()( const spellpower_data_t* p ) {return p -> aura_id() == 0;}
+};
 } // end anonymous namespace
 
 
@@ -440,8 +440,24 @@ void action_t::parse_spell_data( const spell_data_t& spell_data )
   school               = spell_data.get_school_type();
   rp_gain              = spell_data.runic_power_gain();
 
-  if ( spell_data._power && spell_data._power -> size() == 1 )
-    resource_current = spell_data._power -> at( 0 ) -> resource();
+  if (spell_data._power)
+  {
+    if (spell_data._power->size() == 1)
+    {
+      resource_current = spell_data._power->at(0)->resource();
+    }
+    else
+    {
+      // Find the first power entry without a aura id
+      std::vector<const spellpower_data_t*>::iterator it = std::find_if(
+          spell_data._power -> begin(), spell_data._power -> end(),
+          power_entry_without_aura() );
+      if (it != spell_data._power -> end())
+      {
+        resource_current = (*it) -> resource();
+      }
+    }
+  }
 
   for ( size_t i = 0; spell_data._power && i < spell_data._power -> size(); i++ )
   {
@@ -601,9 +617,13 @@ void action_t::parse_options( option_t*          options,
   std::vector<option_t> merged_options;
   option_t::merge( merged_options, options, base_options );
 
-  if ( ! option_t::parse( sim, name(), merged_options, options_str ) )
+  try
   {
-    sim -> errorf( "%s %s: Unable to parse options str '%s'.\n", player -> name(), name(), options_str.c_str() );
+    option_t::parse( sim, name(), merged_options, options_str );
+  }
+  catch ( const std::exception& e )
+  {
+    sim -> errorf( "%s %s: Unable to parse options str '%s': %s", player -> name(), name(), options_str.c_str(), e.what() );
     sim -> cancel();
   }
 
@@ -1380,7 +1400,7 @@ void action_t::assess_damage( dmg_e    type,
   }
 
   if ( s -> result_amount > 0 && composite_leech( s ) > 0 )
-    player -> resource_gain( RESOURCE_HEALTH, composite_leech( s ) * s -> result_amount, player -> gains.leech );
+    player -> resource_gain( RESOURCE_HEALTH, composite_leech( s ) * s -> result_amount, player -> gains.leech, s -> action );
 
   // New callback system; proc spells on impact. 
 
