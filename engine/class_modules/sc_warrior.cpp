@@ -37,13 +37,6 @@ public:
   int initial_rage;
   double arms_rage_mult;
   double crit_rage_mult;
-  double cs_extension;
-  bool wild_strike_extension;
-  bool mastery_rend;
-  bool mastery_whirlwind;
-  bool mastery_everything;
-  bool mastery_rend_burst;
-  double rend_burst_mastery;
   bool swapping; // Disables automated swapping when it's not required to use the ability.
   // Set to true whenever a player uses the swap option inside of stance_t, as we should assume they are intentionally sitting in defensive stance.
 
@@ -60,6 +53,7 @@ public:
   action_t* active_rallying_cry_heal;
   action_t* active_second_wind;
   attack_t* active_sweeping_strikes;
+  attack_t* active_aoe_sweeping_strikes;
 
   heal_t* active_t16_2pc;
   warrior_stance active_stance;
@@ -386,6 +380,7 @@ public:
     active_rallying_cry_heal  = 0;
     active_second_wind        = 0;
     active_sweeping_strikes   = 0;
+    active_aoe_sweeping_strikes = 0;
     active_enhanced_rend      = 0;
     active_t16_2pc            = 0;
     active_stance             = STANCE_BATTLE;
@@ -418,13 +413,6 @@ public:
     cooldown.storm_bolt               = get_cooldown( "storm_bolt" );
 
     initial_rage = 0;
-    wild_strike_extension = false;
-    mastery_everything = false;
-    mastery_rend = false;
-    mastery_rend_burst = false;
-    mastery_whirlwind = false;
-    rend_burst_mastery = 1;
-    cs_extension = 2.0;
     arms_rage_mult = 1.695;
     crit_rage_mult = 2.325;
     swapping = false;
@@ -586,9 +574,7 @@ public:
   {
     double am = ab::action_multiplier();
 
-    if ( p() -> mastery_everything && p() -> specialization() == WARRIOR_ARMS )
-      am *= 1.0 + ab::player -> cache.mastery_value();
-    else if ( weapons_master )
+    if ( weapons_master )
       am *= 1.0 + ab::player -> cache.mastery_value();
 
     return am;
@@ -910,6 +896,56 @@ struct bloodbath_dot_t: public residual_action::residual_periodic_action_t < war
 
 static void trigger_sweeping_strikes( action_state_t* s )
 {
+  struct sweeping_strikes_aoe_attack_t: public warrior_attack_t
+  {
+    double pct_damage;
+    sweeping_strikes_aoe_attack_t( warrior_t* p ):
+      warrior_attack_t( "sweeping_strikes_attack", p, p -> spec.sweeping_strikes )
+    {
+      may_miss = may_dodge = may_parry = may_crit = may_block = callbacks = false;
+      aoe = 1;
+      school = SCHOOL_PHYSICAL;
+      weapon = &p -> main_hand_weapon;
+      weapon_multiplier = 1;
+      base_costs[RESOURCE_RAGE] = 0; //Resource consumption already accounted for in the buff application.
+      cooldown -> duration = timespan_t::zero(); // Cooldown accounted for in the buff.
+      pct_damage = data().effectN( 1 ).percent();
+    }
+
+    double composite_crit() const
+    {
+      return 0;
+    }
+
+    double action_multiplier() const
+    {
+      return ( 1.0 + p() -> cache.damage_versatility() ) * pct_damage; // Double dips on versatility.
+    }
+
+    size_t available_targets( std::vector< player_t* >& tl ) const
+    {
+      tl.clear();
+
+      for ( size_t i = 0, actors = sim -> actor_list.size(); i < actors; i++ )
+      {
+        player_t* t = sim -> actor_list[i];
+
+        if ( !t -> is_sleeping() && t -> is_enemy() && ( t != target ) )
+          tl.push_back( t );
+      }
+
+      return tl.size();
+    }
+
+    void impact( action_state_t* s )
+    {
+      warrior_attack_t::impact( s );
+
+      if ( result_is_hit( s -> result ) && p() -> glyphs.sweeping_strikes -> ok() )
+        p() -> resource_gain( RESOURCE_RAGE, p() -> glyphs.sweeping_strikes -> effectN( 1 ).base_value(), p() -> gain.sweeping_strikes );
+    }
+  };
+
   struct sweeping_strikes_attack_t: public warrior_attack_t
   {
     double pct_damage;
@@ -963,16 +999,16 @@ static void trigger_sweeping_strikes( action_state_t* s )
 
   warrior_t* p = debug_cast<warrior_t*>( s -> action -> player );
 
-  if ( !p -> buff.sweeping_strikes -> check() )
+  if ( s -> action -> id == p -> spec.sweeping_strikes -> id() )
     return;
 
-  if ( !s -> action -> weapon )
-    return;
-
-  if ( !s -> action -> result_is_hit( s -> result ) )
+  if ( s -> action -> result_is_miss( s -> result ) )
     return;
 
   if ( s -> action -> sim -> active_enemies == 1 )
+    return;
+
+  if ( s -> result_total <= 0 )
     return;
 
   if ( !p -> active_sweeping_strikes )
@@ -981,9 +1017,22 @@ static void trigger_sweeping_strikes( action_state_t* s )
     p -> active_sweeping_strikes -> init();
   }
 
-  p -> active_sweeping_strikes -> base_dd_min = s -> result_total;
-  p -> active_sweeping_strikes -> base_dd_max = s -> result_total;
-  p -> active_sweeping_strikes -> execute();
+  if ( !p -> active_aoe_sweeping_strikes )
+  {
+    p -> active_aoe_sweeping_strikes = new sweeping_strikes_aoe_attack_t( p );
+    p -> active_aoe_sweeping_strikes -> init();
+  }
+
+  if ( !s -> action -> aoe )
+  {
+    p -> active_sweeping_strikes -> base_dd_min = s -> result_total;
+    p -> active_sweeping_strikes -> base_dd_max = s -> result_total;
+    p -> active_sweeping_strikes -> execute();
+  }
+  else
+    // For reasons unknown to mankind, aoe abilities proc a sweeping strike that deals half the damage of a autoattack, and double dips from versatility.
+    // Thus, we handle it in a different manner.
+    p -> active_aoe_sweeping_strikes -> execute();
 
   return;
 }
@@ -1018,7 +1067,9 @@ static bool trigger_t15_2pc_melee( warrior_attack_t* a )
 void warrior_attack_t::execute()
 {
   base_t::execute();
-}
+  if ( p() -> buff.sweeping_strikes -> up() )
+    trigger_sweeping_strikes( execute_state );
+  }
 
 // warrior_attack_t::impact =================================================
 
@@ -1028,13 +1079,15 @@ void warrior_attack_t::impact( action_state_t* s )
 
   if ( s -> result_amount > 0 )
   {
+    if ( p() -> buff.sweeping_strikes -> up() )
+    {
+      if ( result_is_multistrike( s -> result) && !aoe )
+        trigger_sweeping_strikes( s );
+    }
     if ( ( result_is_hit( s -> result ) || result_is_multistrike( s -> result ) ) )
     {
       if ( p() -> buff.bloodbath -> up() )
         trigger_bloodbath_dot( s -> target, s -> result_amount );
-
-      if ( p() -> buff.sweeping_strikes -> up() && !aoe )
-        trigger_sweeping_strikes( s );
 
       if ( p() -> talents.second_wind -> ok() )
       {
@@ -1054,7 +1107,6 @@ void warrior_attack_t::impact( action_state_t* s )
     }
   }
 }
-
 
 // Melee Attack =============================================================
 
@@ -1236,8 +1288,7 @@ struct bladestorm_tick_t: public warrior_attack_t
   {
     dual = true;
     aoe = -1;
-    if ( p -> specialization() == WARRIOR_ARMS ) // Not a clue why Arms bladestorm hits for this amount. The Arms specific bladestorm says 120% weapon damage, not 90%~.
-      weapon_multiplier *= 1.302;
+    weapon_multiplier *= 1.0 + p -> spec.seasoned_soldier -> effectN( 2 ).percent();
   }
 
   double action_multiplier() const
@@ -1248,13 +1299,6 @@ struct bladestorm_tick_t: public warrior_attack_t
       am *= 1.0 + p() -> spec.protection -> effectN( 1 ).percent();
 
     return am;
-  }
-
-  void execute()
-  {
-    warrior_attack_t::execute();
-    if ( p() -> buff.sweeping_strikes -> up() )
-      trigger_sweeping_strikes( execute_state );
   }
 };
 
@@ -2367,19 +2411,6 @@ struct rend_burst_t: public warrior_attack_t
     dual = true;
   }
 
-  double action_multiplier() const
-  {
-    double am = warrior_attack_t::action_multiplier();
-
-    if ( p() -> mastery_rend )
-      am *= 1.0 + p() -> cache.mastery_value();
-
-    if ( p() -> mastery_rend_burst )
-      am *= 1.0 + ( p() -> rend_burst_mastery * p() -> cache.mastery_value() );
-
-    return am;
-  }
-
   double target_armor( player_t* ) const
   {
     return 0.0;
@@ -2398,16 +2429,6 @@ struct rend_t: public warrior_attack_t
     dot_behavior = DOT_REFRESH;
     tick_may_crit = true;
     add_child( burst );
-  }
-
-  double action_multiplier() const
-  {
-    double am = warrior_attack_t::action_multiplier();
-
-    if ( p() -> mastery_rend )
-      am *= 1.0 + p() -> cache.mastery_value();
-
-    return am;
   }
 
   void impact( action_state_t* s )
@@ -2547,7 +2568,7 @@ struct shield_slam_t: public warrior_attack_t
     stancemask = STANCE_GLADIATOR | STANCE_DEFENSE;
     cooldown = p -> cooldown.shield_slam;
     rage_gain = data().effectN( 3 ).resource( RESOURCE_RAGE );
-    attack_power_mod.direct = 3; //Hard-coded in tooltip.
+    attack_power_mod.direct = 3.18; //Hard-coded in tooltip. (beta build 18764)
   }
 
   double action_multiplier() const
@@ -2879,6 +2900,7 @@ struct whirlwind_off_hand_t: public warrior_attack_t
     aoe = -1;
     melee_range = p -> spec.whirlwind -> effectN( 2 ).radius_max(); // 8 yard range.
     melee_range += p -> glyphs.wind_and_thunder -> effectN( 1 ).base_value(); // Increased by the glyph.
+    weapon_multiplier *= 1.0 + p -> spec.crazed_berserker -> effectN( 4 ).percent();
     weapon = &( p -> off_hand_weapon );
   }
 
@@ -2910,6 +2932,8 @@ struct whirlwind_t: public warrior_attack_t
     {
       oh_attack = new whirlwind_off_hand_t( p );
       add_child( oh_attack );
+      weapon_multiplier *= 1.0 + p -> spec.crazed_berserker -> effectN( 4 ).percent();
+      base_costs[RESOURCE_RAGE] += p -> spec.crazed_berserker -> effectN( 3 ).resource( RESOURCE_RAGE );
     }
     else
       weapon_multiplier *= 2;
@@ -2924,18 +2948,12 @@ struct whirlwind_t: public warrior_attack_t
     if ( p() -> buff.raging_wind ->  up() )
       am *= 1.0 + p() -> buff.raging_wind -> data().effectN( 1 ).percent();
 
-    if ( p() -> mastery_whirlwind && p() -> specialization() == WARRIOR_ARMS )
-      am *= 1.0 + p() -> cache.mastery_value();
-
     return am;
   }
 
   void execute()
   {
     warrior_attack_t::execute();
-
-    if ( p() -> buff.sweeping_strikes -> up() )
-      trigger_sweeping_strikes( execute_state );
 
     if ( oh_attack )
       oh_attack -> execute();
@@ -3160,16 +3178,6 @@ struct enhanced_rend_t: public warrior_spell_t
     warrior_spell_t( "enhanced_rend", p, p -> find_spell( 174736 ) )
   {
     background = true;
-  }
-
-  double action_multiplier() const
-  {
-    double am = warrior_spell_t::action_multiplier();
-
-    if ( p() -> mastery_rend )
-      am *= 1.0 + p() -> cache.mastery_value();
-
-    return am;
   }
 
   double target_armor( player_t* ) const
@@ -4057,12 +4065,10 @@ void warrior_t::apl_fury()
   single_target -> add_talent( this, "Dragon Roar", "if=buff.bloodbath.up|!talent.bloodbath.enabled" );
   single_target -> add_action( this, "Execute", "if=buff.enrage.up|target.time_to_die<12|rage>60" );
   single_target -> add_action( this, "Raging Blow" );
-  single_target -> add_action( this, "Wild Strike", "if=buff.bloodsurge.up" );
-  single_target -> add_action( this, "Whirlwind", "if=buff.enrage.up&target.health.pct>20&!talent.unquenchable_thirst.enabled&rage<50" );
-  single_target -> add_action( this, "Wild Strike", "if=buff.enrage.up&target.health.pct>20" );
+  single_target -> add_action( this, "Wild Strike", "if=buff.bloodsurge.up|(buff.enrage.up&target.health.pct>20)" );
   single_target -> add_talent( this, "Shockwave", "if=!talent.unquenchable_thirst.enabled" );
   single_target -> add_talent( this, "Impending Victory", "if=!talent.unquenchable_thirst.enabled" );
-  single_target -> add_action( this, "Bloodthirst", "if=talent.unquenchable_thirst.enabled" );
+  single_target -> add_action( this, "Bloodthirst" );
 
   two_targets -> add_talent( this, "Bloodbath" );
   two_targets -> add_action( this, "Heroic Leap", "if=buff.enrage.up" );
@@ -4111,7 +4117,7 @@ void warrior_t::apl_arms()
   for ( int i = 0; i < num_items; i++ )
   {
     if ( items[i].has_special_effect( SPECIAL_EFFECT_SOURCE_NONE, SPECIAL_EFFECT_USE ) )
-      default_list -> add_action( "use_item,name=" + items[i].name_str + ",if=active_enemies=1&(buff.bloodbath.up|(!talent.bloodbath.enabled&debuff.colossus_smash.up))|(active_enemies>1&buff.ravager.up)" );
+      default_list -> add_action( "use_item,name=" + items[i].name_str + ",if=(buff.bloodbath.up|(!talent.bloodbath.enabled&debuff.colossus_smash.up))" );
   }
 
   if ( sim -> allow_potions )
@@ -4124,7 +4130,7 @@ void warrior_t::apl_arms()
 
   default_list -> add_action( this, "Recklessness", "if=(target.time_to_die>190|target.health.pct<20)&(!talent.bloodbath.enabled&(cooldown.colossus_smash.remains<2|debuff.colossus_smash.remains>=5)|buff.bloodbath.up)|target.time_to_die<=10",
                               "This incredibly long line (Due to differing talent choices) says 'Use recklessness on cooldown with colossus smash, unless the boss will die before the ability is usable again, and then use it with execute.'" );
-  default_list -> add_talent( this, "Bloodbath", "if=(active_enemies=1&cooldown.colossus_smash.remains<5)|(active_enemies>=2&buff.ravager.up)|target.time_to_die<=20" );
+  default_list -> add_talent( this, "Bloodbath", "if=(active_enemies=1&cooldown.colossus_smash.remains<5)|target.time_to_die<=20" );
   default_list -> add_talent( this, "Avatar", "if=buff.recklessness.up|target.time_to_die<=25" );
 
   for ( size_t i = 0; i < racial_actions.size(); i++ )
@@ -4145,13 +4151,13 @@ void warrior_t::apl_arms()
   single_target -> add_action( this, "Execute", "if=(rage>60&cooldown.colossus_smash.remains>execute_time)|debuff.colossus_smash.up|buff.sudden_death.up|target.time_to_die<5" );
   single_target -> add_talent( this, "Impending Victory", "if=rage<30&!debuff.colossus_smash.up&target.health.pct>20" );
   single_target -> add_talent( this, "Slam", "if=(rage>20|cooldown.colossus_smash.remains>execute_time)&target.health.pct>20" );
-  single_target -> add_action( this, "Whirlwind", "if=(rage>60|cooldown.colossus_smash.remains>execute_time)&target.health.pct>20&!talent.slam.enabled" );
+  single_target -> add_action( this, "Whirlwind", "if=target.health.pct>20&!talent.slam.enabled&(rage>40|set_bonus.tier17_4pc)" );
   single_target -> add_talent( this, "Shockwave" );
 
   aoe -> add_action( this, "Sweeping Strikes" );
   aoe -> add_action( "heroic_charge" );
   aoe -> add_action( this, "Rend", "if=active_enemies<=4&ticks_remain<2" );
-  aoe -> add_talent( this, "Ravager" );
+  aoe -> add_talent( this, "Ravager", "if=buff.bloodbath.up|!talent.bloodbath.enabled" );
   aoe -> add_action( this, "Colossus Smash" );
   aoe -> add_talent( this, "Dragon Roar", "if=!debuff.colossus_smash.up" );
   aoe -> add_action( this, "Execute", "if=active_enemies<=3&((rage>60&cooldown.colossus_smash.remains>execute_time)|debuff.colossus_smash.up|target.time_to_die<5)" );
@@ -5342,13 +5348,6 @@ void warrior_t::create_options()
     opt_float( "arms_rage_mult", arms_rage_mult ),
     opt_float( "crit_rage_mult", crit_rage_mult ),
     opt_bool( "swapping", swapping ),
-    opt_bool( "wild_strike_extension", wild_strike_extension ),
-    opt_bool( "mastery_whirlwind", mastery_whirlwind ),
-    opt_bool( "mastery_rend", mastery_rend ),
-    opt_bool( "mastery_everything", mastery_everything ),
-    opt_bool( "mastery_rend_burst", mastery_rend_burst ),
-    opt_float( "burst_mastery_multiplier", rend_burst_mastery ),
-    opt_float( "cs_extension", cs_extension ),
     opt_null()
   };
 
@@ -5411,13 +5410,6 @@ void warrior_t::copy_from( player_t* source )
   swapping = p -> swapping;
   arms_rage_mult = p -> arms_rage_mult;
   crit_rage_mult = p -> crit_rage_mult;
-  wild_strike_extension = p -> wild_strike_extension;
-  mastery_everything = p -> mastery_everything;
-  mastery_rend = p -> mastery_rend;
-  mastery_whirlwind = p -> mastery_whirlwind;
-  mastery_rend_burst = p -> mastery_rend_burst;
-  rend_burst_mastery = p -> rend_burst_mastery;
-  cs_extension = p -> cs_extension;
 }
 
 void warrior_t::stance_swap()

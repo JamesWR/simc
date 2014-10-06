@@ -631,8 +631,8 @@ player_t::player_t( sim_t*             s,
     if( ! is_pet() )
     {
       sim -> healing_no_pet_list.push_back( this );
-    } 
-    else 
+    }
+    else
     {
       sim -> healing_pet_list.push_back( this );
     }
@@ -867,8 +867,8 @@ void player_t::init_base_stats()
     base.stats.attribute[ STAT_AGILITY ] += util::floor( racials.heroic_presence -> effectN( 2 ).average( this ) );
     base.stats.attribute[ STAT_INTELLECT] += util::floor( racials.heroic_presence -> effectN( 3 ).average( this ) );
     // so is endurance. Can't tell if this is floored, ends in 0.055 @ L100. Assuming based on symmetry w/ heroic pres.
-    base.stats.attribute[ STAT_STAMINA ]  += util::floor( racials.endurance -> effectN( 1 ).average( this ) ); 
-    // Human spirit 
+    base.stats.attribute[ STAT_STAMINA ]  += util::floor( racials.endurance -> effectN( 1 ).average( this ) );
+    // Human spirit
     base.stats.versatility_rating += util::floor( racials.the_human_spirit -> effectN( 1 ).average( this ) );
 
     base.spell_crit               = dbc.spell_crit_base( type, level );
@@ -884,7 +884,7 @@ void player_t::init_base_stats()
     base.mana_regen_per_spirit = dbc.regen_spirit( type, level );
     base.health_per_stamina    = dbc.health_per_stamina( level );
 
-    // players have a base 7.5% hit/exp 
+    // players have a base 7.5% hit/exp
     base.hit       = 0.075;
     base.expertise = 0.075;
   }
@@ -904,7 +904,7 @@ void player_t::init_base_stats()
   // All classes get 3% dodge and miss; add racials and racial agi mod in here too
   base.dodge = 0.03 + racials.quickness -> effectN( 1 ).percent() + dbc.race_base( race ).agility * base.dodge_per_agility;
   base.miss  = 0.03;
-  
+
   // Only Warriors and Paladins (and enemies) can block, defaults is 0
   if ( type == WARRIOR || type == PALADIN || type == ENEMY )
   {
@@ -915,7 +915,7 @@ void player_t::init_base_stats()
   // Only certain classes can parry, and get 3% base parry, defaults is 0
   // racial strength mod and "phantom" strength bonus added here,
   // see http://www.sacredduty.net/2014/08/06/tc401-avoidance-diminishing-returns-in-wod/
-  if ( type == WARRIOR || type == PALADIN || type == ROGUE || type == DEATH_KNIGHT || 
+  if ( type == WARRIOR || type == PALADIN || type == ROGUE || type == DEATH_KNIGHT ||
        type == MONK || specialization() == SHAMAN_ENHANCEMENT || type == ENEMY )
     base.parry = 0.03 + ( dbc.race_base( race ).strength + 0.0739 ) * base.parry_per_strength;
 
@@ -1047,7 +1047,7 @@ bool player_t::init_items()
       sim -> cancel();
       return false;
     }
-    
+
     slots[ item.slot ] = item.is_matching_type();
 
     item_stats += item.stats;
@@ -1068,7 +1068,7 @@ bool player_t::init_items()
   // Adding stats from items into ``gear''. If for a given stat,
   // the value in gear is different than 0, it means that this stat
   // value was overridden by a command line option.
-  // This is also where the conversion of hybrid primary stats into 
+  // This is also where the conversion of hybrid primary stats into
   // STR, AGI, or INT happens, via convert_hybrid_stat()
   for ( stat_e i = STAT_NONE; i < STAT_MAX; i++ )
   {
@@ -1432,7 +1432,7 @@ std::vector<std::string> player_t::get_item_actions()
 std::string player_t::init_use_profession_actions( const std::string& /* append */ )
 {
   std::string buffer;
-  
+
   return buffer;
 }
 
@@ -2193,7 +2193,7 @@ void player_t::create_buffs()
 
   struct raid_movement_buff_t : public buff_t
   {
-    raid_movement_buff_t( player_t* p ) : 
+    raid_movement_buff_t( player_t* p ) :
       buff_t( buff_creator_t( p, "raid_movement" ).max_stack( 1 ) )
     { }
 
@@ -2275,7 +2275,7 @@ double player_t::composite_melee_haste() const
     if ( buffs.mongoose_mh && buffs.mongoose_mh -> up() )
       h *= 1.0 / ( 1.0 + 30 / current.rating.attack_haste );
 
-    if ( buffs.mongoose_oh && buffs.mongoose_oh -> up() ) 
+    if ( buffs.mongoose_oh && buffs.mongoose_oh -> up() )
       h *= 1.0 / ( 1.0 + 30 / current.rating.attack_haste );
 
     if ( sim -> auras.haste -> check() )
@@ -2297,7 +2297,7 @@ double player_t::composite_melee_haste() const
 
 // player_t::composite_attack_speed =========================================
 
-double player_t::composite_melee_speed() const 
+double player_t::composite_melee_speed() const
 {
   double h = composite_melee_haste();
 
@@ -2312,7 +2312,7 @@ double player_t::composite_melee_attack_power() const
 
   ap += current.attack_power_per_strength * cache.strength();
   ap += current.attack_power_per_agility  * cache.agility();
-  
+
   return ap;
 }
 
@@ -2380,7 +2380,7 @@ double player_t::composite_armor() const
   a *= composite_armor_multiplier();
 
   // Traditionally, armor multipliers have only applied to base armor from gear
-  // and not bonus armor. I'm assuming this will continue in WoD. 
+  // and not bonus armor. I'm assuming this will continue in WoD.
   //TODO: need to test in beta to be sure - Theck, 4/26/2014
   a += current.stats.bonus_armor;
 
@@ -2412,21 +2412,21 @@ double player_t::composite_miss() const
 
   // Start with sources not subject to DR - base miss (stored in current.miss)
   double total_miss = current.miss;
-  
-  // bonus_miss is miss from rating or other sources subject to DR 
+
+  // bonus_miss is miss from rating or other sources subject to DR
   double bonus_miss = 0.0;
 
   // if we have any bonus_miss, apply diminishing returns and add it to total_miss
   if ( bonus_miss > 0 )
     total_miss += bonus_miss / ( def_dr.miss_factor * bonus_miss * 100 * def_dr.vertical_stretch + def_dr.horizontal_shift );
-  
+
   assert( total_miss >= 0.0 && total_miss <= 1.0 );
 
   return total_miss;
 }
 
 // player_t::composite_block ===========================================
-// Two methods here.  The first has no arguments and is the method we override in 
+// Two methods here.  The first has no arguments and is the method we override in
 // class modules (for example, to add spec/talent/etc.-based block contributions).
 // The second method accepts a dobule and handles base block and diminishing returns.
 // See paladin_t::composite_block() to see how this works.
@@ -2469,7 +2469,7 @@ double player_t::composite_dodge() const
   // but not class base agility or racial modifiers (irrelevant for enemies)
   if ( ! is_enemy() )
     bonus_dodge -= ( dbc.attribute_base( type, level ).agility + dbc.race_base( race ).agility ) * current.dodge_per_agility;
-  
+
   // if we have any bonus_dodge, apply diminishing returns and add it to total_dodge.
   if ( bonus_dodge != 0 )
     total_dodge += bonus_dodge / ( def_dr.dodge_factor * bonus_dodge * 100 * def_dr.vertical_stretch + def_dr.horizontal_shift );
@@ -2487,7 +2487,7 @@ double player_t::composite_parry() const
   // bonus_parry is from rating and bonus Strength
   double bonus_parry = composite_parry_rating() / current.rating.parry;
   bonus_parry += cache.strength() * current.parry_per_strength;
-  
+
   // but not class base strength or racial modifiers (irrelevant for enemies)
   if ( ! is_enemy() )
     bonus_parry -= ( dbc.attribute_base( type, level ).strength + dbc.race_base( race ).strength ) * current.parry_per_strength;
@@ -2497,7 +2497,7 @@ double player_t::composite_parry() const
     total_parry += bonus_parry / ( def_dr.parry_factor * bonus_parry * 100 * def_dr.vertical_stretch + def_dr.horizontal_shift );
 
 
-  return total_parry; 
+  return total_parry;
 }
 
 // player_t::composite_block_reduction =================================
@@ -2541,7 +2541,7 @@ double player_t::composite_spell_haste() const
       h *= 1.0 / ( 1.0 + buffs.bloodlust -> data().effectN( 1 ).percent() );
 
     if ( buffs.berserking -> up() )
-      h *= 1.0 / ( 1.0 + buffs.berserking -> data().effectN( 1 ).percent() ); 
+      h *= 1.0 / ( 1.0 + buffs.berserking -> data().effectN( 1 ).percent() );
 
     if ( buffs.tempus_repit -> up() )
       h *= 1.0 / ( 1.0 + buffs.tempus_repit -> data().effectN( 1 ).percent() );
@@ -2641,7 +2641,7 @@ double player_t::composite_mastery() const
 // player_t::composite_multistrike ==========================================
 
 double player_t::composite_multistrike() const
-{    
+{
   double cm = composite_multistrike_rating() / current.rating.multistrike;
 
   if ( ! is_pet() && ! is_enemy() && sim -> auras.multistrike -> check() )
@@ -2728,7 +2728,7 @@ double player_t::composite_avoidance() const
 double player_t::composite_player_multiplier( school_e /* school */ ) const
 {
   double m = 1.0;
-  
+
   return m;
 }
 
@@ -2783,7 +2783,7 @@ double player_t::composite_player_critical_healing_multiplier() const
 // player_t::composite_movement_speed =======================================
 // There are 2 categories of movement speed buffs in WoD
 // Passive and Temporary, both which stack additively. Passive buffs include movement speed enchant, unholy presence, cat form
-// and generally anything that has the ability to be kept active all fight. These permanent buffs do stack with each other. 
+// and generally anything that has the ability to be kept active all fight. These permanent buffs do stack with each other.
 // Temporary includes all other speed bonuses, however, only the highest temporary bonus will be added on top.
 
 double player_t::temporary_movement_modifier() const
@@ -2830,7 +2830,7 @@ double player_t::composite_movement_speed() const
 
   speed *= ( 1 + passive + temporary );
 
-  // Movement speed snares are multiplicative, works similarly to temporary speed boosts in that only the highest value counts. 
+  // Movement speed snares are multiplicative, works similarly to temporary speed boosts in that only the highest value counts.
   if ( debuffs.dazed -> up() )
     speed *= debuffs.dazed -> data().effectN( 1 ).percent();
 
@@ -2843,7 +2843,7 @@ double player_t::composite_attribute( attribute_e attr ) const
 {
   double a = current.stats.attribute[ attr ];
   double m = ( ( level >= 50 ) && matching_gear ) ? ( 1.0 + matching_gear_multiplier( attr ) ) : 1.0;
-  
+
   a = util::floor( ( a - base.stats.attribute[ attr ] ) * m ) + base.stats.attribute[ attr ];
 
   return a;
@@ -2907,7 +2907,7 @@ double player_t::composite_rating( rating_e rating ) const
 {
   double v = 0;
 
-  // Internally, we treat all the primary rating types as a single entity; 
+  // Internally, we treat all the primary rating types as a single entity;
   // in game, they are actually split into spell/ranged/melee
   switch ( rating )
   {
@@ -2967,7 +2967,7 @@ double player_t::composite_player_vulnerability( school_e /* school */ ) const
 
   // 1% damage taken per stack, arbitrary because this buff is completely fabricated!
   if ( debuffs.damage_taken -> check() )
-    m *= 1.0 + debuffs.damage_taken -> current_stack * 0.01; 
+    m *= 1.0 + debuffs.damage_taken -> current_stack * 0.01;
 
   return m;
 }
@@ -3227,7 +3227,7 @@ void player_t::datacollection_end()
     sim -> iteration_heal += iteration_heal;
     sim -> iteration_absorb += iteration_absorb;
   }
-  
+
   // make sure TMI-relevant timeline lengths all match for tanks
   if ( ! is_enemy() && ! is_pet() && primary_role() == ROLE_TANK )
   {
@@ -3237,7 +3237,6 @@ void player_t::datacollection_end()
     collected_data.health_changes.timeline_normalized.add( sim -> current_time, 0.0 );
     collected_data.health_changes_tmi.timeline.add( sim -> current_time, 0.0 );
     collected_data.health_changes_tmi.timeline_normalized.add( sim -> current_time, 0.0 );
-    collected_data.health_changes.update_divisor( sim -> current_time );
   }
   collected_data.collect_data( *this );
 
@@ -3468,7 +3467,7 @@ void player_t::merge( player_t& other )
 #endif
     }
   }
-  
+
   // Action Map
   for ( size_t i = 0; i < other.action_list.size(); ++i )
     action_list[ i ] -> total_executions += other.action_list[ i ] -> total_executions;
@@ -3551,7 +3550,7 @@ void player_t::reset()
     proc_list[ i ] -> reset();
 
   potion_used = 0;
-  
+
   item_cooldown.reset( false );
 
   incoming_damage.clear();
@@ -4323,7 +4322,7 @@ void player_t::stat_gain( stat_e    stat,
 
   switch ( stat )
   {
-    case STAT_STAMINA: 
+    case STAT_STAMINA:
     case STAT_ALL:
     {
       recalculate_resource_max( RESOURCE_HEALTH );
@@ -4348,10 +4347,10 @@ void player_t::stat_loss( stat_e    stat,
                           bool      temporary_buff )
 {
   if ( amount <= 0 ) return;
-  
+
   // bail out if this is a stat that doesn't work for this class
   if ( convert_hybrid_stat( stat ) == STAT_NONE ) return;
-  
+
   if ( sim -> log ) sim -> out_log.printf( "%s loses %.2f %s%s", name(), amount, util::stat_type_string( stat ), ( temporary_buff ) ? " (temporary)" : "" );
 
   cache_e cache_type = cache_from_stat( stat );
@@ -4545,7 +4544,7 @@ double player_t::get_raw_dps( action_state_t* s )
     raw_dps = ( main_hand_attack -> base_da_min( s ) + main_hand_attack -> base_da_max( s ) ) / 2.0;
     raw_dps /= main_hand_attack -> execute_time().total_seconds();
   }
-  
+
   return raw_dps;
 }
 
@@ -4768,7 +4767,7 @@ void player_t::assess_damage( school_e school,
   account_parry_haste( *this, s );
 
   target_mitigation( school, type, s );
-  
+
   if ( s -> result_total > 0 && buffs.aspect_of_the_pack -> check() ) // Aspect of the daze.
     debuffs.dazed -> trigger();
 
@@ -4793,7 +4792,7 @@ void player_t::assess_damage( school_e school,
   if ( s -> result_amount > 0.0 )
     actual_amount = resource_loss( RESOURCE_HEALTH, s -> result_amount, nullptr, s -> action );
 
-  // New callback system; proc abilities on incoming events. 
+  // New callback system; proc abilities on incoming events.
   // TODO: How to express action causing/not causing incoming callbacks?
   if ( s -> action -> callbacks )
   {
@@ -4868,7 +4867,7 @@ void player_t::target_mitigation( school_e school,
 
   // TODO-WOD: Where should this be? Or does it matter?
   s -> result_amount *= 1.0 - cache.mitigation_versatility();
-  
+
   if ( school == SCHOOL_PHYSICAL && dmg_type == DMG_DIRECT )
   {
     if ( sim -> debug && s -> action && ! s -> target -> is_enemy() && ! s -> target -> is_add() )
@@ -4885,7 +4884,7 @@ void player_t::target_mitigation( school_e school,
 
     if ( sim -> debug && s -> action && ! s -> target -> is_enemy() && ! s -> target -> is_add() )
       sim -> out_debug.printf( "Damage to %s after armor mitigation is %f", s -> target -> name(), s -> result_amount );
-    
+
     double pre_block_amount = s -> result_amount;
 
     if ( s -> block_result == BLOCK_RESULT_BLOCKED )
@@ -4915,7 +4914,7 @@ void player_t::assess_heal( school_e, dmg_e, action_state_t* s )
   // and other effects based on raw healing.
   if ( buffs.guardian_spirit -> up() )
     s -> result_total *= 1.0 + buffs.guardian_spirit -> data().effectN( 1 ).percent();
-  
+
   // process heal
   s -> result_amount = resource_gain( RESOURCE_HEALTH, s -> result_total, 0, s -> action );
 
@@ -4928,11 +4927,11 @@ void player_t::assess_heal( school_e, dmg_e, action_state_t* s )
     collected_data.health_changes.timeline_normalized.add( sim -> current_time, - ( s -> result_amount ) / resources.max[ RESOURCE_HEALTH ] );
 
     // health_changes_tmi ignores external healing - use result_total to count player overhealing as effective healing
-    if (  s -> action -> player == this || is_my_pet( s -> action -> player ) ) 
-    {      
+    if (  s -> action -> player == this || is_my_pet( s -> action -> player ) )
+    {
       collected_data.health_changes_tmi.timeline.add( sim -> current_time, - ( s -> result_total ) );
       collected_data.health_changes_tmi.timeline_normalized.add( sim -> current_time, - ( s -> result_total ) / resources.max[ RESOURCE_HEALTH ] );
-    }    
+    }
   }
 
   // store iteration heal taken
@@ -4942,34 +4941,21 @@ void player_t::assess_heal( school_e, dmg_e, action_state_t* s )
 // player_t::summon_pet =====================================================
 
 void player_t::summon_pet( const std::string& pet_name,
-                           timespan_t  duration )
+                           const timespan_t duration )
 {
-  for ( size_t i = 0; i < pet_list.size(); ++i )
-  {
-    pet_t* p = pet_list[ i ];
-    if ( p -> name_str == pet_name )
-    {
-      p -> summon( duration );
-      return;
-    }
-  }
-  sim -> errorf( "Player %s is unable to summon pet '%s'\n", name(), pet_name.c_str() );
+  if ( pet_t* p = find_pet( pet_name ) )
+    p -> summon( duration );
+  else
+    sim -> errorf( "Player %s is unable to summon pet '%s'\n", name(), pet_name.c_str() );
 }
 
 // player_t::dismiss_pet ====================================================
 
 void player_t::dismiss_pet( const std::string& pet_name )
 {
-  for ( size_t i = 0; i < pet_list.size(); ++i )
-  {
-    pet_t* p = pet_list[ i ];
-    if ( p -> name_str == pet_name )
-    {
-      p -> dismiss();
-      return;
-    }
-  }
-  assert( 0 );
+  pet_t* p = find_pet( pet_name );
+  assert( p );
+  p -> dismiss();
 }
 
 // player_t::recent_cast ====================================================
@@ -4994,20 +4980,6 @@ dot_t* player_t::find_dot( const std::string& name,
   return 0;
 }
 
-// player_t::find_action_priority_list( const std::string& name ) ===========
-
-action_priority_list_t* player_t::find_action_priority_list( const std::string& name )
-{
-  for ( size_t i = 0; i < action_priority_list.size(); i++ )
-  {
-    action_priority_list_t* a = action_priority_list[ i ];
-    if ( a -> name_str == name )
-      return a;
-  }
-
-  return 0;
-}
-
 // player_t::clear_action_priority_lists() ==================================
 
 void player_t::clear_action_priority_lists() const
@@ -5023,7 +4995,7 @@ void player_t::clear_action_priority_lists() const
 template <typename T>
 T* find_vector_member( const std::vector<T*>& list, const std::string& name )
 {
-  for ( size_t i = 0; i < list.size(); ++i )
+  for ( size_t i = 0, s = list.size(); i < s; ++i )
   {
     T* t = list[ i ];
     if ( t -> name_str == name )
@@ -5031,6 +5003,11 @@ T* find_vector_member( const std::vector<T*>& list, const std::string& name )
   }
   return nullptr;
 }
+
+// player_t::find_action_priority_list( const std::string& name ) ===========
+
+action_priority_list_t* player_t::find_action_priority_list( const std::string& name )
+{ return find_vector_member( action_priority_list, name ); }
 
 pet_t* player_t::find_pet( const std::string& name ) const
 { return find_vector_member( pet_list, name ); }
@@ -5217,15 +5194,16 @@ action_priority_list_t* player_t::get_action_priority_list( const std::string& n
   action_priority_list_t* a = find_action_priority_list( name );
   if ( ! a )
   {
-    a = new action_priority_list_t( name, this );
-    a -> action_list_comment_str = comment;
-    a -> internal_id = static_cast<int>( action_list_id_++ );
-    a -> internal_id_mask = ( 1 << static_cast<uint64_t>( a -> internal_id ) );
     if ( action_list_id_ == 64 )
     {
       sim -> errorf( "%s maximum number of action lists is 64", name_str.c_str() );
       sim -> cancel();
     }
+
+    a = new action_priority_list_t( name, this );
+    a -> action_list_comment_str = comment;
+    a -> internal_id = action_list_id_++;
+    a -> internal_id_mask = 1ULL << ( a -> internal_id );
 
     action_priority_list.push_back( a );
   }
@@ -7255,7 +7233,7 @@ expr_t* player_t::create_expression( action_t* a,
     {
       player_t* player;
 
-      time_to_bloodlust_expr_t( player_t* p, const std::string& name ) : 
+      time_to_bloodlust_expr_t( player_t* p, const std::string& name ) :
         expr_t( name ), player( p )
       {
       }
@@ -7373,10 +7351,10 @@ expr_t* player_t::create_expression( action_t* a,
       role_expr_t( player_t& p, const std::string& r ) :
         expr_t( "role" ), player( p ), role( r )
       {}
-      virtual double evaluate() 
-      { 
+      virtual double evaluate()
+      {
         std::string player_role = util::role_type_string( player.primary_role() );
-        return util::str_compare_ci( player_role, role ); 
+        return util::str_compare_ci( player_role, role );
       }
     };
     return new role_expr_t( *this, splits[ 1 ] );
@@ -7964,8 +7942,8 @@ double player_t::calculate_time_to_bloodlust()
     // check bloodlust_percent, if >0 then we need to estimate time based on time_to_die and health_percentage
     if ( sim -> bloodlust_percent > 0 && target -> health_percentage() > 0 )
       bl_pct_time = ( target -> health_percentage() - sim -> bloodlust_percent ) * target -> time_to_die() / target -> health_percentage();
-    
-    // now that we have both times, we want to check for the Exhaustion buff.  If either time is shorter than 
+
+    // now that we have both times, we want to check for the Exhaustion buff.  If either time is shorter than
     // the remaining duration on Exhaustion, we won't get that bloodlust and should ignore it
     if ( buffs.exhaustion -> check() )
     {
@@ -7975,7 +7953,7 @@ double player_t::calculate_time_to_bloodlust()
         bl_pct_time = timespan_t::from_seconds( -1 );
     }
     else
-    {      
+    {
       // the sim's bloodlust_check event fires every second, so negative times under 1 second should be treated as zero for safety.
       // without this, time_to_bloodlust can spike to the next target value up to a second before bloodlust is actually cast.
       // probably a non-issue since the worst case is likely to be casting something 1 second too early, but we may as well account for it
@@ -7984,13 +7962,13 @@ double player_t::calculate_time_to_bloodlust()
       if ( bl_pct_time < timespan_t::zero() && - bl_pct_time < timespan_t::from_seconds( 1.0 ) )
         bl_pct_time = timespan_t::zero();
     }
-    
+
     // if both times are non-negative, take the shortest one since that will happen first
     if ( bl_pct_time >= timespan_t::zero() && time_to_bl >= timespan_t::zero() )
       time_to_bl = std::min( bl_pct_time, time_to_bl );
     // otherwise, at least one is negative, so take the larger of the two
     else
-      time_to_bl = std::max( bl_pct_time, time_to_bl );  
+      time_to_bl = std::max( bl_pct_time, time_to_bl );
 
     // if both are negative, time_to_bl will still be negative and we won't be benefitting from another BL cast.
     // Otherwise we return the positive time until BL is being cast.
@@ -8623,7 +8601,7 @@ void player_t::analyze( sim_t& s )
   }
   if ( !  quiet && (  is_enemy() ||  is_add() ) && ! (  is_pet() && s.report_pets_separately ) )
     s.targets_by_name.push_back( this );
-  
+
   // Resources & Gains ======================================================
 
   double rl = collected_data.resource_lost[  primary_resource() ].mean();
@@ -8683,7 +8661,7 @@ player_t::scales_over_t player_t::scales_over()
   if ( util::str_compare_ci( so, "dmg_taken" ) )
     return q -> collected_data.dmg_taken;
 
-  if ( util::str_compare_ci( so, "dps" ) )  
+  if ( util::str_compare_ci( so, "dps" ) )
     return q -> collected_data.dps;
 
   if ( util::str_compare_ci( so, "dpse" ) )
@@ -8783,8 +8761,8 @@ void player_callbacks_t::add_proc_callback( proc_types type,
     // hit/crit". Note that periodic multistrikes are skipped here as they by
     // default generate no procs.
     if ( pt == PROC2_LANDED &&
-         ( type == PROC1_PERIODIC || type == PROC1_PERIODIC_TAKEN || 
-           type == PROC1_PERIODIC_HEAL || type == PROC1_PERIODIC_HEAL_TAKEN || 
+         ( type == PROC1_PERIODIC || type == PROC1_PERIODIC_TAKEN ||
+           type == PROC1_PERIODIC_HEAL || type == PROC1_PERIODIC_HEAL_TAKEN ||
            type == PROC1_HEAL || type == PROC1_AOE_HEAL ) )
     {
       add_callback( procs[ type ][ PROC2_HIT  ], cb );
@@ -8849,8 +8827,8 @@ void player_callbacks_t::register_callback( unsigned proc_flags,
     {
       add_proc_callback( PROC1_PERIODIC, proc_flags2, cb );
     }
-    // 2) Periodic heals only. Either inferred by a "proc by direct heals" flag, 
-    //    or by "proc on periodic heal ticks" flag, but require that there's 
+    // 2) Periodic heals only. Either inferred by a "proc by direct heals" flag,
+    //    or by "proc on periodic heal ticks" flag, but require that there's
     //    no direct / ticked spell damage in flags.
     else if ( ( ( proc_flags & PF_ALL_HEAL ) || ( proc_flags2 & PF2_PERIODIC_HEAL ) ) && // Healing ability
               ! ( proc_flags & PF_ALL_DAMAGE ) &&                                        // .. with no damaging ability type flags
@@ -8876,8 +8854,8 @@ void player_callbacks_t::register_callback( unsigned proc_flags,
     {
       add_proc_callback( PROC1_PERIODIC_TAKEN, proc_flags2, cb );
     }
-    // 2) Periodic heals only. Either inferred by a "proc by direct heals" flag, 
-    //    or by "proc on periodic heal ticks" flag, but require that there's 
+    // 2) Periodic heals only. Either inferred by a "proc by direct heals" flag,
+    //    or by "proc on periodic heal ticks" flag, but require that there's
     //    no direct / ticked spell damage in flags.
     else if ( ( ( proc_flags & PF_ALL_HEAL_TAKEN ) || ( proc_flags2 & PF2_PERIODIC_HEAL ) ) && // Healing ability
               ! ( proc_flags & PF_DAMAGE_TAKEN ) &&                                        // .. with no damaging ability type flags
@@ -9541,7 +9519,7 @@ void player_collected_data_t::analyze( const player_t& p )
   dpse.analyze_all();
   dmg_taken.analyze_all();
   dtps.analyze_all();
-  timeline_dmg_taken.adjust( p.sim -> divisor_timeline );
+  timeline_dmg_taken.adjust( *p.sim );
   // Heal
   heal.analyze_all();
   compound_heal.analyze_all();
@@ -9549,7 +9527,7 @@ void player_collected_data_t::analyze( const player_t& p )
   hpse.analyze_all();
   heal_taken.analyze_all();
   htps.analyze_all();
-  timeline_healing_taken.adjust( p.sim -> divisor_timeline );
+  timeline_healing_taken.adjust( *p.sim );
   // Absorb
   absorb.analyze_all();
   compound_absorb.analyze_all();
@@ -9564,19 +9542,19 @@ void player_collected_data_t::analyze( const player_t& p )
 
   for ( size_t i = 0; i <  resource_timelines.size(); ++i )
   {
-    resource_timelines[ i ].timeline.adjust( p.sim -> divisor_timeline );
+    resource_timelines[ i ].timeline.adjust( *p.sim );
   }
 
   for ( size_t i = 0; i < stat_timelines.size(); ++i )
   {
-    stat_timelines[ i ].timeline.adjust( p.sim -> divisor_timeline );
+    stat_timelines[ i ].timeline.adjust( *p.sim );
   }
 
   // health changes need their own divisor
-  health_changes.merged_timeline.adjust( health_changes.divisor_timeline );
-  health_changes_tmi.merged_timeline.adjust( health_changes.divisor_timeline );
+  health_changes.merged_timeline.adjust( *p.sim );
+  health_changes_tmi.merged_timeline.adjust( *p.sim );
 
-  resolve_timeline.merged_timeline.adjust( p.sim -> divisor_timeline );
+  resolve_timeline.merged_timeline.adjust( *p.sim );
 }
 
 //This is pretty much only useful for dev debugging at this point, would need to modify to make it useful to users
@@ -9616,7 +9594,7 @@ double player_collected_data_t::calculate_max_spike_damage( const health_changes
 
   // pull the data out of the normalized sliding average timeline
   std::vector<double> weighted_value = sliding_average_tl.data();
-  
+
   // extract the max spike size from the sliding average timeline
   max_spike = *std::max_element( weighted_value.begin(), weighted_value.end() ); // todo: remove weighted_value here
   max_spike *= window;
@@ -9638,7 +9616,7 @@ double player_collected_data_t::calculate_tmi( const health_changes_timeline_t& 
   sc_timeline_t sliding_average_tl;
 
   // create sliding average timelines from data
-  tl.timeline_normalized.build_sliding_average_timeline( sliding_average_tl, window ); 
+  tl.timeline_normalized.build_sliding_average_timeline( sliding_average_tl, window );
 
   // pull the data out of the normalized sliding average timeline
   std::vector<double> weighted_value = sliding_average_tl.data();
@@ -9670,7 +9648,7 @@ double player_collected_data_t::calculate_tmi( const health_changes_timeline_t& 
   // multiply by health decade scale factor
   tmi *= c1;
 
-  // if an output file has been defined, write to it 
+  // if an output file has been defined, write to it
   if ( ! p.tmi_debug_file_str.empty() )
     print_tmi_debug_csv( &sliding_average_tl, weighted_value, p );
 
@@ -9752,7 +9730,7 @@ void player_collected_data_t::collect_data( const player_t& p )
     health_changes_tmi.merged_timeline.merge( health_changes_tmi.timeline );
 
     // Calculate Theck-Meloree Index (TMI), ETMI, and maximum spike damage
-    if ( ! p.is_enemy() ) // Boss TMI is irrelevant, causes problems in iteration #1 
+    if ( ! p.is_enemy() ) // Boss TMI is irrelevant, causes problems in iteration #1
     {
       double tmi = 0; // TMI result
       double etmi = 0; // ETMI result
@@ -9994,13 +9972,13 @@ struct manager_t::update_event_t final : public event_t
 };
 
 manager_t::manager_t( player_t& p ) :
+    resolve( spell_data_t::not_found() ),
     _player( p ),
     _update_event( nullptr ),
     _init( false ),
     _started( false ),
-    _diminishing_return_list( new diminishing_returns_list_t() ),
     _damage_list( new damage_event_list_t() ),
-    resolve( spell_data_t::not_found() )
+    _diminishing_return_list( new diminishing_returns_list_t() )
 {
 }
 
@@ -10084,7 +10062,7 @@ void manager_t::update()
   damage_mod *= damage_mod_coefficient;
 
   // multiply by 100 for display purposes
-  double new_resolve = 100 * std::max( 0.0, 8.5 * ( 1 - std::exp( - 0.045 * damage_mod ) ) - 1.0 );
+  double new_resolve = 100 * std::max( 0.0, 3.4 * ( 1 - std::exp( - 0.045 * damage_mod ) ) - 1.0 );
 
   // updatee the buff
   _player.buffs.resolve -> trigger( 1, new_resolve, 1, timespan_t::zero() );

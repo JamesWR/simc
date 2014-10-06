@@ -21,7 +21,6 @@ struct residual_damage_state_t;
 struct rogue_poison_t;
 struct rogue_attack_t;
 struct rogue_poison_buff_t;
-struct sinister_calling_t;
 struct melee_t;
 }
 
@@ -87,7 +86,6 @@ struct rogue_td_t : public actor_pair_t
     buff_t* wound_poison;
     buff_t* crippling_poison;
     buff_t* leeching_poison;
-    buff_t* enhanced_crimson_tempest;
   } debuffs;
 
   rogue_td_t( player_t* target, rogue_t* source );
@@ -177,6 +175,7 @@ struct rogue_t : public player_t
     buff_t* deceit;
     buff_t* enhanced_vendetta;
     buff_t* shadow_strikes;
+    buff_t* crimson_poison;
   } buffs;
 
   // Cooldowns
@@ -207,6 +206,7 @@ struct rogue_t : public player_t
     gain_t* t17_2pc_assassination;
     gain_t* t17_4pc_assassination;
     gain_t* t17_2pc_subtlety;
+    gain_t* t17_4pc_subtlety;
     gain_t* venomous_wounds;
     gain_t* vitality;
 
@@ -508,9 +508,6 @@ struct rogue_attack_t : public melee_attack_t
   // Justshadowreflectthings
   ability_type_e ability_type;
 
-  // Sinister calling
-  sinister_calling_t* sinister_calling;
-
   // Combo point gains
   gain_t* cp_gain;
 
@@ -522,8 +519,7 @@ struct rogue_attack_t : public melee_attack_t
     adds_combo_points( 0 ),
     requires_weapon( WEAPON_NONE ),
     combo_points_spent( 0 ),
-    ability_type( ABILITY_NONE ),
-    sinister_calling( 0 )
+    ability_type( ABILITY_NONE )
   {
     parse_options( 0, options );
 
@@ -708,26 +704,6 @@ struct rogue_attack_t : public melee_attack_t
   void trigger_sinister_calling( dot_t* dot );
 };
 
-struct sinister_calling_t : public rogue_attack_t
-{
-  sinister_calling_t( const std::string& token, rogue_t* p, const spell_data_t* s ) :
-    rogue_attack_t( token, p, s )
-  {
-    may_crit = callbacks = may_multistrike = may_miss = false;
-    proc = background = true;
-  }
-
-  dmg_e report_amount_type( const action_state_t* ) const
-  { return DMG_DIRECT; }
-
-  double target_armor( player_t* ) const
-  { return 0; }
-
-  // Sinister calling just replicates the damage of the tick
-  double calculate_direct_amount( action_state_t* state )
-  { return state -> result_amount; }
-};
-
 // ==========================================================================
 // Poisons
 // ==========================================================================
@@ -786,22 +762,15 @@ struct rogue_poison_t : public rogue_attack_t
     execute();
   }
 
-  virtual double composite_target_multiplier( player_t* target ) const
-  {
-    double m = rogue_attack_t::composite_target_multiplier( target );
-
-    if ( td( target ) -> debuffs.enhanced_crimson_tempest -> up() )
-      m *= 1.0 + td( target ) -> debuffs.enhanced_crimson_tempest -> data().effectN( 1 ).percent();
-
-    return m;
-  }
-
   virtual double action_da_multiplier() const
   {
     double m = rogue_attack_t::action_da_multiplier();
 
     if ( p() -> mastery.potent_poisons -> ok() )
       m *= 1.0 + p() -> cache.mastery_value();
+
+    if ( p() -> buffs.crimson_poison -> check() )
+      m *= 1.0 + p() -> buffs.crimson_poison -> data().effectN( 1 ).percent();
 
     return m;
   }
@@ -812,6 +781,9 @@ struct rogue_poison_t : public rogue_attack_t
 
     if ( p() -> mastery.potent_poisons -> ok() )
       m *= 1.0 + p() -> cache.mastery_value();
+
+    if ( p() -> buffs.crimson_poison -> check() )
+      m *= 1.0 + p() -> buffs.crimson_poison -> data().effectN( 2 ).percent();
 
     return m;
   }
@@ -1256,8 +1228,7 @@ void rogue_attack_t::consume_resource()
 {
   melee_attack_t::consume_resource();
 
-  if ( ! p() -> buffs.shadow_strikes -> up() )
-    p() -> spend_combo_points( execute_state );
+  p() -> spend_combo_points( execute_state );
 
   if ( result_is_miss( execute_state -> result ) && resource_consumed > 0 )
     p() -> trigger_energy_refund( execute_state );
@@ -1280,7 +1251,9 @@ void rogue_attack_t::execute()
   p() -> trigger_combo_point_gain( execute_state );
 
   // Anticipation only refreshes Combo Points, if the Combat and Subtlety T17
-  // 4pc set bonuses are not in effect
+  // 4pc set bonuses are not in effect. Note that currently in game, Shadow
+  // Strikes (Sub 4PC) does not prevent the consumption of Anticipation, but
+  // presuming here that it is a bug.
   if ( ! combat_t17_4pc_triggered && ! p() -> buffs.shadow_strikes -> check() )
     p() -> trigger_anticipation_replenish( execute_state );
 
@@ -1294,8 +1267,17 @@ void rogue_attack_t::execute()
       p() -> buffs.subterfuge -> trigger();
   }
 
-  if ( result_is_hit( execute_state -> result ) && base_costs[ RESOURCE_COMBO_POINT ] > 0 )
+  // Subtlety T17 4PC set bonus processing on the "next finisher"
+  if ( result_is_hit( execute_state -> result ) &&
+       base_costs[ RESOURCE_COMBO_POINT ] > 0 &&
+       p() -> buffs.shadow_strikes -> check() )
+  {
     p() -> buffs.shadow_strikes -> expire();
+    double cp = player -> resources.max[ RESOURCE_COMBO_POINT ] - player -> resources.current[ RESOURCE_COMBO_POINT ];
+
+    if ( cp > 0 )
+      player -> resource_gain( RESOURCE_COMBO_POINT, cp, p() -> gains.t17_4pc_subtlety );
+  }
 }
 
 // rogue_attack_t::ready() ==================================================
@@ -1723,13 +1705,8 @@ struct envenom_t : public rogue_attack_t
     dot_duration = timespan_t::zero();
     weapon_multiplier = weapon_power_mod = 0.0;
     base_multiplier *= 1.05; // Hard-coded tooltip.
+    base_dd_min = base_dd_max = 0;
   }
-
-  double base_da_min( const action_state_t* s ) const
-  { return base_dd_min * rogue_attack_t::cast_state( s ) -> cp; }
-
-  double base_da_max( const action_state_t* s ) const
-  { return base_dd_max * rogue_attack_t::cast_state( s ) -> cp; }
 
   void consume_resource()
   {
@@ -1829,7 +1806,7 @@ struct eviscerate_t : public rogue_attack_t
 
     attack_power_mod.direct = 0.577;
     // Hard-coded tooltip.
-    attack_power_mod.direct *= 0.82;
+    attack_power_mod.direct *= 0.88;
   }
 
   timespan_t gcd() const
@@ -1922,11 +1899,7 @@ struct crimson_tempest_t : public rogue_attack_t
     crimson_tempest_dot_t( rogue_t * p ) :
       residual_periodic_action_t<rogue_attack_t>( "crimson_tempest", p, p -> find_spell( 122233 ) )
     {
-      if ( p -> spec.sinister_calling -> ok() )
-      {
-        sinister_calling = new sinister_calling_t( "crimson_tempest_sc", p, p -> find_spell( 168952 ) );
-        add_child( sinister_calling );
-      }
+      dual = true;
     }
 
     action_state_t* new_state()
@@ -1945,8 +1918,9 @@ struct crimson_tempest_t : public rogue_attack_t
     weapon = &( p -> main_hand_weapon );
     weapon_power_mod = weapon_multiplier = 0;
     // Hard-coded tooltip.
-    attack_power_mod.direct *= 0.82;
+    attack_power_mod.direct *= 1.5;
     ct_dot = new crimson_tempest_dot_t( p );
+    base_dd_min = base_dd_max = 0;
   }
 
   void impact( action_state_t* s )
@@ -1959,10 +1933,9 @@ struct crimson_tempest_t : public rogue_attack_t
 
       if ( p() -> perk.enhanced_crimson_tempest -> ok() )
       {
-        rogue_td_t* tdata = td( s -> target );
         rogue_attack_state_t* state = debug_cast<rogue_attack_state_t*>( s );
         timespan_t duration = timespan_t::from_seconds( 1 + state -> cp );
-        tdata -> debuffs.enhanced_crimson_tempest -> trigger( 1, buff_t::DEFAULT_VALUE(), -1.0, duration );
+        p() -> buffs.crimson_poison -> trigger( 1, buff_t::DEFAULT_VALUE(), -1.0, duration );
       }
     }
   }
@@ -1978,12 +1951,6 @@ struct garrote_t : public rogue_attack_t
     may_crit          = false;
     requires_stealth  = true;
     attack_power_mod.tick    = 0.078;
-
-    if ( p -> spec.sinister_calling -> ok() )
-    {
-      sinister_calling = new sinister_calling_t( "garrote_sc", p, p -> find_spell( 168971 ) );
-      add_child( sinister_calling );
-    }
   }
 
   void impact( action_state_t* state )
@@ -2384,13 +2351,6 @@ struct rupture_t : public rogue_attack_t
     tick_may_crit         = true;
     dot_behavior          = DOT_REFRESH;
     base_multiplier      *= 1.0 + p -> spec.sanguinary_vein -> effectN( 1 ).percent();
-
-    if ( p -> spec.sinister_calling -> ok() )
-    {
-      sinister_calling = new sinister_calling_t( "rupture_sc", p, p -> find_spell( 168963 ) );
-      add_child( sinister_calling );
-      base_multiplier *= 0.82; // Hardcoded tooltip.
-    }
   }
 
   timespan_t gcd() const
@@ -3647,7 +3607,6 @@ rogue_td_t::rogue_td_t( player_t* target, rogue_t* source ) :
   debuffs.wound_poison = new buffs::wound_poison_t( *this );
   debuffs.crippling_poison = new buffs::crippling_poison_t( *this );
   debuffs.leeching_poison = new buffs::leeching_poison_t( *this );
-  debuffs.enhanced_crimson_tempest = buff_creator_t( *this, "enhanced_crimson_tempest", source -> find_spell( 157561 ) );
 }
 
 // ==========================================================================
@@ -3785,24 +3744,6 @@ struct shadow_reflection_pet_t : public pet_t
     // Shadow Reflection does not consume resources, it has none ..
     void consume_resource()
     { }
-
-    void cancel()
-    {
-      melee_attack_t::cancel();
-
-      // Bail out early if not a dot.
-      if ( dot_duration == timespan_t::zero() )
-        return;
-
-      // Cancel ticking dots on targets when SR goes away (basically whenever
-      // the action is canceled is sufficient)
-      for ( size_t i = 0, end = sim -> target_non_sleeping_list.size(); i < end; i++ )
-      {
-        dot_t* d = target_specific_dot[ sim -> target_non_sleeping_list[ i ] ];
-        if ( d && d -> is_ticking() )
-          d -> cancel();
-      }
-    }
   };
 
   struct sr_eviscerate_t : public shadow_reflection_attack_t
@@ -4279,7 +4220,13 @@ void rogue_t::init_action_list()
   if ( sim -> allow_food && level >= 80 )
   {
     std::string food_action = "food,type=";
-    food_action += ( level > 85 ) ? "sea_mist_rice_noodles" : "seafood_magnifique_feast";
+    if ( specialization() == ROGUE_ASSASSINATION )
+      food_action += ( ( level >= 100 ) ? "sleeper_surprise" : ( level > 85 ) ? "sea_mist_rice_noodles" : ( level > 80 ) ? "seafood_magnifique_feast" : "" );
+    else if ( specialization() == ROGUE_COMBAT )
+      food_action += ( ( level >= 100 ) ? "frosty_stew" : ( level > 85 ) ? "sea_mist_rice_noodles" : ( level > 80 ) ? "seafood_magnifique_feast" : "" );
+    else if ( specialization() == ROGUE_SUBTLETY )
+      food_action += ( ( level >= 100 ) ? "calamari_crepes" : ( level > 85 ) ? "sea_mist_rice_noodles" : ( level > 80 ) ? "seafood_magnifique_feast" : "" );
+
     precombat -> add_action( food_action );
   }
 
@@ -4667,6 +4614,7 @@ void rogue_t::init_gains()
   gains.t17_2pc_assassination   = get_gain( "t17_2pc_assassination" );
   gains.t17_4pc_assassination   = get_gain( "t17_4pc_assassination" );
   gains.t17_2pc_subtlety        = get_gain( "t17_2pc_subtlety" );
+  gains.t17_4pc_subtlety        = get_gain( "t17_4pc_subtlety" );
   gains.venomous_wounds         = get_gain( "venomous_vim"       );
 }
 
@@ -4826,6 +4774,7 @@ void rogue_t::create_buffs()
     .cd( timespan_t::zero() );
   buffs.shadowstep        = buff_creator_t( this, "shadowstep", talent.shadowstep )
     .cd( timespan_t::zero() );
+  buffs.crimson_poison    = buff_creator_t( this, "crimson_poison", find_spell( 157562 ) );
 }
 
 // trigger_honor_among_thieves ==============================================

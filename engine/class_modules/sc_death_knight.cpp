@@ -684,35 +684,6 @@ static int count_death_runes( const death_knight_t* p, bool inactive )
   return count;
 }
 
-// Consume Runes ============================================================
-
-static void consume_runes( death_knight_t* player, const std::array<bool,RUNE_SLOT_MAX>& use, bool convert_runes = false )
-{
-  if ( player -> sim -> log )
-  {
-    log_rune_status( player );
-  }
-
-  for ( int i = 0; i < RUNE_SLOT_MAX; ++i )
-  {
-    if ( use[i] )
-    {
-      // Show the consumed type of the rune
-      // Not the type it is after consumption
-      int consumed_type = player -> _runes.slot[i].type;
-      player -> _runes.slot[i].consume( convert_runes );
-
-      if ( player -> sim -> log )
-        player -> sim -> out_log.printf( "%s consumes rune #%d, type %d", player -> name(), i, consumed_type );
-    }
-  }
-
-  if ( player -> sim -> log )
-  {
-    log_rune_status( player );
-  }
-}
-
 // Group Runes ==============================================================
 
 static int use_rune( const death_knight_t* p, rune_type rt, const std::array<bool,RUNE_SLOT_MAX>& use )
@@ -2242,6 +2213,8 @@ struct death_knight_action_t : public Base
   typedef Base action_base_t;
   typedef death_knight_action_t base_t;
 
+  proc_t* rune_consumed[ 4 ];
+
   death_knight_action_t( const std::string& n, death_knight_t* p,
                          const spell_data_t* s = spell_data_t::nil() ) :
     action_base_t( n, p, s ),
@@ -2249,6 +2222,7 @@ struct death_knight_action_t : public Base
     convert_runes( 0 )
   {
     range::fill( use, false );
+    range::fill( rune_consumed, 0 );
 
     action_base_t::may_crit   = true;
     action_base_t::may_glance = false;
@@ -2262,6 +2236,23 @@ struct death_knight_action_t : public Base
   death_knight_td_t* td( player_t* t ) const
   { return p() -> get_target_data( t ); }
 
+  void init()
+  {
+    action_base_t::init();
+
+    if ( cost_blood )
+      rune_consumed[ RUNE_TYPE_BLOOD - 1 ] = this -> player -> get_proc( this -> data().name_cstr() + std::string( ": Blood" ) );
+
+    if ( cost_frost )
+      rune_consumed[ RUNE_TYPE_FROST - 1 ] = this -> player -> get_proc( this -> data().name_cstr() + std::string( ": Frost" ) );
+
+    if ( cost_unholy )
+      rune_consumed[ RUNE_TYPE_UNHOLY - 1 ] = this -> player -> get_proc( this -> data().name_cstr() + std::string( ": Unholy" ) );
+
+    if ( cost_blood || cost_frost || cost_unholy )
+      rune_consumed[ RUNE_TYPE_DEATH - 1 ] = this -> player -> get_proc( this -> data().name_cstr() + std::string( ": Death" ) );
+
+  };
 
   void trigger_t16_2pc_tank()
   {
@@ -2344,6 +2335,45 @@ struct death_knight_action_t : public Base
   }
 
   virtual expr_t* create_expression( const std::string& name_str );
+
+  // Consume Runes ============================================================
+
+  void consume_runes( const std::array<bool,RUNE_SLOT_MAX>& use, bool convert_runes = false )
+  {
+    if ( p() -> sim -> log )
+    {
+      log_rune_status( p() );
+    }
+
+    for ( int i = 0; i < RUNE_SLOT_MAX; ++i )
+    {
+      if ( use[ i ] )
+      {
+        const rune_t& rune = p() -> _runes.slot[ i ];
+        if ( rune.is_death() )
+          rune_consumed[ RUNE_TYPE_DEATH - 1 ] -> occur();
+        else if ( rune.is_blood() )
+          rune_consumed[ RUNE_TYPE_BLOOD - 1 ] -> occur();
+        else if ( rune.is_unholy() )
+          rune_consumed[ RUNE_TYPE_UNHOLY - 1 ] -> occur();
+        else if ( rune.is_frost() )
+          rune_consumed[ RUNE_TYPE_FROST - 1 ] -> occur();
+
+        // Show the consumed type of the rune
+        // Not the type it is after consumption
+        int consumed_type = p() -> _runes.slot[ i ].type;
+        p() -> _runes.slot[ i ].consume( convert_runes );
+
+        if ( p() -> sim -> log )
+          p() -> sim -> out_log.printf( "%s consumes rune #%d, type %d", p() -> name(), i, consumed_type );
+      }
+    }
+
+    if ( p() -> sim -> log )
+    {
+      log_rune_status( p() );
+    }
+  }
 
 private:
   void extract_rune_cost( const spell_data_t* spell )
@@ -2492,7 +2522,7 @@ void death_knight_melee_attack_t::consume_resource()
   base_t::consume_resource();
 
   if ( result_is_hit( execute_state -> result ) || always_consume )
-    consume_runes( p(), use, convert_runes == 0 ? false : rng().roll( convert_runes ) == 1 );
+    consume_runes( use, convert_runes == 0 ? false : rng().roll( convert_runes ) == 1 );
 
   if ( p() -> active_spells.breath_of_sindragosa &&
        p() -> resources.current[ RESOURCE_RUNIC_POWER ] < p() -> active_spells.breath_of_sindragosa -> tick_action -> base_costs[ RESOURCE_RUNIC_POWER ] )
@@ -2558,7 +2588,7 @@ void death_knight_spell_t::consume_resource()
   base_t::consume_resource();
 
   if ( result_is_hit( execute_state -> result ) )
-    consume_runes( p(), use, convert_runes == 0 ? false : rng().roll( convert_runes ) == 1 );
+    consume_runes( use, convert_runes == 0 ? false : rng().roll( convert_runes ) == 1 );
 
   if ( p() -> active_spells.breath_of_sindragosa &&
        p() -> resources.current[ RESOURCE_RUNIC_POWER ] < p() -> active_spells.breath_of_sindragosa -> tick_action -> base_costs[ RESOURCE_RUNIC_POWER ] )
@@ -6144,6 +6174,10 @@ void death_knight_t::init_action_list()
       st -> add_action( this, "Soul Reaper", "if=target.health.pct-3*(target.health.pct%target.time_to_die)<=" + soul_reaper_pct );
       st -> add_talent( this, "Blood Tap", "if=(target.health.pct-3*(target.health.pct%target.time_to_die)<=" + soul_reaper_pct + "&cooldown.soul_reaper.remains=0)" );
 
+      // Defile
+      st -> add_talent( this, "Defile" );
+      st -> add_talent( this, "Blood Tap", "if=talent.defile.enabled&cooldown.defile.remains=0" );
+
       // Diseases for runes
       st -> add_action( this, "Howling Blast", "if=!talent.necrotic_plague.enabled&!dot.frost_fever.ticking" );
       st -> add_action( this, "Howling Blast", "if=talent.necrotic_plague.enabled&!dot.necrotic_plague.ticking" );
@@ -6191,7 +6225,7 @@ void death_knight_t::init_action_list()
       st -> add_talent( this, "Blood Tap", "if=(target.health.pct-3*(target.health.pct%target.time_to_die)<=" + soul_reaper_pct + "&cooldown.soul_reaper.remains=0)" );
 
       // Defile
-      st -> add_action( this, "Defile" );
+      st -> add_talent( this, "Defile" );
       st -> add_talent( this, "Blood Tap", "if=talent.defile.enabled&cooldown.defile.remains=0" );
 
       // Killing Machine / Very High RP
@@ -6232,6 +6266,7 @@ void death_knight_t::init_action_list()
     aoe -> add_talent( this, "Unholy Blight" );
     aoe -> add_action( this, "Blood Boil", "if=!talent.necrotic_plague.enabled&dot.blood_plague.ticking&talent.plague_leech.enabled,line_cd=28" );
     aoe -> add_action( this, "Blood Boil", "if=!talent.necrotic_plague.enabled&dot.blood_plague.ticking&talent.unholy_blight.enabled&cooldown.unholy_blight.remains<49,line_cd=28" );
+    aoe -> add_talent( this, "Defile" );
     aoe -> add_action( this, "Howling Blast" );
     aoe -> add_talent( this, "Blood Tap", "if=buff.blood_charge.stack>10" );
     aoe -> add_action( this, "Frost Strike", "if=runic_power>76" );

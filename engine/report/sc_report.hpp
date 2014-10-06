@@ -13,6 +13,7 @@
 struct player_t;
 struct player_processed_report_information_t;
 struct sim_report_information_t;
+struct spell_data_expr_t;
 
 #define MAX_PLAYERS_PER_CHART 20
 
@@ -78,7 +79,7 @@ void generate_sim_report_information( sim_t*, sim_report_information_t& );
 void print_html_sample_data ( report::sc_html_stream&, const sim_t*, const extended_sample_data_t&, const std::string& name, int& td_counter, int columns = 1 );
 void print_html_sample_data ( report::sc_html_stream&, const player_t*, const extended_sample_data_t&, const std::string& name, int& td_counter, int columns = 1 );
 
-void print_spell_query ( sim_t*, unsigned level );
+void print_spell_query ( dbc_t& dbc, const std::string& spell_query_xml_output_file_str, const spell_data_expr_t&, unsigned level );
 void print_profiles    ( sim_t* );
 void print_text        ( sim_t*, bool detail );
 void print_html        ( sim_t* );

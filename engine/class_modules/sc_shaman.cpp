@@ -1878,17 +1878,6 @@ struct stormstrike_attack_t : public shaman_attack_t
     weapon = w;
     base_multiplier *= 1.0 + p() -> perk.improved_stormstrike -> effectN( 1 ).percent();
   }
-
-  double action_multiplier() const
-  {
-    double m = shaman_attack_t::action_multiplier();
-
-    if ( p() -> buff.lightning_shield -> up() )
-      //m *= 1.0 + lightning_shield -> effectN( 3 ).percent();
-      m *= 1.13; // Hardcoding this for now, because the effect is apparnly gone from spell data. For some reason it is still thre in WoD Alpha client though
-
-    return m;
-  }
 };
 
 struct windstrike_attack_t : public stormstrike_attack_t
@@ -2887,6 +2876,7 @@ struct fire_nova_t : public shaman_spell_t
     may_crit = may_miss = callbacks = false;
     uses_eoe  = true;
     aoe       = -1;
+    uses_unleash_flame = true;
 
     impact_action = new fire_nova_explosion_t( player );
   }
@@ -3390,25 +3380,25 @@ struct earth_shock_t : public shaman_spell_t
 
   virtual void execute()
   {
+    int consuming_stacks = p() -> buff.lightning_shield -> stack() - 1;
+    // Tier17 2PC set bonus affects the Fulmination that procs it
+    if ( consuming_stacks > 0 )
+      p() -> trigger_tier17_2pc_elemental( consuming_stacks );
+
     shaman_spell_t::execute();
 
-    if ( result_is_hit( execute_state -> result ) )
+    if ( result_is_hit( execute_state -> result ) && consuming_stacks > 0 )
     {
-      int consuming_stacks = p() -> buff.lightning_shield -> stack() - 1;
-      if ( consuming_stacks > 0 )
-      {
-        p() -> active_lightning_charge -> target = execute_state -> target;
-        p() -> active_lightning_charge -> execute();
+      p() -> active_lightning_charge -> target = execute_state -> target;
+      p() -> active_lightning_charge -> execute();
 
-        p() -> proc.fulmination[ consuming_stacks ] -> occur();
+      p() -> proc.fulmination[ consuming_stacks ] -> occur();
 
-        shaman_td_t* tdata = td( execute_state -> target );
-        tdata -> debuff.t16_2pc_caster -> trigger( 1, buff_t::DEFAULT_VALUE(), -1.0,
-            consuming_stacks * tdata -> debuff.t16_2pc_caster -> data().duration() );
-        p() -> buff.lightning_shield -> decrement( consuming_stacks );
-      }
+      shaman_td_t* tdata = td( execute_state -> target );
+      tdata -> debuff.t16_2pc_caster -> trigger( 1, buff_t::DEFAULT_VALUE(), -1.0,
+          consuming_stacks * tdata -> debuff.t16_2pc_caster -> data().duration() );
+      p() -> buff.lightning_shield -> decrement( consuming_stacks );
 
-      p() -> trigger_tier17_2pc_elemental( consuming_stacks );
       p() -> trigger_tier17_4pc_elemental( consuming_stacks );
     }
   }
@@ -5106,8 +5096,7 @@ void shaman_t::create_buffs()
   buff.tier16_2pc_melee         = buff_creator_t( this, "tier16_2pc_melee", sets.set( SET_MELEE, T16, B2 ) -> effectN( 1 ).trigger() )
                                   .chance( static_cast< double >( sets.has_set_bonus( SET_MELEE, T16, B2 ) ) );
 
-  buff.enhanced_chain_lightning = buff_creator_t( this, "enhanced_chain_lightning", perk.enhanced_chain_lightning )
-                                  .max_stack( 5 );
+  buff.enhanced_chain_lightning = buff_creator_t( this, "enhanced_chain_lightning", find_spell( 157766 ) );
 
   buff.enhanced_unleash         = buff_creator_t( this, "enhanced_unleash", perk.enhanced_unleash -> effectN( 1 ).trigger() );
 

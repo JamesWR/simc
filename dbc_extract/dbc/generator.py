@@ -852,8 +852,19 @@ class ItemDataGenerator(DataGenerator):
             if data.flags & 0x10:
                 continue
 
+            # On-use armors/weapons
+            if classdata.classs in [ 2, 4 ]:
+                # All shirts
+                if data.inv_type == 4:
+                    filter_ilevel = False
+                else:
+                    # On-use item, with a valid spell (and cooldown)
+                    for item_effect in data.spells:
+                        if item_effect.trigger_type == 0 and item_effect.id_spell > 0 and item_effect.cooldown_group_duration > 0:
+                            filter_ilevel = False
+                            break
             # Gems
-            if classdata.classs == 3:
+            elif classdata.classs == 3:
                 if data.gem_props == 0:
                     continue
                 else:
@@ -926,9 +937,6 @@ class ItemDataGenerator(DataGenerator):
                 filter_ilevel = False
             # All tabards
             elif data.inv_type == 19:
-                filter_ilevel = False
-            # All shirts
-            elif data.inv_type == 4:
                 filter_ilevel = False
 
             # Item-level based non-equippable items
@@ -1326,6 +1334,7 @@ class SpellDataGenerator(DataGenerator):
           ( 171457, 0 ), # Chimaera Shot - Nature
           ( 90967, 0 ),  # Kill Command cooldown
           ( 157708, 2 ), # Marks Kill Shot
+          ( 178875, 0 ), # BM T17 4P 
         ),
 
         # Rogue:
@@ -1343,6 +1352,7 @@ class SpellDataGenerator(DataGenerator):
             ( 168971, 0 ),          # Sinister Calling: Garrote
             ( 168963, 0 ),          # Sinister Calling: Rupture
             ( 115189, 0 ),          # Anticipation buff
+            ( 157562, 0 ),          # Crimson Poison (Enhanced Crimson Tempest perk)
         ),
 
         # Priest:
@@ -1466,6 +1476,7 @@ class SpellDataGenerator(DataGenerator):
           ( 108557, 1, False ), # Brewmaster Jab
           ( 126890, 0, False ), # Eminence false positives for activatable abilities
           ( 117895, 0, False ),
+		  ( 140737, 0 ), # Way of the Monk 2-Hander Weapon Speed modifier
         ),
 
         # Druid:
