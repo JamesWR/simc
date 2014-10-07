@@ -656,6 +656,7 @@ public:
     if ( p() -> passives.hand_of_light -> ok() )
     {
       p() -> active_hand_of_light_proc -> base_dd_max = p() -> active_hand_of_light_proc-> base_dd_min = s -> result_amount;
+      p() -> active_hand_of_light_proc -> target = s -> target;
       p() -> active_hand_of_light_proc -> execute();
     }
   }
@@ -2791,6 +2792,7 @@ struct lights_hammer_t : public paladin_spell_t
     dot_duration      = p -> find_spell( 122773 ) -> duration() - travel_time_;
     cooldown -> duration = p -> find_spell( 114158 ) -> cooldown();
     hasted_ticks   = false;
+    tick_zero = true;
 
     dynamic_tick_action = true;
     //tick_action = new lights_hammer_tick_t( p, p -> find_spell( 114919 ) );
@@ -3387,8 +3389,10 @@ struct paladin_melee_attack_t: public paladin_action_t < melee_attack_t >
 
 struct melee_t : public paladin_melee_attack_t
 {
+  bool first;
   melee_t( paladin_t* p ) :
-    paladin_melee_attack_t( "melee", p, spell_data_t::nil(), true )
+    paladin_melee_attack_t( "melee", p, spell_data_t::nil(), true ),
+    first( true )
   {
     school = SCHOOL_PHYSICAL;
     special               = false;
@@ -3402,11 +3406,17 @@ struct melee_t : public paladin_melee_attack_t
   virtual timespan_t execute_time() const
   {
     if ( ! player -> in_combat ) return timespan_t::from_seconds( 0.01 );
-    return paladin_melee_attack_t::execute_time();
-  }
+    if ( first )
+      return timespan_t::zero();
+    else
+      return paladin_melee_attack_t::execute_time();
+  } 
 
   virtual void execute()
   {
+    if ( first )
+      first = false;
+
     paladin_melee_attack_t::execute();
     if ( result_is_hit( execute_state -> result ) )
     {
