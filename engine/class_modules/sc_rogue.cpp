@@ -574,6 +574,10 @@ struct rogue_attack_t : public melee_attack_t
   virtual bool procs_poison() const
   { return weapon != 0; }
 
+  // Generic rules for proccing Main Gauche, used by rogue_t::trigger_main_gauche()
+  virtual bool procs_main_gauche() const
+  { return callbacks && ! proc && weapon != 0 && weapon -> slot == SLOT_MAIN_HAND; }
+
   // Adjust poison proc chance
   virtual double composite_poison_flat_modifier( const action_state_t* ) const
   { return 0.0; }
@@ -1918,6 +1922,10 @@ struct crimson_tempest_t : public rogue_attack_t
     base_dd_min = base_dd_max = 0;
   }
 
+  // Apparently Crimson Tempest does not trigger Main Gauche?
+  bool trigger_main_gauche() const
+  { return false; }
+
   void impact( action_state_t* s )
   {
     rogue_attack_t::impact( s );
@@ -2831,6 +2839,9 @@ struct blade_flurry_attack_t : public rogue_attack_t
     snapshot_flags |= STATE_MUL_DA;
   }
 
+  bool procs_main_gauche() const
+  { return false; }
+
   double composite_da_multiplier( const action_state_t* ) const
   { return p() -> spec.blade_flurry -> effectN( 3 ).percent(); }
 
@@ -2885,7 +2896,7 @@ inline bool rogue_t::poisoned_enemy( player_t* target, bool deadly_fade ) const
 
 void rogue_t::trigger_auto_attack( const action_state_t* state )
 {
-  if ( main_hand_attack -> execute_event || off_hand_attack -> execute_event )
+  if ( main_hand_attack -> execute_event || ! off_hand_attack || off_hand_attack -> execute_event )
     return;
 
   if ( ! state -> action -> harmful )
@@ -2985,13 +2996,14 @@ void rogue_t::trigger_main_gauche( const action_state_t* state )
   if ( ! mastery.main_gauche -> ok() )
     return;
 
-  if ( state -> action -> proc || ! state -> action -> callbacks )
+  if ( state -> result_total <= 0 )
     return;
 
-  if ( ! state -> action -> weapon )
+  if ( ! state -> action -> result_is_hit( state -> result ) )
     return;
 
-  if ( state -> action -> weapon -> slot != SLOT_MAIN_HAND )
+  actions::rogue_attack_t* attack = debug_cast<actions::rogue_attack_t*>( state -> action );
+  if ( ! attack -> procs_main_gauche() )
     return;
 
   if ( ! rng().roll( cache.mastery_value() ) )
@@ -3080,8 +3092,7 @@ void rogue_t::trigger_relentless_strikes( const action_state_t* state )
   if ( ! spell.relentless_strikes -> ok() )
     return;
 
-  actions::rogue_attack_t* attack = debug_cast<actions::rogue_attack_t*>( state -> action );
-  if ( ! attack -> base_costs[ RESOURCE_COMBO_POINT ] )
+  if ( ! state -> action -> base_costs[ RESOURCE_COMBO_POINT ] )
     return;
 
   const actions::rogue_attack_state_t* s = actions::rogue_attack_t::cast_state( state );
@@ -3141,6 +3152,10 @@ void rogue_t::trigger_blade_flurry( const action_state_t* state )
   if ( state -> action -> n_targets() != 0 )
     return;
 
+  // Invalidate target cache if target changes
+  if ( active_blade_flurry -> target != state -> target )
+    active_blade_flurry -> target_cache.is_valid = false;
+  active_blade_flurry -> target = state -> target;
   // Note, unmitigated damage
   active_blade_flurry -> base_dd_min = state -> result_total;
   active_blade_flurry -> base_dd_max = state -> result_total;
@@ -4326,18 +4341,24 @@ void rogue_t::init_action_list()
 
     std::string vanish_expr = "if=time>10&!buff.stealth.up";
     def -> add_action( this, "Vanish", vanish_expr );
-    def -> add_talent( this, "Shadow Reflection" );
     def -> add_action( this, "Rupture", "if=combo_points=5&ticks_remain<3" );
     def -> add_action( this, "Rupture", "cycle_targets=1,if=active_enemies>1&!ticking&combo_points=5" );
     def -> add_action( this, "Mutilate", "if=buff.stealth.up" );
     def -> add_talent( this, "Marked for Death", "if=combo_points=0" );
+    def -> add_action( this, "Crimson Tempest", "if=combo_points>4&active_enemies>=4&remains<8" );
     def -> add_action( this, "Fan of Knives", "if=combo_points<5&active_enemies>=4" );
     def -> add_action( this, "Rupture", "if=(remains<2|(combo_points=5&remains<=(duration*0.3)))&active_enemies=1" );
     def -> add_action( this, "Vendetta" );
+    def -> add_talent( this, "Shadow Reflection", "if=debuff.vendetta.up" );
     def -> add_talent( this, "Death From Above", "if=combo_points>4" );
+    def -> add_action( this, "Envenom", "cycle_targets=1,if=(combo_points>4&buff.envenom.remains<2&(cooldown.death_from_above.remains>2|!talent.death_from_above.enabled))&active_enemies<4&!dot.deadly_poison_dot.ticking" );
     def -> add_action( this, "Envenom", "if=(combo_points>4&buff.envenom.remains<2&(cooldown.death_from_above.remains>2|!talent.death_from_above.enabled))&active_enemies<4" );
+    def -> add_action( this, "Fan of Knives", "cycle_targets=1,if=active_enemies>2&!dot.deadly_poison_dot.ticking&debuff.vendetta.down" );
+    def -> add_action( this, "Mutilate", "cycle_targets=1,if=target.health.pct>35&combo_points<5&active_enemies=2&!dot.deadly_poison_dot.ticking&debuff.vendetta.down" );
     def -> add_action( this, "Mutilate", "if=target.health.pct>35&combo_points<5&active_enemies<5" );
+    def -> add_action( this, "Dispatch", "cycle_targets=1,if=(combo_points<5|(talent.anticipation.enabled&anticipation_charges<4))&active_enemies=2&!dot.deadly_poison_dot.ticking&debuff.vendetta.down" );
     def -> add_action( this, "Dispatch", "if=(combo_points<5|(talent.anticipation.enabled&anticipation_charges<4))&active_enemies<4" );
+    def -> add_action( this, "Mutilate", "cycle_targets=1,if=active_enemies=2&!dot.deadly_poison_dot.ticking&debuff.vendetta.down" );
     def -> add_action( this, "Mutilate", "if=active_enemies<5" );
   }
 
@@ -4374,11 +4395,12 @@ void rogue_t::init_action_list()
 
     // Combo point generators
     action_priority_list_t* gen = get_action_priority_list( "generator", "Combo point generators" );
-    gen -> add_action( this, "Revealing Strike", "if=ticks_remain<2|buff.deep_insight.up|(buff.bandits_guile.stack=11&cooldown.adrenaline_rush.remains<10)" );
+    gen -> add_action( this, "Revealing Strike", "if=ticks_remain<2" );
     gen -> add_action( this, "Sinister Strike" );
 
     // Combo point finishers
     action_priority_list_t* finisher = get_action_priority_list( "finisher", "Combo point finishers" );
+    finisher -> add_action( this, "Death from Above" );
     finisher -> add_action( this, "Crimson Tempest", "if=active_enemies>7&dot.crimson_tempest_dot.ticks_remain<=1" );
     finisher -> add_action( this, "Eviscerate" );
   }
@@ -4407,7 +4429,7 @@ void rogue_t::init_action_list()
     def -> add_action( this, find_class_spell( "Vanish" ), "pool_resource", "for_next=1,extra_amount=45" );
     def -> add_action( this, "Vanish", "if=energy>=45&energy<=75&combo_points<=3&buff.shadow_dance.down&buff.master_of_subtlety.down&debuff.find_weakness.down" );
     def -> add_talent( this, "Marked for Death", "if=combo_points=0" );
-    def -> add_talent( this, "Shadow Reflection" );
+    def -> add_talent( this, "Shadow Reflection", "if=buff.shadow_dance.up" );
 
     // Rotation
     def -> add_action( "run_action_list,name=generator,if=talent.anticipation.enabled&anticipation_charges<4&buff.slice_and_dice.up&dot.rupture.remains>2&(buff.slice_and_dice.remains<6|dot.rupture.remains<4)" );
@@ -4418,7 +4440,7 @@ void rogue_t::init_action_list()
     // Combo point generators
     action_priority_list_t* gen = get_action_priority_list( "generator", "Combo point generators" );
     gen -> add_action( this, find_class_spell( "Preparation" ), "run_action_list", "name=pool,if=buff.master_of_subtlety.down&buff.shadow_dance.down&debuff.find_weakness.down&(energy+cooldown.shadow_dance.remains*energy.regen<80|energy+cooldown.vanish.remains*energy.regen<60)" );
-    gen -> add_action( this, "Fan of Knives", "if=active_enemies>=4" );
+    gen -> add_action( this, "Fan of Knives", "if=active_enemies>1" );
     gen -> add_action( this, "Hemorrhage", "if=(remains<8&target.time_to_die>10)|position_front" );
     gen -> add_talent( this, "Shuriken Toss", "if=energy<65&energy.regen<16" );
     gen -> add_action( this, "Backstab" );
@@ -4427,8 +4449,8 @@ void rogue_t::init_action_list()
     // Combo point finishers
     action_priority_list_t* finisher = get_action_priority_list( "finisher", "Combo point finishers" );
     finisher -> add_action( this, "Slice and Dice", "if=buff.slice_and_dice.remains<4" );
-    finisher -> add_action( this, "Rupture", "if=(!ticking|remains<duration*0.3)&active_enemies<3" );
-    finisher -> add_action( this, "Crimson Tempest", "if=(active_enemies>1&dot.crimson_tempest_dot.ticks_remain<=2&combo_points=5)|active_enemies>=5" );
+    finisher -> add_action( this, "Rupture", "cycle_targets=1,if=(!ticking|remains<duration*0.3)&active_enemies<=3" );
+    finisher -> add_action( this, "Crimson Tempest", "if=(active_enemies>3&dot.crimson_tempest_dot.ticks_remain<=2&combo_points=5)|active_enemies>=5" );
     finisher -> add_action( this, "Eviscerate", "if=active_enemies<4|(active_enemies>3&dot.crimson_tempest_dot.ticks_remain>=2)" );
     finisher -> add_action( this, find_class_spell( "Preparation" ), "run_action_list", "name=pool" );
 
