@@ -1523,7 +1523,8 @@ struct ambush_t : public rogue_attack_t
   {
     double c = rogue_attack_t::composite_crit();
 
-    if ( ! p() -> reflection_attack && p() -> buffs.enhanced_vendetta -> up() )
+    // Shadow Reflection benefits from the owner's Enhanced Vendetta
+    if ( p() -> buffs.enhanced_vendetta -> up() )
       c += p() -> buffs.enhanced_vendetta -> data().effectN( 1 ).percent();
 
     return c;
@@ -1668,7 +1669,8 @@ struct dispatch_t : public rogue_attack_t
   {
     double c = rogue_attack_t::composite_crit();
 
-    if ( ! p() -> reflection_attack && p() -> buffs.enhanced_vendetta -> up() )
+    // Shadow Reflection benefits from the owner's Enhanced Vendetta
+    if ( p() -> buffs.enhanced_vendetta -> up() )
       c += p() -> buffs.enhanced_vendetta -> data().effectN( 1 ).percent();
 
     return c;
@@ -1678,7 +1680,8 @@ struct dispatch_t : public rogue_attack_t
   {
     double m = rogue_attack_t::action_multiplier();
 
-    if ( ! p() -> reflection_attack && p() -> perk.empowered_envenom -> ok() && p() -> buffs.envenom -> up() )
+    // Shadow Reflection benefits from the owner's Empowered Envenom
+    if ( p() -> perk.empowered_envenom -> ok() && p() -> buffs.envenom -> up() )
       m *= 1.0 + p() -> perk.empowered_envenom -> effectN( 1 ).percent();
 
     return m;
@@ -1698,7 +1701,7 @@ struct dispatch_t : public rogue_attack_t
 struct envenom_t : public rogue_attack_t
 {
   envenom_t( rogue_t* p, const std::string& options_str ) :
-    rogue_attack_t( "envenom", p, p -> find_class_spell( "Envenom" ), options_str )
+    rogue_attack_t( "envenom", p, p -> find_specialization_spell( "Envenom" ), options_str )
   {
     ability_type = ENVENOM;
     weapon = &( p -> main_hand_weapon );
@@ -1745,7 +1748,8 @@ struct envenom_t : public rogue_attack_t
   {
     double c = rogue_attack_t::composite_crit();
 
-    if ( ! p() -> reflection_attack && p() -> buffs.enhanced_vendetta -> up() )
+    // Shadow Reflection benefits from the owner's Enhanced Vendetta
+    if ( p() -> buffs.enhanced_vendetta -> up() )
       c += p() -> buffs.enhanced_vendetta -> data().effectN( 1 ).percent();
 
     return c;
@@ -1755,10 +1759,10 @@ struct envenom_t : public rogue_attack_t
   {
     rogue_attack_t::execute();
 
-    timespan_t envenom_duration = p() -> buffs.envenom -> buff_period * ( 1 + cast_state( execute_state ) -> cp );
+    timespan_t envenom_duration = p() -> buffs.envenom -> data().duration() * ( 1 + cast_state( execute_state ) -> cp );
 
     if ( p() -> sets.has_set_bonus( SET_MELEE, T15, B2 ) )
-      envenom_duration += p() -> buffs.envenom -> buff_period;
+      envenom_duration += p() -> buffs.envenom -> data().duration();
 
     p() -> buffs.envenom -> trigger( 1, buff_t::DEFAULT_VALUE(), -1.0, envenom_duration );
     p() -> buffs.enhanced_vendetta -> expire();
@@ -2133,26 +2137,6 @@ struct mutilate_strike_t : public rogue_attack_t
                             p() -> gains.t17_2pc_assassination,
                             this );
   }
-
-  double action_multiplier() const
-  {
-    double m = rogue_attack_t::action_multiplier();
-
-    if ( ! p() -> reflection_attack && p() -> perk.empowered_envenom -> ok() && p() -> buffs.envenom -> up() )
-      m *= 1.0 + p() -> perk.empowered_envenom -> effectN( 1 ).percent();
-
-    return m;
-  }
-
-  double composite_crit() const
-  {
-    double c = rogue_attack_t::composite_crit();
-
-    if ( ! p() -> reflection_attack && p() -> buffs.enhanced_vendetta -> up() )
-      c += p() -> buffs.enhanced_vendetta -> data().effectN( 1 ).percent();
-
-    return c;
-  }
 };
 
 struct mutilate_t : public rogue_attack_t
@@ -2166,6 +2150,7 @@ struct mutilate_t : public rogue_attack_t
   {
     ability_type = MUTILATE;
     may_crit = false;
+    snapshot_flags |= STATE_MUL_DA;
 
     if ( p -> main_hand_weapon.type != WEAPON_DAGGER ||
          p ->  off_hand_weapon.type != WEAPON_DAGGER )
@@ -2195,6 +2180,28 @@ struct mutilate_t : public rogue_attack_t
     return c;
   }
 
+  double action_multiplier() const
+  {
+    double m = rogue_attack_t::action_multiplier();
+
+    // Shadow Reflection benefits from the owner's Empowered Envenom
+    if ( p() -> perk.empowered_envenom -> ok() && p() -> buffs.envenom -> up() )
+      m *= 1.0 + p() -> perk.empowered_envenom -> effectN( 1 ).percent();
+
+    return m;
+  }
+
+  double composite_crit() const
+  {
+    double c = rogue_attack_t::composite_crit();
+
+    // Shadow Reflection benefits from the owner's Enhanced Vendetta
+    if ( p() -> buffs.enhanced_vendetta -> up() )
+      c += p() -> buffs.enhanced_vendetta -> data().effectN( 1 ).percent();
+
+    return c;
+  }
+
   void execute()
   {
     rogue_attack_t::execute();
@@ -2203,11 +2210,13 @@ struct mutilate_t : public rogue_attack_t
 
     if ( result_is_hit( execute_state -> result ) )
     {
+      action_state_t* s = mh_strike -> get_state( execute_state );
       mh_strike -> target = execute_state -> target;
-      mh_strike -> execute();
+      mh_strike -> schedule_execute( s );
 
+      s = oh_strike -> get_state( execute_state );
       oh_strike -> target = execute_state -> target;
-      oh_strike -> execute();
+      oh_strike -> schedule_execute( s );
     }
 
     p() -> buffs.enhanced_vendetta -> expire();
@@ -2723,6 +2732,24 @@ struct death_from_above_t : public rogue_attack_t
     tick_may_crit = false;
 
     aoe = -1;
+  }
+
+  double action_multiplier() const
+  {
+    double m = rogue_attack_t::action_multiplier();
+
+    // DFA benefits from Subtlety Mastery, we do not model it as a conventional
+    // finisher, so it needs to be explicitly put here
+    if ( p() -> mastery.executioner -> ok() )
+      m *= 1.0 + p() -> cache.mastery_value();
+
+    return m;
+  }
+
+  double attack_direct_power_coefficient( const action_state_t* ) const
+  {
+    return attack_power_mod.direct / player -> resources.max[ RESOURCE_COMBO_POINT ] *
+           player -> resources.current[ RESOURCE_COMBO_POINT ];
   }
 
   void execute()
@@ -3882,6 +3909,7 @@ struct shadow_reflection_pet_t : public pet_t
     {
       may_crit = false;
       weapon_multiplier = 0;
+      snapshot_flags |= STATE_MUL_DA;
 
       mh_strike = new sr_mutilate_strike_t( p, "mutilate_mh", data().effectN( 2 ).trigger() );
       mh_strike -> weapon = &( p -> main_hand_weapon );
@@ -4482,9 +4510,10 @@ void rogue_t::init_action_list()
     // Combo point finishers
     action_priority_list_t* finisher = get_action_priority_list( "finisher", "Combo point finishers" );
     finisher -> add_action( this, "Slice and Dice", "if=buff.slice_and_dice.remains<4" );
-    finisher -> add_action( this, "Rupture", "cycle_targets=1,if=(!ticking|remains<duration*0.3)&active_enemies<=3" );
-    finisher -> add_action( this, "Crimson Tempest", "if=(active_enemies>3&dot.crimson_tempest_dot.ticks_remain<=2&combo_points=5)|active_enemies>=5" );
-    finisher -> add_action( this, "Eviscerate", "if=active_enemies<4|(active_enemies>3&dot.crimson_tempest_dot.ticks_remain>=2)" );
+    finisher -> add_talent( this, "Death from Above" );
+    finisher -> add_action( this, "Rupture", "cycle_targets=1,if=(!ticking|remains<duration*0.3)&active_enemies<=3&(cooldown.death_from_above.remains>0|!talent.death_from_above.enabled)" );
+    finisher -> add_action( this, "Crimson Tempest", "if=(active_enemies>3&dot.crimson_tempest_dot.ticks_remain<=2&combo_points=5)|active_enemies>=5&(cooldown.death_from_above.remains>0|!talent.death_from_above.enabled)" );
+    finisher -> add_action( this, "Eviscerate", "if=active_enemies<4|(active_enemies>3&dot.crimson_tempest_dot.ticks_remain>=2)&(cooldown.death_from_above.remains>0|!talent.death_from_above.enabled)" );
     finisher -> add_action( this, find_class_spell( "Preparation" ), "run_action_list", "name=pool" );
 
     // Resource pooling
@@ -4832,9 +4861,9 @@ void rogue_t::create_buffs()
   //                           .cd( timespan_t::zero() )
   //                          .duration( find_spell( 11327 ) -> duration() + glyph.vanish -> effectN( 1 ).time_value() );
 
-  // Envenom is controlled by the non-harmful dot applied to player when envenom is used
   buffs.envenom            = buff_creator_t( this, "envenom", find_specialization_spell( "Envenom" ) )
                              .duration( timespan_t::min() )
+                             .period( timespan_t::zero() )
                              .refresh_behavior( BUFF_REFRESH_PANDEMIC );
   buffs.slice_and_dice     = buff_creator_t( this, "slice_and_dice", find_class_spell( "Slice and Dice" ) )
                              .duration( perk.improved_slice_and_dice -> ok() ? timespan_t::zero() : timespan_t::min() )
@@ -4855,7 +4884,8 @@ void rogue_t::create_buffs()
 
   buffs.fof_fod           = new buffs::fof_fod_t( this );
 
-  buffs.enhanced_vendetta = buff_creator_t( this, "enhanced_vendetta", perk.enhanced_vendetta );
+  buffs.enhanced_vendetta = buff_creator_t( this, "enhanced_vendetta", find_spell( 158108 ) )
+                            .chance( perk.enhanced_vendetta -> ok() );
   buffs.shadow_reflection = new buffs::shadow_reflection_t( this );
   buffs.death_from_above  = buff_creator_t( this, "death_from_above", spell.death_from_above )
                             .quiet( true );
