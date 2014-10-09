@@ -943,7 +943,7 @@ struct ardent_defender_t : public paladin_spell_t
   ardent_defender_t( paladin_t* p, const std::string& options_str ) :
     paladin_spell_t( "ardent_defender", p, p -> find_specialization_spell( "Ardent Defender" ) )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
 
     harmful = false;
     use_off_gcd = true;
@@ -971,7 +971,7 @@ struct avengers_shield_t : public paladin_spell_t
   avengers_shield_t( paladin_t* p, const std::string& options_str )
     : paladin_spell_t( "avengers_shield", p, p -> find_class_spell( "Avenger's Shield" ) )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
 
     if ( ! p -> has_shield_equipped() )
     {
@@ -1045,7 +1045,7 @@ struct avenging_wrath_t : public paladin_heal_t
   avenging_wrath_t( paladin_t* p, const std::string& options_str )
     : paladin_heal_t( "avenging_wrath", p, p -> specialization() == PALADIN_RETRIBUTION ? p -> find_spell( 31884 ) : p -> find_spell( 31842 ) )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
 
     cooldown -> duration += p -> passives.sword_of_light -> effectN( 7 ).time_value();
 
@@ -1103,7 +1103,7 @@ struct beacon_of_light_t : public paladin_heal_t
   beacon_of_light_t( paladin_t* p, const std::string& options_str ) :
     paladin_heal_t( "beacon_of_light", p, p -> find_class_spell( "Beacon of Light" ) )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
 
     // Target is required for Beacon
     if ( target_str.empty() )
@@ -1146,7 +1146,7 @@ struct blessing_of_kings_t : public paladin_spell_t
   blessing_of_kings_t( paladin_t* p, const std::string& options_str ) :
     paladin_spell_t( "blessing_of_kings", p, p -> find_class_spell( "Blessing of Kings" ) )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
 
     harmful = false;
 
@@ -1178,7 +1178,7 @@ struct blessing_of_might_t : public paladin_spell_t
   blessing_of_might_t( paladin_t* p, const std::string& options_str ) :
     paladin_spell_t( "blessing_of_might", p, p -> find_class_spell( "Blessing of Might" ) )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
 
     harmful = false;
 
@@ -1341,7 +1341,7 @@ struct consecration_t : public paladin_spell_t
   consecration_t( paladin_t* p, const std::string& options_str )
     : paladin_spell_t( "consecration", p, p -> find_class_spell( "Consecration" ) )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
 
     hasted_ticks   = false;
     may_miss       = false;
@@ -1430,7 +1430,7 @@ struct devotion_aura_t : public paladin_spell_t
   devotion_aura_t( paladin_t* p, const std::string& options_str ) :
     paladin_spell_t( "devotion_aura", p, p -> find_specialization_spell( "Devotion Aura" ) )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
 
     if ( p -> glyphs.devotion_aura -> ok() )
       cooldown -> duration += timespan_t::from_millis( p -> glyphs.devotion_aura -> effectN( 1 ).base_value() );
@@ -1463,7 +1463,7 @@ struct divine_plea_t : public paladin_spell_t
   divine_plea_t( paladin_t* p, const std::string& options_str )
     : paladin_spell_t( "divine_plea", p, p -> find_class_spell( "Divine Plea" ) )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
 
     harmful = false;
   }
@@ -1490,7 +1490,7 @@ struct divine_protection_t : public paladin_spell_t
   divine_protection_t( paladin_t* p, const std::string& options_str ) :
     paladin_spell_t( "divine_protection", p, p -> find_class_spell( "Divine Protection" ) )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
 
     harmful = false;
     use_off_gcd = true;
@@ -1538,7 +1538,7 @@ struct divine_shield_t : public paladin_spell_t
   divine_shield_t( paladin_t* p, const std::string& options_str ) :
     paladin_spell_t( "divine_shield", p, p -> find_class_spell( "Divine Shield" ) )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
 
     harmful = false;
     
@@ -1669,7 +1669,7 @@ struct eternal_flame_t : public paladin_heal_t
     paladin_heal_t( "eternal_flame", p, p -> find_talent_spell( "Eternal Flame" ) ),
     hot( new eternal_flame_hot_t( p ) )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
 
     // remove GCD constraints & cast time for prot
     if ( p -> passives.guarded_by_the_light -> ok() )
@@ -1786,12 +1786,16 @@ struct stay_of_execution_t : public paladin_heal_t
     : paladin_heal_t( "stay_of_execution", p, p -> find_talent_spell( "Execution Sentence" ) ),
       soe_tick_multiplier()
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
     hasted_ticks   = false;
     travel_speed   = 0;
     tick_may_crit  = 1;
     benefits_from_seal_of_insight = false;
     background = true;
+    
+    // link with Execution Sentence's cooldown
+    cooldown = p -> get_cooldown( "execution_sentence" );
+    cooldown -> duration = data().cooldown();
 
     // Where the 0.0374151195 comes from
     // The whole dots scales with data().effectN( 2 ).base_value()/1000 * SP
@@ -1836,7 +1840,7 @@ struct execution_sentence_t : public paladin_spell_t
     : paladin_spell_t( "execution_sentence", p, p -> find_talent_spell( "Execution Sentence" ) ),
       tick_multiplier()
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
     hasted_ticks   = false;
     travel_speed   = 0;
     tick_may_crit  = 1;
@@ -1910,7 +1914,7 @@ struct exorcism_t : public paladin_spell_t
   exorcism_t( paladin_t* p, const std::string& options_str )
     : paladin_spell_t( "exorcism", p, p -> find_class_spell( "Exorcism" ) )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
 
     may_crit                     = true;
 
@@ -1978,7 +1982,7 @@ struct flash_of_light_t : public paladin_heal_t
   flash_of_light_t( paladin_t* p, const std::string& options_str ) :
     paladin_heal_t( "flash_of_light", p, p -> find_class_spell( "Flash of Light" ) )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
     
     // Sword of light
     base_multiplier *= 1.0 + p -> passives.sword_of_light -> effectN( 6 ).percent();
@@ -2058,7 +2062,7 @@ struct guardian_of_ancient_kings_t : public paladin_spell_t
   guardian_of_ancient_kings_t( paladin_t* p, const std::string& options_str )
     : paladin_spell_t( "guardian_of_ancient_kings", p, p -> find_specialization_spell( "Guardian of Ancient Kings" ) )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
     use_off_gcd = true;
     trigger_gcd = timespan_t::zero();
   }
@@ -2079,7 +2083,7 @@ struct hand_of_purity_t : public paladin_spell_t
   hand_of_purity_t( paladin_t* p, const std::string& options_str ) :
     paladin_spell_t( "hand_of_purity", p, p -> find_talent_spell( "Hand of Purity" ) )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
 
     harmful = false;
     may_miss = false; //probably redundant with harmul=false?
@@ -2134,7 +2138,7 @@ struct hand_of_sacrifice_t : public paladin_spell_t
   hand_of_sacrifice_t( paladin_t* p, const std::string& options_str ) :
     paladin_spell_t( "hand_of_sacrifice", p, p-> find_class_spell( "Hand of Sacrifice" ) )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
 
     harmful = false;
     may_miss = false;
@@ -2159,7 +2163,7 @@ struct holy_avenger_t : public paladin_spell_t
   holy_avenger_t( paladin_t* p, const std::string& options_str )
     : paladin_spell_t( "holy_avenger", p, p -> find_talent_spell( "Holy Avenger" ) )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
 
     harmful = false;
 
@@ -2183,7 +2187,7 @@ struct holy_light_t : public paladin_heal_t
   holy_light_t( paladin_t* p, const std::string& options_str ) :
     paladin_heal_t( "holy_light", p, p -> find_class_spell( "Holy Light" ) )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
   }
 
   virtual void execute()
@@ -2320,7 +2324,7 @@ struct holy_prism_t : public paladin_spell_t
   holy_prism_t( paladin_t* p, const std::string& options_str )
     : paladin_spell_t( "holy_prism", p, p->find_spell( 114165 ) )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
 
     // create the damage and healing spell effects, designate them as children for reporting
     damage = new holy_prism_damage_t( p );
@@ -2376,7 +2380,7 @@ struct holy_radiance_t : public paladin_heal_t
     paladin_heal_t( "holy_radiance", p, p -> find_class_spell( "Holy Radiance" ) ),
     hot( new holy_radiance_hot_t( p, data().effectN( 1 ).trigger() ) )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
 
     // FIXME: This is an AoE Hot, which isn't supported currently
     aoe = data().effectN( 2 ).base_value();
@@ -2568,7 +2572,7 @@ struct holy_shock_t : public paladin_heal_t
     cooldown_mult( 1.0 )
   {
     check_spec( PALADIN_HOLY );
-    parse_options( NULL, options_str );
+    parse_options( options_str );
 
     cd_duration = cooldown -> duration;
 
@@ -2640,7 +2644,7 @@ struct holy_wrath_t : public paladin_spell_t
     : paladin_spell_t( "holy_wrath", p, p -> find_class_spell( "Holy Wrath" ) ),
     hp_granted( 0 )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
 
     if ( ! p -> glyphs.focused_wrath -> ok() )
       aoe = -1;
@@ -2698,7 +2702,7 @@ struct lay_on_hands_t : public paladin_heal_t
   lay_on_hands_t( paladin_t* p, const std::string& options_str ) :
     paladin_heal_t( "lay_on_hands", p, p -> find_class_spell( "Lay on Hands" ) ), mana_return_pct( 0 )
   {
-      parse_options( NULL, options_str );
+      parse_options( options_str );
 
       // unbreakable spirit reduces cooldown
       if ( p -> talents.unbreakable_spirit -> ok() )
@@ -2783,7 +2787,7 @@ struct lights_hammer_t : public paladin_spell_t
     // 114918: Periodic 2s dummy, no duration!
     // 114919: Damage/Scale data
     // 122773: 15.5s duration, 1.5s for hammer to land = 14s aoe dot
-    parse_options( NULL, options_str );
+    parse_options( options_str );
     may_miss = false;
 
     school = SCHOOL_HOLY; // Setting this allows the tick_action to benefit from Inquistion
@@ -2826,7 +2830,7 @@ struct light_of_dawn_t : public paladin_heal_t
   light_of_dawn_t( paladin_t* p, const std::string& options_str ) :
     paladin_heal_t( "light_of_dawn", p, p -> find_class_spell( "Light of Dawn" ) )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
 
     aoe = 6;
 
@@ -2893,7 +2897,7 @@ struct sacred_shield_t : public paladin_heal_t
   sacred_shield_t( paladin_t* p, const std::string& options_str ) :
     paladin_heal_t( "sacred_shield", p, p -> find_talent_spell( "Sacred Shield" ) ) // todo: find_talent_spell -> find_specialization_spell
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
     
     // redirect HoT to self if not specified
     if ( target -> is_enemy() || ( target -> type == HEALING_ENEMY && p -> specialization() == PALADIN_PROTECTION ) )
@@ -3012,7 +3016,7 @@ struct seraphim_t : public paladin_spell_t
   seraphim_t( paladin_t* p, const std::string& options_str  ) 
     : paladin_spell_t( "seraphim", p, p -> find_talent_spell( "Seraphim" ) )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
 
     may_miss = false;
     may_multistrike = false; //necessary?
@@ -3034,7 +3038,7 @@ struct speed_of_light_t: public paladin_spell_t
   speed_of_light_t( paladin_t* p, const std::string& options_str )
     : paladin_spell_t( "speed_of_light", p, p -> talents.speed_of_light )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
   }
 
   virtual void execute()
@@ -3134,7 +3138,7 @@ struct word_of_glory_t : public paladin_heal_t
   word_of_glory_t( paladin_t* p, const std::string& options_str ) :
     paladin_heal_t( "word_of_glory", p, p -> find_class_spell( "Word of Glory" ) )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
 
     // healing coefficients stored in 130551
     parse_effect_data( p -> find_spell( 130551 ) -> effectN( 1 ) );
@@ -3245,7 +3249,7 @@ struct harsh_word_t : public paladin_spell_t
   harsh_word_t( paladin_t* p, const std::string& options_str ) :
     paladin_spell_t( "harsh_word", p, p -> find_class_spell( "Harsh_Word" ) )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
     resource_consumed = RESOURCE_HOLY_POWER;
     resource_current = RESOURCE_HOLY_POWER;
 
@@ -3455,7 +3459,7 @@ struct auto_melee_attack_t : public paladin_melee_attack_t
     // does not incur a GCD
     trigger_gcd = timespan_t::zero();
 
-    parse_options( NULL, options_str );
+    parse_options( options_str );
   }
 
   virtual void execute()
@@ -3480,7 +3484,7 @@ struct crusader_strike_t : public paladin_melee_attack_t
     : paladin_melee_attack_t( "crusader_strike", p, p -> find_class_spell( "Crusader Strike" ), true ),
       sword_of_light( p -> find_specialization_spell( "Sword of Light" ) )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
 
     // CS triggers all seals
     trigger_seal = true;
@@ -3556,7 +3560,7 @@ struct divine_storm_t : public paladin_melee_attack_t
   divine_storm_t( paladin_t* p, const std::string& options_str )
     : paladin_melee_attack_t( "divine_storm", p, p -> find_class_spell( "Divine Storm" ) )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
 
     weapon = &( p -> main_hand_weapon );
 
@@ -3631,7 +3635,7 @@ struct hammer_of_justice_t : public paladin_melee_attack_t
   hammer_of_justice_t( paladin_t* p, const std::string& options_str )
     : paladin_melee_attack_t( "hammer_of_justice", p, p -> find_class_spell( "Hammer of Justice" ) )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
   }
 };
 
@@ -3640,7 +3644,7 @@ struct fist_of_justice_t : public paladin_melee_attack_t
   fist_of_justice_t( paladin_t* p, const std::string& options_str )
     : paladin_melee_attack_t( "fist_of_justice", p, p -> find_talent_spell( "Fist of Justice" ) )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
   }
 };
 
@@ -3707,7 +3711,7 @@ struct hammer_of_the_righteous_t : public paladin_melee_attack_t
   hammer_of_the_righteous_t( paladin_t* p, const std::string& options_str )
     : paladin_melee_attack_t( "hammer_of_the_righteous", p, p -> find_class_spell( "Hammer of the Righteous" ), true ) 
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
 
     // link with Crusader Strike's cooldown
     cooldown = p -> get_cooldown( "crusader_strike" );
@@ -3772,7 +3776,7 @@ struct hammer_of_wrath_t : public paladin_melee_attack_t
     : paladin_melee_attack_t( "hammer_of_wrath", p, p -> find_class_spell( "Hammer of Wrath" ), true ),
       cooldown_mult( 1.0 )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
 
     // Cannot be parried or blocked, but can be dodged
     may_parry = may_block = false;
@@ -3926,7 +3930,7 @@ struct judgment_t : public paladin_melee_attack_t
   judgment_t( paladin_t* p, const std::string& options_str )
     : paladin_melee_attack_t( "judgment", p, p -> find_spell( "Judgment" ), true )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
     
     // Glyph of Judgment increases range
     range += p -> glyphs.judgment -> effectN( 1 ).base_value();
@@ -4062,7 +4066,7 @@ struct rebuke_t : public paladin_melee_attack_t
   rebuke_t( paladin_t* p, const std::string& options_str ) :
     paladin_melee_attack_t( "rebuke", p, p -> find_class_spell( "Rebuke" ) )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
 
     may_miss = may_glance = may_block = may_dodge = may_parry = may_crit = false;
 
@@ -4086,7 +4090,7 @@ struct reckoning_t: public paladin_melee_attack_t
   reckoning_t( paladin_t* p, const std::string& options_str ):
     paladin_melee_attack_t( "reckoning", p, p -> find_class_spell( "Reckoning" ) )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
     use_off_gcd = true;
   }
 
@@ -4108,7 +4112,7 @@ struct paladin_seal_t : public paladin_melee_attack_t
   paladin_seal_t( paladin_t* p, const std::string& n, seal_e st, const std::string& options_str )
     : paladin_melee_attack_t( n, p ), seal_type( st )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
 
     harmful    = false;
     resource_current = RESOURCE_MANA;
@@ -4252,7 +4256,7 @@ struct shield_of_the_righteous_t : public paladin_melee_attack_t
   shield_of_the_righteous_t( paladin_t* p, const std::string& options_str ) :
     paladin_melee_attack_t( "shield_of_the_righteous", p, p -> find_class_spell( "Shield of the Righteous" ) )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
 
     if ( ! p -> has_shield_equipped() )
     {
@@ -4316,7 +4320,7 @@ struct final_verdict_t : public paladin_melee_attack_t
   final_verdict_t( paladin_t* p, const std::string& options_str )
     : paladin_melee_attack_t( "final_verdict", p, p -> find_talent_spell( "Final Verdict" ), true )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
     trigger_seal       = true;
 
     // Tier 13 Retribution 4-piece boosts damage (TODO: test?)
@@ -4373,7 +4377,7 @@ struct templars_verdict_t : public paladin_melee_attack_t
   templars_verdict_t( paladin_t* p, const std::string& options_str )
     : paladin_melee_attack_t( "templars_verdict", p, p -> find_class_spell( "Templar's Verdict" ), true )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
     trigger_seal       = true;
 
     // Tier 13 Retribution 4-piece boosts damage
@@ -5156,8 +5160,8 @@ void paladin_t::generate_action_prio_list_ret()
 
   precombat -> add_action( this, "Blessing of Kings", "if=!aura.str_agi_int.up" );
   precombat -> add_action( this, "Blessing of Might", "if=!aura.mastery.up" );
-  precombat -> add_action( this, "Seal of Truth", "if=active_enemies<5" );
-  precombat -> add_action( this, "Seal of Righteousness", "if=active_enemies>=5" );
+  precombat -> add_action( this, "Seal of Truth", "if=active_enemies<2" );
+  precombat -> add_action( this, "Seal of Righteousness", "if=active_enemies>=2" );
 
   // Snapshot stats
   precombat -> add_action( "snapshot_stats",  "Snapshot raid buffed stats before combat begins and pre-potting is done." );
@@ -5195,7 +5199,7 @@ void paladin_t::generate_action_prio_list_ret()
 
   // This should<tm> get Censure up before the auto attack lands
   def -> add_action( "auto_attack" );
-  def -> add_talent( this, "Speed of Light", "if=movement.remains>1" );
+  def -> add_talent( this, "Speed of Light", "if=movement.distance>5" );
   def -> add_talent( this, "Execution Sentence" );
   def -> add_talent( this, "Light's Hammer" );
   def -> add_talent( this, "Holy Avenger", "sync=seraphim,if=talent.seraphim.enabled" );
@@ -5220,7 +5224,6 @@ void paladin_t::generate_action_prio_list_ret()
     def -> add_action( racial_actions[ i ] );
 
   def -> add_talent( this, "Seraphim" );
-  def -> add_action( this, "Judgment", "if=talent.empowered_seals.enabled&buff.maraads_truth.down" );
 
   //Create different lists, based on Fury Warrior APL
 
@@ -5230,49 +5233,53 @@ void paladin_t::generate_action_prio_list_ret()
 
   // Executed if one (or two, based on Theck's <=2, check with him) enemy is present
 
-  single -> add_action( this, "Divine Storm","if=buff.divine_crusader.react&holy_power>=5&talent.final_verdict.enabled&buff.final_verdict.up" );
-  single -> add_action( this, "Templar's Verdict","if=holy_power>=5|buff.holy_avenger.up&holy_power>=3&(!talent.seraphim.enabled|cooldown.seraphim.remains>3)" );
+  single -> add_action( this, "Divine Storm", "if=buff.divine_crusader.react&holy_power>=5&buff.final_verdict.up" );
+  single -> add_action( this, "Templar's Verdict", "if=holy_power>=5|buff.holy_avenger.up&holy_power>=3&(!talent.seraphim.enabled|cooldown.seraphim.remains>3)" );
   single -> add_action( this, "Templar's Verdict", "if=buff.divine_purpose.react&buff.divine_purpose.remains<4" );
   single -> add_talent( this, "Final Verdict", "if=holy_power>=5|buff.holy_avenger.up&holy_power>=3" );
-  single -> add_talent( this, "Final Verdict","if=buff.divine_purpose.react&buff.divine_purpose.remains<4" );
-  single -> add_action( this, "Divine Storm","if=buff.divine_crusader.react&holy_power=5&(!talent.final_verdict.enabled|buff.final_verdict.up)" );
-  single -> add_action( this, "Judgment","if=talent.empowered_seals.enabled&buff.maraads_truth.remains<=3" );
-  single -> add_action( "wait,sec=cooldown.judgment.remains,if=cooldown.judgment.remains>0&cooldown.judgment.remains<=0.2&talent.empowered_seals.enabled" );
+  single -> add_talent( this, "Final Verdict", "if=buff.divine_purpose.react&buff.divine_purpose.remains<4" );
+  single -> add_action( this, "Divine Storm", "if=buff.divine_crusader.react&holy_power=5&(!talent.final_verdict.enabled|buff.final_verdict.up)" );
   single -> add_action( this, "Hammer of Wrath" );
   single -> add_action( "wait,sec=cooldown.hammer_of_wrath.remains,if=cooldown.hammer_of_wrath.remains>0&cooldown.hammer_of_wrath.remains<=0.2" );
+  single -> add_action( this, "Judgment", "if=talent.empowered_seals.enabled&((buff.seal_of_truth.up&buff.maraads_truth.down)|(buff.seal_of_righteousness.up&buff.liadrins_righteousness.down|cooldown.avenging_wrath.remains<=3))" );
+  single -> add_action( "wait,sec=cooldown.judgment.remains,if=cooldown.judgment.remains>0&cooldown.judgment.remains<=0.2&talent.empowered_seals.enabled" );
   single -> add_action( this, "Exorcism","if=buff.blazing_contempt.up&holy_power<=2&buff.holy_avenger.down" );
   single -> add_action( "wait,sec=cooldown.exorcism.remains,if=cooldown.exorcism.remains>0&cooldown.exorcism.remains<=0.2&buff.blazing_contempt.up" );
-  single -> add_action( this, "Divine Storm","if=buff.divine_crusader.react&talent.final_verdict.enabled&buff.final_verdict.up" );
+  single -> add_action( this, "Divine Storm","if=buff.divine_crusader.react&buff.final_verdict.up" );
+  single -> add_action( this, "Seal of Truth", "if=talent.empowered_seals.enabled&(buff.maraads_truth.remains<cooldown.judgment.remains*2|cooldown.avenging_wrath.remains<cooldown.judgment.remains*3|buff.maraads_truth.down)" );
+  single -> add_action( this, "Judgment", "if=talent.empowered_seals.enabled&(buff.seal_of_truth.up&buff.maraads_truth.remains<=6)|(buff.seal_of_righteousness.up&buff.liadrins_righteousness.remains<=6)" );
+  single -> add_action( "wait,sec=cooldown.judgment.remains,if=cooldown.judgment.remains>0&cooldown.judgment.remains<=0.2&talent.empowered_seals.enabled" );
   single -> add_action( this, "Templar's Verdict","if=buff.avenging_wrath.up&(!talent.seraphim.enabled|cooldown.seraphim.remains>3)" );
-  single -> add_talent( this, "Final Verdict" );
   single -> add_action( this, "Divine Storm","if=talent.divine_purpose.enabled&buff.divine_crusader.react&buff.avenging_wrath.up&(!talent.final_verdict.enabled|buff.final_verdict.up)" );
   single -> add_action( this, "Crusader Strike");
   single -> add_action( "wait,sec=cooldown.crusader_strike.remains,if=cooldown.crusader_strike.remains>0&cooldown.crusader_strike.remains<=0.2");
+  single -> add_talent( this, "Final Verdict" );
+  single -> add_action( this, "Seal of Righteousness", "if=talent.empowered_seals.enabled&(buff.maraads_truth.remains>cooldown.judgment.remains*3&buff.liadrins_righteousness.remains<=3|buff.liadrins_righteousness.down)" );
   single -> add_action( this, "Judgment" );
   single -> add_action( "wait,sec=cooldown.judgment.remains,if=cooldown.judgment.remains>0&cooldown.judgment.remains<=0.2" );
   single -> add_action( this, "Templar's Verdict","if=buff.divine_purpose.react" );
   single -> add_action( this, "Divine Storm","if=buff.divine_crusader.react&(!talent.final_verdict.enabled|buff.final_verdict.up)" );
+  single -> add_action( this, "Templar's Verdict", "if=(!talent.seraphim.enabled|cooldown.seraphim.remains>3)" );
   single -> add_action( this, "Exorcism" );
   single -> add_action( "wait,sec=cooldown.exorcism.remains,if=cooldown.exorcism.remains>0&cooldown.exorcism.remains<=0.2" );
-  single -> add_action( this, "Templar's Verdict","if=(!talent.seraphim.enabled|cooldown.seraphim.remains>3)" );
   single -> add_talent( this, "Holy Prism" );
 
   //Executed if three to five targets are present.
 
-  cleave -> add_talent( this, "Final Verdict","if=buff.final_verdict.down" );
-  cleave -> add_action( this, "Divine Storm","if=buff.divine_crusader.react&talent.final_verdict.enabled&buff.final_verdict.up" );
-  cleave -> add_action( this, "Divine Storm","if=talent.final_verdict.enabled&buff.final_verdict.up" );
-  cleave -> add_action( this, "Judgment", "if=talent.empowered_seals.enabled&buff.maraads_truth.remains<=3" );
+  cleave -> add_talent( this, "Final Verdict", "if=buff.final_verdict.down&holy_power=5" );
+  cleave -> add_action( this, "Divine Storm", "if=holy_power=5&buff.final_verdict.up" );
+  cleave -> add_action( this, "Divine Storm", "if=holy_power=5&(!talent.seraphim.enabled|cooldown.seraphim.remains>3)&!talent.final_verdict.enabled" );
   cleave -> add_action( "wait,sec=cooldown.judgment.remains,if=cooldown.judgment.remains>0&cooldown.judgment.remains<=0.2&talent.empowered_seals.enabled" );
   cleave -> add_action( this, "Exorcism","if=buff.blazing_contempt.up&holy_power<=2&buff.holy_avenger.down" );
   cleave -> add_action( "wait,sec=cooldown.exorcism.remains,if=cooldown.exorcism.remains>0&cooldown.exorcism.remains<=0.2&buff.blazing_contempt.up" );
   cleave -> add_action( this, "Hammer of Wrath" );
   cleave -> add_action( "wait,sec=cooldown.hammer_of_wrath.remains,if=cooldown.hammer_of_wrath.remains>0&cooldown.hammer_of_wrath.remains<=0.2" );
-  cleave -> add_action( this, "Divine Storm", "if=active_enemies>=3&(!talent.seraphim.enabled|cooldown.seraphim.remains>3)" );
-  // Should this be HotR?
+  cleave -> add_action( this, "Judgment", "if=talent.empowered_seals.enabled&((buff.seal_of_righteousness.up&buff.liadrins_righteousness.down)|buff.liadrins_righteousness.remains<=5)" );
+  cleave -> add_action( "wait,sec=cooldown.judgment.remains,if=cooldown.judgment.remains>0&cooldown.judgment.remains<=0.2&talent.empowered_seals.enabled" );
+  cleave -> add_action( this, "Divine Storm", "if=(!talent.seraphim.enabled|cooldown.seraphim.remains>3)&!talent.final_verdict.enabled" );
   cleave -> add_action( this, "Crusader Strike" );
-  cleave -> add_action( "/wait,sec=cooldown.crusader_strike.remains,if=cooldown.crusader_strike.remains>0&cooldown.crusader_strike.remains<=0.2" );
-  cleave -> add_action( this, "Divine Storm", "if=(!talent.seraphim.enabled|cooldown.seraphim.remains>3)" );
+  cleave -> add_action( "wait,sec=cooldown.crusader_strike.remains,if=cooldown.crusader_strike.remains>0&cooldown.crusader_strike.remains<=0.2" );
+  cleave -> add_action( this, "Divine Storm", "if=buff.final_verdict.up" );
   cleave -> add_action( this, "Judgment" );
   cleave -> add_action( "wait,sec=cooldown.judgment.remains,if=cooldown.judgment.remains>0&cooldown.judgment.remains<=0.2" );
   cleave -> add_action( this, "Exorcism" );
@@ -5281,15 +5288,17 @@ void paladin_t::generate_action_prio_list_ret()
 
   //Executed if more than five targets are present
 
-  aoe -> add_action( this, "Divine Storm", "if=(!talent.seraphim.enabled|cooldown.seraphim.remains>3)" );
-  aoe -> add_action( this, "Judgment","if=talent.empowered_seals.enabled&buff.maraads_truth.remains<=3" );
+  aoe -> add_action( this, "Divine Storm", "if=holy_power=5&(!talent.seraphim.enabled|cooldown.seraphim.remains>3)" );
   aoe -> add_action( "wait,sec=cooldown.judgment.remains,if=cooldown.judgment.remains>0&cooldown.judgment.remains<=0.2&talent.empowered_seals.enabled" );
   aoe -> add_action( this, "Exorcism","if=buff.blazing_contempt.up&holy_power<=2&buff.holy_avenger.down" );
   aoe -> add_action( "wait,sec=cooldown.exorcism.remains,if=cooldown.exorcism.remains>0&cooldown.exorcism.remains<=0.2&buff.blazing_contempt.up" );
-  aoe -> add_action( this, "Hammer of Wrath" );
-  aoe -> add_action( "wait,sec=cooldown.hammer_of_wrath.remains,if=cooldown.hammer_of_wrath.remains>0&cooldown.hammer_of_wrath.remains<=0.2" );
   aoe -> add_action( this, "Hammer of the Righteous" );
   aoe -> add_action( "wait,sec=cooldown.hammer_of_the_righteous.remains,if=cooldown.hammer_of_the_righteous.remains>0&cooldown.hammer_of_the_righteous.remains<=0.2" );
+  aoe -> add_action( this, "Judgment", "if=talent.empowered_seals.enabled&((buff.seal_of_righteousness.up&buff.liadrins_righteousness.down)|buff.liadrins_righteousness.remains<=5)" );
+  aoe -> add_action( "wait,sec=cooldown.judgment.remains,if=cooldown.judgment.remains>0&cooldown.judgment.remains<=0.2&talent.empowered_seals.enabled" );
+  aoe -> add_action( this, "Hammer of Wrath" );
+  aoe -> add_action( "wait,sec=cooldown.hammer_of_wrath.remains,if=cooldown.hammer_of_wrath.remains>0&cooldown.hammer_of_wrath.remains<=0.2" );
+  aoe -> add_action( this, "Divine Storm", "if=(!talent.seraphim.enabled|cooldown.seraphim.remains>3)" );
   aoe -> add_action( this, "Exorcism","if=glyph.mass_exorcism.enabled" );
   aoe -> add_action( this, "Judgment" );
   aoe -> add_action( "wait,sec=cooldown.judgment.remains,if=cooldown.judgment.remains>0&cooldown.judgment.remains<=0.2" );
@@ -5478,7 +5487,7 @@ void paladin_t::init_spells()
   passives.divine_bulwark         = find_mastery_spell( PALADIN_PROTECTION );
   passives.hand_of_light          = find_mastery_spell( PALADIN_RETRIBUTION );
   passives.illuminated_healing    = find_mastery_spell( PALADIN_HOLY );
-  
+
   // Passives
 
   // Shared Passives
@@ -6348,12 +6357,6 @@ void paladin_t::create_options()
 {
   player_t::create_options();
 
-  option_t paladin_options[] =
-  {
-    opt_null()
-  };
-
-  option_t::copy( options, paladin_options );
 }
 
 // paladin_t::combat_begin ==================================================

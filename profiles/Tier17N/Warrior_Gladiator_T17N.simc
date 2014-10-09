@@ -28,6 +28,8 @@ actions.precombat+=/potion,name=draenic_armor
 
 actions=charge
 actions+=/auto_attack
+# This is mostly to prevent cooldowns from being accidentally used during movement.
+actions+=/call_action_list,name=movement,if=movement.distance>8
 actions+=/avatar
 actions+=/bloodbath
 actions+=/blood_fury,if=buff.bloodbath.up|buff.avatar.up|buff.shield_charge.up|target.time_to_die<10
@@ -38,11 +40,17 @@ actions+=/berserker_rage,if=buff.enrage.down
 actions+=/call_action_list,name=single,if=active_enemies=1
 actions+=/call_action_list,name=aoe,if=active_enemies>=2
 
+actions.movement=heroic_leap
+actions.movement+=/shield_charge
+# May as well throw storm bolt if we can.
+actions.movement+=/storm_bolt
+actions.movement+=/heroic_throw
+
 actions.single=shield_charge,if=(!buff.shield_charge.up&!cooldown.shield_slam.remains)|charges=2
 actions.single+=/heroic_strike,if=buff.shield_charge.up|buff.ultimatum.up|rage>=90|target.time_to_die<=3|talent.unyielding_strikes.enabled
 actions.single+=/heroic_leap,if=(buff.bloodbath.up|cooldown.bloodbath.remains>10)|!talent.bloodbath.enabled
 actions.single+=/shield_slam
-actions.single+=/execute,if=buff.sudden_death.up
+actions.single+=/execute,if=buff.sudden_death.react
 actions.single+=/revenge
 actions.single+=/storm_bolt
 actions.single+=/dragon_roar
@@ -72,20 +80,20 @@ legs=blackhands_legguards,id=115580
 feet=iron_bellow_sabatons,id=113961
 finger1=timeless_solium_band_of_the_bulwark,id=118298,enchant=gift_of_critical_strike
 finger2=siege_bombers_band,id=113963,enchant=gift_of_critical_strike
-trinket1=forgemasters_insignia,id=113983
-trinket2=bottle_of_infesting_spores,id=113658
+trinket1=evergaze_arcane_eidolon,id=113861
+trinket2=tectus_beating_heart,id=113645
 main_hand=taners_terrible_spine,id=113862,enchant=mark_of_the_thunderlord
 off_hand=kromogs_protecting_palm,id=113926
 
 # Gear Summary
-# gear_strength=2708
+# gear_strength=2488
 # gear_stamina=3433
-# gear_crit_rating=1191
+# gear_crit_rating=1057
 # gear_haste_rating=284
-# gear_mastery_rating=494
+# gear_mastery_rating=695
 # gear_armor=2819
 # gear_bonus_armor=355
 # gear_multistrike_rating=711
-# gear_versatility_rating=505
+# gear_versatility_rating=371
 # set_bonus=tier17_2pc=1
 # set_bonus=tier17_4pc=1

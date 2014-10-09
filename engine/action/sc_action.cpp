@@ -403,6 +403,35 @@ action_t::action_t( action_e       ty,
   }
 
   spec_list.clear();
+
+  add_option( opt_deprecated( "bloodlust", "if=buff.bloodlust.react" ) );
+  add_option( opt_deprecated( "haste<", "if=spell_haste>= or if=attack_haste>=" ) );
+  add_option( opt_deprecated( "health_percentage<", "if=target.health.pct<=" ) );
+  add_option( opt_deprecated( "health_percentage>", "if=target.health.pct>=" ) );
+  add_option( opt_deprecated( "invulnerable", "if=target.debuff.invulnerable.react" ) );
+  add_option( opt_deprecated( "not_flying", "if=target.debuff.flying.down" ) );
+  add_option( opt_deprecated( "flying", "if=target.debuff.flying.react" ) );
+  add_option( opt_deprecated( "time<", "if=time<=" ) );
+  add_option( opt_deprecated( "time>", "if=time>=" ) );
+  add_option( opt_deprecated( "travel_speed", "if=travel_speed" ) );
+  add_option( opt_deprecated( "vulnerable", "if=target.debuff.vulnerable.react" ) );
+  add_option( opt_deprecated( "use_off_gcd", "" ) );
+
+  add_option( opt_string( "if", if_expr_str ) );
+  add_option( opt_string( "interrupt_if", interrupt_if_expr_str ) );
+  add_option( opt_string( "early_chain_if", early_chain_if_expr_str ) );
+  add_option( opt_bool( "interrupt", interrupt ) );
+  add_option( opt_bool( "chain", chain ) );
+  add_option( opt_bool( "cycle_targets", cycle_targets ) );
+  add_option( opt_bool( "cycle_players", cycle_players ) );
+  add_option( opt_int( "max_cycle_targets", max_cycle_targets ) );
+  add_option( opt_bool( "moving", moving ) );
+  add_option( opt_string( "sync", sync_str ) );
+  add_option( opt_bool( "wait_on_ready", wait_on_ready ) );
+  add_option( opt_string( "target", target_str ) );
+  add_option( opt_string( "label", label_str ) );
+  add_option( opt_bool( "precombat", pre_combat ) );
+  add_option( opt_timespan( "line_cd", line_cooldown.duration ) );
 }
 
 action_t::~action_t()
@@ -577,49 +606,11 @@ void action_t::parse_effect_data( const spelleffect_data_t& spelleffect_data )
 
 // action_t::parse_options ==================================================
 
-void action_t::parse_options( option_t*          options,
-                              const std::string& options_str )
+void action_t::parse_options( const std::string& options_str )
 {
-  option_t base_options[] =
-  {
-    // deprecated options: Point users to the correct ones
-    opt_deprecated( "bloodlust", "if=buff.bloodlust.react" ),
-    opt_deprecated( "haste<", "if=spell_haste>= or if=attack_haste>=" ),
-    opt_deprecated( "health_percentage<", "if=target.health.pct<=" ),
-    opt_deprecated( "health_percentage>", "if=target.health.pct>=" ),
-    opt_deprecated( "invulnerable", "if=target.debuff.invulnerable.react" ),
-    opt_deprecated( "not_flying", "if=target.debuff.flying.down" ),
-    opt_deprecated( "flying", "if=target.debuff.flying.react" ),
-    opt_deprecated( "time<", "if=time<=" ),
-    opt_deprecated( "time>", "if=time>=" ),
-    opt_deprecated( "travel_speed", "if=travel_speed" ),
-    opt_deprecated( "vulnerable", "if=target.debuff.vulnerable.react" ),
-    opt_deprecated( "use_off_gcd", "" ),
-
-    opt_string( "if", if_expr_str ),
-    opt_string( "interrupt_if", interrupt_if_expr_str ),
-    opt_string( "early_chain_if", early_chain_if_expr_str ),
-    opt_bool( "interrupt", interrupt ),
-    opt_bool( "chain", chain ),
-    opt_bool( "cycle_targets", cycle_targets ),
-    opt_bool( "cycle_players", cycle_players ),
-    opt_int( "max_cycle_targets", max_cycle_targets ),
-    opt_bool( "moving", moving ),
-    opt_string( "sync", sync_str ),
-    opt_bool( "wait_on_ready", wait_on_ready ),
-    opt_string( "target", target_str ),
-    opt_string( "label", label_str ),
-    opt_bool( "precombat", pre_combat ),
-    opt_timespan( "line_cd", line_cooldown.duration ),
-    opt_null()
-  };
-
-  std::vector<option_t> merged_options;
-  option_t::merge( merged_options, options, base_options );
-
   try
   {
-    option_t::parse( sim, name(), merged_options, options_str );
+    opts::parse( sim, name(), options, options_str );
   }
   catch ( const std::exception& e )
   {
@@ -1666,6 +1657,8 @@ bool action_t::ready()
 
     if ( target ) is_ready = ready();
 
+    target_number = saved_target_number;
+
     if ( is_ready ) return true;
 
     target = saved_target;
@@ -2386,28 +2379,75 @@ expr_t* action_t::create_expression( const std::string& name_str )
     return sim -> create_expression( this, name_str );
   }
 
-  if ( splits.size() > 2 && splits[ 0 ] == "target" )
+  if ( splits.size() >= 2 && splits[ 0 ] == "target" )
   {
     // Find target
-    player_t* expr_target;
+    player_t* expr_target = 0;
     if ( splits[ 1 ][ 0 ] >= '0' && splits[ 1 ][ 0 ] <= '9' )
+    {
       expr_target = find_target_by_number( atoi( splits[ 1 ].c_str() ) );
-    else
-      expr_target = sim -> find_player( splits[ 1 ] );
+      assert( expr_target );
+    }
+
     size_t start_rest = 2;
     if ( ! expr_target )
     {
-      expr_target = target;
       start_rest = 1;
     }
+    else
+    {
+      if ( splits.size() == 2 )
+      {
+        sim -> errorf( "%s expression creation error: insufficient parameters for expression 'target.<number>.<expression>'",
+            player -> name() );
+        return 0;
+      }
+    }
 
-    assert( expr_target );
+    if ( util::str_compare_ci( splits[ start_rest ], "distance" ) )
+      return make_ref_expr( "distance", player -> base.distance );
 
     std::string rest = splits[ start_rest ];
     for ( size_t i = start_rest + 1; i < splits.size(); ++i )
       rest += '.' + splits[ i ];
 
-    return expr_target -> create_expression( this, rest );
+    // Target.1.foo expression, bail out early.
+    if ( expr_target )
+      return expr_target -> create_expression( this, rest );
+
+    // Proxy target based expression, allowing "dynamic switching" of targets
+    // for the "target.<expression>" expressions. Generates a suitable
+    // expression on demand for each target during run-time.
+    //
+    // Note, if we ever go dynamic spawning of adds and such, this method needs
+    // to change (evaluate() has to resize the pointer array run-time, instead
+    // of statically sized one based on constructor).
+    struct target_proxy_expr_t : public action_expr_t
+    {
+      std::vector<expr_t*> proxy_expr;
+      std::string suffix_expr_str;
+
+      target_proxy_expr_t( action_t& a, const std::string& expr_str ) :
+        action_expr_t( "target_proxy_expr", a ), suffix_expr_str( expr_str )
+      {
+        proxy_expr.resize( a.sim -> actor_list.size() + 1, 0 );
+      }
+
+      double evaluate()
+      {
+        if ( proxy_expr[ action.target -> actor_index ] == 0 )
+        {
+          proxy_expr[ action.target -> actor_index ] = action.target -> create_expression( &action, suffix_expr_str );
+        }
+
+        return proxy_expr[ action.target -> actor_index ] -> eval();
+      }
+
+      ~target_proxy_expr_t()
+      { range::dispose( proxy_expr ); }
+    };
+
+    return new target_proxy_expr_t( *this, rest );
   }
 
   // necessary for self.target.*, self.dot.*
@@ -2701,13 +2741,9 @@ call_action_list_t::call_action_list_t( player_t* player, const std::string& opt
 {
   std::string alist_name;
   int randomtoggle = 0;
-  option_t options[] =
-  {
-    opt_string( "name", alist_name ),
-    opt_int( "random", randomtoggle ),
-    opt_null()
-  };
-  parse_options( options, options_str );
+  add_option( opt_string( "name", alist_name ) );
+  add_option( opt_int( "random", randomtoggle ) );
+  parse_options( options_str );
 
   if ( alist_name.empty() )
   {

@@ -915,7 +915,7 @@ struct immolation_t: public warlock_pet_spell_t
   immolation_t( warlock_pet_t* p, const std::string& options_str ):
     warlock_pet_spell_t( "immolation", p, p -> find_spell( 19483 ) )
   {
-    parse_options( 0, options_str );
+    parse_options( options_str );
 
     dot_duration = 1 * base_tick_time;
     hasted_ticks = false;
@@ -3122,10 +3122,10 @@ struct soul_fire_t: public warlock_spell_t
     }
   }
 
-  virtual void parse_options( option_t* o, const std::string& options_str )
+  virtual void parse_options( const std::string& options_str )
   {
-    warlock_spell_t::parse_options( o, options_str );
-    if ( meta_spell ) meta_spell -> parse_options( o, options_str );
+    warlock_spell_t::parse_options( options_str );
+    if ( meta_spell ) meta_spell -> parse_options( options_str );
   }
 
   virtual void execute()
@@ -4969,7 +4969,7 @@ action_t* warlock_t::create_action( const std::string& action_name,
   else if ( action_name == "service_pet"           ) a = new grimoire_of_service_t( this, default_pet );
   else return player_t::create_action( action_name, options_str );
 
-  a -> parse_options( 0, options_str );
+  a -> parse_options( options_str );
 
   return a;
 }
@@ -5467,11 +5467,12 @@ void warlock_t::apl_affliction()
     add_action ( "Haunt","if=shard_react&talent.soulburn_haunt.enabled&!in_flight_to_target&!buff.soulburn.up&buff.haunting_spirits.remains>4&soul_shard=4");
   add_action( "Soulburn", "if=shard_react&talent.soulburn_haunt.enabled&buff.soulburn.down&(buff.haunting_spirits.down|soul_shard=4)" );
   add_action( "Haunt", "if=shard_react&talent.soulburn_haunt.enabled&!in_flight_to_target&((buff.soulburn.up&buff.haunting_spirits.remains<5)|soul_shard=4)" );
-  add_action( "Agony", "cycle_targets=1,if=remains<=(duration*0.3)&((talent.cataclysm.enabled&remains<=(cooldown.cataclysm.remains+action.cataclysm.cast_time))|!talent.cataclysm.enabled)" );
-  add_action( "Unstable Affliction", "cycle_targets=1,if=remains<=(duration*0.3)" );
-  add_action( "Corruption", "cycle_targets=1,if=remains<=(duration*0.3)" );
+  add_action( "Agony", "cycle_targets=1,if=target.time_to_die>16&remains<=(duration*0.3)&((talent.cataclysm.enabled&remains<=(cooldown.cataclysm.remains+action.cataclysm.cast_time))|!talent.cataclysm.enabled)" );
+  add_action( "Unstable Affliction", "cycle_targets=1,if=target.time_to_die>10&remains<=(duration*0.3)" );
+  add_action( "Corruption", "cycle_targets=1,if=target.time_to_die>12&remains<=(duration*0.3)" );
   add_action( "Life Tap", "if=mana.pct<40" );
   add_action( "Drain Soul", "interrupt=1,chain=1" );
+  add_action( "Agony", "cycle_targets=1,moving=1,if=mana.pct>50");
 }
 
 void warlock_t::apl_demonology()
@@ -5613,15 +5614,9 @@ void warlock_t::create_options()
 {
   player_t::create_options();
 
-  option_t warlock_options[] =
-  {
-    opt_int( "burning_embers", initial_burning_embers ),
-    opt_int( "demonic_fury", initial_demonic_fury ),
-    opt_string( "default_pet", default_pet ),
-    opt_null()
-  };
-
-  option_t::copy( options, warlock_options );
+  add_option( opt_int( "burning_embers", initial_burning_embers ) );
+  add_option( opt_int( "demonic_fury", initial_demonic_fury ) );
+  add_option( opt_string( "default_pet", default_pet ) );
 }
 
 

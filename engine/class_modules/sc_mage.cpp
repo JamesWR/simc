@@ -82,8 +82,6 @@ public:
   struct benefits_t
   {
     benefit_t* arcane_charge[ 4 ]; // CHANGED 2014/4/15 - Arcane Charges max stack is 4 now, not 7.
-    benefit_t* dps_rotation;
-    benefit_t* dpm_rotation;
     benefit_t* water_elemental;
   } benefits;
 
@@ -205,21 +203,6 @@ public:
     proc_t* hotstreak;
   } procs;
 
-  // Rotation (DPS vs DPM)
-  struct rotation_t
-  {
-    mage_rotation_e current;
-    double mana_gain;
-    double dps_mana_loss;
-    double dpm_mana_loss;
-    timespan_t dps_time;
-    timespan_t dpm_time;
-    timespan_t last_time;
-
-    void reset() { memset( this, 0, sizeof( *this ) ); current = ROTATION_DPS; }
-    rotation_t() { reset(); }
-  } rotation;
-
   // Spell Data
   struct spells_t
   {
@@ -324,7 +307,6 @@ public:
     passives( passives_t() ),
     pets( pets_t() ),
     procs( procs_t() ),
-    rotation( rotation_t() ),
     spells( spells_t() ),
     spec( specializations_t() ),
     talents( talents_list_t() ),
@@ -396,8 +378,6 @@ public:
 
   // Event Tracking
   virtual void   regen( timespan_t periodicity );
-  virtual double resource_gain( resource_e, double amount, gain_t* = 0, action_t* = 0 );
-  virtual double resource_loss( resource_e, double amount, gain_t* = 0, action_t* = 0 );
 
   // Public mage functions:
   icicle_data_t get_icicle_object();
@@ -435,7 +415,7 @@ struct water_elemental_pet_t : public pet_t
     freeze_t( water_elemental_pet_t* p, const std::string& options_str ):
       spell_t( "freeze", p, p -> find_pet_spell( "Freeze" ) )
     {
-      parse_options( NULL, options_str );
+      parse_options( options_str );
       aoe = -1;
       may_crit = true;
     }
@@ -461,7 +441,7 @@ struct water_elemental_pet_t : public pet_t
       spell_t( "water_jet", p, p -> find_spell( 135029 ) ),
       queued( false ), autocast( true )
     {
-      parse_options( NULL, options_str );
+      parse_options( options_str );
       channeled = tick_may_crit = true;
     }
 
@@ -530,7 +510,7 @@ struct water_elemental_pet_t : public pet_t
     waterbolt_t( water_elemental_pet_t* p, const std::string& options_str ):
       spell_t( "waterbolt", p, p -> find_pet_spell( "Waterbolt" ) )
     {
-      parse_options( NULL, options_str );
+      parse_options( options_str );
       may_crit = true;
     }
   };
@@ -614,7 +594,7 @@ struct mirror_image_pet_t : public pet_t
     arcane_blast_t( mirror_image_pet_t* p, const std::string& options_str ):
       mirror_image_spell_t( "arcane_blast", p, p -> find_pet_spell( "Arcane Blast" ) )
     {
-      parse_options( NULL, options_str );
+      parse_options( options_str );
     }
 
     virtual void execute()
@@ -628,9 +608,10 @@ struct mirror_image_pet_t : public pet_t
     {
       double am = mirror_image_spell_t::action_multiplier();
 
-      am *= 1.0 + p() -> arcane_charge -> stack() * p() -> o() -> spells.arcane_charge_arcane_blast -> effectN( 4 ).percent() *
-            ( 1.0 + p() -> o() -> sets.set( SET_CASTER, T15, B4 ) -> effectN( 1 ).percent() );
-        
+      am *= 1.0 + p() -> arcane_charge -> stack() *
+                  p() -> o() -> spells.arcane_charge_arcane_blast -> effectN( 4 ).percent() *
+                  ( 1.0 + p() -> o() -> sets.set( SET_CASTER, T15, B4 ) -> effectN( 1 ).percent() );
+
       return am;
     }
   };
@@ -640,7 +621,7 @@ struct mirror_image_pet_t : public pet_t
     fireball_t( mirror_image_pet_t* p, const std::string& options_str ):
       mirror_image_spell_t( "fireball", p, p -> find_pet_spell( "Fireball" ) )
     {
-      parse_options( NULL, options_str );
+      parse_options( options_str );
     }
   };
 
@@ -649,7 +630,7 @@ struct mirror_image_pet_t : public pet_t
     frostbolt_t( mirror_image_pet_t* p, const std::string& options_str ):
       mirror_image_spell_t( "frostbolt", p, p -> find_pet_spell( "Frostbolt" ) )
     {
-      parse_options( NULL, options_str );
+      parse_options( options_str );
     }
   };
 
@@ -1079,9 +1060,6 @@ private:
   // Helper variable to disable the functionality of PoM in mage_spell_t::execute_time(),
   // to check if the spell would be instant or not without PoM.
 public:
-  int dps_rotation;
-  int dpm_rotation;
-
   mage_spell_t( const std::string& n, mage_t* p,
                 const spell_data_t* s = spell_data_t::nil() ) :
     spell_t( n, p, s ),
@@ -1092,9 +1070,7 @@ public:
     consumes_ice_floes( true ),
     fof_active( false ),
     hasted_by_pom( false ),
-    pom_enabled( true ),
-    dps_rotation( 0 ),
-    dpm_rotation( 0 )
+    pom_enabled( true )
   {
     may_crit      = true;
     tick_may_crit = true;
@@ -1107,32 +1083,6 @@ public:
 
   mage_td_t* td( player_t* t ) const
   { return p() -> get_target_data( t ); }
-
-  virtual void parse_options( option_t*          options,
-                              const std::string& options_str )
-  {
-    option_t base_options[] =
-    {
-      opt_bool( "dps", dps_rotation ),
-      opt_bool( "dpm", dpm_rotation ),
-      opt_null()
-    };
-    std::vector<option_t> merged_options;
-    spell_t::parse_options( option_t::merge( merged_options, options, base_options ), options_str );
-  }
-
-  virtual bool ready()
-  {
-    if ( dps_rotation )
-      if ( p() -> rotation.current != ROTATION_DPS )
-        return false;
-
-    if ( dpm_rotation )
-      if ( p() -> rotation.current != ROTATION_DPM )
-        return false;
-
-    return spell_t::ready();
-  }
 
   virtual double cost() const
   {
@@ -1309,9 +1259,6 @@ public:
 
   virtual void execute()
   {
-    p() -> benefits.dps_rotation -> update( p() -> rotation.current == ROTATION_DPS );
-    p() -> benefits.dpm_rotation -> update( p() -> rotation.current == ROTATION_DPM );
-
     player_t* original_target = 0;
     // Mage spells will always have a pre_execute_state defined, because of
     // schedule_execute() trickery.
@@ -1659,7 +1606,7 @@ struct arcane_barrage_t : public mage_spell_t
   arcane_barrage_t( mage_t* p, const std::string& options_str ) :
     mage_spell_t( "arcane_barrage", p, p -> find_class_spell( "Arcane Barrage" ) )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
 
 
     base_aoe_multiplier *= data().effectN( 2 ).percent();
@@ -1698,7 +1645,7 @@ struct arcane_blast_t : public mage_spell_t
   arcane_blast_t( mage_t* p, const std::string& options_str ) :
     mage_spell_t( "arcane_blast", p, p -> find_class_spell( "Arcane Blast" ) )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
 
   }
 
@@ -1790,7 +1737,7 @@ struct arcane_brilliance_t : public mage_spell_t
   arcane_brilliance_t( mage_t* p, const std::string& options_str ) :
     mage_spell_t( "arcane_brilliance", p, p -> find_class_spell( "Arcane Brilliance" ) )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
 
     base_costs[ current_resource() ] *= 1.0 + p -> glyphs.arcane_brilliance -> effectN( 1 ).percent();
     harmful = false;
@@ -1816,7 +1763,7 @@ struct arcane_explosion_t : public mage_spell_t
   arcane_explosion_t( mage_t* p, const std::string& options_str ) :
     mage_spell_t( "arcane_explosion", p, p -> find_class_spell( "Arcane Explosion" ) )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
     aoe = -1;
   }
 
@@ -1860,7 +1807,7 @@ struct arcane_missiles_t : public mage_spell_t
   arcane_missiles_t( mage_t* p, const std::string& options_str ) :
     mage_spell_t( "arcane_missiles", p, p -> find_class_spell( "Arcane Missiles" ) )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
     may_miss = false;
     may_proc_missiles = false;
     dot_duration      = data().duration();
@@ -1963,7 +1910,7 @@ struct arcane_orb_bolt_t : public mage_spell_t
     {
       p() -> benefits.arcane_charge[ i ] -> update( as<int>( i ) == p() -> buffs.arcane_charge -> check() );
     }
-    
+
     mage_spell_t::impact( s );
     p() -> buffs.arcane_charge -> trigger();
   }
@@ -1977,7 +1924,7 @@ struct arcane_orb_t : public mage_spell_t
     mage_spell_t( "arcane_orb", p, p -> find_talent_spell( "Arcane Orb" ) ),
     orb_bolt( new arcane_orb_bolt_t( p ) )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
 
     may_miss       = false;
     may_crit       = false;
@@ -2022,7 +1969,7 @@ struct arcane_power_t : public mage_spell_t
   arcane_power_t( mage_t* p, const std::string& options_str ) :
     mage_spell_t( "arcane_power", p, p -> find_class_spell( "Arcane Power" ) )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
     harmful = false;
 
     cooldown -> duration *= 1.0 + p -> glyphs.arcane_power -> effectN( 2 ).percent();
@@ -2043,7 +1990,7 @@ struct blast_wave_t : public mage_spell_t
     blast_wave_t( mage_t* p, const std::string& options_str ) :
        mage_spell_t( "blast_wave", p, p -> talents.blast_wave )
     {
-        parse_options( NULL, options_str );
+        parse_options( options_str );
         base_multiplier *= 1.0 + p -> talents.blast_wave -> effectN( 1 ).percent();
         base_aoe_multiplier *= 0.5;
         aoe = -1;
@@ -2066,7 +2013,7 @@ struct blazing_speed_t: public mage_spell_t
   blazing_speed_t( mage_t* p, const std::string& options_str ):
     mage_spell_t( "blazing_speed", p, p -> talents.blazing_speed )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
   }
 
   virtual void execute()
@@ -2084,7 +2031,7 @@ struct blink_t : public mage_spell_t
   blink_t( mage_t* p, const std::string& options_str ) :
     mage_spell_t( "blink", p, p -> find_class_spell( "Blink" ) )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
 
     harmful = false;
     base_teleport_distance = 20;
@@ -2151,7 +2098,7 @@ struct blizzard_t : public mage_spell_t
     mage_spell_t( "blizzard", p, p -> find_class_spell( "Blizzard" ) ),
     shard( new blizzard_shard_t( p ) )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
 
     channeled    = true;
     hasted_ticks = false;
@@ -2178,7 +2125,7 @@ struct cold_snap_t : public mage_spell_t
     mage_spell_t( "cold_snap", p, p -> talents.cold_snap ),
     cooldown_cofc( p -> get_cooldown( "cone_of_cold" ) )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
 
     trigger_gcd = timespan_t::zero();
     harmful = false;
@@ -2205,7 +2152,7 @@ struct combustion_t : public mage_spell_t
     // The "tick" portion of spell is specified in the DBC data in an alternate version of Combustion
     tick_spell( p -> find_spell( 83853, "combustion_dot" ) )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
 
     may_hot_streak = true;
 
@@ -2323,7 +2270,7 @@ struct comet_storm_t : public mage_spell_t
     projectile( new comet_storm_projectile_t( p ) )
   {
 
-    parse_options( NULL, options_str );
+    parse_options( options_str );
 
     may_miss = false;
 
@@ -2359,7 +2306,7 @@ struct cone_of_cold_t : public mage_spell_t
   cone_of_cold_t( mage_t* p, const std::string& options_str ) :
     mage_spell_t( "cone_of_cold", p, p -> find_class_spell( "Cone of Cold" ) )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
     aoe = -1;
   }
 
@@ -2394,7 +2341,7 @@ struct counterspell_t : public mage_spell_t
   counterspell_t( mage_t* p, const std::string& options_str ) :
     mage_spell_t( "counterspell", p, p -> find_class_spell( "Counterspell" ) )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
     may_miss = may_crit = false;
   }
 
@@ -2415,7 +2362,7 @@ struct dragons_breath_t : public mage_spell_t
   dragons_breath_t( mage_t* p, const std::string& options_str ) :
     mage_spell_t( "dragons_breath", p, p -> find_class_spell( "Dragon's Breath" ) )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
     aoe = -1;
   }
 };
@@ -2432,13 +2379,9 @@ public:
     mage_spell_t( "evocation", p,  p -> find_class_spell( "Evocation" ) ),
     pre_cast( timespan_t::zero() ), arcane_charges( 0 )
   {
-    option_t options[] =
-    {
-      opt_timespan( "precast", pre_cast ),
-      opt_null()
-    };
+    add_option( opt_timespan( "precast", pre_cast ) );
+    parse_options( options_str );
 
-    parse_options( options, options_str );
     pre_cast = std::max( pre_cast, timespan_t::zero() );
 
     base_tick_time    = timespan_t::from_seconds( 2.0 );
@@ -2501,21 +2444,6 @@ public:
     arcane_charges = p.buffs.arcane_charge -> check();
     p.buffs.arcane_charge -> expire();
     mage_spell_t::execute();
-
-    // evocation automatically causes a switch to dpm rotation
-    if ( p.rotation.current == ROTATION_DPS )
-    {
-      p.rotation.dps_time += ( sim -> current_time - p.rotation.last_time );
-    }
-    else if ( p.rotation.current == ROTATION_DPM )
-    {
-      p.rotation.dpm_time += ( sim -> current_time - p.rotation.last_time );
-    }
-    p.rotation.last_time = sim -> current_time;
-
-    if ( sim -> log )
-      sim -> out_log.printf( "%s switches to DPM spell rotation", player -> name() );
-    p.rotation.current = ROTATION_DPM;
   }
 
 };
@@ -2527,7 +2455,7 @@ struct fire_blast_t : public mage_spell_t
   fire_blast_t( mage_t* p, const std::string& options_str ) :
     mage_spell_t( "fire_blast", p, p -> find_class_spell( "Fire Blast" ) )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
     may_hot_streak = true;
 
   }
@@ -2537,12 +2465,10 @@ struct fire_blast_t : public mage_spell_t
 
 struct fireball_t : public mage_spell_t
 {
-
-
   fireball_t( mage_t* p, const std::string& options_str ) :
     mage_spell_t( "fireball", p, p -> find_class_spell( "Fireball" ) )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
     may_hot_streak = true;
   }
 
@@ -2622,11 +2548,11 @@ struct flamestrike_t : public mage_spell_t
   flamestrike_t( mage_t* p, const std::string& options_str ) :
     mage_spell_t( "flamestrike", p, p -> find_specialization_spell( "Flamestrike" ) )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
     cooldown -> duration = timespan_t::zero(); // Flamestrike Perk modifying the cooldown
     aoe = -1;
   }
-  
+
   virtual void impact( action_state_t* s )
   {
 
@@ -2663,7 +2589,7 @@ struct frost_bomb_t : public mage_spell_t
   frost_bomb_t( mage_t* p, const std::string& options_str ) :
     mage_spell_t( "frost_bomb", p, p -> talents.frost_bomb )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
   }
 
   virtual void execute()
@@ -2708,7 +2634,7 @@ struct frostbolt_t : public mage_spell_t
     enhanced_frostbolt_duration( p -> find_spell( 157648 ) -> duration() ),
     icicle( p -> get_stats( "icicle_fb" ) )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
 
     stats -> add_child( icicle );
     icicle -> school = school;
@@ -2848,7 +2774,7 @@ struct frostfire_bolt_t : public mage_spell_t
     icicle( 0 ),
     brain_freeze_bonus( p -> find_spell( 44549 ) -> effectN( 3 ).percent() )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
     may_hot_streak = true;
     base_execute_time += p -> glyphs.frostfire -> effectN( 1 ).time_value();
 
@@ -3032,7 +2958,7 @@ struct frozen_orb_t : public mage_spell_t
     mage_spell_t( "frozen_orb", p, p -> find_class_spell( "Frozen Orb" ) ),
     frozen_orb_bolt( new frozen_orb_bolt_t( p ) )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
 
     hasted_ticks = false;
     base_tick_time    = timespan_t::from_seconds( 1.0 );
@@ -3068,7 +2994,7 @@ struct ice_floes_t : public mage_spell_t
   ice_floes_t( mage_t* p, const std::string& options_str ) :
     mage_spell_t( "ice_floes", p, p -> talents.ice_floes )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
     harmful = false;
   }
 
@@ -3095,7 +3021,7 @@ struct ice_lance_t : public mage_spell_t
     frost_bomb_explosion( new frost_bomb_explosion_t( p ) ),
     splitting_ice_aoe( p -> glyphs.splitting_ice -> effectN( 1 ).base_value() + 1 )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
 
     if ( p -> glyphs.splitting_ice -> ok() )
     {
@@ -3120,8 +3046,6 @@ struct ice_lance_t : public mage_spell_t
       p() -> buffs.icy_veins -> extend_duration( p(), timespan_t::from_seconds( p() -> talents.thermal_void -> effectN( 1 ).base_value() ) );
 
 
-
-
     // Begin casting all Icicles at the target, beginning 0.25 seconds after the
     // Ice Lance cast with remaining Icicles launching at intervals of 0.75
     // seconds, both values adjusted by haste. Casting continues until all
@@ -3136,10 +3060,7 @@ struct ice_lance_t : public mage_spell_t
 
   virtual void impact( action_state_t* s )
   {
-
     mage_spell_t::impact( s );
-
-
 
     if ( p() -> talents.frost_bomb -> ok() )
     {
@@ -3182,7 +3103,7 @@ struct ice_nova_t : public mage_spell_t
     ice_nova_t( mage_t* p, const std::string& options_str ) :
        mage_spell_t( "ice_nova", p, p -> talents.ice_nova )
     {
-        parse_options( NULL, options_str );
+        parse_options( options_str );
         base_multiplier *= 1.0 + p -> talents.ice_nova -> effectN( 1 ).percent();
         base_aoe_multiplier *= 0.5;
         aoe = -1;
@@ -3208,7 +3129,7 @@ struct icy_veins_t : public mage_spell_t
     mage_spell_t( "icy_veins", p, p -> find_class_spell( "Icy Veins" ) )
   {
     check_spec( MAGE_FROST );
-    parse_options( NULL, options_str );
+    parse_options( options_str );
     harmful = false;
 
     if ( player -> sets.has_set_bonus( SET_CASTER, T14, B4 ) )
@@ -3234,7 +3155,7 @@ struct inferno_blast_t : public mage_spell_t
     mage_spell_t( "inferno_blast", p,
                   p -> find_class_spell( "Inferno Blast" ) )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
 
     may_hot_streak = true;
     cooldown -> duration = timespan_t::from_seconds( 8.0 );
@@ -3377,7 +3298,7 @@ struct living_bomb_t : public mage_spell_t
     mage_spell_t( "living_bomb", p, p -> talents.living_bomb ),
     explosion( new living_bomb_explosion_t( p ) )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
   }
 
   void impact( action_state_t* s )
@@ -3425,7 +3346,7 @@ struct meteor_impact_t : public mage_spell_t
   }
 
   void execute()
-  { 
+  {
     aoe = targets_hit;
     mage_spell_t::execute();
   }
@@ -3450,12 +3371,9 @@ struct meteor_t : public mage_spell_t
     targets( -1 ),
     meteor_impact( new meteor_impact_t( p, targets ) )
   {
-    option_t options[] =
-    {
-      opt_int( "targets", targets ),
-      opt_null()
-    };
-    parse_options( options, options_str );
+    add_option( opt_int( "targets", targets ) );
+    parse_options( options_str );
+
     callbacks = false;
     add_child( meteor_impact );
     dot_duration = timespan_t::zero();
@@ -3479,7 +3397,7 @@ struct mirror_image_t : public mage_spell_t
   mirror_image_t( mage_t* p, const std::string& options_str ) :
     mage_spell_t( "mirror_image", p, p -> find_spell( 55342 ) )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
     dot_duration = timespan_t::zero();
     harmful = false;
     if ( !p -> talents.mirror_image -> ok() )
@@ -3548,7 +3466,7 @@ struct nether_tempest_t : public mage_spell_t
     mage_spell_t( "nether_tempest", p, p -> talents.nether_tempest ),
     add_aoe( new nether_tempest_aoe_t( p ) )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
     add_child( add_aoe );
   }
 
@@ -3601,7 +3519,7 @@ struct presence_of_mind_t : public mage_spell_t
   presence_of_mind_t( mage_t* p, const std::string& options_str ) :
     mage_spell_t( "presence_of_mind", p, p -> find_class_spell( "Presence of Mind" )  )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
     harmful = false;
   }
 
@@ -3624,7 +3542,7 @@ struct pyroblast_t : public mage_spell_t
     mage_spell_t( "pyroblast", p, p -> find_class_spell( "Pyroblast" ) ),
     is_hot_streak( false ), dot_is_hot_streak( false )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
     may_hot_streak = true;
     dot_behavior = DOT_REFRESH;
   }
@@ -3748,7 +3666,7 @@ struct rune_of_power_t : public mage_spell_t
   rune_of_power_t( mage_t* p, const std::string& options_str ) :
     mage_spell_t( "rune_of_power", p, p -> talents.rune_of_power )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
     harmful = false;
   }
 
@@ -3769,7 +3687,7 @@ struct scorch_t : public mage_spell_t
   scorch_t( mage_t* p, const std::string& options_str ) :
     mage_spell_t( "scorch", p, p -> find_specialization_spell( "Scorch" ) )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
 
     may_hot_streak = true;
     consumes_ice_floes = false;
@@ -3814,7 +3732,7 @@ struct slow_t : public mage_spell_t
   slow_t( mage_t* p, const std::string& options_str ) :
     mage_spell_t( "slow", p, p -> find_class_spell( "Slow" ) )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
   }
 
   virtual void impact( action_state_t* s )
@@ -3832,8 +3750,8 @@ struct supernova_t : public mage_spell_t
     supernova_t( mage_t* p, const std::string& options_str ) :
        mage_spell_t( "supernova", p, p -> talents.supernova )
     {
-        parse_options( NULL, options_str );
-        aoe = 1;
+        parse_options( options_str );
+        aoe = -1;
         base_multiplier *= 1.0 + p -> talents.supernova -> effectN( 1 ).percent();
         base_aoe_multiplier *= 0.5;
     }
@@ -3857,7 +3775,7 @@ struct time_warp_t : public mage_spell_t
   time_warp_t( mage_t* p, const std::string& options_str ) :
     mage_spell_t( "time_warp", p, p -> find_class_spell( "Time Warp" ) )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
     harmful = false;
   }
 
@@ -3895,7 +3813,7 @@ struct summon_water_elemental_t : public mage_spell_t
   summon_water_elemental_t( mage_t* p, const std::string& options_str ) :
     mage_spell_t( "water_elemental", p, p -> find_class_spell( "Summon Water Elemental" ) )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
     harmful = false;
     consumes_ice_floes = false;
     trigger_gcd = timespan_t::zero();
@@ -3924,7 +3842,7 @@ struct prismatic_crystal_t : public mage_spell_t
   prismatic_crystal_t( mage_t* p, const std::string& options_str ) :
     mage_spell_t( "prismatic_crystal", p, p -> find_talent_spell( "Prismatic Crystal" ) )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
     may_miss = may_crit = harmful = callbacks = false;
     min_gcd = data().gcd();
   }
@@ -3959,13 +3877,9 @@ struct choose_target_t : public action_t
   {
     std::string target_name;
 
-    option_t options[] = {
-      opt_string( "name", target_name ),
-      opt_bool( "check_selected", check_selected ),
-      opt_null()
-    };
-
-    parse_options( options, options_str );
+    add_option( opt_string( "name", target_name ) );
+    add_option( opt_bool( "check_selected", check_selected ) );
+    parse_options( options_str );
 
     if ( ! target_name.empty() && ! util::str_compare_ci( target_name, "default" ) )
     {
@@ -4074,7 +3988,7 @@ struct start_pyro_chain_t : public action_t
     action_t( ACTION_USE, "start_pyro_chain", p ),
     last_execute( timespan_t::min() )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
     trigger_gcd = timespan_t::zero();
     harmful = false;
   }
@@ -4108,7 +4022,7 @@ struct stop_pyro_chain_t : public action_t
   stop_pyro_chain_t( mage_t* p, const std::string& options_str ):
      action_t( ACTION_USE, "stop_pyro_chain", p )
   {
-      parse_options( NULL, options_str );
+      parse_options( options_str );
       trigger_gcd = timespan_t::zero();
       harmful = false;
   }
@@ -4117,211 +4031,6 @@ struct stop_pyro_chain_t : public action_t
   {
       mage_t* p = debug_cast<mage_t*>( player );
       p -> pyro_switch.dump_state = false;
-  }
-};
-
-// Choose Rotation Action =====================================================
-
-struct choose_rotation_t : public action_t
-{
-  double evocation_target_mana_percentage;
-  int force_dps;
-  int force_dpm;
-  timespan_t final_burn_offset;
-  double oom_offset;
-
-  choose_rotation_t( mage_t* p, const std::string& options_str ) :
-    action_t( ACTION_USE, "choose_rotation", p )
-  {
-    cooldown -> duration = timespan_t::from_seconds( 10 );
-    evocation_target_mana_percentage = 35;
-    force_dps = 0;
-    force_dpm = 0;
-    final_burn_offset = timespan_t::from_seconds( 20 );
-    oom_offset = 0;
-
-    option_t options[] =
-    {
-      opt_timespan( "cooldown", ( cooldown -> duration ) ),
-      opt_float( "evocation_pct", evocation_target_mana_percentage ),
-      opt_int( "force_dps", force_dps ),
-      opt_int( "force_dpm", force_dpm ),
-      opt_timespan( "final_burn_offset", ( final_burn_offset ) ),
-      opt_float( "oom_offset", oom_offset ),
-      opt_null()
-    };
-    parse_options( options, options_str );
-
-    if ( cooldown -> duration < timespan_t::from_seconds( 1.0 ) )
-    {
-      sim -> errorf( "Player %s: choose_rotation cannot have cooldown -> duration less than 1.0sec", p -> name() );
-      cooldown -> duration = timespan_t::from_seconds( 1.0 );
-    }
-
-    trigger_gcd = timespan_t::zero();
-    harmful = false;
-  }
-
-  virtual void execute()
-  {
-    mage_t* p = debug_cast<mage_t*>( player );
-
-    if ( force_dps || force_dpm )
-    {
-      if ( p -> rotation.current == ROTATION_DPS )
-      {
-        p -> rotation.dps_time += ( sim -> current_time - p -> rotation.last_time );
-      }
-      else if ( p -> rotation.current == ROTATION_DPM )
-      {
-        p -> rotation.dpm_time += ( sim -> current_time - p -> rotation.last_time );
-      }
-      p -> rotation.last_time = sim -> current_time;
-
-      if ( sim -> log )
-      {
-        sim -> out_log.printf( "%f burn mps, %f time to die", ( p -> rotation.dps_mana_loss / p -> rotation.dps_time.total_seconds() ) - ( p -> rotation.mana_gain / sim -> current_time.total_seconds() ), sim -> target -> time_to_die().total_seconds() );
-      }
-
-      if ( force_dps )
-      {
-        if ( sim -> log ) sim -> out_log.printf( "%s switches to DPS spell rotation", p -> name() );
-        p -> rotation.current = ROTATION_DPS;
-      }
-      if ( force_dpm )
-      {
-        if ( sim -> log ) sim -> out_log.printf( "%s switches to DPM spell rotation", p -> name() );
-        p -> rotation.current = ROTATION_DPM;
-      }
-
-      update_ready();
-
-      return;
-    }
-
-    if ( sim -> log ) sim -> out_log.printf( "%s Considers Spell Rotation", p -> name() );
-
-    // The purpose of this action is to automatically determine when to start dps rotation.
-    // We aim to either reach 0 mana at end of fight or evocation_target_mana_percentage at next evocation.
-    // If mana gem has charges we assume it will be used during the next dps rotation burn.
-    // The dps rotation should correspond only to the actual burn, not any corrections due to overshooting.
-
-    // It is important to smooth out the regen rate by averaging out the returns from Evocation and Mana Gems.
-    // In order for this to work, the resource_gain() method must filter out these sources when
-    // tracking "rotation.mana_gain".
-
-    double regen_rate = p -> rotation.mana_gain / sim -> current_time.total_seconds();
-
-    timespan_t ttd = sim -> target -> time_to_die();
-    timespan_t tte = p -> cooldowns.evocation -> remains();
-
-    if ( p -> rotation.current == ROTATION_DPS )
-    {
-      p -> rotation.dps_time += ( sim -> current_time - p -> rotation.last_time );
-
-      // We should only drop out of dps rotation if we break target mana treshold.
-      // In that situation we enter a mps rotation waiting for evocation to come off cooldown or for fight to end.
-      // The action list should take into account that it might actually need to do some burn in such a case.
-
-      if ( tte < ttd )
-      {
-        // We're going until target percentage
-        if ( p -> resources.current[ RESOURCE_MANA ] / p -> resources.max[ RESOURCE_MANA ] < evocation_target_mana_percentage / 100.0 )
-        {
-          if ( sim -> log ) sim -> out_log.printf( "%s switches to DPM spell rotation", p -> name() );
-
-          p -> rotation.current = ROTATION_DPM;
-        }
-      }
-      else
-      {
-        // We're going until OOM, stop when we can no longer cast full stack AB (approximately, 4 stack with AP can be 6177)
-        if ( p -> resources.current[ RESOURCE_MANA ] < 6200 )
-        {
-          if ( sim -> log ) sim -> out_log.printf( "%s switches to DPM spell rotation", p -> name() );
-
-          p -> rotation.current = ROTATION_DPM;
-        }
-      }
-    }
-    else if ( p -> rotation.current == ROTATION_DPM )
-    {
-      p -> rotation.dpm_time += ( sim -> current_time - p -> rotation.last_time );
-
-      // Calculate consumption rate of dps rotation and determine if we should start burning.
-
-      double consumption_rate = ( p -> rotation.dps_mana_loss / p -> rotation.dps_time.total_seconds() ) - regen_rate;
-      double available_mana = p -> resources.current[ RESOURCE_MANA ];
-
-      // If this will be the last evocation then figure out how much of it we can actually burn before end and adjust appropriately.
-
-      timespan_t evo_cooldown = timespan_t::from_seconds( 240.0 );
-
-      timespan_t target_time;
-      double target_pct;
-
-      if ( ttd < tte + evo_cooldown )
-      {
-        if ( ttd < tte + final_burn_offset )
-        {
-          // No more evocations, aim for OOM
-          target_time = ttd;
-          target_pct = oom_offset;
-        }
-        else
-        {
-          // If we aim for normal evo percentage we'll get the most out of burn/mana adept synergy.
-          target_time = tte;
-          target_pct = evocation_target_mana_percentage / 100.0;
-        }
-      }
-      else
-      {
-        // We'll cast more then one evocation, we're aiming for a normal evo target burn.
-        target_time = tte;
-        target_pct = evocation_target_mana_percentage / 100.0;
-      }
-
-      if ( consumption_rate > 0 )
-      {
-        // Compute time to get to desired percentage.
-        timespan_t expected_time = timespan_t::from_seconds( ( available_mana - target_pct * p -> resources.max[ RESOURCE_MANA ] ) / consumption_rate );
-
-        if ( expected_time >= target_time )
-        {
-          if ( sim -> log ) sim -> out_log.printf( "%s switches to DPS spell rotation", p -> name() );
-
-          p -> rotation.current = ROTATION_DPS;
-        }
-      }
-      else
-      {
-        // If dps rotation is regen, then obviously use it all the time.
-
-        if ( sim -> log ) sim -> out_log.printf( "%s switches to DPS spell rotation", p -> name() );
-
-        p -> rotation.current = ROTATION_DPS;
-      }
-    }
-    p -> rotation.last_time = sim -> current_time;
-
-    update_ready();
-  }
-
-  virtual bool ready()
-  {
-    // NOTE this delierately avoids calling the supreclass ready method;
-    // not all the checks there are relevnt since this isn't a spell
-    if ( cooldown -> down() )
-      return false;
-
-    if ( sim -> current_time < cooldown -> duration )
-      return false;
-
-    if ( if_expr && ! if_expr -> success() )
-      return false;
-
-    return true;
   }
 };
 
@@ -4334,7 +4043,7 @@ struct water_jet_t : public action_t
   water_jet_t( mage_t* p, const std::string& options_str ) :
     action_t( ACTION_OTHER, "water_jet", p ), action( 0 )
   {
-    parse_options( 0, options_str );
+    parse_options( options_str );
 
     may_miss = may_crit = callbacks = false;
     quiet = dual = true;
@@ -4392,7 +4101,7 @@ struct alter_time_t : public mage_spell_t
   alter_time_t( mage_t* p, const std::string& options_str ) :
     mage_spell_t( "alter_time_activate", p, p -> find_spell( 108978 ) )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
 
     harmful = false;
   }
@@ -4524,7 +4233,6 @@ action_t* mage_t::create_action( const std::string& name,
   if ( name == "blazing_speed"     ) return new           blazing_speed_t( this, options_str );
   if ( name == "blink"             ) return new                   blink_t( this, options_str );
   if ( name == "blizzard"          ) return new                blizzard_t( this, options_str );
-  if ( name == "choose_rotation"   ) return new         choose_rotation_t( this, options_str );
   if ( name == "start_pyro_chain"  ) return new        start_pyro_chain_t( this, options_str );
   if ( name == "stop_pyro_chain"   ) return new        stop_pyro_chain_t(  this, options_str );
   if ( name == "cold_snap"         ) return new               cold_snap_t( this, options_str );
@@ -4865,8 +4573,6 @@ void mage_t::init_benefits()
   {
     benefits.arcane_charge[ i ] = get_benefit( "Arcane Charge " + util::to_string( i )  );
   }
-  benefits.dps_rotation      = get_benefit( "dps rotation"    );
-  benefits.dpm_rotation      = get_benefit( "dpm rotation"    );
   benefits.water_elemental   = get_benefit( "water_elemental" );
 }
 
@@ -5407,7 +5113,6 @@ double mage_t::mana_regen_per_second() const
   if ( passives.nether_attunement -> ok() )
     mp5 /= cache.spell_speed();
 
-
   return mp5;
 }
 
@@ -5558,7 +5263,6 @@ void mage_t::reset()
 
   current_target = target;
 
-  rotation.reset();
   icicles.clear();
   core_event_t::cancel( icicle_event );
   rppm_pyromaniac.reset();
@@ -5575,50 +5279,6 @@ void mage_t::regen( timespan_t periodicity )
 
   if ( pets.water_elemental )
     benefits.water_elemental -> update( pets.water_elemental -> is_sleeping() == 0 );
-}
-
-// mage_t::resource_gain ====================================================
-
-double mage_t::resource_gain( resource_e resource,
-                              double    amount,
-                              gain_t*   source,
-                              action_t* action )
-{
-  double actual_amount = player_t::resource_gain( resource, amount, source, action );
-
-  if ( resource == RESOURCE_MANA )
-  {
-    if ( source != gains.evocation )
-    {
-      rotation.mana_gain += actual_amount;
-    }
-  }
-
-  return actual_amount;
-}
-
-// mage_t::resource_loss ====================================================
-
-double mage_t::resource_loss( resource_e resource,
-                              double    amount,
-                              gain_t*   source,
-                              action_t* action )
-{
-  double actual_amount = player_t::resource_loss( resource, amount, source, action );
-
-  if ( resource == RESOURCE_MANA )
-  {
-    if ( rotation.current == ROTATION_DPS )
-    {
-      rotation.dps_mana_loss += actual_amount;
-    }
-    else if ( rotation.current == ROTATION_DPM )
-    {
-      rotation.dpm_mana_loss += actual_amount;
-    }
-  }
-
-  return actual_amount;
 }
 
 // mage_t::stun =============================================================
@@ -5791,56 +5451,6 @@ expr_t* mage_t::create_expression( action_t* a, const std::string& name_str )
 
   if ( util::str_compare_ci( name_str, "default_target" ) )
     return make_ref_expr( name_str, target -> actor_index );
-
-  struct rotation_expr_t : public mage_expr_t
-  {
-    mage_rotation_e rt;
-    rotation_expr_t( const std::string& n, mage_t& m, mage_rotation_e r ) :
-      mage_expr_t( n, m ), rt( r ) {}
-    virtual double evaluate() { return mage.rotation.current == rt; }
-  };
-
-  if ( name_str == "dps" )
-    return new rotation_expr_t( name_str, *this, ROTATION_DPS );
-
-  if ( name_str == "dpm" )
-    return new rotation_expr_t( name_str, *this, ROTATION_DPM );
-
-  if ( name_str == "burn_mps" )
-  {
-    struct burn_mps_expr_t : public mage_expr_t
-    {
-      burn_mps_expr_t( mage_t& m ) : mage_expr_t( "burn_mps", m ) {}
-      virtual double evaluate()
-      {
-        timespan_t now = mage.sim -> current_time;
-        timespan_t delta = now - mage.rotation.last_time;
-        mage.rotation.last_time = now;
-        if ( mage.rotation.current == ROTATION_DPS )
-          mage.rotation.dps_time += delta;
-        else if ( mage.rotation.current == ROTATION_DPM )
-          mage.rotation.dpm_time += delta;
-
-        return ( mage.rotation.dps_mana_loss / mage.rotation.dps_time.total_seconds() ) -
-               ( mage.rotation.mana_gain / mage.sim -> current_time.total_seconds() );
-      }
-    };
-    return new burn_mps_expr_t( *this );
-  }
-
-  if ( name_str == "regen_mps" )
-  {
-    struct regen_mps_expr_t : public mage_expr_t
-    {
-      regen_mps_expr_t( mage_t& m ) : mage_expr_t( "regen_mps", m ) {}
-      virtual double evaluate()
-      {
-        return mage.rotation.mana_gain /
-               mage.sim -> current_time.total_seconds();
-      }
-    };
-    return new regen_mps_expr_t( *this );
-  }
 
   // Incanters flow direction
   // Evaluates to:  0.0 if IF talent not chosen or IF stack unchanged

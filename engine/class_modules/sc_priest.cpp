@@ -613,7 +613,7 @@ struct shadowfiend_pet_t final : public base_fiend_pet_t
     base_fiend_pet_t( sim, owner, PET_SHADOWFIEND, name ),
     mana_leech( find_spell( 34650, "mana_leech" ) )
   {
-    direct_power_mod = 1.0;
+    direct_power_mod = 0.75;
 
     main_hand_weapon.min_dmg = owner.dbc.spell_scaling( owner.type, owner.level ) * 2;
     main_hand_weapon.max_dmg = owner.dbc.spell_scaling( owner.type, owner.level ) * 2;
@@ -637,10 +637,10 @@ struct mindbender_pet_t final : public base_fiend_pet_t
     base_fiend_pet_t( sim, owner, PET_MINDBENDER, name ),
     mindbender_spell( owner.find_talent_spell( "Mindbender" ) )
   {
-    direct_power_mod = 0.88;
+    direct_power_mod = 0.75;
 
-    main_hand_weapon.min_dmg = owner.dbc.spell_scaling( owner.type, owner.level ) * 1.76;
-    main_hand_weapon.max_dmg = owner.dbc.spell_scaling( owner.type, owner.level ) * 1.76;
+    main_hand_weapon.min_dmg = owner.dbc.spell_scaling( owner.type, owner.level ) * 2;
+    main_hand_weapon.max_dmg = owner.dbc.spell_scaling( owner.type, owner.level ) * 2;
     main_hand_weapon.damage  = ( main_hand_weapon.min_dmg + main_hand_weapon.max_dmg ) / 2;
   }
 
@@ -958,6 +958,7 @@ public:
     ab::dot_behavior      = DOT_REFRESH;
     ab::weapon_multiplier = 0.0;
 
+    ab::add_option( opt_timespan( "min_interval", ( _min_interval -> duration ) ) );
 
     can_cancel_shadowform = p.options.autoUnshift;
     castable_in_shadowform = true;
@@ -1052,19 +1053,6 @@ public:
 
     if ( ab::base_execute_time > timespan_t::zero() && ! this -> channeled )
       priest.buffs.borrowed_time -> expire();
-  }
-
-  virtual void parse_options( option_t*          options,
-                      const std::string& options_str ) override
-  {
-    const option_t base_options[] =
-    {
-      opt_timespan( "min_interval", ( _min_interval -> duration ) ),
-      opt_null()
-    };
-
-    std::vector<option_t> merged_options;
-    ab::parse_options( option_t::merge( merged_options, options, base_options ), options_str );
   }
 
   virtual void update_ready( timespan_t cd_duration ) override
@@ -1541,8 +1529,6 @@ struct priest_spell_t : public priest_action_t<spell_t>
   {
     dot_behavior      = DOT_REFRESH;
     weapon_multiplier = 0.0;
-
-    can_trigger_atonement = false;
   }
 
   virtual void init() override
@@ -1577,7 +1563,7 @@ struct priest_spell_t : public priest_action_t<spell_t>
       trigger_vampiric_embrace( s );
 
     if ( atonement )
-      trigger_atonment( type, s );
+      trigger_atonement( type, s );
   }
 
   /* Based on previous implementation ( pets don't count but get full heal )
@@ -1607,7 +1593,7 @@ struct priest_spell_t : public priest_action_t<spell_t>
     }
   }
 
-  virtual void trigger_atonment( dmg_e type, action_state_t* s )
+  virtual void trigger_atonement( dmg_e type, action_state_t* s )
   {
     atonement -> trigger( s -> result_amount, direct_tick ? DMG_OVER_TIME : type, s -> result );
   }
@@ -1688,7 +1674,7 @@ struct archangel_t final : public priest_spell_t
   archangel_t( priest_t& p, const std::string& options_str ) :
     priest_spell_t( "archangel", p, p.specs.archangel )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
     harmful = may_hit = may_crit = false;
   }
 
@@ -1717,7 +1703,7 @@ struct chakra_base_t : public priest_spell_t
   chakra_base_t( priest_t& p, const spell_data_t* s, const std::string& options_str ) :
     priest_spell_t( "chakra", p, s )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
 
     harmful = false;
 
@@ -1790,7 +1776,7 @@ struct dispersion_t final : public priest_spell_t
   dispersion_t( priest_t& player, const std::string& options_str ) :
     priest_spell_t( "dispersion", player, player.find_class_spell( "Dispersion" ) )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
 
     base_tick_time = timespan_t::from_seconds( 1.0 );
     dot_duration = timespan_t::from_seconds( 6.0 ) + priest.glyphs.delayed_coalescence -> effectN( 1 ).time_value();
@@ -1829,7 +1815,7 @@ struct fortitude_t final : public priest_spell_t
   fortitude_t( priest_t& player, const std::string& options_str ) :
     priest_spell_t( "fortitude", player, player.find_class_spell( "Power Word: Fortitude" ) )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
 
     harmful = false;
 
@@ -1852,7 +1838,7 @@ struct levitate_t final: public priest_spell_t
   levitate_t( priest_t& p, const std::string& options_str ):
     priest_spell_t( "levitate", p, p.find_class_spell( "Levitate" ) )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
   }
 
   virtual void execute()
@@ -1870,7 +1856,7 @@ struct pain_suppression_t final : public priest_spell_t
   pain_suppression_t( priest_t& p, const std::string& options_str ) :
     priest_spell_t( "pain_suppression", p, p.find_class_spell( "Pain Suppression" ) )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
 
     // If we don't specify a target, it's defaulted to the mob, so default to the player instead
     if ( target -> is_enemy() || target -> is_add() )
@@ -1896,7 +1882,7 @@ struct power_infusion_t final : public priest_spell_t
   power_infusion_t( priest_t& p, const std::string& options_str ) :
     priest_spell_t( "power_infusion", p, p.talents.power_infusion )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
     harmful = false;
   }
 
@@ -1914,7 +1900,7 @@ struct shadowform_t final : public priest_spell_t
   shadowform_t( priest_t& p, const std::string& options_str ) :
     priest_spell_t( "shadowform", p, p.find_class_spell( "Shadowform" ) )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
 
     harmful = false;
   }
@@ -1934,7 +1920,7 @@ struct spirit_shell_t final : public priest_spell_t
   spirit_shell_t( priest_t& p, const std::string& options_str ) :
     priest_spell_t( "spirit_shell", p, p.specs.spirit_shell )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
     harmful = may_hit = may_crit = false;
   }
 
@@ -1982,7 +1968,7 @@ struct summon_shadowfiend_t final : public summon_pet_t
   summon_shadowfiend_t( priest_t& p, const std::string& options_str ) :
     summon_pet_t( "shadowfiend", p, p.find_class_spell( "Shadowfiend" ) )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
     harmful    = false;
     summoning_duration = data().duration();
     cooldown = p.cooldowns.shadowfiend;
@@ -1996,7 +1982,7 @@ struct summon_mindbender_t final : public summon_pet_t
   summon_mindbender_t( priest_t& p, const std::string& options_str ) :
     summon_pet_t( "mindbender", p, p.find_talent_spell( "Mindbender" ) )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
     harmful    = false;
     summoning_duration = data().duration();
     cooldown = p.cooldowns.mindbender;
@@ -2086,7 +2072,7 @@ struct mind_blast_t final : public priest_spell_t
     priest_spell_t( "mind_blast", player, player.find_class_spell( "Mind Blast" ) ),
     casted_with_shadowy_insight( false )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
 
     // Glyph of Mind Harvest
     if ( priest.glyphs.mind_harvest -> ok() )
@@ -2250,7 +2236,7 @@ struct mind_spike_t final : public priest_spell_t
     priest_spell_t( "mind_spike", player, player.find_class_spell( "Mind Spike" ) ),
     casted_with_surge_of_darkness( false )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
   }
 
   virtual action_state_t* new_state() override
@@ -2476,7 +2462,7 @@ struct mind_sear_t final : public priest_spell_t
   mind_sear_t( priest_t& p, const std::string& options_str ) :
     priest_spell_t( "mind_sear", p, p.find_class_spell( "Mind Sear" ) )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
     channeled    = true;
     may_crit     = false;
     hasted_ticks = false;
@@ -2488,11 +2474,6 @@ struct mind_sear_t final : public priest_spell_t
   virtual double action_multiplier() const override
   {
     double am = priest_spell_t::action_multiplier();
-
-    if ( priest.mastery_spells.mental_anguish -> ok() )
-    {
-      am *= 1.0 + priest.cache.mastery_value();
-    }
 
     priest_td_t& td = get_td( target );
     if ( priest.talents.clarity_of_power -> ok() && !td.dots.shadow_word_pain -> is_ticking() && !td.dots.vampiric_touch -> is_ticking() )
@@ -2551,7 +2532,7 @@ struct shadow_word_death_t final : public priest_spell_t
     priest_spell_t( "shadow_word_death", p, p.find_class_spell( "Shadow Word: Death" ) ),
     backlash( new shadow_word_death_backlash_t( p ) )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
 
     base_multiplier *= 1.0 + p.sets.set( SET_CASTER, T13, B2 ) -> effectN( 1 ).percent();
   }
@@ -2787,7 +2768,7 @@ struct devouring_plague_t final : public priest_spell_t
     priest_spell_t( "devouring_plague", p, p.find_class_spell( "Devouring Plague" ) ),
     dot_spell( new devouring_plague_dot_t( p, this ) )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
 
     parse_effect_data( data().effectN( 1 ) );
 
@@ -2972,7 +2953,7 @@ struct mind_flay_base_t : public priest_spell_t
   mind_flay_base_t( priest_t& p, const std::string& options_str, const std::string& name = "mind_flay" ) :
     priest_spell_t( name, p, p.find_class_spell( insanity ? "Insanity" : "Mind Flay" ) )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
 
     may_crit     = false;
     channeled    = true;
@@ -3046,7 +3027,7 @@ struct shadow_word_pain_t final : public priest_spell_t
     priest_spell_t( "shadow_word_pain", p, p.find_class_spell( "Shadow Word: Pain" ) ),
     proc_shadowy_apparition( nullptr )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
 
     may_crit   = true;
     tick_zero  = false;
@@ -3089,7 +3070,7 @@ struct vampiric_embrace_t final : public priest_spell_t
   vampiric_embrace_t( priest_t& p, const std::string& options_str ) :
     priest_spell_t( "vampiric_embrace", p, p.find_class_spell( "Vampiric Embrace" ) )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
 
     harmful = false;
   }
@@ -3119,7 +3100,7 @@ struct vampiric_touch_t final : public priest_spell_t
     priest_spell_t( "vampiric_touch", p, p.find_class_spell( "Vampiric Touch" ) ),
     proc_shadowy_apparition( nullptr )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
     may_crit   = false;
 
     dot_duration += p.sets.set( SET_CASTER, T14, B4 ) -> effectN( 1 ).time_value();
@@ -3261,7 +3242,7 @@ struct power_word_solace_t final : public holy_fire_base_t
   power_word_solace_t( priest_t& player, const std::string& options_str ) :
     holy_fire_base_t( "power_word_solace", player, player.find_spell( 129250 ) )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
 
     travel_speed = 0.0; //DBC has default travel taking 54seconds.....
 
@@ -3270,7 +3251,7 @@ struct power_word_solace_t final : public holy_fire_base_t
 
   virtual void impact( action_state_t* s ) override
   {
-    priest_spell_t::impact( s );
+    holy_fire_base_t::impact( s );
 
     double amount = data().effectN( 3 ).percent() / 100.0 * priest.resources.max[ RESOURCE_MANA ];
     priest.resource_gain( RESOURCE_MANA, amount, priest.gains.power_word_solace );
@@ -3284,7 +3265,7 @@ struct holy_fire_t final : public holy_fire_base_t
   holy_fire_t( priest_t& player, const std::string& options_str ) :
     holy_fire_base_t( "holy_fire", player, player.find_class_spell( "Holy Fire" ) )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
   }
 };
 
@@ -3316,7 +3297,7 @@ struct penance_t final : public priest_spell_t
   penance_t( priest_t& p, const std::string& options_str ) :
     priest_spell_t( "penance", p, p.find_class_spell( "Penance" ) )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
 
     may_crit       = false;
     may_miss       = false;
@@ -3398,7 +3379,7 @@ struct smite_t final : public priest_spell_t
     priest_spell_t( "smite", p, p.find_class_spell( "Smite" ) ),
     hw_chastise( p.get_cooldown( "holy_word_chastise" ) )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
 
     procs_courageous_primal_diamond = false;
 
@@ -3463,7 +3444,7 @@ struct smite_t final : public priest_spell_t
     priest_spell_t::snapshot_state( s, type );
   }
 
-  virtual void trigger_atonment( dmg_e type, action_state_t* s ) override
+  virtual void trigger_atonement( dmg_e type, action_state_t* s ) override
   {
     double atonement_dmg = s -> result_amount; // Normal dmg
 
@@ -3512,7 +3493,7 @@ public:
   cascade_base_t( const std::string& n, priest_t& p, const std::string& options_str, const spell_data_t* scaling_data ) :
     ab( n, p, p.find_talent_spell( "Cascade" ) )
   {
-    ab::parse_options( nullptr, options_str );
+    ab::parse_options( options_str );
 
     ab::parse_effect_data( scaling_data -> effectN( 1 ) ); // Parse damage or healing numbers from the scaling spell
     ab::school       = scaling_data -> get_school_type();
@@ -3694,7 +3675,7 @@ struct halo_t final : public priest_spell_t
     priest_spell_t( "halo", p, p.talents.halo ),
     _base_spell( get_base_spell( p ) )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
 
     add_child( _base_spell );
   }
@@ -3728,12 +3709,11 @@ struct divine_star_base_t final : public Base
 {
 private:
   typedef Base ab; // the action base ("ab") type (priest_spell_t or priest_heal_t)
-protected:
+public:
   typedef divine_star_base_t base_t;
 
   divine_star_base_t* return_spell;
 
-public:
   divine_star_base_t( const std::string& n, priest_t& p, const spell_data_t* spell_data, bool is_return_spell = false ) :
     ab( n, p, spell_data ),
     return_spell( ( is_return_spell ? nullptr : new divine_star_base_t( n, p, spell_data, true ) ) )
@@ -3770,7 +3750,7 @@ struct divine_star_t final : public priest_spell_t
     priest_spell_t( "divine_star", p, p.talents.divine_star ),
     _base_spell( get_base_spell( p ) )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
 
     dot_duration = base_tick_time = timespan_t::zero();
 
@@ -3796,11 +3776,11 @@ private:
   {
     if ( priest.specialization() == PRIEST_SHADOW )
     {
-      return new divine_star_base_t<priest_spell_t>( "divine_star_damage", p, data().effectN( 1 ).trigger() );
+      return new divine_star_base_t<priest_spell_t>( "divine_star_damage", p, p.find_spell( 122128 ) );
     }
     else
     {
-       return new divine_star_base_t<priest_heal_t>( "divine_star_heal", p, data().effectN( 1 ).trigger() );
+      return new divine_star_base_t<priest_heal_t>( "divine_star_heal", p, p.find_spell( 110745 ) );
     }
   }
 };
@@ -3810,7 +3790,7 @@ struct void_entropy_t : public priest_spell_t
   void_entropy_t( priest_t& p, const std::string& options_str ) :
      priest_spell_t( "void_entropy", p, p.talents.void_entropy )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
     may_crit = false;
     tick_zero = false;
   }
@@ -3888,7 +3868,7 @@ struct binding_heal_t final : public priest_heal_t
   binding_heal_t( priest_t& p, const std::string& options_str ) :
     priest_heal_t( "binding_heal", p, p.find_class_spell( "Binding Heal" ) )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
 
     aoe = 2;
   }
@@ -3928,7 +3908,7 @@ struct circle_of_healing_t final : public priest_heal_t
   circle_of_healing_t( priest_t& p, const std::string& options_str ) :
     priest_heal_t( "circle_of_healing", p, p.find_class_spell( "Circle of Healing" ) )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
 
     base_costs[ current_resource() ] *= 1.0 + p.glyphs.circle_of_healing -> effectN( 2 ).percent();
     base_costs[ current_resource() ]  = floor( base_costs[ current_resource() ] );
@@ -3970,7 +3950,7 @@ struct desperate_prayer_t final : public priest_heal_t
   desperate_prayer_t( priest_t& p, const std::string& options_str ) :
     priest_heal_t( "desperate_prayer", p, p.talents.desperate_prayer )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
 
     target = &p; // always targets the priest himself
   }
@@ -3994,7 +3974,7 @@ struct divine_hymn_t final : public priest_heal_t
   divine_hymn_t( priest_t& p, const std::string& options_str ) :
     priest_heal_t( "divine_hymn", p, p.find_class_spell( "Divine Hymn" ) )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
 
     harmful = false;
     channeled = true;
@@ -4041,7 +4021,7 @@ struct flash_heal_t final : public priest_heal_t
   flash_heal_t( priest_t& p, const std::string& options_str ) :
     priest_heal_t( "flash_heal", p, p.find_class_spell( "Flash Heal" ) )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
     can_trigger_spirit_shell = true;
 
     castable_in_shadowform = false;
@@ -4092,7 +4072,7 @@ struct guardian_spirit_t final : public priest_heal_t
   guardian_spirit_t( priest_t& p, const std::string& options_str ) :
     priest_heal_t( "guardian_spirit", p, p.find_class_spell( "Guardian Spirit" ) )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
 
     base_dd_min = base_dd_max = 0.0; // The absorb listed isn't a real absorb
     harmful = false;
@@ -4114,7 +4094,7 @@ struct _heal_t final : public priest_heal_t
   _heal_t( priest_t& p, const std::string& options_str ) :
     priest_heal_t( "heal", p, p.find_class_spell( "Heal" ) )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
     can_trigger_spirit_shell = true;
   }
 
@@ -4197,7 +4177,7 @@ struct holy_word_sanctuary_t final : public priest_heal_t
   holy_word_sanctuary_t( priest_t& p, const std::string& options_str ) :
     priest_heal_t( "holy_word_sanctuary", p, p.find_spell( 88685 ) )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
 
     may_crit     = false;
 
@@ -4237,7 +4217,7 @@ struct holy_word_chastise_t final : public priest_spell_t
   holy_word_chastise_t( priest_t& p, const std::string& options_str ) :
     priest_spell_t( "holy_word_chastise", p, p.find_class_spell( "Holy Word: Chastise" ) )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
 
     base_costs[ current_resource() ]  = floor( base_costs[ current_resource() ] );
 
@@ -4283,7 +4263,7 @@ struct holy_word_serenity_t final : public priest_heal_t
   holy_word_serenity_t( priest_t& p, const std::string& options_str ) :
     priest_heal_t( "holy_word_serenity", p, p.find_spell( 88684 ) )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
 
     base_costs[ current_resource() ]  = floor( base_costs[ current_resource() ] );
 
@@ -4400,12 +4380,8 @@ struct lightwell_t final : public priest_spell_t
     consume_interval( timespan_t::from_seconds( 10 ) ),
     lightwell_renew_cd( priest.pets.lightwell -> get_cooldown( "lightwell_renew" ) )
   {
-    option_t options[] =
-    {
-      opt_timespan( "consume_interval", consume_interval ),
-      opt_null()
-    };
-    parse_options( options, options_str );
+    add_option( opt_timespan( "consume_interval", consume_interval ) );
+    parse_options( options_str );
 
     harmful = false;
 
@@ -4445,7 +4421,7 @@ struct penance_heal_t final : public priest_heal_t
   penance_heal_t( priest_t& p, const std::string& options_str ) :
     priest_heal_t( "penance_heal", p, p.find_class_spell( "Penance" ) )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
 
     may_crit       = false;
     channeled      = true;
@@ -4514,12 +4490,8 @@ struct power_word_shield_t final : public priest_absorb_t
     glyph_pws( nullptr ),
     ignore_debuff( false )
   {
-    option_t options[] =
-    {
-      opt_bool( "ignore_debuff", ignore_debuff ),
-      opt_null()
-    };
-    parse_options( options, options_str );
+    add_option( opt_bool( "ignore_debuff", ignore_debuff ) );
+    parse_options( options_str );
 
     //TODO: Check and see if this override is needed anymore. -Twintop 2014/07/07
     // Tooltip is wrong.
@@ -4565,7 +4537,7 @@ struct prayer_of_healing_t final : public priest_heal_t
   prayer_of_healing_t( priest_t& p, const std::string& options_str ) :
     priest_heal_t( "prayer_of_healing", p, p.find_class_spell( "Prayer of Healing" ) )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
     aoe = 5;
     group_only = true;
     divine_aegis_trigger_mask = RESULT_HIT_MASK;
@@ -4635,12 +4607,8 @@ struct prayer_of_mending_t final : public priest_heal_t
     priest_heal_t( "prayer_of_mending", p, p.find_class_spell( "Prayer of Mending" ) ),
     single( false )
   {
-    option_t options[] =
-    {
-      opt_bool( "single", single ),
-      opt_null()
-    };
-    parse_options( options, options_str );
+    add_option( opt_bool( "single", single ) );
+    parse_options( options_str );
 
     spell_power_mod.direct = data().effectN( 1 ).sp_coeff();
     base_dd_min = base_dd_max = data().effectN( 1 ).min( &p );
@@ -4723,7 +4691,7 @@ struct renew_t final : public priest_heal_t
     priest_heal_t( "renew", p, p.find_class_spell( "Renew" ) ),
     rr( nullptr )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
 
     may_crit = false;
 
@@ -4774,7 +4742,7 @@ struct clarity_of_will_t final : public priest_heal_t
   clarity_of_will_t( priest_t& p, const std::string& options_str ) :
     priest_heal_t( "clarity_of_will", p, p.find_spell( 0 /*p.talents.divine_clarity*/  ) )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
     // TODO: implement mechanic
   }
 };
@@ -4784,7 +4752,7 @@ struct clarity_of_purpose_t final : public priest_heal_t
   clarity_of_purpose_t( priest_t& p, const std::string& options_str ) :
     priest_heal_t( "clarity_of_purpose", p, p.find_spell( 0 /*p.talents.divine_clarity */ ) )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
     // can_trigger_spirit_shell = true; ?
     // TODO: implement mechanic
   }
@@ -4802,7 +4770,7 @@ struct saving_grace_t final : public priest_heal_t
   saving_grace_t( priest_t& p, const std::string& options_str ) :
     priest_heal_t( "saving_grace", p, p.find_spell( 0 /*p.talents.spiritual_guidance */ ) )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
     // can_trigger_spirit_shell = true; ?
   }
 
@@ -5193,10 +5161,8 @@ expr_t* priest_t::create_expression( action_t* a,
 
 void priest_t::init_resources( bool force )
 {
-
   base_t::init_resources( force );
   resources.current[ RESOURCE_SHADOW_ORB ] = resources.initial[ RESOURCE_SHADOW_ORB ] = clamp( as<double>( options.initial_shadow_orbs ), 0.0, resources.base[ RESOURCE_SHADOW_ORB ] );
-
 }
 
 // priest_t::composite_armor ================================================
@@ -6067,47 +6033,54 @@ void priest_t::apl_shadow()
   default_list -> add_action( "call_action_list,name=pvp_dispersion,if=set_bonus.pvp_2pc" );
   default_list -> add_action( "call_action_list,name=decision" );
 
+  // Use the PVP 2P to get a boost.
   pvp_dispersion -> add_action( "call_action_list,name=decision,if=cooldown.dispersion.remains>0" );
   pvp_dispersion -> add_action( "dispersion,interrupt=1" );
   pvp_dispersion -> add_action( "call_action_list,name=decision" );
 
-  decision -> add_action( "call_action_list,name=cop_advanced_mfi_dots,if=target.health.pct>=20&(shadow_orb=5|target.dot.shadow_word_pain.ticking|target.dot.vampiric_touch.ticking|target.dot.devouring_plague.ticking)&talent.clarity_of_power.enabled&talent.insanity.enabled" );
-  decision -> add_action( "call_action_list,name=cop_advanced_mfi,if=target.health.pct>=20&talent.clarity_of_power.enabled&talent.insanity.enabled" );
-  decision -> add_action( "call_action_list,name=cop_mfi,if=talent.clarity_of_power.enabled&talent.insanity.enabled" );
-  decision -> add_action( "call_action_list,name=cop,if=talent.clarity_of_power.enabled" );
+  // Choose which APL to follow based on talents, number of targets, and HP of the target.
+  decision -> add_action( "call_action_list,name=cop_advanced_mfi_dots,if=target.health.pct>=20&(shadow_orb>=4|target.dot.shadow_word_pain.ticking|target.dot.vampiric_touch.ticking|target.dot.devouring_plague.ticking)&talent.clarity_of_power.enabled&talent.insanity.enabled&active_enemies<=2" );
+  decision -> add_action( "call_action_list,name=cop_advanced_mfi,if=target.health.pct>=20&talent.clarity_of_power.enabled&talent.insanity.enabled&active_enemies<=2" );
+  decision -> add_action( "call_action_list,name=cop_mfi,if=talent.clarity_of_power.enabled&talent.insanity.enabled&active_enemies<=2" );
+  decision -> add_action( "call_action_list,name=cop,if=talent.clarity_of_power.enabled&(active_enemies<=2|target.health.pct<20)" );
   decision -> add_action( "call_action_list,name=main" );
 
   // Main action list, if you don't have CoP selected
   main -> add_action( "mindbender,if=talent.mindbender.enabled" );
   main -> add_action( "shadowfiend,if=!talent.mindbender.enabled" );
-  main -> add_action( "void_entropy,if=talent.void_entropy.enabled&shadow_orb>=3&miss_react&!ticking,max_cycle_targets=4,cycle_targets=1" );
-  main -> add_action( "devouring_plague,if=shadow_orb>=3&dot.void_entropy.remains<30,cycle_targets=1" );
-  main -> add_action( "devouring_plague,if=shadow_orb>=4&!target.dot.devouring_plague_tick.ticking&talent.surge_of_darkness.enabled,cycle_targets=1" );
-  main -> add_action( "devouring_plague,if=shadow_orb>=4" );
-  main -> add_action( "devouring_plague,if=shadow_orb>=3&set_bonus.tier17_2pc" );
+  main -> add_action( "void_entropy,if=talent.void_entropy.enabled&shadow_orb>=3&miss_react&!ticking&target.time_to_die>60&cooldown.mind_blast.remains<=gcd*2,cycle_targets=1,max_cycle_targets=3" );
+  main -> add_action( "devouring_plague,if=talent.void_entropy.enabled&shadow_orb>=3&dot.void_entropy.ticking&dot.void_entropy.remains<10,cycle_targets=1,max_cycle_targets=3" );
+  main -> add_action( "devouring_plague,if=talent.void_entropy.enabled&shadow_orb>=3&dot.void_entropy.ticking&dot.void_entropy.remains<20,cycle_targets=1,max_cycle_targets=3" );
+  main -> add_action( "devouring_plague,if=talent.void_entropy.enabled&shadow_orb=5" );
+  main -> add_action( "devouring_plague,if=!talent.void_entropy.enabled&shadow_orb>=4&!target.dot.devouring_plague_tick.ticking&talent.surge_of_darkness.enabled,cycle_targets=1" );
+  main -> add_action( "devouring_plague,if=!talent.void_entropy.enabled&((shadow_orb>=4)|(shadow_orb>=3&set_bonus.tier17_2pc))" );
   main -> add_action( "shadow_word_death,if=buff.shadow_word_death_reset_cooldown.stack=1,cycle_targets=1" );
   main -> add_action( "shadow_word_death,if=buff.shadow_word_death_reset_cooldown.stack=0,cycle_targets=1" );
   main -> add_action( "mind_blast,if=!glyph.mind_harvest.enabled&active_enemies<=5&cooldown_react" );
-  main -> add_action( "devouring_plague,if=shadow_orb>=3&(cooldown.mind_blast.remains<1.5|target.health.pct<20&cooldown.shadow_word_death.remains<1.5)&!target.dot.devouring_plague_tick.ticking&talent.surge_of_darkness.enabled,cycle_targets=1" );
-  main -> add_action( "devouring_plague,if=shadow_orb>=3&(cooldown.mind_blast.remains<1.5|target.health.pct<20&cooldown.shadow_word_death.remains<1.5)" );
+  main -> add_action( "devouring_plague,if=!talent.void_entropy.enabled&shadow_orb>=3&(cooldown.mind_blast.remains<1.5|target.health.pct<20&cooldown.shadow_word_death.remains<1.5)&!target.dot.devouring_plague_tick.ticking&talent.surge_of_darkness.enabled,cycle_targets=1" );
+  main -> add_action( "devouring_plague,if=!talent.void_entropy.enabled&shadow_orb>=3&(cooldown.mind_blast.remains<1.5|target.health.pct<20&cooldown.shadow_word_death.remains<1.5)" );
   main -> add_action( "mind_blast,if=glyph.mind_harvest.enabled&mind_harvest=0,cycle_targets=1" );
   main -> add_action( "mind_blast,if=active_enemies<=5&cooldown_react" );
   main -> add_action( "insanity,if=buff.shadow_word_insanity.remains<0.5*gcd&active_enemies<=2,chain=1" );
   main -> add_action( "insanity,interrupt=1,chain=1,if=active_enemies<=2" );
-  main -> add_action( "shadow_word_pain,cycle_targets=1,max_cycle_targets=5,if=miss_react&!ticking" );
-  main -> add_action( "vampiric_touch,cycle_targets=1,max_cycle_targets=5,if=remains<cast_time&miss_react" );
-  main -> add_action( "shadow_word_pain,cycle_targets=1,max_cycle_targets=5,if=miss_react&ticks_remain<=1" );
-  main -> add_action( "vampiric_touch,cycle_targets=1,max_cycle_targets=5,if=remains<cast_time+tick_time&miss_react" );
-  main -> add_action( "devouring_plague,if=shadow_orb>=3&ticks_remain<=1" );
+  main -> add_action( "halo,if=talent.halo.enabled&target.distance<=30&active_enemies>2" );
+  main -> add_action( "cascade,if=talent.cascade.enabled&active_enemies>2&target.distance<=40" );
+  main -> add_action( "divine_star,if=talent.divine_star.enabled&active_enemies>4&target.distance<=24" );
+  main -> add_action( "shadow_word_pain,if=talent.auspicious_spirits.enabled&remains<(18*0.3)&miss_react,cycle_targets=1" );
+  main -> add_action( "shadow_word_pain,if=!talent.auspicious_spirits.enabled&remains<(18*0.3)&miss_react,cycle_targets=1,max_cycle_targets=5" );
+  main -> add_action( "vampiric_touch,if=remains<(15*0.3+cast_time)&miss_react,cycle_targets=1,max_cycle_targets=5" );
+  main -> add_action( "devouring_plague,if=!talent.void_entropy.enabled&shadow_orb>=3&ticks_remain<=1" );
   main -> add_action( "mind_spike,if=active_enemies<=5&buff.surge_of_darkness.react=3" );
-  main -> add_action( "halo,if=talent.halo.enabled&target.distance<=30&target.distance>=17" ); //When coefficients change, update minimum distance!
-  main -> add_action( "cascade,if=talent.cascade.enabled&((active_enemies>1|target.distance>=28)&target.distance<=40&target.distance>=11)" ); //When coefficients change, update minimum distance!
+  main -> add_action( "halo,if=talent.halo.enabled&target.distance<=30&target.distance>=17" );
+  main -> add_action( "cascade,if=talent.cascade.enabled&((active_enemies>1|target.distance>=28)&target.distance<=40&target.distance>=11)" );
   main -> add_action( "divine_star,if=talent.divine_star.enabled&(active_enemies>1|target.distance<=24)" );
   main -> add_action( "wait,sec=cooldown.shadow_word_death.remains,if=target.health.pct<20&cooldown.shadow_word_death.remains&cooldown.shadow_word_death.remains<0.5&active_enemies<=1" );
   main -> add_action( "wait,sec=cooldown.mind_blast.remains,if=cooldown.mind_blast.remains<0.5&cooldown.mind_blast.remains&active_enemies<=1" );
   main -> add_action( "mind_spike,if=buff.surge_of_darkness.react&active_enemies<=5" );
   main -> add_action( "divine_star,if=talent.divine_star.enabled&target.distance<=28&active_enemies>1" );
-  main -> add_action( "mind_sear,chain=1,interrupt=1,if=active_enemies>=3" );
+  main -> add_action( "mind_sear,chain=1,interrupt=1,if=active_enemies>=4" );
+  main -> add_action( "shadow_word_pain,if=shadow_orb>=2&ticks_remain<=3&talent.insanity.enabled" );
+  main -> add_action( "vampiric_touch,if=shadow_orb>=2&ticks_remain<=3.5&talent.insanity.enabled" );
   main -> add_action( "mind_flay,chain=1,interrupt=1" );
   main -> add_action( "shadow_word_death,moving=1" );
   main -> add_action( "mind_blast,moving=1,if=buff.shadowy_insight.react&cooldown_react" );
@@ -6124,22 +6097,22 @@ void priest_t::apl_shadow()
   cop -> add_action( "shadow_word_death,if=buff.shadow_word_death_reset_cooldown.stack=0,cycle_targets=1" );
   cop -> add_action( "mindbender,if=talent.mindbender.enabled" );
   cop -> add_action( "shadowfiend,if=!talent.mindbender.enabled" );
-  cop -> add_action( "halo,if=talent.halo.enabled&target.distance<=30&target.distance>=17" ); //When coefficients change, update minimum distance!
-  cop -> add_action( "cascade,if=talent.cascade.enabled&((active_enemies>1|target.distance>=28)&target.distance<=40&target.distance>=11)" ); //When coefficients change, update minimum distance!
+  cop -> add_action( "halo,if=talent.halo.enabled&target.distance<=30&target.distance>=17" );
+  cop -> add_action( "cascade,if=talent.cascade.enabled&((active_enemies>1|target.distance>=28)&target.distance<=40&target.distance>=11)" );
   cop -> add_action( "divine_star,if=talent.divine_star.enabled&(active_enemies>1|target.distance<=24)" );
-  cop -> add_action( "shadow_word_pain,cycle_targets=1,max_cycle_targets=5,if=miss_react&!ticking&primary_target=0" );
-  cop -> add_action( "vampiric_touch,cycle_targets=1,max_cycle_targets=5,if=remains<cast_time&miss_react&primary_target=0" );
-  cop -> add_action( "mind_sear,chain=1,interrupt=1,if=active_enemies>=8" );
+  cop -> add_action( "shadow_word_pain,if=miss_react&!ticking&primary_target=0,cycle_targets=1,max_cycle_targets=5" );
+  cop -> add_action( "vampiric_touch,if=remains<cast_time&miss_react&primary_target=0,cycle_targets=1,max_cycle_targets=5" );
+  cop -> add_action( "mind_sear,if=active_enemies>=3,chain=1,interrupt=1" );
   cop -> add_action( "mind_spike,if=active_enemies<=8&buff.surge_of_darkness.react" );
-  cop -> add_action( "mind_sear,chain=1,interrupt=1,if=active_enemies>=6" );
-  cop -> add_action( "mind_flay,if=target.dot.devouring_plague_tick.ticks_remain>1&active_enemies=1,chain=1,interrupt=1" ); //Higher DPS, but will probably be fixed.
+  cop -> add_action( "mind_sear,if=active_enemies>=3,chain=1,interrupt=1" );
+  cop -> add_action( "mind_flay,if=target.dot.devouring_plague_tick.ticks_remain>1&active_enemies=1,chain=1,interrupt=1" );
   cop -> add_action( "mind_spike" );
   cop -> add_action( "shadow_word_death,moving=1" );
-  cop -> add_action( "mind_blast,moving=1,if=buff.shadowy_insight.react&cooldown_react" );
+  cop -> add_action( "mind_blast,if=buff.shadowy_insight.react&cooldown_react,moving=1" );
   cop -> add_action( "halo,moving=1,if=talent.halo.enabled&target.distance<=30" );
-  cop -> add_action( "divine_star,moving=1,if=talent.divine_star.enabled&target.distance<=28" );
-  cop -> add_action( "cascade,moving=1,if=talent.cascade.enabled&target.distance<=40" );
-  cop -> add_action( "shadow_word_pain,moving=1,cycle_targets=1,if=primary_target=0" );
+  cop -> add_action( "divine_star,if=talent.divine_star.enabled&target.distance<=28,moving=1" );
+  cop -> add_action( "cascade,if=talent.cascade.enabled&target.distance<=40,moving=1" );
+  cop -> add_action( "shadow_word_pain,if=primary_target=0,moving=1,cycle_targets=1" );
 
   // CoP action list, if you have Insanity selected
   cop_mfi -> add_action( "devouring_plague,if=shadow_orb=5" );
@@ -6148,51 +6121,53 @@ void priest_t::apl_shadow()
   cop_mfi -> add_action( "shadow_word_death,if=buff.shadow_word_death_reset_cooldown.stack=1,cycle_targets=1" );
   cop_mfi -> add_action( "shadow_word_death,if=buff.shadow_word_death_reset_cooldown.stack=0,cycle_targets=1" );
   cop_mfi -> add_action( "devouring_plague,if=shadow_orb>=3&(cooldown.mind_blast.remains<1.5|target.health.pct<20&cooldown.shadow_word_death.remains<1.5)" );
+  cop_mfi -> add_action( "mindbender,if=talent.mindbender.enabled" );
   cop_mfi -> add_action( "shadowfiend,if=!talent.mindbender.enabled" );
   cop_mfi -> add_action( "insanity,if=buff.shadow_word_insanity.remains<0.5*gcd&active_enemies<=2,chain=1" );
-  cop_mfi -> add_action( "insanity,interrupt=1,chain=1,if=active_enemies<=2" );
-  cop_mfi -> add_action( "halo,if=talent.halo.enabled&target.distance<=30&target.distance>=17" );//When coefficients change, update minimum distance!
-  cop_mfi -> add_action( "cascade,if=talent.cascade.enabled&((active_enemies>1|target.distance>=28)&target.distance<=40&target.distance>=11)" );//When coefficients change, update minimum distance!
+  cop_mfi -> add_action( "insanity,if=active_enemies<=2,interrupt=1,chain=1" );
+  cop_mfi -> add_action( "halo,if=talent.halo.enabled&target.distance<=30&target.distance>=17" );
+  cop_mfi -> add_action( "cascade,if=talent.cascade.enabled&((active_enemies>1|target.distance>=28)&target.distance<=40&target.distance>=11)" );
   cop_mfi -> add_action( "divine_star,if=talent.divine_star.enabled&(active_enemies>1|target.distance<=24)" );
-  cop_mfi -> add_action( "shadow_word_pain,cycle_targets=1,max_cycle_targets=5,if=miss_react&!ticking&primary_target=0" );
-  cop_mfi -> add_action( "vampiric_touch,cycle_targets=1,max_cycle_targets=5,if=remains<cast_time&miss_react&primary_target=0" );
-  cop_mfi -> add_action( "mind_sear,chain=1,interrupt=1,if=active_enemies>=6" );
+  cop_mfi -> add_action( "shadow_word_pain,if=remains<(18*0.3)&miss_react&primary_target=0,cycle_targets=1,max_cycle_targets=5" );
+  cop_mfi -> add_action( "vampiric_touch,if=remains<(15*0.3+cast_time)&miss_react&primary_target=0,cycle_targets=1,max_cycle_targets=5" );
+  cop_mfi -> add_action( "mind_sear,if=active_enemies>=6,chain=1,interrupt=1" );
   cop_mfi -> add_action( "mind_spike" );
   cop_mfi -> add_action( "shadow_word_death,moving=1" );
-  cop_mfi -> add_action( "mind_blast,moving=1,if=buff.shadowy_insight.react&cooldown_react" );
-  cop_mfi -> add_action( "halo,moving=1,if=talent.halo.enabled&target.distance<=30" );
-  cop_mfi -> add_action( "divine_star,moving=1,if=talent.divine_star.enabled&target.distance<=28" );
-  cop_mfi -> add_action( "cascade,moving=1,if=talent.cascade.enabled&target.distance<=40" );
-  cop_mfi -> add_action( "shadow_word_pain,moving=1,cycle_targets=1,if=primary_target=0" );
+  cop_mfi -> add_action( "mind_blast,if=buff.shadowy_insight.react&cooldown_react,moving=1" );
+  cop_mfi -> add_action( "halo,if=talent.halo.enabled&target.distance<=30,moving=1" );
+  cop_mfi -> add_action( "divine_star,if=talent.divine_star.enabled&target.distance<=28,moving=1" );
+  cop_mfi -> add_action( "cascade,if=talent.cascade.enabled&target.distance<=40,moving=1" );
+  cop_mfi -> add_action( "shadow_word_pain,if=primary_target=0,moving=1,cycle_targets=1" );
 
   // Advanced "DoT Weaving" CoP Action List, for when you have T14 2P
   cop_advanced_mfi -> add_action( "mind_blast,if=mind_harvest=0,cycle_targets=1" );
   cop_advanced_mfi -> add_action( "mind_blast,if=active_enemies<=5&cooldown_react" );
   cop_advanced_mfi -> add_action( "shadow_word_death,if=buff.shadow_word_death_reset_cooldown.stack=1,cycle_targets=1" );
   cop_advanced_mfi -> add_action( "shadow_word_death,if=buff.shadow_word_death_reset_cooldown.stack=0,cycle_targets=1" );
+  cop_advanced_mfi -> add_action( "mindbender,if=talent.mindbender.enabled" );
   cop_advanced_mfi -> add_action( "shadowfiend,if=!talent.mindbender.enabled" );
-  cop_advanced_mfi -> add_action( "halo,if=talent.halo.enabled&target.distance<=30&target.distance>=17" );//When coefficients change, update minimum distance!
-  cop_advanced_mfi -> add_action( "cascade,if=talent.cascade.enabled&((active_enemies>1|target.distance>=28)&target.distance<=40&target.distance>=11)" );//When coefficients change, update minimum distance!
+  cop_advanced_mfi -> add_action( "halo,if=talent.halo.enabled&target.distance<=30&target.distance>=17" );
+  cop_advanced_mfi -> add_action( "cascade,if=talent.cascade.enabled&((active_enemies>1|target.distance>=28)&target.distance<=40&target.distance>=11)" );
   cop_advanced_mfi -> add_action( "divine_star,if=talent.divine_star.enabled&(active_enemies>1|target.distance<=24)" );
-  cop_advanced_mfi -> add_action( "shadow_word_pain,cycle_targets=1,max_cycle_targets=5,if=miss_react&!ticking&primary_target=0" );
-  cop_advanced_mfi -> add_action( "vampiric_touch,cycle_targets=1,max_cycle_targets=5,if=remains<cast_time&miss_react&primary_target=0" );
-  cop_advanced_mfi -> add_action( "mind_sear,chain=1,interrupt=1,if=active_enemies>=6" );
+  cop_advanced_mfi -> add_action( "shadow_word_pain,if=remains<(18*0.3)&miss_react&primary_target=0,cycle_targets=1,max_cycle_targets=5" );
+  cop_advanced_mfi -> add_action( "vampiric_touch,if=remains<(15*0.3+cast_time)&miss_react&primary_target=0,cycle_targets=1,max_cycle_targets=5" );
+  cop_advanced_mfi -> add_action( "mind_sear,if=active_enemies>=6,chain=1,interrupt=1" );
   cop_advanced_mfi -> add_action( "mind_spike" );
   cop_advanced_mfi -> add_action( "shadow_word_death,moving=1" );
-  cop_advanced_mfi -> add_action( "mind_blast,moving=1,if=buff.shadowy_insight.react&cooldown_react" );
-  cop_advanced_mfi -> add_action( "halo,moving=1,if=talent.halo.enabled&target.distance<=30" );
-  cop_advanced_mfi -> add_action( "divine_star,moving=1,if=talent.divine_star.enabled&target.distance<=28" );
-  cop_advanced_mfi -> add_action( "cascade,moving=1,if=talent.cascade.enabled&target.distance<=40" );
-  cop_advanced_mfi -> add_action( "shadow_word_pain,moving=1,cycle_targets=1,if=primary_target=0" );
+  cop_advanced_mfi -> add_action( "mind_blast,if=buff.shadowy_insight.react&cooldown_react,moving=1" );
+  cop_advanced_mfi -> add_action( "halo,if=talent.halo.enabled&target.distance<=30,moving=1" );
+  cop_advanced_mfi -> add_action( "divine_star,if=talent.divine_star.enabled&target.distance<=28,moving=1" );
+  cop_advanced_mfi -> add_action( "cascade,if=talent.cascade.enabled&target.distance<=40,moving=1" );
+  cop_advanced_mfi -> add_action( "shadow_word_pain,if=primary_target=0,moving=1,cycle_targets=1" );
 
   // Advanced "DoT Weaving" CoP Action List, for when you have T14 2P -- Part 2, the weaving
-  cop_advanced_mfi_dots -> add_action( "devouring_plague,if=shadow_orb>=4&target.dot.shadow_word_pain.ticking&target.dot.vampiric_touch.ticking" );
   cop_advanced_mfi_dots -> add_action( "mind_spike,if=(target.dot.shadow_word_pain.ticking&target.dot.shadow_word_pain.remains<gcd*0.5)|(target.dot.vampiric_touch.ticking&target.dot.vampiric_touch.remains<gcd*0.5)" );
   cop_advanced_mfi_dots -> add_action( "shadow_word_pain,if=!ticking&miss_react&!target.dot.vampiric_touch.ticking" );
   cop_advanced_mfi_dots -> add_action( "vampiric_touch,if=!ticking&miss_react" );
   cop_advanced_mfi_dots -> add_action( "mind_blast" );
+  cop_advanced_mfi_dots -> add_action( "devouring_plague,if=shadow_orb>=3&target.dot.shadow_word_pain.ticking&target.dot.vampiric_touch.ticking" );
   cop_advanced_mfi_dots -> add_action( "insanity,if=buff.shadow_word_insanity.remains<0.5*gcd&active_enemies<=2,chain=1" );
-  cop_advanced_mfi_dots -> add_action( "insanity,interrupt=1,chain=1,if=active_enemies<=2" );
+  cop_advanced_mfi_dots -> add_action( "insanity,if=active_enemies<=2,interrupt=1,chain=1" );
   cop_advanced_mfi_dots -> add_action( "mind_spike,if=(target.dot.shadow_word_pain.ticking&target.dot.shadow_word_pain.remains<gcd*2)|(target.dot.vampiric_touch.ticking&target.dot.vampiric_touch.remains<gcd*2)" );
   cop_advanced_mfi_dots -> add_action( "mind_flay,chain=1,interrupt=1" );
 }
@@ -6545,16 +6520,10 @@ void priest_t::create_options()
 {
   base_t::create_options();
 
-  option_t priest_options[] =
-  {
-    opt_string( "atonement_target", options.atonement_target_str ),
-    opt_deprecated( "double_dot", "action_list=double_dot" ),
-    opt_int( "initial_shadow_orbs", options.initial_shadow_orbs, 0, 5 ),
-    opt_bool( "autounshift", options.autoUnshift ),
-    opt_null()
-  };
-
-  option_t::copy( base_t::options, priest_options );
+  add_option( opt_string( "atonement_target", options.atonement_target_str ) );
+  add_option( opt_deprecated( "double_dot", "action_list=double_dot" ) );
+  add_option( opt_int( "initial_shadow_orbs", options.initial_shadow_orbs, 0, 5 ) );
+  add_option( opt_bool( "autounshift", options.autoUnshift ) );
 }
 
 // priest_t::create_profile =================================================

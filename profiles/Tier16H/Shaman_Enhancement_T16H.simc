@@ -63,13 +63,14 @@ actions.single+=/searing_totem,if=pet.searing_totem.remains<=20&!pet.fire_elemen
 
 # Multi target action priority list
 
-actions.aoe=fire_nova,if=active_dot.flame_shock>=3
+actions.aoe=unleash_elements,if=active_enemies>=4&dot.flame_shock.ticking&(cooldown.shock.remains>cooldown.fire_nova.remains|cooldown.fire_nova.remains=0)
+actions.aoe+=/fire_nova,if=active_dot.flame_shock>=3
 actions.aoe+=/wait,sec=cooldown.fire_nova.remains,if=active_dot.flame_shock>=4&cooldown.fire_nova.remains<=action.fire_nova.gcd
 actions.aoe+=/magma_totem,if=!totem.fire.active
 actions.aoe+=/lava_lash,if=dot.flame_shock.ticking
 actions.aoe+=/elemental_blast,if=buff.maelstrom_weapon.react>=1
 actions.aoe+=/chain_lightning,if=glyph.chain_lightning.enabled&active_enemies>=4&(buff.maelstrom_weapon.react=5|(buff.ancestral_swiftness.up&buff.maelstrom_weapon.react>=3))
-actions.aoe+=/unleash_elements
+actions.aoe+=/unleash_elements,if=active_enemies<4
 actions.aoe+=/flame_shock,cycle_targets=1,if=!ticking
 actions.aoe+=/lightning_bolt,if=(!glyph.chain_lightning.enabled|active_enemies<=3)&(buff.maelstrom_weapon.react=5|(buff.ancestral_swiftness.up&buff.maelstrom_weapon.react>=3))
 actions.aoe+=/windstrike
@@ -93,7 +94,7 @@ legs=legguards_of_celestial_harmony,id=99342,upgrade=4,gems=20crit_20crit_8agi,e
 feet=ravagers_pathwalkers,id=105553,upgrade=4,gems=10haste_10crit_4agi,enchant=9agi
 finger1=swift_serpent_signet,id=105483,upgrade=4,gems=20crit_4crit
 finger2=kilruks_band_of_ascendancy,id=105624,upgrade=4,gems=10haste_10crit_4crit
-trinket1=ticking_ebon_detonator,id=105612,upgrade=4
+trinket1=assurance_of_consequence,id=105472,upgrade=4
 trinket2=haromms_talisman,id=105527,upgrade=4
 main_hand=korvens_crimson_crescent,id=105625,upgrade=4,gems=10haste_10crit_4agi,enchant=dancing_steel
 off_hand=korvens_crimson_crescent,id=105625,upgrade=4,gems=10haste_10crit_4agi,enchant=dancing_steel
@@ -105,7 +106,7 @@ off_hand=korvens_crimson_crescent,id=105625,upgrade=4,gems=10haste_10crit_4agi,e
 # gear_intellect=5
 # gear_crit_rating=498
 # gear_haste_rating=681
-# gear_mastery_rating=753
+# gear_mastery_rating=646
 # gear_armor=825
 # gear_multistrike_rating=107
 # meta_gem=capacitive_primal

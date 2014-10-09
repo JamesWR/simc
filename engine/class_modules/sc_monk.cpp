@@ -28,14 +28,35 @@
   * BoK's cleave effect
   - Non-glyphed Mana Tea
 
-  BREWMASTER:
-  - Fix Tier 16 2-piece to properly lower the cooldown by 30 seconds.
-  - Purifying Brew - mostly implemented
-  - Level 75 talents - dampen harm added - currently stacks are consumed on all attacks, not just above 15% max hp
-  - Black Ox Statue
+  http://us.battle.net/wow/en/forum/topic/14729563047?page=1#20
+  Gift of the Serpent Proc Coefficients:
+  119611 Renewing Mists 0.25
+  132463 Chi Wave 0.25
+  124081 Zen Sphere (Periodic) 0.20
+  124101 Zen Sphere (Detonate) 0.20
+  130654 Chi Burst 0.20
+  115175 Soothing Mists 0.67
+  125953 Soothing Mists (Statue) 0.33
+  132120 Enveloping Mist 0.25
+  116670 Uplift 0.40
+  130316 Uplift (Glyphed) 0.40
+  126890 Eminence (Self & Xuen) 0.27
+  117895 Eminence (Statue) 0.13
+  124040 Chi Torpedo 0.45
+  117640 Spinning Crane Kick 0.15
+  162530 Rushing Jade Wind 0.10
+  157590 Breath of the Serpent 0.20
+  157675 Chi Explosion 0.30
+  157681 Chi Explosion (Periodic) 0.02
+  159620 Chi Explosion (Crane) 0.40
+  115310 Revival 1.00
+  116995 Surging Mist 1.00
+  115072 Expel Harm 1.00
 
+  BREWMASTER:
+  - Level 75 talents - dampen harm added - currently stacks are consumed on all attacks, not just above 15% max hp
+  
   - Zen Meditation
-  - Cache stagger_pct
   */
 #include "simulationcraft.hpp"
 
@@ -467,7 +488,10 @@ struct jade_serpent_statue_t: public statue_t
   { }
 };
 
-struct xuen_pet_t: public pet_t
+// ==========================================================================
+// Xuen Pet
+// ==========================================================================
+struct xuen_pet_t : public pet_t
 {
 private:
   struct melee_t: public melee_attack_t
@@ -511,7 +535,7 @@ private:
   {
     crackling_tiger_lightning_driver_t( xuen_pet_t *p, const std::string& options_str ): spell_t( "crackling_tiger_lightning_driver", p, NULL )
     {
-      parse_options( NULL, options_str );
+      parse_options( options_str );
 
       // for future compatibility, we may want to grab Xuen and our tick spell and build this data from those (Xuen summon duration, for example)
       dot_duration = timespan_t::from_seconds( 45.0 );
@@ -528,7 +552,7 @@ private:
   {
     crackling_tiger_lightning_t( xuen_pet_t* player, const std::string& options_str ): melee_attack_t( "crackling_tiger_lightning", player, player -> find_spell( 123996 ) )
     {
-      parse_options( nullptr, options_str );
+      parse_options( options_str );
 
       // Looks like Xuen needs a couple fixups to work properly.  Let's do that now.
       aoe = 3;
@@ -542,7 +566,7 @@ private:
     auto_attack_t( xuen_pet_t* player, const std::string& options_str ):
       attack_t( "auto_attack", player, spell_data_t::nil() )
     {
-      parse_options( nullptr, options_str );
+      parse_options( options_str );
 
       player -> main_hand_attack = new melee_t( "melee_main_hand", player );
       player -> main_hand_attack -> base_execute_time = player -> main_hand_weapon.swing_time;
@@ -602,6 +626,148 @@ public:
 
     return pet_t::create_action( name, options_str );
   }
+};
+
+// ==========================================================================
+// Storm, Earth, and Fire Pet
+// ==========================================================================
+struct storm_earth_and_fire_pet_t : pet_t
+{
+private:
+  struct sef_spell_t : spell_t
+  {
+    sef_spell_t( const std::string& n, storm_earth_and_fire_pet_t* p, const spell_data_t* s = spell_data_t::nil() ) :
+      spell_t( n, p, s )
+    {
+      background = true;
+    }
+
+    storm_earth_and_fire_pet_t* p()
+    { return static_cast<storm_earth_and_fire_pet_t*>( player ); }
+    const storm_earth_and_fire_pet_t* p() const
+    { return static_cast<storm_earth_and_fire_pet_t*>( player ); }
+
+    monk_t* o()
+    { return static_cast< monk_t* >( p() -> owner ); }
+    const monk_t* o() const
+    { return static_cast< monk_t* >( p() -> owner ); }
+  };
+
+  struct sef_heal_t : public heal_t
+  {
+    sef_heal_t( const std::string& n, storm_earth_and_fire_pet_t* p,  const spell_data_t* s = spell_data_t::nil() ) :
+      heal_t( n, p, s )
+    {
+      background = true;
+      harmful = false;
+    }
+
+    storm_earth_and_fire_pet_t* p()
+    { return static_cast<storm_earth_and_fire_pet_t*>( player ); }
+    const storm_earth_and_fire_pet_t* p() const
+    { return static_cast<storm_earth_and_fire_pet_t*>( player ); }
+
+    monk_t* o()
+    { return static_cast< monk_t* >( p() -> owner ); }
+    const monk_t* o() const
+    { return static_cast< monk_t* >( p() -> owner ); }
+  };
+
+  struct sef_melee_attack_t : public melee_attack_t
+  {
+    weapon_t* mh;
+    weapon_t* oh;
+    sef_melee_attack_t( const std::string& n, storm_earth_and_fire_pet_t* p, const spell_data_t* s = spell_data_t::nil() ) :
+      melee_attack_t( n, p, s ), mh( NULL ), oh( NULL )
+    {
+      background = true;
+      special = true;
+      may_crit = true;
+      may_glance = false;
+      school = SCHOOL_PHYSICAL;
+    }
+
+    storm_earth_and_fire_pet_t* p()
+    { return static_cast<storm_earth_and_fire_pet_t*>( player ); }
+    const storm_earth_and_fire_pet_t* p() const
+    { return static_cast<storm_earth_and_fire_pet_t*>( player ); }
+
+    monk_t* o()
+    { return static_cast<monk_t*>( p() -> owner ); }
+    const monk_t* o() const
+    { return static_cast<monk_t*>( p() -> owner ); }
+
+    // Special Monk Attack Weapon damage collection, if the pointers mh or oh are set, instead of the classical action_t::weapon
+    // Damage is divided instead of multiplied by the weapon speed, AP portion is not multiplied by weapon speed.
+    // Both MH and OH are directly weaved into one damage number
+    virtual double calculate_weapon_damage( double ap )
+    {
+      double total_dmg = 0;
+
+      // Main Hand
+      if ( mh != NULL && mh -> type != WEAPON_NONE && weapon_multiplier > 0 )
+      {
+        assert( mh -> slot != SLOT_OFF_HAND );
+        double dmg = sim -> averaged_range( mh -> min_dmg, mh -> max_dmg ) + mh -> bonus_dmg;
+        dmg /= mh -> swing_time.total_seconds();
+        total_dmg += dmg;
+
+        if ( sim -> debug )
+        {
+          sim -> out_debug.printf( "%s main hand weapon damage portion for %s: td=%.3f wd=%.3f bd=%.3f ws=%.3f ap=%.3f",
+            player -> name(), name(), total_dmg, dmg, mh -> bonus_dmg, mh -> swing_time.total_seconds(), ap );
+        }
+      }
+
+      // Off Hand
+      if ( oh && oh -> type != WEAPON_NONE && weapon_multiplier > 0 )
+      {
+        assert( oh -> slot == SLOT_OFF_HAND );
+        double dmg = sim -> averaged_range( oh -> min_dmg, oh -> max_dmg) + oh -> bonus_dmg;
+        dmg /= oh -> swing_time.total_seconds();
+        // OH penalty
+        dmg *= 0.5;
+
+        total_dmg += dmg;
+
+        if ( sim -> debug )
+        {
+          sim -> out_debug.printf( "%s off-hand weapon damage portion for %s: td=%.3f wd=%.3f bd=%.3f ws=%.3f ap=%.3f",
+            player -> name(), name(), total_dmg, dmg, oh -> bonus_dmg, oh -> swing_time.total_seconds(), ap );
+        }
+      }
+
+      if ( o() -> dual_wield() )
+        total_dmg *= 0.857143;
+
+      if ( !mh && !oh )
+        total_dmg += calculate_weapon_damage(ap);
+      else
+        total_dmg += weapon_power_mod * ap;
+
+      return total_dmg;
+    }
+  };
+public:
+  storm_earth_and_fire_pet_t( sim_t* sim, monk_t* owner ) :
+    pet_t( sim, owner, "storm_earth_and_fire", true )
+  {
+    main_hand_weapon.type = owner -> main_hand_weapon.type;
+    main_hand_weapon.min_dmg = dbc.spell_scaling( owner -> type, level );
+    main_hand_weapon.max_dmg = dbc.spell_scaling( owner -> type, level );
+    main_hand_weapon.damage = ( main_hand_weapon.min_dmg + main_hand_weapon.max_dmg ) / 2;
+    main_hand_weapon.swing_time = owner -> main_hand_weapon.swing_time;
+
+    off_hand_weapon.type = owner -> off_hand_weapon.type;
+    off_hand_weapon.min_dmg = dbc.spell_scaling( owner -> type, level );
+    off_hand_weapon.max_dmg = dbc.spell_scaling( owner -> type, level );
+    off_hand_weapon.damage = ( off_hand_weapon.min_dmg + off_hand_weapon.max_dmg ) / 2;
+    off_hand_weapon.swing_time = owner -> off_hand_weapon.swing_time;
+    owner_coeff.ap_from_ap = 1;
+
+  }
+  monk_t* o()
+  { return static_cast<monk_t*>( owner ); }
 };
 } // end namespace pets
 
@@ -939,7 +1105,7 @@ struct jab_t: public monk_melee_attack_t
   jab_t( monk_t* p, const std::string& options_str ):
     monk_melee_attack_t( "jab", p, jab_data( p ) )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
     stancemask = STURDY_OX | FIERCE_TIGER | SPIRITED_CRANE;
 
     mh = &( player -> main_hand_weapon );
@@ -1008,7 +1174,7 @@ struct tiger_palm_t: public monk_melee_attack_t
   tiger_palm_t( monk_t* p, const std::string& options_str ):
     monk_melee_attack_t( "tiger_palm", p, p -> find_class_spell( "Tiger Palm" ) )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
     stancemask = STURDY_OX | FIERCE_TIGER | SPIRITED_CRANE;
     mh = &( player -> main_hand_weapon );
     oh = &( player -> off_hand_weapon );
@@ -1109,7 +1275,7 @@ struct blackout_kick_t: public monk_melee_attack_t
   blackout_kick_t( monk_t* p, const std::string& options_str ):
     monk_melee_attack_t( "blackout_kick", p, p -> find_class_spell( "Blackout Kick" ) )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
     if ( p -> talent.chi_explosion -> ok() )
       background = true;
     mh = &( player -> main_hand_weapon );
@@ -1237,7 +1403,7 @@ struct chi_explosion_t: public monk_melee_attack_t
   chi_explosion_t( monk_t* p, const std::string& options_str ):
     monk_melee_attack_t( "chi_explosion", p, p -> talent.chi_explosion )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
   }
 
   void execute()
@@ -1353,7 +1519,7 @@ struct rising_sun_kick_t: public monk_melee_attack_t
   {
     cooldown -> duration = data().charge_cooldown();
     cooldown -> charges = data().charges();
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
     stancemask = FIERCE_TIGER;
     mh = &( player -> main_hand_weapon );
     oh = &( player -> off_hand_weapon );
@@ -1394,6 +1560,7 @@ struct spinning_crane_kick_t: public monk_melee_attack_t
       mh = &( player -> main_hand_weapon );
       oh = &( player -> off_hand_weapon );
       base_multiplier *= 0.75; // hardcoded into tooltip
+      update_flags = ~STATE_HASTE;
     }
 
     void execute()
@@ -1404,6 +1571,18 @@ struct spinning_crane_kick_t: public monk_melee_attack_t
         player -> resource_gain( RESOURCE_CHI, p() -> find_spell( 129881 ) -> effectN( 1 ).base_value(),
                                  p() -> gain.spinning_crane_kick, this );
         chi_refund = false; // Only let one tick refund chi.
+      }
+
+      if ( p() -> buff.power_strikes -> up() && execute_state -> n_targets >= 3 )
+      {
+        if ( p() -> resources.current[RESOURCE_CHI]< p() -> resources.max[RESOURCE_CHI] )
+          p() -> resource_gain( RESOURCE_CHI,
+                                p() -> buff.power_strikes -> data().effectN( 1 ).base_value(),
+                                0, this );
+        else
+          p() -> buff.chi_sphere -> trigger();
+
+        p() -> buff.power_strikes -> expire();
       }
     }
   };
@@ -1434,6 +1613,18 @@ struct spinning_crane_kick_t: public monk_melee_attack_t
                                  p() -> gain.rushing_jade_wind, this );
         chi_refund = false; // Only let one tick refund chi.
       }
+
+      if ( p() -> buff.power_strikes -> up() && execute_state -> n_targets >= 3 )
+      {
+        if ( p() -> resources.current[RESOURCE_CHI] < p() -> resources.max[RESOURCE_CHI] )
+          p() -> resource_gain( RESOURCE_CHI,
+                                p() -> buff.power_strikes -> data().effectN( 1 ).base_value(),
+                                0, this );
+        else
+          p() -> buff.chi_sphere -> trigger();
+
+        p() -> buff.power_strikes -> expire();
+      }
     }
   };
 
@@ -1445,7 +1636,7 @@ struct spinning_crane_kick_t: public monk_melee_attack_t
     p -> talent.rushing_jade_wind -> ok() ? p -> talent.rushing_jade_wind : p -> spec.spinning_crane_kick ),
     jade( 0 ), crane( 0 )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
     stancemask = STURDY_OX | FIERCE_TIGER | WISE_SERPENT | SPIRITED_CRANE;
     may_crit = may_miss = may_block = may_dodge = may_parry = callbacks = false;
     tick_zero = true;
@@ -1464,6 +1655,7 @@ struct spinning_crane_kick_t: public monk_melee_attack_t
       hasted_ticks = true;
       school = SCHOOL_PHYSICAL;
       channeled = true;
+      cooldown -> duration *= 1 + p -> perk.empowered_spinning_crane_kick -> effectN( 1 ).percent();
       base_tick_time *= 1 + p -> perk.empowered_spinning_crane_kick -> effectN( 1 ).percent();
       crane = new spinning_crane_kick_tick_t( p, p -> find_spell( 107270 ) );
       add_child( crane );
@@ -1512,6 +1704,7 @@ struct spinning_crane_kick_t: public monk_melee_attack_t
       p() -> resource_gain( RESOURCE_ENERGY, p() -> passives.tier15_2pc_melee -> effectN( 1 ).base_value(), p() -> gain.tier15_2pc_melee );
       p() -> proc.tier15_2pc_melee -> occur();
     }
+
   }
 };
 
@@ -1542,7 +1735,7 @@ struct fists_of_fury_t: public monk_melee_attack_t
     monk_melee_attack_t( "fists_of_fury", p, p -> spec.fists_of_fury ),
     fists_of_fury( new fists_of_fury_tick_t( p, "fists_of_fury_tick" ) )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
     stancemask = FIERCE_TIGER;
     channeled = tick_zero = true;
     may_crit = may_miss = may_block = may_dodge = may_parry = callbacks = false;
@@ -1596,13 +1789,14 @@ struct hurricane_strike_t: public monk_melee_attack_t
     monk_melee_attack_t( "hurricane_strike", p, p -> talent.hurricane_strike ),
     hs_tick( new hurricane_strike_tick_t( "hurricane_strike_tick", p, p -> find_spell( 158221 ) ) )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
     stancemask = FIERCE_TIGER;
     add_child( hs_tick );
     hasted_ticks = interrupt_auto_attack = callbacks = false;
     channeled = true;
     dot_duration = data().duration();
     base_tick_time = dot_duration / 15;
+    tick_zero = false;
   }
 
   void tick( dot_t*d )
@@ -1618,6 +1812,11 @@ struct hurricane_strike_t: public monk_melee_attack_t
     double savings = base_costs[RESOURCE_CHI] - cost();
     if ( result_is_hit( execute_state -> result ) )
       p() -> track_chi_consumption += savings;
+  }
+
+  virtual timespan_t travel_time() const
+  {
+    return timespan_t::zero();
   }
 };
 
@@ -1714,12 +1913,8 @@ struct auto_attack_t: public monk_melee_attack_t
     monk_melee_attack_t( "auto_attack", player, spell_data_t::nil() ),
     sync_weapons( 0 )
   {
-    option_t options[] =
-    {
-      opt_bool( "sync_weapons", sync_weapons ),
-      opt_null()
-    };
-    parse_options( options, options_str );
+    add_option( opt_bool( "sync_weapons", sync_weapons ) );
+    parse_options( options_str );
 
     p() -> main_hand_attack = new melee_t( "melee_main_hand", player, sync_weapons );
     p() -> main_hand_attack -> weapon = &( player -> main_hand_weapon );
@@ -1769,12 +1964,8 @@ struct keg_smash_t: public monk_melee_attack_t
     chi_generation( p.find_spell( 127796 ) ),
     apply_dizzying_haze( false )
   {
-    option_t options[] =
-    {
-      opt_bool( "dizzying_haze", apply_dizzying_haze ),
-      opt_null()
-    };
-    parse_options( options, options_str );
+    add_option( opt_bool( "dizzying_haze", apply_dizzying_haze ) );
+    parse_options( options_str );
 
     stancemask = STURDY_OX;
     aoe = -1;
@@ -1815,14 +2006,14 @@ struct touch_of_death_t : public monk_melee_attack_t
   touch_of_death_t(monk_t* p, const std::string& options_str) :
     monk_melee_attack_t("touch_of_death", p, p -> find_class_spell("Touch of Death"))
   {
-    parse_options(nullptr, options_str);
+    parse_options( options_str);
     stancemask = STURDY_OX | FIERCE_TIGER | SPIRITED_CRANE;
     if ( p -> glyph.touch_of_death -> ok() )
     {
       cooldown -> duration += p -> glyph.touch_of_death -> effectN( 1 ).time_value();
       base_costs[RESOURCE_CHI] *= 1.0 + p -> glyph.touch_of_death -> effectN( 2 ).percent();
     }
-    may_crit = may_miss = may_dodge = may_parry = may_multistrike = false;
+    may_crit = may_miss = may_dodge = may_parry = false;
   }
 
   virtual void impact(action_state_t* s)
@@ -1842,6 +2033,43 @@ struct touch_of_death_t : public monk_melee_attack_t
       return false;
 
     return monk_melee_attack_t::ready();
+  }
+};
+
+// ==========================================================================
+// Touch of Karma
+// ==========================================================================
+
+struct touch_of_karma_dot_t: public residual_action::residual_periodic_action_t < monk_melee_attack_t >
+{
+  touch_of_karma_dot_t( monk_t* p ):
+    base_t( "touch_of_karma", p, p -> find_spell( 124280 ) )
+  {
+    may_miss = may_crit = false;
+  }
+};
+
+struct touch_of_karma_t: public monk_melee_attack_t
+{
+  touch_of_karma_dot_t* touch_of_karma_dot;
+  touch_of_karma_t( monk_t* p, const std::string& options_str ):
+    monk_melee_attack_t( "touch_of_karma", p, p -> spec.touch_of_karma ),
+    touch_of_karma_dot( new touch_of_karma_dot_t( p ) )
+  {
+    parse_options( options_str );
+    stancemask = FIERCE_TIGER;
+    cooldown -> duration = data().cooldown();
+
+    may_crit = may_miss = may_dodge = may_parry = false;
+  }
+
+  void execute()
+  {
+    monk_melee_attack_t::execute();
+
+    residual_action::trigger( // For now, just assume it does maximum damage.
+      touch_of_karma_dot, execute_state -> target,
+      data().effectN( 3 ).percent() * player -> resources.max[RESOURCE_HEALTH] );
   }
 };
 
@@ -1877,6 +2105,23 @@ struct expel_harm_t: public monk_melee_attack_t
     return c;
   }
 
+  void execute()
+  {
+    monk_melee_attack_t::execute();
+
+    if ( p() -> buff.power_strikes -> up() )
+    {
+      if ( p() -> resources.current[RESOURCE_CHI]< p() -> resources.max[RESOURCE_CHI] )
+        p() -> resource_gain( RESOURCE_CHI,
+                              p() -> buff.power_strikes -> data().effectN( 1 ).base_value(),
+                              0, this );
+      else
+        p() -> buff.chi_sphere -> trigger();
+
+      p() -> buff.power_strikes -> expire();
+    }
+  }
+
   double trigger_attack()
   {
     execute();
@@ -1900,7 +2145,7 @@ struct provoke_t: public monk_melee_attack_t
   provoke_t( monk_t* p, const std::string& options_str ):
     monk_melee_attack_t( "provoke", p, p -> find_class_spell( "Provoke" ) )
   {
-    parse_options( NULL, options_str );
+    parse_options( options_str );
     use_off_gcd = true;
   }
 
@@ -1928,12 +2173,8 @@ struct stance_t: public monk_spell_t
     monk_spell_t( "stance", p ),
     switch_to_stance( FIERCE_TIGER ), stance_str()
   {
-    option_t options[] =
-    {
-      opt_string( "choose", stance_str ),
-      opt_null()
-    };
-    parse_options( options, options_str );
+    add_option( opt_string( "choose", stance_str ) );
+    parse_options( options_str );
 
     try
     {
@@ -2000,7 +2241,7 @@ struct tigereye_brew_t: public monk_spell_t
   tigereye_brew_t( monk_t* player, const std::string& options_str ):
     monk_spell_t( "tigereye_brew", player, player -> spec.tigereye_brew )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
     harmful = false;
     trigger_gcd = timespan_t::zero();
   }
@@ -2041,7 +2282,7 @@ struct energizing_brew_t: public monk_spell_t
   energizing_brew_t( monk_t* player, const std::string& options_str ):
     monk_spell_t( "energizing_brew", player, player -> spec.energizing_brew )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
 
     trigger_gcd = timespan_t::zero();
     harmful = false;
@@ -2065,7 +2306,7 @@ struct chi_brew_t: public monk_spell_t
   chi_brew_t( monk_t* player, const std::string& options_str ):
     monk_spell_t( "chi_brew", player, player -> talent.chi_brew )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
 
     harmful = false;
     cooldown -> duration = data().charge_cooldown();
@@ -2154,7 +2395,7 @@ struct chi_wave_t: public monk_spell_t
     damage( new chi_wave_dmg_tick_t( player, "chi_wave_damage" ) ),
     dmg( true )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
     hasted_ticks = harmful = false;
     dot_duration = timespan_t::from_seconds( 7.0 );
     base_tick_time = timespan_t::from_seconds( 1.0 );
@@ -2192,7 +2433,7 @@ struct chi_burst_t: public monk_spell_t
   chi_burst_t( monk_t* player, const std::string& options_str ):
     monk_spell_t( "chi_burst", player, player -> talent.chi_burst )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
     aoe = -1;
     interrupt_auto_attack = false;
     attack_power_mod.direct = 1.345; // hardcoded into tooltip
@@ -2208,7 +2449,7 @@ struct chi_torpedo_t: public monk_spell_t
   chi_torpedo_t(monk_t* player, const std::string& options_str) :
     monk_spell_t("chi_torpedo", player, player -> talent.chi_torpedo -> ok() ? player -> find_spell(117993) : spell_data_t::not_found())
   {
-    parse_options(nullptr, options_str);
+    parse_options( options_str);
     aoe = -1;
     cooldown -> duration = data().charge_cooldown();
     cooldown -> charges = data().charges();
@@ -2224,7 +2465,7 @@ struct serenity_t: public monk_spell_t
   serenity_t( monk_t* player, const std::string& options_str ):
     monk_spell_t( "serenity", player, player -> talent.serenity )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
     harmful = false;
     trigger_gcd = timespan_t::zero();
   }
@@ -2271,7 +2512,7 @@ struct xuen_spell_t: public summon_pet_t
   xuen_spell_t( monk_t* p, const std::string& options_str ):
     summon_pet_t( "invoke_xuen", "xuen_the_white_tiger", p, p -> talent.invoke_xuen )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
 
     trigger_gcd = timespan_t::zero();
     harmful = false;
@@ -2288,7 +2529,7 @@ struct sef_fire_spell_t : public summon_pet_t
   sef_fire_spell_t( monk_t* p, const std::string& options_str ) :
     summon_pet_t( "storm_earth_and_fire", "sef_fire_spirit", p, p -> find_spell( 138123 ) )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
 
     trigger_gcd = timespan_t::zero();
     harmful = false;
@@ -2308,7 +2549,7 @@ struct sef_earth_spell_t : public summon_pet_t
   sef_earth_spell_t( monk_t* p, const std::string& options_str ) :
     summon_pet_t( "storm_earth_and_fire", "sef_earth_spirit", p, p -> find_spell( 138121 ) )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
 
     trigger_gcd = timespan_t::zero();
     harmful = false;
@@ -2332,7 +2573,7 @@ struct chi_sphere_t: public monk_spell_t
   chi_sphere_t( monk_t* p, const std::string& options_str ):
     monk_spell_t( "chi_sphere", p, spell_data_t::nil() )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
     harmful = false;
     trigger_gcd = timespan_t::zero();
   }
@@ -2371,7 +2612,7 @@ struct breath_of_fire_t: public monk_spell_t
     monk_spell_t( "breath_of_fire", &p, p.spec.breath_of_fire ),
     dot_action( new periodic_t( p ) )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
     aoe = -1;
     stancemask = STURDY_OX;
   }
@@ -2396,7 +2637,7 @@ struct dizzying_haze_t: public monk_spell_t
   dizzying_haze_t( monk_t& p, const std::string& options_str ):
     monk_spell_t( "dizzying_haze", &p, p.spec.dizzying_haze )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
 
     aoe = -1;
     stancemask = STURDY_OX;
@@ -2420,10 +2661,11 @@ struct fortifying_brew_t: public monk_spell_t
   fortifying_brew_t( monk_t& p, const std::string& options_str ):
     monk_spell_t( "fortifying_brew", &p, p.find_class_spell( "Fortifying Brew" ) )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
 
     harmful = may_crit = false;
     trigger_gcd = timespan_t::zero();
+    cooldown -> duration += p.sets.set( SET_TANK, T16, B2 ) -> effectN( 1 ).time_value();
   }
 
   virtual void execute()
@@ -2448,7 +2690,7 @@ struct elusive_brew_t: public monk_spell_t
   elusive_brew_t( monk_t& p, const std::string& options_str ):
     monk_spell_t( "elusive_brew", &p, p.spec.elusive_brew )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
 
     stancemask = STURDY_OX;
     harmful = false;
@@ -2488,7 +2730,7 @@ struct mana_tea_t: public monk_spell_t
   mana_tea_t( monk_t& p, const std::string& options_str ):
     monk_spell_t( "mana_tea", &p, p.spec.mana_tea )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
 
     stancemask = WISE_SERPENT;
     harmful = false;
@@ -2567,7 +2809,7 @@ struct purifying_brew_t: public monk_spell_t
   purifying_brew_t( monk_t& p, const std::string& options_str ):
     monk_spell_t( "purifying_brew", &p, p.spec.purifying_brew )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
 
     stancemask = STURDY_OX;
     harmful = false;
@@ -2644,7 +2886,7 @@ struct crackling_jade_lightning_t: public monk_spell_t
     monk_spell_t( "crackling_jade_lightning", &p, p.find_class_spell( "Crackling Jade Lightning" ) ),
     proc_driver( p.find_spell( 123332 ) )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
 
     stancemask = STURDY_OX | WISE_SERPENT | SPIRITED_CRANE | FIERCE_TIGER;
     channeled = tick_may_crit = true;
@@ -2724,7 +2966,7 @@ struct dampen_harm_t : public monk_spell_t
   dampen_harm_t( monk_t& p, const std::string& options_str ):
     monk_spell_t( "dampen_harm", &p, p.talent.dampen_harm )
       {
-        parse_options( NULL, options_str );
+        parse_options( options_str );
         trigger_gcd = timespan_t::zero();
         harmful = false;
         base_dd_min = 0;
@@ -2747,7 +2989,7 @@ struct diffuse_magic_t : public monk_spell_t
   diffuse_magic_t( monk_t& p, const std::string& options_str ) :
     monk_spell_t( "diffuse_magic", &p, p.talent.diffuse_magic )
   {
-    parse_options(NULL, options_str);
+    parse_options( options_str);
     trigger_gcd = timespan_t::zero();
     harmful = false;
     base_dd_min = 0;
@@ -2776,7 +3018,7 @@ struct enveloping_mist_t: public monk_heal_t
   enveloping_mist_t( monk_t& p, const std::string& options_str ):
     monk_heal_t( "enveloping_mist", p, p.find_spell( 132120 ) )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
 
     stancemask = WISE_SERPENT;
     may_crit = may_miss = false;
@@ -2807,7 +3049,7 @@ struct expel_harm_heal_t: public monk_heal_t
   expel_harm_heal_t( monk_t& p, const std::string& options_str ):
     monk_heal_t( "expel_harm_heal", p, p.find_class_spell( "Expel Harm" ) )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
 
     stancemask = STURDY_OX | FIERCE_TIGER | SPIRITED_CRANE;
     if ( !p.glyph.targeted_expulsion -> ok() )
@@ -2855,7 +3097,7 @@ struct renewing_mist_t: public monk_heal_t
   renewing_mist_t( monk_t& p, const std::string& options_str ):
     monk_heal_t( "renewing_mist", p, p.find_spell( 119611 ) )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
     stancemask = WISE_SERPENT;
     may_crit = may_miss = false;
     spell_power_mod.tick = p.spec.renewing_mist -> effectN( 3 ).sp_coeff();
@@ -2902,7 +3144,7 @@ struct soothing_mist_t: public monk_heal_t
   soothing_mist_t( monk_t& p, const std::string& options_str ):
     monk_heal_t( "soothing_mist", p, p.spec.soothing_mist )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
 
     stancemask = WISE_SERPENT;
     tick_zero = true;
@@ -2992,7 +3234,7 @@ struct surging_mist_t: public monk_heal_t
   surging_mist_t( monk_t& p, const std::string& options_str ):
     monk_heal_t( "surging_mist", p, p.find_spell( 116994 ) )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
 
     stancemask = STURDY_OX | FIERCE_TIGER | WISE_SERPENT | SPIRITED_CRANE;
 
@@ -3065,7 +3307,7 @@ struct zen_sphere_t: public monk_heal_t
     zen_sphere_detonate_damage( new spells::zen_sphere_detonate_damage_t( &p ) ),
     zen_sphere_detonate_heal( new zen_sphere_detonate_heal_t( p ) )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
 
     school = SCHOOL_NATURE;
     if ( player -> specialization() == MONK_MISTWEAVER )
@@ -3102,7 +3344,7 @@ struct gift_of_the_ox_t : public monk_heal_t
   gift_of_the_ox_t( monk_t& p, const std::string& options_str ) :
     monk_heal_t( "gift_of_the_ox", p, p.spec.gift_of_the_ox )
   {
-    parse_options(nullptr, options_str);
+    parse_options( options_str );
     harmful = false;
     trigger_gcd = timespan_t::zero();
     attack_power_mod.direct = 0.40; // Hardcoded Sep-15-2014
@@ -3128,7 +3370,7 @@ struct healing_elixirs_t : public monk_heal_t
   healing_elixirs_t( monk_t& p, const std::string& options_str ) :
     monk_heal_t( "healing_elixirs", p, p.talent.healing_elixirs )
   {
-    parse_options(nullptr, options_str);
+    parse_options( options_str);
     harmful = false;
     trigger_gcd = timespan_t::zero();
     cooldown -> duration = p.talent.healing_elixirs -> effectN( 1 ).period();
@@ -3180,7 +3422,7 @@ struct guard_t: public monk_absorb_t
   guard_t( monk_t& p, const std::string& options_str ):
     monk_absorb_t( "guard", p, p.spec.guard )
   {
-    parse_options( nullptr, options_str );
+    parse_options( options_str );
     harmful = false;
     trigger_gcd = timespan_t::zero();
     target = &p;
@@ -3261,6 +3503,7 @@ action_t* monk_t::create_action( const std::string& name,
   if ( name == "rising_sun_kick"       ) return new        rising_sun_kick_t( this, options_str );
   if ( name == "stance"                ) return new                 stance_t( this, options_str );
   if ( name == "tigereye_brew"         ) return new          tigereye_brew_t( this, options_str );
+  if ( name == "touch_of_karma"        ) return new         touch_of_karma_t( this, options_str );
   if ( name == "energizing_brew"       ) return new        energizing_brew_t( this, options_str );
   if ( name == "provoke"               ) return new                provoke_t( this, options_str );
   if ( name == "touch_of_death"        ) return new         touch_of_death_t( this, options_str );
@@ -3543,8 +3786,7 @@ void monk_t::create_buffs()
 
   // General
   buff.fortifying_brew = buff_creator_t( this, "fortifying_brew", find_spell( 120954 ) );
-  buff.fortifying_brew -> cooldown -> duration += sets.set( SET_TANK, T16, B2 ) -> effectN( 1 ).time_value();
-
+  
   buff.power_strikes = buff_creator_t( this, "power_strikes", talent.power_strikes -> effectN( 1 ).trigger() );
 
   double ts_proc_chance = main_hand_weapon.group() == WEAPON_1H ? ( spec.tiger_strikes -> proc_chance() / 10 * 5 ) : spec.tiger_strikes -> proc_chance();
@@ -3965,13 +4207,7 @@ void monk_t::create_options()
 {
   base_t::create_options();
 
-  option_t monk_options[] =
-  {
-    opt_int( "initial_chi", user_options.initial_chi ),
-    opt_null()
-  };
-
-  option_t::copy( options, monk_options );
+  add_option( opt_int( "initial_chi", user_options.initial_chi ) );
 }
 
 // monk_t::copy_from =========================================================
@@ -4113,9 +4349,7 @@ void monk_t::combat_begin()
 
   if ( talent.power_strikes -> ok() )
   {
-    // Random start of the first tick.
-    timespan_t d = player_t::rng().real() * timespan_t::from_seconds( 15.0 );
-    new ( *sim ) power_strikes_event_t( *this, d );
+    new ( *sim ) power_strikes_event_t( *this, timespan_t::zero() );
   }
 
   if ( spec.bladed_armor -> ok() )
