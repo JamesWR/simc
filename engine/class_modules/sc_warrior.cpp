@@ -63,11 +63,11 @@ public:
     // All Warriors
     buff_t* battle_stance;
     buff_t* berserker_rage;
+    buff_t* charge_movement;
     buff_t* defensive_stance;
     buff_t* heroic_leap_movement;
-    buff_t* charge_movement;
-    buff_t* shield_charge_movement;
     buff_t* intervene_movement;
+    buff_t* shield_charge_movement;
     // Talents
     buff_t* avatar;
     buff_t* bloodbath;
@@ -97,9 +97,9 @@ public:
     buff_t* slam;
     buff_t* sweeping_strikes;
     // Prot only
+    absorb_buff_t* shield_barrier;
     buff_t* blood_craze;
     buff_t* last_stand;
-    absorb_buff_t* shield_barrier;
     buff_t* shield_block;
     buff_t* shield_charge;
     buff_t* shield_wall;
@@ -108,26 +108,24 @@ public:
     buff_t* unyielding_strikes;
 
     // Tier bonuses
+    buff_t* pvp_2pc_arms;
+    buff_t* pvp_2pc_fury;
+    buff_t* pvp_2pc_prot;
     buff_t* tier15_2pc_tank;
     buff_t* tier16_reckless_defense;
     buff_t* tier17_2pc_arms;
     buff_t* tier17_4pc_fury;
     buff_t* tier17_4pc_fury_driver;
-    buff_t* pvp_2pc_fury;
-    buff_t* pvp_2pc_arms;
-    buff_t* pvp_2pc_prot;
   } buff;
 
   // Cooldowns
   struct cooldowns_t
   {
     // All Warriors
-    cooldown_t* charge;
     cooldown_t* heroic_leap;
-    cooldown_t* rage_from_charge;
     cooldown_t* revenge;
-    cooldown_t* stance_swap;
     cooldown_t* stance_cooldown;
+    cooldown_t* stance_swap;
     // Talents
     cooldown_t* avatar;
     cooldown_t* bladestorm;
@@ -139,8 +137,6 @@ public:
     cooldown_t* die_by_the_sword;
     cooldown_t* recklessness;
     // Prot Only
-    cooldown_t* block_cd;
-    cooldown_t* shield_charge_cd;
     cooldown_t* demoralizing_shout;
     cooldown_t* last_stand;
     cooldown_t* rage_from_crit_block;
@@ -231,12 +227,12 @@ public:
   // Procs
   struct procs_t
   {
-    proc_t* raging_blow_wasted;
-    proc_t* sudden_death;
-    proc_t* sudden_death_wasted;
     proc_t* bloodsurge;
     proc_t* bloodsurge_wasted;
     proc_t* delayed_auto_attack;
+    proc_t* raging_blow_wasted;
+    proc_t* sudden_death;
+    proc_t* sudden_death_wasted;
 
     //Tier bonuses
     proc_t* t15_2pc_melee;
@@ -386,19 +382,12 @@ public:
     // Cooldowns
     cooldown.avatar                   = get_cooldown( "avatar" );
     cooldown.bladestorm               = get_cooldown( "bladestorm" );
-    cooldown.block_cd                 = get_cooldown( "block_cd" );
-    cooldown.block_cd                 -> duration = timespan_t::from_seconds( 1.5 );
-    cooldown.shield_charge_cd         = get_cooldown( "shield_charge_cd" );
-    cooldown.shield_charge_cd         -> duration = timespan_t::from_seconds( 1.5 );
     cooldown.bloodbath                = get_cooldown( "bloodbath" );
-    cooldown.charge                   = get_cooldown( "charge" );
     cooldown.demoralizing_shout       = get_cooldown( "demoralizing_shout" );
     cooldown.die_by_the_sword         = get_cooldown( "die_by_the_sword" );
     cooldown.dragon_roar              = get_cooldown( "dragon_roar" );
     cooldown.heroic_leap              = get_cooldown( "heroic_leap" );
     cooldown.last_stand               = get_cooldown( "last_stand" );
-    cooldown.rage_from_charge         = get_cooldown( "rage_from_charge" );
-    cooldown.rage_from_charge         -> duration = timespan_t::from_seconds( 12.0 );
     cooldown.rage_from_crit_block     = get_cooldown( "rage_from_crit_block" );
     cooldown.rage_from_crit_block    -> duration = timespan_t::from_seconds( 3.0 );
     cooldown.recklessness             = get_cooldown( "recklessness" );
@@ -1424,7 +1413,7 @@ struct bloodthirst_t: public warrior_attack_t
                           data().effectN( 3 ).resource( RESOURCE_RAGE ),
                           p() -> gain.bloodthirst );
 
-    if ( s -> result == RESULT_CRIT )
+    if ( s -> result == RESULT_CRIT)
       p() -> enrage();
   }
 };
@@ -1435,17 +1424,22 @@ struct charge_t: public warrior_attack_t
 {
   bool first_charge;
   double movement_speed_increase;
+  cooldown_t* rage_from_charge;
   charge_t( warrior_t* p, const std::string& options_str ):
     warrior_attack_t( "charge", p, p -> spell.charge ),
-    first_charge( true ), movement_speed_increase( 5.0 )
+    first_charge( true ), movement_speed_increase( 5.0 ), rage_from_charge( NULL )
   {
     parse_options( options_str );
     stancemask = STANCE_BATTLE | STANCE_GLADIATOR | STANCE_DEFENSE;
+    use_off_gcd = true;
+
     melee_range = data().max_range();
     melee_range += p -> glyphs.long_charge -> effectN( 1 ).base_value();
     movement_directionality = MOVEMENT_OMNI;
+    rage_from_charge = p -> get_cooldown( "rage_from_charge" );
+    rage_from_charge -> duration = timespan_t::from_seconds( 12.0 );
     cooldown -> duration = data().cooldown();
-    use_off_gcd = true;
+
     if ( p -> talents.double_time -> ok() )
       cooldown -> charges = 2;
     else if ( p -> talents.juggernaut -> ok() )
@@ -1457,7 +1451,7 @@ struct charge_t: public warrior_attack_t
     if ( p() -> current.distance_to_move > data().min_range() )
     {
       p() -> buff.charge_movement -> trigger( 1, movement_speed_increase, 1,
-                                              timespan_t::from_seconds( p() -> current.distance_to_move / ( p() -> base_movement_speed * ( 1 + p() -> passive_movement_modifier() + movement_speed_increase ) ) ) );
+        timespan_t::from_seconds( p() -> current.distance_to_move / ( p() -> base_movement_speed * ( 1 + p() -> passive_movement_modifier() + movement_speed_increase ) ) ) );
     }
     warrior_attack_t::execute();
 
@@ -1468,9 +1462,9 @@ struct charge_t: public warrior_attack_t
     if ( first_charge )
       first_charge = !first_charge;
 
-    if ( p() -> cooldown.rage_from_charge -> up() )
+    if ( rage_from_charge )
     {
-      p() -> cooldown.rage_from_charge -> start();
+      rage_from_charge -> start();
       p() -> resource_gain( RESOURCE_RAGE,
                             p() -> glyphs.bull_rush -> effectN( 2 ).resource( RESOURCE_RAGE ) +
                             data().effectN( 2 ).resource( RESOURCE_RAGE ),
@@ -3252,14 +3246,18 @@ struct shield_barrier_t: public warrior_action_t < absorb_t >
 
 struct shield_block_t: public warrior_spell_t
 {
+  cooldown_t* block_cd;
   shield_block_t( warrior_t* p, const std::string& options_str ):
-    warrior_spell_t( "shield_block", p, p -> find_class_spell( "Shield Block" ) )
+    warrior_spell_t( "shield_block", p, p -> find_class_spell( "Shield Block" ) ),
+    block_cd( NULL )
   {
     parse_options( options_str );
     stancemask = STANCE_DEFENSE | STANCE_BATTLE;
     cooldown -> duration = timespan_t::from_seconds( 12.0 );
     cooldown -> charges = 2;
     use_off_gcd = true;
+    block_cd = p -> get_cooldown( "block_cd" );
+    block_cd -> duration = timespan_t::from_seconds( 1.5 );
   }
 
   double cost() const
@@ -3274,7 +3272,7 @@ struct shield_block_t: public warrior_spell_t
   void execute()
   {
     warrior_spell_t::execute();
-    p() -> cooldown.block_cd -> start();
+    block_cd -> start();
 
     if ( p() -> buff.shield_block -> check() )
       p() -> buff.shield_block -> extend_duration( p(), p() -> buff.shield_block -> data().duration() );
@@ -3287,7 +3285,7 @@ struct shield_block_t: public warrior_spell_t
     if ( !p() -> has_shield_equipped() )
       return false;
 
-    if ( !p() -> cooldown.block_cd -> up() )
+    if ( !block_cd -> up() )
       return false;
 
     return warrior_spell_t::ready();
@@ -3299,9 +3297,10 @@ struct shield_block_t: public warrior_spell_t
 struct shield_charge_t: public warrior_spell_t
 {
   double movement_speed_increase;
+  cooldown_t* shield_charge_cd;
   shield_charge_t( warrior_t* p, const std::string& options_str ):
     warrior_spell_t( "shield_charge", p, p -> find_spell( 156321 ) ),
-    movement_speed_increase( 5.0 )
+    movement_speed_increase( 5.0 ), shield_charge_cd( NULL )
   {
     parse_options( options_str );
     stancemask = STANCE_GLADIATOR;
@@ -3310,6 +3309,9 @@ struct shield_charge_t: public warrior_spell_t
     melee_range = data().max_range();
     movement_directionality = MOVEMENT_OMNI;
     use_off_gcd = true;
+
+    shield_charge_cd = p -> get_cooldown( "shield_charge_cd" );
+    shield_charge_cd -> duration = timespan_t::from_seconds( 1.5 );
   }
 
   void execute()
@@ -3323,7 +3325,7 @@ struct shield_charge_t: public warrior_spell_t
                                                      ( 1 + p() -> passive_movement_modifier() + movement_speed_increase ) ) ) );
     }
 
-    p() -> cooldown.shield_charge_cd -> start();
+    shield_charge_cd -> start();
 
     if ( p() -> buff.shield_charge -> check() )
       p() -> buff.shield_charge -> extend_duration( p(), p() -> buff.shield_charge -> data().duration() );
@@ -3333,7 +3335,7 @@ struct shield_charge_t: public warrior_spell_t
 
   bool ready()
   {
-    if ( !p() -> cooldown.shield_charge_cd -> up() )
+    if ( !shield_charge_cd -> up() )
       return false;
 
     if ( p() -> buff.heroic_leap_movement -> check() || p() -> buff.charge_movement -> check() || p() -> buff.intervene_movement -> check() )
