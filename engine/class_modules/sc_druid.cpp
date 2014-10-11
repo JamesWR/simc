@@ -11,6 +11,11 @@ namespace { // UNNAMED NAMESPACE
 // ==========================================================================
 
  /* WoD -- TODO:
+
+    Check error caused by AoC and Treants ::
+      Increasing number of treants in pet_force_of_nature seems to fix it, but 
+      cast interval is not low enough for this to make sense.
+
     = Feral =
     Update LI implementation to work like in-game
     Update Glyph of Ferocious Bite to be a heal
@@ -91,6 +96,49 @@ struct druid_td_t : public actor_pair_t
   }
 };
 
+struct buff_counter_t
+{
+  const sim_t* sim;
+  druid_t* p;
+  buff_t* b;
+  double n_up;
+  double n_down;
+
+  buff_counter_t( druid_t* player , buff_t* buff );
+
+  void increment()
+  {
+    // Skip iteration 0 for non-debug, non-log sims
+    if ( sim -> current_iteration == 0 && sim -> iterations > sim -> threads && ! sim -> debug && ! sim -> log )
+      return;
+
+    b -> check() ? n_up++ : n_down++;
+  }
+
+  double divisor() const
+  {
+    if ( ! sim -> debug && ! sim -> log && sim -> iterations > sim -> threads )
+      return sim -> iterations - sim -> threads;
+    else
+      return std::min( sim -> iterations, sim -> threads );
+  }
+
+  double mean_up() const
+  { return n_up / divisor(); }
+
+  double mean_down() const
+  { return n_down / divisor(); }
+
+  double mean_total() const
+  { return ( n_up + n_down ) / divisor(); }
+
+  void merge( const buff_counter_t& other )
+  {
+    n_up += other.n_up;
+    n_down += other.n_down;
+  }
+};
+
 struct druid_t : public player_t
 {
 public:
@@ -106,6 +154,9 @@ public:
   double time_to_next_lunar; // Amount of seconds until eclipse energy reaches 100 (Lunar Eclipse)
   double time_to_next_solar; // Amount of seconds until eclipse energy reaches -100 (Solar Eclipse)
   int active_rejuvenations; // Number of rejuvenations on raid.  May be useful for Nature's Vigil timing or resto stuff.
+
+  // counters for snapshot tracking
+  std::vector<buff_counter_t*> counters;
 
   // Active
   action_t* t16_2pc_starfall_bolt;
@@ -124,7 +175,7 @@ public:
   // Pets
   pet_t* pet_feral_spirit[ 2 ];
   pet_t* pet_mirror_images[ 3 ];
-  pet_t* pet_force_of_nature[ 3 ];
+  pet_t* pet_force_of_nature[ 4 ]; // Add another pet, you can(maybe?) have 4 up with AoC
 
   // Auto-attacks
   weapon_t caster_form_weapon;
@@ -528,6 +579,8 @@ public:
     regen_caches[ CACHE_ATTACK_HASTE ] = true;
   }
 
+  virtual           ~druid_t();
+
   // Character Definition
   virtual void      arise();
   virtual void      init_spells();
@@ -540,6 +593,7 @@ public:
   virtual void      invalidate_cache( cache_e );
   virtual void      combat_begin();
   virtual void      reset();
+  virtual void      merge( player_t& other );
   virtual void      regen( timespan_t periodicity );
   virtual timespan_t available() const;
   virtual double    composite_armor_multiplier() const;
@@ -616,6 +670,17 @@ public:
     w.swing_time = timespan_t::from_seconds( swing_time );
   }
 };
+
+druid_t::~druid_t()
+{
+  range::dispose( counters );
+}
+
+buff_counter_t::buff_counter_t( druid_t* player , buff_t* buff ) :
+  sim( player -> sim ), p( player ), b( buff ), n_up( 0 ), n_down( 0 )
+{
+  p -> counters.push_back( this );
+}
 
 // Gushing Wound (tier17_4pc_melee) ========================================================
 
@@ -961,7 +1026,7 @@ struct force_of_nature_balance_t : public pet_t
   force_of_nature_balance_t( sim_t* sim, druid_t* owner ) :
     pet_t( sim, owner, "treant", true /*GUARDIAN*/, true )
   {
-    owner_coeff.sp_from_sp = 1.0;
+    owner_coeff.sp_from_sp = 1/3;
     action_list_str = "wrath";
     regen_type = REGEN_DISABLED;
   }
@@ -1710,10 +1775,12 @@ public:
   typedef druid_attack_t base_t;
   
   bool consume_bloodtalons;
+  buff_counter_t* bt_counter;
+  buff_counter_t* tf_counter;
 
   druid_attack_t( const std::string& n, druid_t* player,
                   const spell_data_t* s = spell_data_t::nil() ) :
-    ab( n, player, s ), consume_bloodtalons( false )
+    ab( n, player, s ), consume_bloodtalons( false ), bt_counter( 0 ), tf_counter( 0 )
   {
     ab::may_glance    = false;
     ab::special       = true;
@@ -1722,13 +1789,23 @@ public:
   virtual void init()
   {
     ab::init();
-
+    
     consume_bloodtalons = ab::harmful && ab::special;
+    if ( consume_bloodtalons )
+      bt_counter = new buff_counter_t( ab::p() , ab::p() -> buff.bloodtalons );
+    if ( consume_bloodtalons )
+      tf_counter = new buff_counter_t( ab::p() , ab::p() -> buff.tigers_fury );
   }
 
   virtual void execute()
   {
     ab::execute();
+
+    if( consume_bloodtalons )
+    {
+      bt_counter -> increment();
+      tf_counter -> increment();
+    }
 
     if ( ab::p() -> talent.bloodtalons -> ok() && consume_bloodtalons & ab::p() -> buff.bloodtalons -> up() )
       ab::p() -> buff.bloodtalons -> decrement();
@@ -2550,7 +2627,7 @@ struct swipe_t : public cat_attack_t
     cat_attack_t( "swipe", player, player -> find_specialization_spell( "Swipe" ), options_str )
   {
     aoe = -1;
-    combo_point_gain = data().effectN( 1 ).base_value(); // Effect is not lebelled correctly as CP gain
+    combo_point_gain = data().effectN( 1 ).base_value(); // Effect is not labelled correctly as CP gain
   }
 
   virtual void impact( action_state_t* s )
@@ -4217,14 +4294,13 @@ struct force_of_nature_spell_t : public druid_spell_t
   void execute()
   {
     druid_spell_t::execute();
-
-    if ( p() -> pet_force_of_nature[ 0 ] )
+    if ( p() -> pet_force_of_nature[0] )
     {
-      for ( int i = 0; i < 3; i++ )
+      for ( size_t i = 0; i < sizeof_array( p() -> pet_force_of_nature ); i++ )
       {
-        if ( p() -> pet_force_of_nature[ i ] -> is_sleeping() )
+        if ( p() -> pet_force_of_nature[i] -> is_sleeping() )
         {
-          p() -> pet_force_of_nature[ i ] -> summon( p() -> talent.force_of_nature -> duration() );
+          p() -> pet_force_of_nature[i] -> summon( p() -> talent.force_of_nature -> duration() );
           return;
         }
       }
@@ -4454,53 +4530,61 @@ struct sunfire_t: public druid_spell_t
   // Sunfire also applies the Moonfire DoT during Celestial Alignment.
   struct moonfire_CA_t: public druid_spell_t
   {
-    moonfire_CA_t(druid_t* player):
-      druid_spell_t("moonfire", player, player -> find_spell(8921))
+    moonfire_CA_t( druid_t* player ):
+      druid_spell_t( "moonfire", player, player -> find_spell( 8921 ) )
     {
-      const spell_data_t* dmg_spell = player -> find_spell(164812);
+      const spell_data_t* dmg_spell = player -> find_spell( 164812 );
       dot_duration = dmg_spell -> duration();
-      dot_duration *= 1 + player -> spec.astral_showers -> effectN(1).percent();
-      dot_duration += player -> sets.set( SET_CASTER, T14, B4 ) -> effectN(1).time_value();
-      base_tick_time = dmg_spell -> effectN(2).period();
-      spell_power_mod.tick = dmg_spell -> effectN(2).sp_coeff();
+      dot_duration *= 1 + player -> spec.astral_showers -> effectN( 1 ).percent();
+      dot_duration += player -> sets.set( SET_CASTER, T14, B4 ) -> effectN( 1 ).time_value();
+      base_tick_time = dmg_spell -> effectN( 2 ).period();
+      spell_power_mod.tick = dmg_spell -> effectN( 2 ).sp_coeff();
 
-      base_td_multiplier *= 1.0 + player -> talent.balance_of_power -> effectN(3).percent();
+      base_td_multiplier *= 1.0 + player -> talent.balance_of_power -> effectN( 3 ).percent();
 
       // Does no direct damage, costs no mana
       attack_power_mod.direct = 0;
       spell_power_mod.direct = 0;
-      range::fill(base_costs, 0);
+      range::fill( base_costs, 0 );
     }
 
-    void tick(dot_t* d)
+    void tick( dot_t* d )
     {
-      druid_spell_t::tick(d);
+      druid_spell_t::tick( d );
 
-      if ( result_is_hit(d -> state -> result) )
-        p() -> trigger_shooting_stars(d -> state);
+      if ( result_is_hit( d -> state -> result ) )
+        p() -> trigger_shooting_stars( d -> state );
     }
   };
 
   action_t* moonfire;
-  sunfire_t(druid_t* player, const std::string& options_str):
-    druid_spell_t("sunfire", player, player -> find_spell(93402))
+  sunfire_t( druid_t* player, const std::string& options_str ):
+    druid_spell_t( "sunfire", player, player -> find_spell( 93402 ) )
   {
     parse_options( options_str );
     dot_behavior = DOT_REFRESH;
-    const spell_data_t* dmg_spell = player -> find_spell(164815);
+    const spell_data_t* dmg_spell = player -> find_spell( 164815 );
     dot_duration = dmg_spell -> duration();
-    dot_duration += player -> sets.set( SET_CASTER, T14, B4 ) -> effectN(1).time_value();
-    base_tick_time = dmg_spell -> effectN(2).period();
-    spell_power_mod.direct = dmg_spell-> effectN(1).sp_coeff();
-    spell_power_mod.tick = dmg_spell-> effectN(2).sp_coeff();
+    dot_duration += player -> sets.set( SET_CASTER, T14, B4 ) -> effectN( 1 ).time_value();
+    base_tick_time = dmg_spell -> effectN( 2 ).period();
+    spell_power_mod.direct = dmg_spell-> effectN( 1 ).sp_coeff();
+    spell_power_mod.tick = dmg_spell-> effectN( 2 ).sp_coeff();
 
-    base_td_multiplier *= 1.0 + player -> talent.balance_of_power -> effectN(3).percent();
+    base_td_multiplier *= 1.0 + player -> talent.balance_of_power -> effectN( 3 ).percent();
 
     if ( p() -> spec.astral_showers -> ok() )
       aoe = -1;
 
     if ( player -> specialization() == DRUID_BALANCE )
-      moonfire = new moonfire_CA_t(player);
+      moonfire = new moonfire_CA_t( player );
+  }
+
+  double spell_direct_power_coefficient( const action_state_t* s ) const
+  {
+    if ( s -> target != s -> action -> target )
+      return 0; // Sunfire will not deal direct damage to the targets that the dot is spread to.
+
+    return druid_spell_t::spell_direct_power_coefficient( s );
   }
 
   double action_multiplier() const
@@ -4508,7 +4592,7 @@ struct sunfire_t: public druid_spell_t
     double am = druid_spell_t::action_multiplier();
 
     if ( p() -> buff.solar_peak -> up() )
-      am *= 2;
+      am *= 1.0 + p() -> buff.solar_peak -> data().effectN( 1 ).percent();
 
     return am;
   }
@@ -4626,7 +4710,7 @@ struct moonfire_t : public druid_spell_t
     double am = druid_spell_t::action_multiplier();
 
     if ( p() -> buff.lunar_peak -> up() )
-      am *= 2;
+      am *= 1.0 + p() -> buff.lunar_peak -> data().effectN( 1 ).percent();
 
     return am;
   }
@@ -4990,7 +5074,7 @@ struct starfire_t : public druid_spell_t
     druid_spell_t::impact( s );
 
     if ( p() -> talent.balance_of_power && result_is_hit( s -> result ) )
-      td( s -> target ) -> dots.moonfire -> extend_duration( timespan_t::from_seconds( p() -> talent.balance_of_power -> effectN( 1 ).base_value() ), timespan_t::zero(), 0 );
+      td( s -> target ) -> dots.moonfire -> extend_duration( p() -> talent.balance_of_power -> effectN( 1 ).time_value(), 0 );
   }
 };
 
@@ -5017,7 +5101,6 @@ struct starfall_t : public druid_spell_t
 
     hasted_ticks = false;
     may_multistrike = 0;
-    tick_zero = true;
     cooldown = player -> cooldown.starfallsurge;
     base_multiplier *= 1.0 + player -> sets.set( SET_CASTER, T14, B2 ) -> effectN( 1 ).percent();
     add_child( starfall );
@@ -5272,7 +5355,7 @@ struct wrath_t : public druid_spell_t
     druid_spell_t::impact( s );
 
     if ( p() -> talent.balance_of_power && result_is_hit( s -> result ) )
-      td( s -> target ) -> dots.sunfire -> extend_duration( timespan_t::from_seconds( p() -> talent.balance_of_power -> effectN( 2 ).base_value() ), timespan_t::zero(), 0 );
+      td( s -> target ) -> dots.sunfire -> extend_duration( timespan_t::from_seconds( p() -> talent.balance_of_power -> effectN( 2 ).base_value() ), 0 );
   }
 };
 
@@ -5425,12 +5508,12 @@ void druid_t::create_pets()
 {
   if ( specialization() == DRUID_BALANCE )
   {
-    for ( int i = 0; i < 3; ++i )
+    for ( size_t i = 0; i < sizeof_array( pet_force_of_nature ); ++i )
       pet_force_of_nature[ i ] = new pets::force_of_nature_balance_t( sim, this );
   }
   else if ( specialization() == DRUID_FERAL )
   {
-    for ( int i = 0; i < 3; ++i )
+    for ( size_t i = 0; i < sizeof_array( pet_force_of_nature ); ++i )
       pet_force_of_nature[ i ] = new pets::force_of_nature_feral_t( sim, this );
   }
   else if ( specialization() == DRUID_GUARDIAN )
@@ -6340,11 +6423,25 @@ void druid_t::reset()
   }
 }
 
+// druid_t::merge ===========================================================
+
+void druid_t::merge( player_t& other )
+{
+  player_t::merge( other );
+
+  druid_t& od = static_cast<druid_t&>( other );
+
+  for ( size_t i = 0, end = counters.size(); i < end; i++ )
+    counters[ i ] -> merge( *od.counters[ i ] );
+}
+
 // druid_t::regen ===========================================================
 
 void druid_t::regen( timespan_t periodicity )
 {
   player_t::regen( periodicity );
+
+  balance_tracker(); // So much for trying to optimize, too many edge cases messing up. 
 
   // player_t::regen() only regens your primary resource, so we need to account for that here
   if ( primary_resource() != RESOURCE_MANA && mana_regen_per_second() )
@@ -6355,6 +6452,7 @@ void druid_t::regen( timespan_t periodicity )
 }
 
 // druid_t::mana_regen_per_second ============================================================
+
 double druid_t::mana_regen_per_second() const
 {
   double mp5 = player_t::mana_regen_per_second();
@@ -7218,21 +7316,161 @@ class druid_report_t : public player_report_extension_t
 public:
   druid_report_t( druid_t& player ) :
       p( player )
-  {
+  { }
 
+  void feral_snapshot_table( report::sc_html_stream& os )
+  {
+    // Write header
+    os << "<table class=\"sc\" style=\"float: left;margin-right: 10px;\">\n"
+         << "<tr>\n"
+           << "<th colspan=2>Ability</th>\n"
+           << "<th colspan=3>Tiger's Fury</th>\n";
+    if ( p.talent.bloodtalons -> ok() )
+    {
+      os << "<th colspan=3>Bloodtalons</th>\n";
+    }
+    os << "</tr>\n";
+
+    os << "<tr>\n"
+         << "<th>Name</th>\n"
+         << "<th>Executes</th>\n"
+         << "<th>Buffed</th>\n"
+         << "<th>% Buffed</th>\n"
+         << "<th>% of Buff Usage</th>\n";
+    if ( p.talent.bloodtalons -> ok() )
+    {
+      os << "<th>Buffed</th>\n"
+         << "<th>% Buffed</th>\n"
+         << "<th>% of Buff Usage</th>\n";
+    }
+    os << "</tr>\n";
+
+    // Write contents
+    double tf_total_executes = 0, tf_total_up = 0, tf_total_down = 0;
+    double bt_total_executes = 0, bt_total_up = 0, bt_total_down = 0;
+
+    // Get Totals
+    for( size_t i = 0, end = p.stats_list.size(); i < end; i++ )
+    {
+      stats_t* stats = p.stats_list[ i ];
+
+      for ( size_t j = 0, end2 = stats -> action_list.size(); j < end2; j++ )
+      {
+        cat_attacks::cat_attack_t* a = dynamic_cast<cat_attacks::cat_attack_t*>( stats -> action_list[ j ] );
+        if ( ! a )
+          continue;
+
+        if ( ! a -> consume_bloodtalons )
+          continue;
+
+        tf_total_executes += a -> tf_counter -> mean_total();
+        tf_total_up += a -> tf_counter -> mean_up();
+        tf_total_down += a -> tf_counter -> mean_down();
+
+        if ( p.talent.bloodtalons -> ok() )
+        {
+          bt_total_executes += a -> bt_counter -> mean_total();
+          bt_total_up += a -> bt_counter -> mean_up();
+          bt_total_down += a -> bt_counter -> mean_down();
+        }
+      }
+    }
+
+    for ( size_t i = 0, end = p.stats_list.size(); i < end; i++ )
+    {
+      stats_t* stats = p.stats_list[ i ];
+      double tf_total = 0, tf_up = 0;
+      double bt_total = 0, bt_up = 0;
+      int n = 0;
+
+      for ( size_t j = 0, end2 = stats -> action_list.size(); j < end2; j++ )
+      {
+        cat_attacks::cat_attack_t* a = dynamic_cast<cat_attacks::cat_attack_t*>( stats -> action_list[ j ] );
+        if ( ! a )
+          continue;
+
+        if ( ! a -> consume_bloodtalons )
+          continue;
+
+        tf_total += a -> tf_counter -> mean_total();
+        tf_up += a -> tf_counter -> mean_up();
+        if ( p.talent.bloodtalons -> ok() )
+        {
+          bt_total += a -> bt_counter -> mean_total();
+          bt_up += a -> bt_counter -> mean_up();
+        }
+      }
+
+      if ( tf_total > 0 || bt_total > 0 )
+      {
+        wowhead::wowhead_e domain = SC_BETA ? wowhead::BETA : wowhead::LIVE;
+        if ( ! SC_BETA && p.dbc.ptr )
+          domain = wowhead::PTR;
+
+        std::string name_str = wowhead::decorated_action_name( stats -> name_str, 
+                                                               stats -> action_list[ 0 ],
+                                                               domain );
+        std::string row_class_str = "";
+        if ( ++n & 1 )
+          row_class_str = " class=\"odd\"";
+
+        // Table Row : Name, TF up, TF total, TF up/total, TF up/sum(TF up)
+        os.printf("<tr%s><td class=\"left\">%s</td><td class=\"right\">%.2f</td><td class=\"right\">%.2f</td><td class=\"right\">%.2f %%</td><td class=\"right\">%.2f %%</td>\n",
+            row_class_str.c_str(),
+            name_str.c_str(),
+            util::round( tf_total, 2 ),
+            util::round( tf_up, 2 ),
+            util::round( tf_up / tf_total * 100, 2 ),
+            util::round( tf_up / tf_total_up * 100, 2 ) );
+
+        if ( p.talent.bloodtalons -> ok() )
+        {
+          // Table Row : Name, TF up, TF total, TF up/total, TF up/sum(TF up)
+          os.printf("<td class=\"right\">%.2f</td><td class=\"right\">%.2f %%</td><td class=\"right\">%.2f %%</td>\n",
+              util::round( bt_up, 2 ),
+              util::round( bt_up / bt_total * 100, 2 ),
+              util::round( bt_up / bt_total_up * 100, 2 ) );
+        }
+
+        os << "</tr>";
+      }
+      
+    }
+
+    os.printf("<tr><td class=\"left\">Total</td><td class=\"right\">%.2f</td><td class=\"right\">%.2f</td><td class=\"right\">%.2f %%</td><td class=\"right\">%.2f %%</td>\n",
+        util::round( tf_total_executes, 2 ),
+        util::round( tf_total_up, 2 ),
+        util::round( tf_total_up / tf_total_executes * 100, 2 ),
+        util::round( tf_total_up / tf_total_up * 100, 2 ) );
+
+    if ( p.talent.bloodtalons -> ok() )
+    {
+      os.printf("<td class=\"right\">%.2f</td><td class=\"right\">%.2f %%</td><td class=\"right\">%.2f %%</td>\n",
+          util::round( bt_total_up, 2 ),
+          util::round( bt_total_up / bt_total_executes * 100, 2 ),
+          util::round( bt_total_up / bt_total_up * 100, 2 ) );
+    }
+
+    os << "</tr>";
+
+    // Write footer
+    os << "</table>\n";
   }
 
-  virtual void html_customsection( report::sc_html_stream& /* os*/ ) override
+  virtual void html_customsection( report::sc_html_stream& os ) override
   {
-    (void) p;
-    /*// Custom Class Section
-    os << "\t\t\t\t<div class=\"player-section custom_section\">\n"
-        << "\t\t\t\t\t<h3 class=\"toggle open\">Custom Section</h3>\n"
-        << "\t\t\t\t\t<div class=\"toggle-content\">\n";
+    if ( p.specialization() == DRUID_FERAL )
+    {
+      os << "<div class=\"player-section custom_section\">\n"
+          << "<h3 class=\"toggle open\">Snapshotting Details</h3>\n"
+          << "<div class=\"toggle-content\">\n";
 
-    os << p.name();
+          feral_snapshot_table( os );
 
-    os << "\t\t\t\t\t\t</div>\n" << "\t\t\t\t\t</div>\n";*/
+
+      os << "<div class=\"clear\"></div>\n";
+      os << "</div>\n" << "</div>\n";
+    }
   }
 private:
   druid_t& p;

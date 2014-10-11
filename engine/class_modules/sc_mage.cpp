@@ -48,6 +48,7 @@ struct mage_td_t : public actor_pair_t
     buff_t* slow;
     buff_t* frost_bomb;
     buff_t* firestarter;
+    buff_t* water_jet; // Proxy water jet because our expression system sucks
   } debuffs;
 
   mage_td_t( player_t* target, mage_t* mage );
@@ -323,7 +324,7 @@ public:
 
     // Cooldowns
     cooldowns.combustion         = get_cooldown( "combustion"         );
-    cooldowns.combustion         = get_cooldown( "cone_of_cold"       );
+    cooldowns.cone_of_cold       = get_cooldown( "cone_of_cold"       );
     cooldowns.dragons_breath     = get_cooldown( "dragons_breath"     );
     cooldowns.enhanced_frostbolt = get_cooldown( "enhanced_frostbolt" );
     cooldowns.evocation          = get_cooldown( "evocation"          );
@@ -474,12 +475,17 @@ struct water_elemental_pet_t : public pet_t
       spell_t::impact( s );
 
       td( s -> target ) -> water_jet -> trigger();
+      // Trigger hidden proxy water jet for the mage, so
+      // debuff.water_jet.<expression> works
+      p() -> o() -> get_target_data( s -> target ) -> debuffs.water_jet -> trigger();
     }
 
     virtual void last_tick( dot_t* d )
     {
       spell_t::last_tick( d );
       td( d -> target ) -> water_jet -> expire();
+      // Aand expire proxy water jet debuff
+      p() -> o() -> get_target_data( d -> target ) -> debuffs.water_jet -> expire();
     }
 
     bool ready()
@@ -2491,33 +2497,47 @@ struct fireball_t : public mage_spell_t
   virtual timespan_t travel_time() const
   {
     timespan_t t = mage_spell_t::travel_time();
-    return ( t > timespan_t::from_seconds( 0.75 ) ? timespan_t::from_seconds( 0.75 ) : t );
+
+    t = std::min( timespan_t::from_seconds( 0.75 ), t );
+
+    return t;
   }
 
   virtual void impact( action_state_t* s )
   {
     mage_spell_t::impact( s );
 
-    if ( result_is_hit( s -> result ) )
+    if ( p() -> perks.enhanced_pyrotechnics -> ok() &&
+         result_is_hit( s -> result ) )
     {
-        if ( s -> result == RESULT_CRIT )
-            p() -> buffs.enhanced_pyrotechnics -> expire();
-
-        else
-            p() -> buffs.enhanced_pyrotechnics -> trigger();
-
+      if ( s -> result == RESULT_CRIT )
+      {
+        p() -> buffs.enhanced_pyrotechnics -> expire();
+      }
+      else
+      {
+        p() -> buffs.enhanced_pyrotechnics -> trigger();
+      }
     }
 
     if ( p() -> talents.kindling -> ok() &&  s -> result == RESULT_CRIT )
-        p() -> cooldowns.combustion -> adjust( timespan_t::from_seconds( - p() -> talents.kindling -> effectN( 1 ).base_value() ) );
+    {
+      p() -> cooldowns.combustion -> adjust(
+        -1000 * p() -> talents.kindling -> effectN( 1 ).time_value()
+      );
+    }
 
     if ( result_is_hit( s -> result) || result_is_multistrike( s -> result) )
     {
-        if ( p() -> talents.unstable_magic -> ok() && rng().roll( p() -> talents.unstable_magic -> effectN( 3 ).percent() ) )
-          trigger_unstable_magic( s );
-        trigger_ignite( s );
-    }
+      if ( p() -> talents.unstable_magic -> ok() &&
+           rng().roll( p() -> talents.unstable_magic
+                           -> effectN( 3 ).percent() ) )
+      {
+        trigger_unstable_magic( s );
+      }
 
+      trigger_ignite( s );
+    }
   }
 
   double composite_target_crit( player_t* target ) const
@@ -2527,7 +2547,8 @@ struct fireball_t : public mage_spell_t
     // Fire PvP 4pc set bonus
     if ( td( target ) -> debuffs.firestarter -> check() )
     {
-      c += td( target ) -> debuffs.firestarter -> data().effectN( 1 ).percent();
+      c += td( target ) -> debuffs.firestarter
+                        -> data().effectN( 1 ).percent();
     }
 
     return c;
@@ -2537,12 +2558,9 @@ struct fireball_t : public mage_spell_t
   {
     double c = mage_spell_t::composite_crit();
 
-    if ( p() -> perks.enhanced_pyrotechnics -> ok() )
-    {
-      c += p() -> buffs.enhanced_pyrotechnics -> stack() *
-           p() -> perks.enhanced_pyrotechnics -> effectN( 1 ).trigger()
-                                              -> effectN( 1 ).percent();
-    }
+    c += p() -> buffs.enhanced_pyrotechnics -> stack() *
+         p() -> perks.enhanced_pyrotechnics -> effectN( 1 ).trigger()
+                                            -> effectN( 1 ).percent();
 
     return c;
   }
@@ -2565,7 +2583,12 @@ struct flamestrike_t : public mage_spell_t
     mage_spell_t( "flamestrike", p, p -> find_specialization_spell( "Flamestrike" ) )
   {
     parse_options( options_str );
-    cooldown -> duration = timespan_t::zero(); // Flamestrike Perk modifying the cooldown
+
+    if ( p -> perks.improved_flamestrike -> ok() )
+    {
+      cooldown -> duration = timespan_t::zero();
+    }
+
     aoe = -1;
   }
 
@@ -4230,7 +4253,10 @@ mage_td_t::mage_td_t( player_t* target, mage_t* mage ) :
   debuffs.slow = buff_creator_t( *this, "slow" ).spell( mage -> spec.slow );
   debuffs.frost_bomb = buff_creator_t( *this, "frost_bomb" ).spell( mage -> talents.frost_bomb );
   debuffs.firestarter = buff_creator_t( *this, "firestarter" ).chance( 1.0 ).duration( timespan_t::from_seconds( 10.0 ) );
-
+  debuffs.water_jet = buff_creator_t( *this, "water_jet", source -> find_spell( 135029 ) )
+                      .quiet( true )
+                      .cd( timespan_t::zero() )
+                      .duration( timespan_t::zero() );
 }
 
 // mage_t::create_action ====================================================
@@ -4743,10 +4769,12 @@ void mage_t::apl_arcane()
   default_list -> add_talent( this, "Rune of Power",
                               "if=buff.rune_of_power.remains<cast_time" );
   default_list -> add_talent( this, "Mirror Image" );
+  default_list -> add_talent( this, "Cold Snap",
+                              "if=buff.presence_of_mind.down&cooldown.presence_of_mind.remains>75" );
   default_list -> add_action( "call_action_list,name=init_crystal,if=talent.prismatic_crystal.enabled&cooldown.prismatic_crystal.up" );
   default_list -> add_action( "call_action_list,name=crystal_sequence,if=pet.prismatic_crystal.active" );
   default_list -> add_action( "call_action_list,name=aoe,if=active_enemies>=5" );
-  default_list -> add_action( "call_action_list,name=burn,if=time_to_die<mana.pct*0.35*spell_haste|cooldown.evocation.remains<=buff.arcane_power.remains|cooldown.evocation.remains<=(mana.pct-40)*0.35*spell_haste" );
+  default_list -> add_action( "call_action_list,name=burn,if=time_to_die<mana.pct*0.35*spell_haste|cooldown.evocation.remains<=(mana.pct-30)*0.3*spell_haste|(buff.arcane_power.up&cooldown.evocation.remains<=(mana.pct-30)*0.4*spell_haste)" );
   default_list -> add_action( "call_action_list,name=conserve" );
 
 
@@ -4793,7 +4821,8 @@ void mage_t::apl_arcane()
                       "if=buff.arcane_charge.stack<4" );
   burn -> add_talent( this, "Supernova",
                       "if=current_target=prismatic_crystal" );
-  burn -> add_action( this, "Presence of Mind" );
+  burn -> add_action( this, "Presence of Mind",
+                      "if=mana.pct>96" );
   burn -> add_action( this, "Arcane Blast",
                       "if=buff.arcane_charge.stack=4&mana.pct>93" );
   burn -> add_action( this, "Arcane Missiles",
@@ -4804,6 +4833,7 @@ void mage_t::apl_arcane()
                       "APL hack for evocation interrupt" );
   burn -> add_action( this, "Evocation",
                       "interrupt_if=mana.pct>92,if=time_to_die>10&mana.pct<50" );
+  burn -> add_action( this, "Presence of Mind" );
   burn -> add_action( this, "Arcane Blast" );
 
 
@@ -4816,21 +4846,23 @@ void mage_t::apl_arcane()
   conserve -> add_talent( this, "Nether Tempest",
                           "cycle_targets=1,if=target!=prismatic_crystal&buff.arcane_charge.stack=4&(active_dot.nether_tempest=0|(ticking&remains<3.6))" );
   conserve -> add_talent( this, "Supernova",
-                          "if=time_to_die<8|(charges=2&(buff.arcane_power.up|!cooldown.arcane_power.up)&(!talent.prismatic_crystal.enabled|cooldown.prismatic_crystal.remains>5))" );
+                          "if=time_to_die<8|(charges=2&(buff.arcane_power.up|!cooldown.arcane_power.up)&(!talent.prismatic_crystal.enabled|cooldown.prismatic_crystal.remains>8))" );
   conserve -> add_talent( this, "Arcane Orb",
                           "if=buff.arcane_charge.stack<2" );
+  conserve -> add_action( this, "Presence of Mind",
+                          "if=mana.pct>96" );
   conserve -> add_action( this, "Arcane Blast",
                           "if=buff.arcane_charge.stack=4&mana.pct>93" );
   conserve -> add_action( this, "Arcane Missiles",
                           "if=buff.arcane_charge.stack=4&(!talent.overpowered.enabled|cooldown.arcane_power.remains>10*spell_haste)" );
   conserve -> add_talent( this, "Supernova",
-                          "if=mana.pct<96&(buff.arcane_missiles.stack<2|buff.arcane_charge.stack=4)&(buff.arcane_power.up|(charges=1&cooldown.arcane_power.remains>recharge_time))&(!talent.prismatic_crystal.enabled|current_target=prismatic_crystal|(charges=1&cooldown.prismatic_crystal.remains>recharge_time+5))" );
+                          "if=mana.pct<96&(buff.arcane_missiles.stack<2|buff.arcane_charge.stack=4)&(buff.arcane_power.up|(charges=1&cooldown.arcane_power.remains>recharge_time))&(!talent.prismatic_crystal.enabled|current_target=prismatic_crystal|(charges=1&cooldown.prismatic_crystal.remains>recharge_time+8))" );
   conserve -> add_talent( this, "Nether Tempest",
                           "cycle_targets=1,if=target!=prismatic_crystal&buff.arcane_charge.stack=4&(active_dot.nether_tempest=0|(ticking&remains<(10-3*talent.arcane_orb.enabled)*spell_haste))" );
   conserve -> add_action( this, "Arcane Barrage",
                           "if=buff.arcane_charge.stack=4" );
   conserve -> add_action( this, "Presence of Mind",
-                          "if=buff.arcane_charge.stack<2&glyph.arcane_power.enabled&cooldown.arcane_power.remains>15" );
+                          "if=buff.arcane_charge.stack<2" );
   conserve -> add_action( this, "Arcane Blast" );
   conserve -> add_talent( this, "Ice Floes", "moving=1" );
   conserve -> add_action( this, "Arcane Barrage", "moving=1" );
@@ -4874,8 +4906,6 @@ void mage_t::apl_fire()
                               "if=movement.distance>10" );
   default_list -> add_talent( this, "Blazing Speed",
                               "if=movement.remains>0" );
-  default_list -> add_talent( this, "Cold Snap",
-                              "if=health.pct<30" );
   default_list -> add_action( this, "Time Warp",
                               "if=target.health.pct<25|time>5" );
   default_list -> add_talent( this, "Rune of Power",
@@ -4960,6 +4990,8 @@ void mage_t::apl_fire()
                      "if=buff.pyroblast.react|buff.pyromaniac.react" );
   aoe -> add_action( this, "Pyroblast",
                      "if=active_dot.pyroblast=0&!in_flight" );
+  aoe -> add_talent( this, "Cold Snap",
+                     "if=glyph.dragons_breath.enabled&!cooldown.dragons_breath.up" );
   aoe -> add_action( this, "Dragon's Breath",
                      "if=glyph.dragons_breath.enabled" );
   aoe -> add_action( this, "Flamestrike",
@@ -4993,7 +5025,6 @@ void mage_t::apl_frost()
 
   action_priority_list_t* default_list      = get_action_priority_list( "default"          );
 
-  action_priority_list_t* init_crystal      = get_action_priority_list( "init_crystal"     );
   action_priority_list_t* crystal_sequence  = get_action_priority_list( "crystal_sequence" );
   action_priority_list_t* cooldowns         = get_action_priority_list( "cooldowns"        );
   action_priority_list_t* aoe               = get_action_priority_list( "aoe"              );
@@ -5006,31 +5037,29 @@ void mage_t::apl_frost()
                               "if=movement.distance>10" );
   default_list -> add_talent( this, "Blazing Speed",
                               "if=movement.remains>0" );
-  default_list -> add_talent( this, "Cold Snap",
-                              "if=health.pct<30" );
   default_list -> add_action( this, "Time Warp",
                               "if=target.health.pct<25|time>5" );
   default_list -> add_talent( this, "Mirror Image" );
   default_list -> add_talent( this, "Rune of Power", "if=buff.rune_of_power.remains<cast_time" );
   default_list -> add_talent( this, "Rune of Power", "if=(cooldown.icy_veins.remains<gcd&buff.rune_of_power.remains<20)|(cooldown.prismatic_crystal.remains<gcd&buff.rune_of_power.remains<10)" );
   default_list -> add_action( "call_action_list,name=cooldowns,if=time_to_die<24" );
-  default_list -> add_action( "call_action_list,name=init_crystal,if=talent.prismatic_crystal.enabled&cooldown.prismatic_crystal.remains<action.frozen_orb.gcd" );
-  default_list -> add_action( "call_action_list,name=crystal_sequence,if=pet.prismatic_crystal.active" );
+  default_list -> add_action( "call_action_list,name=crystal_sequence,if=talent.prismatic_crystal.enabled&(cooldown.prismatic_crystal.remains<=action.frozen_orb.gcd|pet.prismatic_crystal.active)" );
   default_list -> add_action( "call_action_list,name=aoe,if=active_enemies>=5" );
   default_list -> add_action( "call_action_list,name=single_target" );
 
 
-  init_crystal -> add_action( "call_action_list,name=cooldowns",
-                              "Conditions for initiating Prismatic Crystal burn phase" );
-  init_crystal -> add_action( this, "Frozen Orb" );
-  init_crystal -> add_talent( this, "Prismatic Crystal" );
-
-
-  crystal_sequence -> add_talent( this, "Frost Bomb",
-                                  "if=!ticking&buff.fingers_of_frost.react",
+  crystal_sequence -> add_action( "call_action_list,name=cooldowns",
                                   "Actions while Prismatic Crystal is active" );
+  crystal_sequence -> add_talent( this, "Frost Bomb",
+                                  "if=active_enemies=1&current_target!=prismatic_crystal&remains<12" );
+  crystal_sequence -> add_action( this, "Frozen Orb" );
+  crystal_sequence -> add_talent( this, "Prismatic Crystal" );
+  crystal_sequence -> add_talent( this, "Frost Bomb",
+                                  "if=active_enemies>1&current_target=prismatic_crystal&!ticking" );
   crystal_sequence -> add_action( this, "Ice Lance",
-                                  "if=buff.fingers_of_frost.react=2" );
+                                  "if=buff.fingers_of_frost.react=2|(buff.fingers_of_frost.react&set_bonus.tier17_2pc&dot.frozen_orb.ticking)" );
+  crystal_sequence -> add_talent( this, "Ice Nova",
+                                  "if=charges=2" );
   crystal_sequence -> add_action( this, "Frostfire Bolt",
                                   "if=buff.brain_freeze.react" );
   crystal_sequence -> add_action( this, "Ice Lance",
@@ -5046,7 +5075,7 @@ void mage_t::apl_frost()
                            "Consolidated damage cooldown abilities" );
 
   for( size_t i = 0; i < racial_actions.size(); i++ )
-    cooldowns -> add_action( racial_actions[i] + ",if=buff.icy_veins.up" );
+    cooldowns -> add_action( racial_actions[i] );
 
   cooldowns -> add_action( get_potion_action() + ",if=buff.bloodlust.up|buff.icy_veins.up" );
 
@@ -5063,6 +5092,8 @@ void mage_t::apl_frost()
                      "if=buff.fingers_of_frost.react&debuff.frost_bomb.up" );
   aoe -> add_talent( this, "Comet Storm" );
   aoe -> add_talent( this, "Ice Nova" );
+  aoe -> add_talent( this, "Cold Snap",
+                     "if=glyph.cone_of_cold.enabled&!cooldown.cone_of_cold.up" );
   aoe -> add_action( this, "Cone of Cold",
                      "if=glyph.cone_of_cold.enabled" );
   aoe -> add_action( this, "Blizzard",
@@ -5077,30 +5108,27 @@ void mage_t::apl_frost()
   single_target -> add_action( this, "Frostfire Bolt",
                                "if=buff.brain_freeze.react&buff.brain_freeze.remains<action.frostbolt.execute_time" );
   single_target -> add_talent( this, "Frost Bomb",
-                               "if=!talent.prismatic_crystal.enabled&cooldown.frozen_orb.remains<execute_time&debuff.frost_bomb.remains<10+execute_time" );
+                               "if=!talent.prismatic_crystal.enabled&cooldown.frozen_orb.remains<gcd&debuff.frost_bomb.remains<10" );
   single_target -> add_action( this, "Frozen Orb",
-                               "if=buff.fingers_of_frost.stack<2&!talent.prismatic_crystal.enabled&(buff.icy_veins.up|cooldown.icy_veins.remains>45)" );
-  single_target -> add_action( this, "Frostbolt",
-                               "if=dot.water_jet.remains>cast_time+travel_time",
-                               "Cast Frostbolt during Water Jet channel for FoF procs" );
+                               "if=!talent.prismatic_crystal.enabled&buff.fingers_of_frost.stack<2&cooldown.icy_veins.remains>45" );
   single_target -> add_talent( this, "Frost Bomb",
-                               "if=remains<action.ice_lance.travel_time&buff.fingers_of_frost.react=2" );
-  single_target -> add_action( this, "Ice Lance",
-                               "if=(buff.fingers_of_frost.react=2|(set_bonus.tier17_2pc&cooldown.frozen_orb.remains>50))&(!talent.frost_bomb.enabled|debuff.frost_bomb.remains>travel_time)" );
-  single_target -> add_talent( this, "Comet Storm" );
+                               "if=remains<action.ice_lance.travel_time&(buff.fingers_of_frost.react=2|(buff.fingers_of_frost.react&buff.fingers_of_frost.remains<gcd*2))" );
   single_target -> add_talent( this, "Ice Nova",
-                               "if=time_to_die<10|charges=2" );
+                               "if=time_to_die<10|(charges=2&(!talent.prismatic_crystal.enabled|!cooldown.prismatic_crystal.up))" );
+  single_target -> add_action( this, "Ice Lance",
+                               "if=buff.fingers_of_frost.react=2|(talent.thermal_void.enabled&set_bonus.tier17_2pc&dot.frozen_orb.ticking)" );
+  single_target -> add_talent( this, "Comet Storm" );
   single_target -> add_action( this, "Frostfire Bolt",
                                "if=buff.brain_freeze.react" );
+  single_target -> add_talent( this, "Ice Nova",
+                               "if=(!talent.prismatic_crystal.enabled|(charges=1&cooldown.prismatic_crystal.remains>recharge_time))&(buff.icy_veins.up|(charges=1&cooldown.icy_veins.remains>recharge_time))" );
   single_target -> add_action( this, "Ice Lance",
                                "if=buff.fingers_of_frost.react&debuff.frost_bomb.remains>travel_time&(!talent.thermal_void.enabled|cooldown.icy_veins.remains>8)" );
   single_target -> add_action( this, "Frostbolt",
-                               "if=buff.ice_shard.remains>cast_time",
+                               "if=buff.ice_shard.up&!(talent.thermal_void.enabled&buff.icy_veins.up&buff.icy_veins.remains<10)",
                                "Camp procs and spam Frostbolt while 4T17 buff is up" );
   single_target -> add_action( this, "Ice Lance",
                                "if=buff.fingers_of_frost.react&!talent.frost_bomb.enabled&(!talent.thermal_void.enabled|cooldown.icy_veins.remains>8)" );
-  single_target -> add_talent( this, "Ice Nova",
-                               "if=(!talent.prismatic_crystal.enabled|(charges=1&cooldown.prismatic_crystal.remains>recharge_time)|set_bonus.tier17_2pc)&(buff.icy_veins.up|(charges=1&cooldown.icy_veins.remains>recharge_time))" );
   single_target -> add_action( this, "Ice Lance",
                                "if=talent.thermal_void.enabled&buff.icy_veins.up&buff.icy_veins.remains<6&buff.icy_veins.remains<cooldown.icy_veins.remains",
                                "Thermal Void IV extension" );

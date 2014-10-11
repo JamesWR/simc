@@ -2881,6 +2881,8 @@ private:
       pause_mutex.unlock();
     }
   }
+  void print_spell_query();
+
 public:
   bool requires_regen_event;
 

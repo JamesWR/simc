@@ -2180,7 +2180,8 @@ void player_t::create_buffs()
 
       debuffs.dazed            = buff_creator_t( this, "dazed", find_spell( 15571 ) );
 
-      buffs.cooldown_reduction = buff_creator_t( this, "readiness" ).chance( 0 );
+      buffs.cooldown_reduction = buff_creator_t( this, "readiness" ).chance( 0 )
+        .default_value( 1 );
       buffs.amplification = buff_creator_t( this, "amplification", find_spell( 146051 ) )
                             .add_invalidate( CACHE_MASTERY )
                             .add_invalidate( CACHE_HASTE )
@@ -3715,6 +3716,9 @@ void player_t::schedule_ready( timespan_t delta_time,
     }
 
     if ( lag < timespan_t::zero() ) lag = timespan_t::zero();
+
+    if ( type == PLAYER_GUARDIAN )
+      lag = timespan_t::zero(); // Guardians do not seem to feel the effects of queue/gcd lag in WoD.
 
     delta_time += lag;
   }
