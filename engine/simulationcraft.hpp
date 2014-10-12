@@ -4563,7 +4563,7 @@ struct player_t : public actor_t
   std::array<double, SCALE_METRIC_MAX> scaling_lag, scaling_lag_error;
   std::array<bool, STAT_MAX> scales_with;
   std::array<double, STAT_MAX> over_cap;
-  std::vector<stat_e> scaling_stats; // sorting vector
+  std::array<std::vector<stat_e>, SCALE_METRIC_MAX> scaling_stats; // sorting vector
 
   // Movement & Position
   double base_movement_speed;
@@ -4582,7 +4582,6 @@ struct player_t : public actor_t
     buff_t* exhaustion;
     buff_t* guardian_spirit;
     buff_t* hand_of_sacrifice;
-    buff_t* illuminated_healing;
     buff_t* mongoose_mh;
     buff_t* mongoose_oh;
     buff_t* nitro_boosts;
