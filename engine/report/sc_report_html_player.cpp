@@ -820,7 +820,7 @@ void print_html_action_info( report::sc_html_stream& os, unsigned stats_mask, st
         "<li><span class=\"label\">trigger_gcd:</span>%.4f</li>\n"
         "<li><span class=\"label\">min_gcd:</span>%.4f</li>\n"
         "<li><span class=\"label\">base_cost:</span>%.1f</li>\n"
-        "<li><span class=\"label\">cooldown:</span>%.2f</li>\n"
+        "<li><span class=\"label\">cooldown:</span>%.3f</li>\n"
         "<li><span class=\"label\">base_execute_time:</span>%.2f</li>\n"
         "<li><span class=\"label\">base_crit:</span>%.2f</li>\n"
         "<li><span class=\"label\">target:</span>%s</li>\n"
@@ -836,7 +836,7 @@ void print_html_action_info( report::sc_html_stream& os, unsigned stats_mask, st
         a -> trigger_gcd.total_seconds(),
         a -> min_gcd.total_seconds(),
         a -> base_costs[ a -> current_resource() ],
-        a -> cooldown -> duration.total_seconds(),
+        a -> cooldown -> duration.total_seconds() * a -> cooldown -> get_recharge_multiplier(),
         a -> base_execute_time.total_seconds(),
         a -> base_crit,
         a -> target ? a -> target -> name() : "",
@@ -1658,7 +1658,7 @@ void print_html_player_scale_factor_table( report::sc_html_stream& os, sim_t* si
 
   for ( size_t i = 0; i < scaling_stats.size(); i++ )
   {
-    if ( std::abs( p -> scaling[ sm ].get_stat( scaling_stats[ i ] ) > 1.0e5 ) )
+    if ( std::abs( p -> scaling[ sm ].get_stat( scaling_stats[ i ] ) ) > 1.0e5 )
       os.printf(
       "<td>%.*e</td>\n",
       p -> sim -> report_precision,
@@ -3219,7 +3219,7 @@ void print_html_player_results_spec_gear( report::sc_html_stream& os, sim_t* sim
     double tmi_range = ( cd.theck_meloree_index.percentile( 0.5 + sim -> confidence / 2 ) - cd.theck_meloree_index.percentile( 0.5 - sim -> confidence / 2 ) );
 
     // print TMI
-    if ( abs( cd.theck_meloree_index.mean() ) > 1.0e8 )
+    if ( std::abs( cd.theck_meloree_index.mean() ) > 1.0e8 )
       os.printf( "<td>%1.3e</td>\n", cd.theck_meloree_index.mean() );
     else
       os.printf( "<td>%.1fk</td>\n", cd.theck_meloree_index.mean() / 1e3 );
@@ -3237,12 +3237,12 @@ void print_html_player_results_spec_gear( report::sc_html_stream& os, sim_t* sim
     }
 
     // print  TMI min/max
-    if ( abs( cd.theck_meloree_index.min() ) > 1.0e8 )
+    if ( std::abs( cd.theck_meloree_index.min() ) > 1.0e8 )
       os.printf( "<td>%1.2e</td>\n", cd.theck_meloree_index.min() );
     else
       os.printf( "<td>%.1fk</td>\n", cd.theck_meloree_index.min() / 1e3 );
     
-    if ( abs( cd.theck_meloree_index.max() ) > 1.0e8 )
+    if ( std::abs( cd.theck_meloree_index.max() ) > 1.0e8 )
       os.printf( "<td>%1.2e</td>\n", cd.theck_meloree_index.max() );
     else
       os.printf( "<td>%.1fk</td>\n", cd.theck_meloree_index.max() / 1e3 );

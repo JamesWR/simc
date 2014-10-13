@@ -57,6 +57,7 @@ public:
   // Buffs
   struct
   {
+
     // Talents
     buff_t* glyph_of_levitate;
     buff_t* power_infusion;
@@ -399,8 +400,11 @@ public:
   virtual role_e    primary_role() const override;
   virtual stat_e    convert_hybrid_stat( stat_e s ) const override;
   virtual double    composite_armor() const override;
+  virtual double    composite_melee_haste() const override;
+  virtual double    composite_melee_speed() const override;
   virtual double    composite_spell_haste() const override;
   virtual double    composite_spell_speed() const override;
+  virtual double    composite_spell_power( school_e school )  const override;
   virtual double    composite_spell_power_multiplier() const override;
   virtual double    composite_spell_crit() const override;
   virtual double    composite_melee_crit() const override;
@@ -2193,7 +2197,7 @@ struct mind_blast_t final : public priest_spell_t
     double d = priest_spell_t::composite_da_multiplier( state );
 
     if ( priest.buffs.empowered_shadows -> check() )
-      d *= 1.0 + priest.buffs.empowered_shadows->current_value *  priest.buffs.empowered_shadows -> check();
+      d *= 1.0 + priest.buffs.empowered_shadows -> current_value *  priest.buffs.empowered_shadows -> check();
 
     if ( priest.mastery_spells.mental_anguish -> ok() )
       d *= 1.0 + priest.cache.mastery_value();
@@ -5209,6 +5213,24 @@ double priest_t::composite_spell_haste() const
   return h;
 }
 
+// priest_t::composite_melee_haste ==========================================
+
+double priest_t::composite_melee_haste() const
+{
+  double h = player_t::composite_melee_haste();
+
+  if ( buffs.power_infusion -> check() )
+    h /= 1.0 + buffs.power_infusion -> data().effectN( 1 ).percent();
+
+  if ( buffs.resolute_spirit -> check() )
+    h /= 1.0 + buffs.resolute_spirit -> data().effectN( 1 ).percent();
+
+  if ( buffs.mental_instinct -> check() )
+    h /= 1.0 + buffs.mental_instinct -> data().effectN( 1 ).percent() * buffs.mental_instinct -> check();
+
+  return h;
+}
+
 // priest_t::composite_spell_speed ==========================================
 
 double priest_t::composite_spell_speed() const
@@ -5221,19 +5243,33 @@ double priest_t::composite_spell_speed() const
   return h;
 }
 
+// priest_t::composite_melee_speed ==========================================
+
+double priest_t::composite_melee_speed() const
+{
+  double h = player_t::composite_melee_speed();
+
+  if ( buffs.borrowed_time -> check() )
+    h /= 1.0 + buffs.borrowed_time -> data().effectN( 1 ).percent();
+
+  return h;
+}
+
+// priest_t::composite_spell_power ===============================
+
+double priest_t::composite_spell_power( school_e school ) const
+{
+  return base_t::composite_spell_power( school );
+}
+
 // priest_t::composite_spell_power_multiplier ===============================
 
 double priest_t::composite_spell_power_multiplier() const
 {
-  double m = 1.0;
-
-  if ( sim -> auras.spell_power_multiplier -> check() )
-    m += sim -> auras.spell_power_multiplier -> current_value;
-
-  m *= current.spell_power_multiplier;
-
-  return m;
+  return base_t::composite_spell_power_multiplier();
 }
+
+// priest_t::composite_spell_crit ===============================
 
 double priest_t::composite_spell_crit() const
 {
@@ -5244,6 +5280,8 @@ double priest_t::composite_spell_crit() const
 
   return csc;
 }
+
+// priest_t::composite_melee_crit ===============================
 
 double priest_t::composite_melee_crit() const
 {
@@ -5332,9 +5370,6 @@ double priest_t::temporary_movement_modifier() const
 double priest_t::composite_attribute_multiplier( attribute_e attr ) const
 {
   double m = base_t::composite_attribute_multiplier( attr );
-
-  if ( attr == ATTR_INTELLECT )
-    m *= 1.0 + specs.mysticism -> effectN( 1 ).percent();
 
   return m;
 }
@@ -5712,7 +5747,7 @@ void priest_t::create_buffs()
   buffs.power_infusion = buff_creator_t( this, "power_infusion" )
                          .spell( talents.power_infusion )
                          .add_invalidate( CACHE_SPELL_HASTE )
-                         .add_invalidate( CACHE_PLAYER_DAMAGE_MULTIPLIER );
+                         .add_invalidate( CACHE_HASTE );
 
   buffs.twist_of_fate = buff_creator_t( this, "twist_of_fate" )
                         .spell( talents.twist_of_fate )
@@ -5816,6 +5851,7 @@ void priest_t::create_buffs()
   buffs.resolute_spirit = stat_buff_creator_t( this, "resolute_spirit" )
                           .spell( find_spell( 145374 ) )
                           .chance( sets.has_set_bonus( SET_HEALER, T16, B4 ) )
+                          .add_invalidate( CACHE_SPELL_HASTE )
                           .add_invalidate( CACHE_HASTE );
 
   buffs.glyph_of_levitate = buff_creator_t( this, "glyph_of_levitate", glyphs.levitate )
@@ -5827,6 +5863,7 @@ void priest_t::create_buffs()
   buffs.mental_instinct = buff_creator_t( this, "mental_instinct" )
                             .spell( sets.set( PRIEST_SHADOW, T17, B4 ) -> effectN( 1 ).trigger() )
                             .chance( sets.has_set_bonus( PRIEST_SHADOW, T17, B4 ) )
+                            .add_invalidate( CACHE_SPELL_HASTE )
                             .add_invalidate( CACHE_HASTE );
 
   buffs.clear_thoughts = buff_creator_t( this, "clear_thoughts" )
