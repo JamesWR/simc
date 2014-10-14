@@ -510,6 +510,7 @@ player_t::player_t( sim_t*             s,
   ready_type( READY_POLL ),
   _spec( SPEC_NONE ),
   bugs( true ),
+  wod_19005_hotfix( true ),
   scale_player( true ),
   death_pct( 0.0 ),
   size( 0 ),
@@ -5528,6 +5529,13 @@ struct shadowmeld_t : public racial_spell_t
     racial_spell_t::execute();
 
     player -> buffs.shadowmeld -> trigger();
+
+    // Shadowmeld stops autoattacks
+    if ( player -> main_hand_attack && player -> main_hand_attack -> execute_event )
+      core_event_t::cancel( player -> main_hand_attack -> execute_event );
+
+    if ( player -> off_hand_attack && player -> off_hand_attack -> execute_event )
+      core_event_t::cancel( player -> off_hand_attack -> execute_event );
   }
 };
 
@@ -8280,7 +8288,7 @@ void player_t::create_options()
     add_option( opt_string( "glyphs", glyphs_str ) );
     add_option( opt_string( "race", race_str ) );
     add_option( opt_func( "timeofday", parse_timeofday ) );
-    add_option( opt_int( "level", level, 0, MAX_LEVEL ) );
+    add_option( opt_int( "level", level, 0, MAX_LEVEL + 3 ) );
     add_option( opt_bool( "ready_trigger", ready_type ) );
     add_option( opt_func( "role", parse_role_string ) );
     add_option( opt_string( "target", target_str ) );
@@ -8300,6 +8308,7 @@ void player_t::create_options()
     add_option( opt_string( "save_actions", report_information.save_actions_str ) );
     add_option( opt_string( "comment", report_information.comment_str ) );
     add_option( opt_bool( "bugs", bugs ) );
+    add_option( opt_bool( "wod_19005_hotfix", wod_19005_hotfix ) );
     add_option( opt_func( "world_lag", parse_world_lag ) );
     add_option( opt_func( "world_lag_stddev", parse_world_lag_stddev ) );
     add_option( opt_func( "brain_lag", parse_brain_lag ) );
