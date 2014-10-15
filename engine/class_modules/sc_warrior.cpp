@@ -1116,6 +1116,8 @@ struct melee_t: public warrior_attack_t
       if ( p -> main_hand_weapon.group() == WEAPON_1H &&
            p -> off_hand_weapon.group() == WEAPON_1H )
            sudden_death_chance += p -> spec.singleminded_fury -> effectN( 4 ).percent();
+      if ( p -> wod_19005_hotfix )
+        sudden_death_chance = 0.1;
     }
     if ( p -> dual_wield() )
       base_hit -= 0.19;
@@ -4137,7 +4139,7 @@ void warrior_t::apl_prot()
   default_list -> add_action( "call_action_list,name=prot" );
 
   //defensive
-  prot -> add_action( this, "Shield Block", "if=!(debuff.demoralizing_shout.up|buff.ravager.up|buff.shield_wall.up|buff.last_stand.up|buff.enraged_regeneration.up|buff.shield_block.up|buff.potion.up)" );
+  prot -> add_action( this, "Shield Block", "if=!(debuff.demoralizing_shout.up|buff.ravager.up|buff.shield_wall.up|buff.last_stand.up|buff.enraged_regeneration.up|buff.shield_block.up)" );
   prot -> add_action( this, "Shield Barrier", "if=buff.shield_barrier.down&((buff.shield_block.down&action.shield_block.charges_fractional<0.75)|rage>=85)" );
   prot -> add_action( this, "Demoralizing Shout", "if=" + threshold + "&!(debuff.demoralizing_shout.up|buff.ravager.up|buff.shield_wall.up|buff.last_stand.up|buff.enraged_regeneration.up|buff.shield_block.up|buff.potion.up)" );
   prot -> add_talent( this, "Enraged Regeneration", "if=" + threshold + "&!(debuff.demoralizing_shout.up|buff.ravager.up|buff.shield_wall.up|buff.last_stand.up|buff.enraged_regeneration.up|buff.shield_block.up|buff.potion.up)" );
