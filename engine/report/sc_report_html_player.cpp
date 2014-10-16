@@ -1626,7 +1626,7 @@ void print_html_talents( report::sc_html_stream& os, player_t* p )
 
 // print_html_player_scale_factor_table =====================================
 
-void print_html_player_scale_factor_table( report::sc_html_stream& os, sim_t* sim, player_t* p, player_processed_report_information_t& ri, scale_metric_e sm )
+void print_html_player_scale_factor_table( report::sc_html_stream& os, sim_t*, player_t* p, player_processed_report_information_t& ri, scale_metric_e sm )
 {
 
   int colspan = static_cast< int >( p -> scaling_stats[ sm ].size() );
@@ -1735,14 +1735,14 @@ void print_html_player_scale_factor_table( report::sc_html_stream& os, sim_t* si
     "<td colspan=\"%i\" class=\"filler\">\n"
     "<ul class=\"float\">\n",
     colspan );
-  if ( !ri.gear_weights_wowhead_std_link.empty() )
+  if ( !ri.gear_weights_wowhead_std_link[ sm ].empty() )
     os.printf(
     "<li><a href=\"%s\" class=\"ext\">wowhead</a></li>\n",
-    ri.gear_weights_wowhead_std_link.c_str() );
-  if ( !ri.gear_weights_lootrank_link.empty() )
+    ri.gear_weights_wowhead_std_link[ sm ].c_str() );
+  if ( !ri.gear_weights_lootrank_link[ sm ].empty() )
     os.printf(
     "<li><a href=\"%s\" class=\"ext\">lootrank</a></li>\n",
-    ri.gear_weights_lootrank_link.c_str() );
+    ri.gear_weights_lootrank_link[ sm ].c_str() );
   os << "</ul>\n";
   os << "</td>\n";
   os << "</tr>\n";
@@ -1756,11 +1756,11 @@ void print_html_player_scale_factor_table( report::sc_html_stream& os, sim_t* si
     colspan );
 
   // askmrrobot
-  if ( !ri.gear_weights_askmrrobot_link.empty() )
+  if ( !ri.gear_weights_askmrrobot_link[ sm ].empty() )
   {
     os.printf(
       "<li><a href=\"%s\" class=\"ext\">askmrrobot</a></li>\n",
-      ri.gear_weights_askmrrobot_link.c_str() );
+      ri.gear_weights_askmrrobot_link[ sm ].c_str() );
   }
 
   // close optimizers section

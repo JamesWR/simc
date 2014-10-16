@@ -37,10 +37,10 @@ std::string reforge_dps        ( player_t* );
 std::string normal_distribution(  double mean, double std_dev, double confidence, double tolerance_interval = 0, int print_styles = 0  );
 
 #if LOOTRANK_ENABLED == 1
-std::string gear_weights_lootrank  ( player_t* );
+std::array<std::string, SCALE_METRIC_MAX> gear_weights_lootrank  ( player_t* );
 #endif
-std::string gear_weights_wowhead   ( player_t* );
-std::string gear_weights_askmrrobot( player_t* );
+std::array<std::string, SCALE_METRIC_MAX> gear_weights_wowhead   ( player_t* );
+std::array<std::string, SCALE_METRIC_MAX> gear_weights_askmrrobot( player_t* );
 
 bool generate_raid_aps( highchart::bar_chart_t&, sim_t*, const std::string& type );
 bool generate_distribution( highchart::histogram_chart_t&, const player_t* p,
