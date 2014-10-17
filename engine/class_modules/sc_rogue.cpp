@@ -2041,6 +2041,9 @@ struct killing_spree_tick_t : public rogue_attack_t
     may_crit    = true;
     direct_tick = true;
   }
+
+  bool procs_main_gauche() const
+  { return true; }
 };
 
 struct killing_spree_t : public rogue_attack_t
@@ -4312,9 +4315,9 @@ double rogue_t::composite_player_multiplier( school_e school ) const
 
     if ( main_hand_weapon.type == WEAPON_DAGGER && off_hand_weapon.type == WEAPON_DAGGER )
     {
-      if ( wod_19005_hotfix )
-        m *= 1.1;
-      else
+      //if ( wod_19005_hotfix )
+      //  m *= 1.1;
+      //else
         m *= 1.0 + spec.assassins_resolve -> effectN( 2 ).percent();
     }
   }
