@@ -2259,6 +2259,8 @@ struct ferocious_bite_t : public cat_attack_t
     max_excess_energy      = data().effectN( 2 ).base_value();
     special                = true;
     spell_power_mod.direct = 0;
+    if ( p -> wod_hotfix )
+      attack_power_mod.direct *= 1.12;
   }
 
   virtual void execute()
@@ -2385,6 +2387,8 @@ struct rake_t : public cat_attack_t
     attack_power_mod.tick = bleed_spell -> effectN( 1 ).ap_coeff();
     dot_duration          = bleed_spell -> duration();
     base_tick_time        = bleed_spell -> effectN( 1 ).period();
+    if ( p -> wod_hotfix )
+      attack_power_mod.tick *= 1.12;
   }
 
   virtual double composite_persistent_multiplier( const action_state_t* s ) const
@@ -2485,6 +2489,8 @@ struct rip_t : public cat_attack_t
     dot_behavior = DOT_REFRESH;
 
     dot_duration += player -> sets.set( SET_MELEE, T14, B4 ) -> effectN( 1 ).time_value();
+    if ( p -> wod_hotfix )
+      ap_per_point *= 1.12;
   }
 
   action_state_t* new_state()
@@ -2556,6 +2562,8 @@ struct shred_t : public cat_attack_t
   {
     base_multiplier *= 1.0 + player -> sets.set( SET_MELEE, T14, B2 ) -> effectN( 1 ).percent();
     special = true;
+    if ( p -> wod_hotfix )
+      weapon_multiplier *= 1.12;
   }
 
   virtual void execute()
@@ -2630,6 +2638,8 @@ struct swipe_t : public cat_attack_t
   {
     aoe = -1;
     combo_point_gain = data().effectN( 1 ).base_value(); // Effect is not labelled correctly as CP gain
+    if ( player -> wod_hotfix )
+      attack_power_mod.direct *= 1.25;
   }
 
   virtual void impact( action_state_t* s )
@@ -2691,6 +2701,8 @@ struct thrash_cat_t : public cat_attack_t
     aoe                    = -1;
     dot_behavior           = DOT_REFRESH;
     spell_power_mod.direct = 0;
+    if ( p -> wod_hotfix )
+      attack_power_mod.direct *= 1.12;
   }
 
   // Treat direct damage as "bleed"
@@ -2850,7 +2862,7 @@ struct lacerate_t : public bear_attack_t
     dot_behavior = DOT_REFRESH;
 
     rage_amount = data().effectN( 3 ).resource( RESOURCE_RAGE );
-    if ( p -> wod_19005_hotfix )
+    if ( p -> wod_hotfix )
       attack_power_mod.tick *= 1.05;
   }
 
@@ -2907,7 +2919,7 @@ struct mangle_t : public bear_attack_t
       base_crit += p() -> talent.dream_of_cenarius -> effectN( 3 ).percent();
 
     base_multiplier *= 1.0 + player -> talent.soul_of_the_forest -> effectN( 2 ).percent();
-    if ( player -> wod_19005_hotfix )
+    if ( player -> wod_hotfix )
       base_multiplier *= 1.05;
   }
 
@@ -2961,7 +2973,7 @@ struct maul_t : public bear_attack_t
 
       // Coeff is in tooltip but not spell data, so hardcode the value here.
       attack_power_mod.direct = 2.40;
-      if ( p -> wod_19005_hotfix )
+      if ( p -> wod_hotfix )
         attack_power_mod.direct *= 1.05;
     }
 
@@ -3051,7 +3063,7 @@ struct pulverize_t : public bear_attack_t
     bear_attack_t( "pulverize", player, player -> talent.pulverize )
   {
     parse_options( options_str );
-    if ( player -> wod_19005_hotfix )
+    if ( player -> wod_hotfix )
       attack_power_mod.direct *= 1.05;
   }
 
@@ -4777,6 +4789,8 @@ struct moonfire_li_t : public druid_spell_t
     druid_spell_t( "moonfire", player, player -> find_spell( 155625 ) )
   {
     parse_options( options_str );
+    if ( player -> wod_hotfix )
+      attack_power_mod.direct *= 1.12;
   }
 
   void impact( action_state_t* s )

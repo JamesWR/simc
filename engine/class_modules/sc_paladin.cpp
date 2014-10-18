@@ -991,7 +991,7 @@ struct avengers_shield_t : public paladin_spell_t
     if ( p -> glyphs.focused_shield -> ok() )
       base_multiplier *= 1.0 + p -> glyphs.focused_shield -> effectN( 2 ).percent();
 
-    if ( p -> wod_19005_hotfix )
+    if ( p -> wod_hotfix )
       attack_power_mod.direct *= 1.05;
   }
 
@@ -1336,7 +1336,7 @@ struct consecration_tick_t : public paladin_spell_t
     direct_tick = true;
     background  = true;
     may_crit    = true;
-    if ( p -> wod_19005_hotfix )
+    if ( p -> wod_hotfix )
       attack_power_mod.direct *= 1.05;
   }
 };
@@ -1931,6 +1931,8 @@ struct exorcism_t : public paladin_spell_t
 
     cooldown = p -> cooldowns.exorcism;
     cooldown -> duration = data().cooldown();
+    if ( p -> wod_hotfix )
+      attack_power_mod.direct *= 1.2;
   }
 
   virtual double action_multiplier() const
@@ -2663,7 +2665,7 @@ struct holy_wrath_t : public paladin_spell_t
 
     base_multiplier += p -> talents.sanctified_wrath -> effectN( 1 ).percent();
     hp_granted += (int) p -> talents.sanctified_wrath -> effectN( 2 ).base_value();
-    if ( p -> wod_19005_hotfix )
+    if ( p -> wod_hotfix )
       attack_power_mod.direct *= 1.05;
 
   }
@@ -3504,6 +3506,8 @@ struct crusader_strike_t : public paladin_melee_attack_t
     base_costs[ RESOURCE_MANA ] *= 1.0 +  p -> passives.guarded_by_the_light -> effectN( 7 ).percent()
                                        +  p -> passives.sword_of_light -> effectN( 4 ).percent();
     base_costs[ RESOURCE_MANA ] = floor( base_costs[ RESOURCE_MANA ] + 0.5 );
+    if ( p -> wod_hotfix )
+      weapon_multiplier *= 1.2;
   }
 
   virtual double action_multiplier() const
@@ -3580,6 +3584,8 @@ struct divine_storm_t : public paladin_melee_attack_t
     {
       glyph_heal = new glyph_of_divine_storm_t( p );
     }
+    if ( p -> wod_hotfix )
+      weapon_multiplier *= 1.2;
   }
 
   virtual double cost() const
@@ -3800,6 +3806,8 @@ struct hammer_of_wrath_t : public paladin_melee_attack_t
     {
       cooldown_mult = 1.0 + p -> spells.sanctified_wrath -> effectN( 3 ).percent();
     }
+    if ( p -> wod_hotfix )
+      spell_power_mod.direct *= 1.2;
   }
 
   virtual void execute()
@@ -3963,6 +3971,11 @@ struct judgment_t : public paladin_melee_attack_t
 
     if ( p -> talents.empowered_seals -> ok() )
       uthers_insight = new uthers_insight_t( p );
+    if ( p -> wod_hotfix )
+    {
+      attack_power_mod.direct *= 1.2;
+      spell_power_mod.direct *= 1.2;
+    }
   }
 
   virtual void execute()
@@ -4275,7 +4288,7 @@ struct shield_of_the_righteous_t : public paladin_melee_attack_t
 
     // no weapon multiplier
     weapon_multiplier = 0.0;
-    if ( p -> wod_19005_hotfix )
+    if ( p -> wod_hotfix )
       attack_power_mod.direct *= 1.05;
   }
 
@@ -4332,10 +4345,8 @@ struct final_verdict_t : public paladin_melee_attack_t
     // Tier 14 Retribution 2-piece boosts damage (TODO: test?)
     base_multiplier *= 1.0 + p -> sets.set( SET_MELEE, T14, B2 ) -> effectN( 1 ).percent();
 
-    // Create a child cleave object 
-    //cleave = new final_verdict_cleave_t( p );
-    //add_child( cleave );
-
+    if ( p -> wod_hotfix )
+      weapon_multiplier *= 1.2;
   }
 
   virtual void execute ()
@@ -4367,10 +4378,6 @@ struct final_verdict_t : public paladin_melee_attack_t
 
       // apply Final Verdict buff (increases DS)
       p() -> buffs.final_verdict -> trigger();
-
-      //// Apply cleave if we're using SoR
-      //if ( p() -> active_seal == SEAL_OF_RIGHTEOUSNESS )
-      //  cleave -> schedule_execute();
     }
   }
 };
@@ -4391,6 +4398,8 @@ struct templars_verdict_t : public paladin_melee_attack_t
 
     // disable if Final Verdict is taken
     background = p -> talents.final_verdict -> ok();
+    if ( p -> wod_hotfix )
+      weapon_multiplier *= 1.2;
   }
 
   virtual school_e get_school() const
@@ -6387,7 +6396,7 @@ double paladin_t::get_hand_of_light()
   double handoflight;
   handoflight = cache.mastery_value(); // HoL modifier is in effect #1
 
-  if ( wod_19005_hotfix )
+  if ( wod_hotfix )
     handoflight *= 1.2;
 
   return handoflight;
