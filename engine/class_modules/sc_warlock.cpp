@@ -272,19 +272,20 @@ public:
   {
     buff_t* backdraft;
     buff_t* dark_soul;
+    buff_t* demonbolt;
+    buff_t* demonic_calling;
+    buff_t* demonic_rebirth;
+    buff_t* demonic_synergy;
+    buff_t* fire_and_brimstone;
+    buff_t* immolation_aura;
+    buff_t* grimoire_of_sacrifice;
+    buff_t* haunting_spirits;
+    buff_t* havoc;
+    buff_t* mannoroths_fury;
     buff_t* metamorphosis;
     buff_t* molten_core;
-    buff_t* soulburn;
-    buff_t* havoc;
-    buff_t* grimoire_of_sacrifice;
-    buff_t* demonic_synergy;
-    buff_t* demonic_calling;
-    buff_t* fire_and_brimstone;
     buff_t* soul_swap;
-    buff_t* demonic_rebirth;
-    buff_t* mannoroths_fury;
-    buff_t* haunting_spirits;
-    buff_t* demonbolt;
+    buff_t* soulburn;
 
     buff_t* chaotic_infusion;
 
@@ -330,6 +331,7 @@ public:
     spell_t* soulburn_seed_of_corruption_aoe;
     spell_t* metamorphosis;
     spell_t* melee;
+    spell_t* immolation_aura;
 
     const spell_data_t* tier15_2pc;
   } spells;
@@ -340,8 +342,6 @@ public:
 
     //the 6.0 dot mechanics make it close to irrelevant how the dots were buffed when inhaling, as they are dynamically recalculated every tick.
     //thus we only store the whether the dot is up and its duration( and agony stacks).
-
-
 
     bool agony_was_inhaled;
     timespan_t agony_remains;
@@ -477,7 +477,6 @@ struct warlock_pet_t: public pet_t
   virtual void init_base_stats() override;
   virtual void init_action_list() override;
   virtual void create_buffs() override;
-  virtual timespan_t available() const override;
   virtual void schedule_ready( timespan_t delta_time = timespan_t::zero(),
                                bool   waiting = false ) override;
   virtual double composite_player_multiplier( school_e school ) const override;
@@ -1067,20 +1066,6 @@ void warlock_pet_t::create_buffs()
     .chance( 1 );
 }
 
-timespan_t warlock_pet_t::available() const
-{
-  assert( primary_resource() == RESOURCE_ENERGY );
-  double energy = resources.current[RESOURCE_ENERGY];
-
-  if ( energy >= 130 )
-    return timespan_t::from_seconds( 0.1 );
-
-  return std::max(
-    timespan_t::from_seconds( ( 130 - energy ) / energy_regen_per_second() ),
-    timespan_t::from_seconds( 0.1 )
-    );
-}
-
 void warlock_pet_t::schedule_ready( timespan_t delta_time, bool waiting )
 {
   dot_t* d;
@@ -1324,6 +1309,11 @@ struct doomguard_pet_t: public warlock_pet_t
     resources.base[RESOURCE_ENERGY] = 100;
   }
 
+  double energy_regen_per_second() const
+  {
+    return 10;
+  }
+
   virtual action_t* create_action( const std::string& name, const std::string& options_str )
   {
     if ( name == "doom_bolt" ) return new actions::doom_bolt_t( this );
@@ -1359,11 +1349,6 @@ struct wild_imp_pet_t: public warlock_pet_t
 
     resources.base[RESOURCE_ENERGY] = 10;
     base_energy_regen_per_second = 0;
-  }
-
-  virtual timespan_t available() const
-  {
-    return timespan_t::from_seconds( 0.1 );
   }
 
   virtual action_t* create_action( const std::string& name,
@@ -1568,6 +1553,11 @@ struct terrorguard_pet_t: public warlock_pet_t
     warlock_pet_t::init_base_stats();
 
     resources.base[RESOURCE_ENERGY] = 100;
+  }
+
+  double energy_regen_per_second() const
+  {
+    return 10;
   }
 
   virtual action_t* create_action( const std::string& name, const std::string& options_str )
@@ -1901,6 +1891,13 @@ public:
   {
     spell_t::consume_resource();
 
+    if ( p() -> spells.immolation_aura &&
+         p() -> resources.current[RESOURCE_DEMONIC_FURY] < p() -> spells.immolation_aura -> tick_action -> base_costs[RESOURCE_DEMONIC_FURY] )
+    {
+      p() -> spells.immolation_aura -> get_dot() -> cancel();
+      p() -> buffs.immolation_aura -> expire();
+    }
+
     if ( use_havoc() )
     {
       p() -> buffs.havoc -> decrement( havoc_consume );
@@ -1951,7 +1948,6 @@ public:
     {
       m *= 1.0 + td -> debuffs_haunt -> data().effectN( 4 ).percent();
     }
-
 
     //sb:haunt buff
     if ( p() -> buffs.haunting_spirits -> check() && ( channeled || spell_power_mod.tick ) ) // Only applies to channeled or dots
@@ -2288,7 +2284,6 @@ struct demonbolt_t: public warlock_spell_t
   }
 };
 
-
 struct havoc_t: public warlock_spell_t
 {
   havoc_t( warlock_t* p ): warlock_spell_t( p, "Havoc" )
@@ -2352,7 +2347,6 @@ struct shadowflame_t: public warlock_spell_t
   }
 };
 
-
 struct hand_of_guldan_t: public warlock_spell_t
 {
   shadowflame_t* shadowflame;
@@ -2397,48 +2391,17 @@ struct hand_of_guldan_t: public warlock_spell_t
   }
 };
 
-struct shadow_bolt_copy_t: public warlock_spell_t
-{
-  shadow_bolt_copy_t( warlock_t* p, spell_data_t* sd, warlock_spell_t& sb ):
-    warlock_spell_t( "shadow_bolt", p, sd )
-  {
-    background = true;
-    callbacks = false;
-    spell_power_mod.direct = sb.spell_power_mod.direct;
-    base_dd_min = sb.base_dd_min;
-    base_dd_max = sb.base_dd_max;
-    base_multiplier = sb.base_multiplier;
-    if ( data()._effects -> size() > 1 ) generate_fury = data().effectN( 2 ).base_value();
-  }
-};
-
 struct shadow_bolt_t: public warlock_spell_t
 {
-  shadow_bolt_copy_t* glyph_copy_1;
-  shadow_bolt_copy_t* glyph_copy_2;
-
   hand_of_guldan_t* hand_of_guldan;
-
   shadow_bolt_t( warlock_t* p ):
-    warlock_spell_t( p, "Shadow Bolt" ), glyph_copy_1( 0 ), glyph_copy_2( 0 ), hand_of_guldan( new hand_of_guldan_t( p ) )
+    warlock_spell_t( p, "Shadow Bolt" ), hand_of_guldan( new hand_of_guldan_t( p ) )
   {
     base_multiplier *= 1.0 + p -> sets.set( SET_CASTER, T14, B2 ) -> effectN( 3 ).percent();
 
     hand_of_guldan               -> background = true;
     hand_of_guldan               -> base_costs[RESOURCE_MANA] = 0;
     hand_of_guldan               -> cooldown = p -> get_cooldown( "t16_4pc_demo" );
-
-
-    /*if ( p -> glyphs.shadow_bolt -> ok() )
-    {
-      base_multiplier *= 0.333;
-
-      const spell_data_t* sd = p -> find_spell( p -> glyphs.shadow_bolt -> effectN( 1 ).base_value() );
-      glyph_copy_1 = new shadow_bolt_copy_t( p, sd -> effectN( 2 ).trigger(), *this );
-      glyph_copy_2 = new shadow_bolt_copy_t( p, sd -> effectN( 3 ).trigger(), *this );
-      else
-    */
-      generate_fury = data().effectN( 2 ).base_value();
   }
 
   virtual void impact( action_state_t* s )
@@ -2453,24 +2416,12 @@ struct shadow_bolt_t: public warlock_spell_t
 
   virtual void execute()
   {
-    //if ( p() -> bugs && p() -> glyphs.shadow_bolt -> ok() ) background = true;
     warlock_spell_t::execute();
-    background = false;
 
     if ( p() -> sets.has_set_bonus( SET_CASTER, T16, B4 ) && rng().roll( 0.08 ) )
     {
       hand_of_guldan -> target = target;
-      /*
-      int current_charge = hand_of_guldan -> cooldown -> current_charge;
-      bool pre_execute_add = true;
-      if ( current_charge == hand_of_guldan -> cooldown -> charges - 1 )
-      {
-        pre_execute_add = false;
-      }
-      if ( pre_execute_add ) hand_of_guldan -> cooldown -> current_charge++;
-      */
       hand_of_guldan -> execute();
-      //if ( !pre_execute_add ) hand_of_guldan -> cooldown -> current_charge++;
     }
 
     if ( p() -> buffs.demonic_calling -> up() )
@@ -2484,13 +2435,6 @@ struct shadow_bolt_t: public warlock_spell_t
       // Only applies molten core if molten core is not already up
       if ( target -> health_percentage() < p() -> spec.decimation -> effectN( 1 ).base_value() && ! p() -> buffs.molten_core -> check() )
         p() -> buffs.molten_core -> trigger();
-
-      /*if ( p() -> glyphs.shadow_bolt -> ok() )
-      {
-        assert( glyph_copy_1 && glyph_copy_2 );
-        glyph_copy_1 -> execute();
-        glyph_copy_2 -> execute();
-      }*/
     }
   }
 
@@ -3453,6 +3397,11 @@ struct t: public warlock_spell_t
     warlock_spell_t::cancel();
 
     if ( p() -> spells.melee ) p() -> spells.melee -> cancel();
+    if ( p() -> spells.immolation_aura )
+    {
+      p() -> spells.immolation_aura -> get_dot() -> cancel();
+      p() -> buffs.immolation_aura -> expire();
+    }
     p() -> buffs.metamorphosis -> expire();
     core_event_t::cancel( cost_event );
   }
@@ -3889,7 +3838,7 @@ struct soulburn_seed_of_corruption_aoe_t: public warlock_spell_t
   corruption_t* corruption;
 
   soulburn_seed_of_corruption_aoe_t( warlock_t* p ):
-    warlock_spell_t( "soulburn_seed_of_corruption_aoe", p, p -> find_spell( 87385 ) ), corruption( new corruption_t( p ) )
+    warlock_spell_t( "soulburn_seed_of_corruption_aoe", p, p -> find_spell( 27285 ) ), corruption( new corruption_t( p ) )
   {
     aoe = -1;
     dual = true;
@@ -4111,14 +4060,20 @@ struct hellfire_t: public warlock_spell_t
   }
 };
 
+// Immolation Aura ===================================================================
+
 struct immolation_aura_tick_t: public warlock_spell_t
 {
-  immolation_aura_tick_t( warlock_t* p ):
-    warlock_spell_t( "immolation_aura_tick", p, p -> find_spell( 5857 ) )
+  action_t* parent;
+  immolation_aura_tick_t( warlock_t* p, action_t* parent ):
+    warlock_spell_t( "immolation_aura_tick", p, p -> find_spell( 129476 ) ),
+    parent( parent )
   {
     aoe = -1;
     background = true;
+    resource_current = RESOURCE_DEMONIC_FURY;
   }
+
   virtual double action_multiplier() const
   {
     double m = warlock_spell_t::action_multiplier();
@@ -4134,61 +4089,41 @@ struct immolation_aura_tick_t: public warlock_spell_t
 struct immolation_aura_t: public warlock_spell_t
 {
   immolation_aura_t( warlock_t* p ):
-    warlock_spell_t( p, "Immolation Aura" )
+    warlock_spell_t( "immolation_aura", p, p -> find_spell( 104025 ) )
   {
-    may_miss = false;
+    may_miss = may_crit = callbacks = hasted_ticks = false;
     tick_zero = true;
-    may_crit = false;
 
-    dynamic_tick_action = true;
-    tick_action = new immolation_aura_tick_t( p );
+    tick_action = new immolation_aura_tick_t( p, this );
+    tick_action -> base_costs[RESOURCE_DEMONIC_FURY] = costs_per_second[RESOURCE_DEMONIC_FURY];
   }
 
-  virtual void tick( dot_t* d )
+  void execute()
   {
-    if ( ! p() -> buffs.metamorphosis -> check() || p() -> resources.current[RESOURCE_DEMONIC_FURY] < META_FURY_MINIMUM )
-    {
+    dot_t* d = get_dot( target );
+
+    if ( d -> is_ticking() )
       d -> cancel();
-      return;
-    }
-
-    warlock_spell_t::tick( d );
-  }
-
-  virtual void last_tick( dot_t* d )
-  {
-    warlock_spell_t::last_tick( d );
-
-    core_event_t::cancel( cost_event );
-  }
-
-  virtual void impact( action_state_t* s )
-  {
-    // dot_t* d = get_dot();
-    // bool add_ticks = d -> is_ticking();
-
-    warlock_spell_t::impact( s );
-
-    if ( result_is_hit( s -> result ) )
+    else
     {
-      // TODO: Fix/reimplement
-      //if ( add_ticks )
-      //  d -> num_ticks = ( int ) std::min( d -> ticks_left() + 0.9 * num_ticks, 2.1 * num_ticks );
-
-      if ( ! cost_event ) cost_event = new ( *sim ) cost_event_t( p(), this );
+      p() -> spells.immolation_aura = this;
+      p() -> buffs.immolation_aura -> trigger();
+      warlock_spell_t::execute();
     }
   }
 
-  // TODO: Bring Back dot duration haste scaling ?
+  void last_tick( dot_t* dot )
+  {
+    warlock_spell_t::last_tick( dot );
+    p() -> spells.immolation_aura = 0;
+    p() -> buffs.immolation_aura -> expire();
+  }
 
   virtual bool ready()
   {
     bool r = warlock_spell_t::ready();
 
     if ( ! p() -> buffs.metamorphosis -> check() ) r = false;
-
-    dot_t* d = get_dot();
-    if ( d -> is_ticking() && d -> remains() > dot_duration * 1.2 )  r = false;
 
     return r;
   }
@@ -4806,30 +4741,30 @@ soulburn_soc_trigger( 0 )
 }
 
 warlock_t::warlock_t( sim_t* sim, const std::string& name, race_e r ):
-player_t( sim, WARLOCK, name, r ),
-havoc_target( 0 ),
-latest_corruption_target( 0 ),
-pets( pets_t() ),
-talents( talents_t() ),
-glyphs( glyphs_t() ),
-mastery_spells( mastery_spells_t() ),
-grimoire_of_synergy( *this ),
-grimoire_of_synergy_pet( *this ),
-rppm_chaotic_infusion( *this ),
-perk(),
-cooldowns( cooldowns_t() ),
-spec( specs_t() ),
-buffs( buffs_t() ),
-gains( gains_t() ),
-procs( procs_t() ),
-spells( spells_t() ),
-soul_swap_buffer( soul_swap_buffer_t() ),
-demonic_calling_event( 0 ),
-initial_burning_embers( 1 ),
-initial_demonic_fury( 200 ),
-default_pet( "" ),
-ember_react( ( initial_burning_embers >= 1.0 ) ? timespan_t::zero() : timespan_t::max() ),
-shard_react( timespan_t::zero() )
+  player_t( sim, WARLOCK, name, r ),
+    havoc_target( 0 ),
+    latest_corruption_target( 0 ),
+    pets( pets_t() ),
+    talents( talents_t() ),
+    glyphs( glyphs_t() ),
+    mastery_spells( mastery_spells_t() ),
+    grimoire_of_synergy( *this ),
+    grimoire_of_synergy_pet( *this ),
+    rppm_chaotic_infusion( *this, std::numeric_limits<double>::min(), RPPM_HASTE ),
+    perk(),
+    cooldowns( cooldowns_t() ),
+    spec( specs_t() ),
+    buffs( buffs_t() ),
+    gains( gains_t() ),
+    procs( procs_t() ),
+    spells( spells_t() ),
+    soul_swap_buffer( soul_swap_buffer_t() ),
+    demonic_calling_event( 0 ),
+    initial_burning_embers( 1 ),
+    initial_demonic_fury( 200 ),
+    default_pet( "" ),
+    ember_react( ( initial_burning_embers >= 1.0 ) ? timespan_t::zero() : timespan_t::max() ),
+    shard_react( timespan_t::zero() )
 {
   base.distance = 40;
 
@@ -5347,13 +5282,15 @@ void warlock_t::create_buffs()
     .chance( 1 );
 
   buffs.demonic_calling = buff_creator_t( this, "demonic_calling", spec.wild_imps -> effectN( 1 ).trigger() ).duration( timespan_t::zero() );
-  buffs.fire_and_brimstone = buff_creator_t( this, "fire_and_brimstone", find_class_spell( "Fire and Brimstone" ) )
+  buffs.fire_and_brimstone = buff_creator_t( this, "fire_and_brimstone", spec.fire_and_brimstone )
     .cd( timespan_t::zero() );
   buffs.soul_swap = buff_creator_t( this, "soul_swap", find_spell( 86211 ) );
   buffs.havoc = buff_creator_t( this, "havoc", find_class_spell( "Havoc" ) )
     .cd( timespan_t::zero() );
   buffs.demonic_rebirth = buff_creator_t( this, "demonic_rebirth", find_spell( 88448 ) ).cd( find_spell( 89140 ) -> duration() );
   buffs.mannoroths_fury = buff_creator_t( this, "mannoroths_fury", talents.mannoroths_fury );
+
+  buffs.immolation_aura = buff_creator_t( this, "immolation_aura", find_spell( 104025 ) );
 
   buffs.haunting_spirits = buff_creator_t( this, "haunting_spirits", find_spell( 157698 ) )
     .chance( 1.0 );

@@ -1,10 +1,10 @@
-monk="Monk_Brewmaster_2h_Serenity_T17M"
-level=100
+monk="Monk_Brewmaster_1h_T16M"
+level=90
 race=night_elf
 role=tank
 position=front
-talents=http://us.battle.net/wow/en/tool/talent-calculator#fa!.02.112
-glyphs=fortifying_brew,expel_harm,fortuitous_spheres
+talents=http://us.battle.net/wow/en/tool/talent-calculator#fa!.00.11.
+glyphs=fortifying_brew,fortuitous_spheres
 spec=brewmaster
 
 # This default action priority list is automatically created based on your character.
@@ -15,12 +15,12 @@ spec=brewmaster
 
 # Executed before combat begins. Accepts non-harmful actions only.
 
-actions.precombat=flask,type=greater_draenic_stamina_flask
-actions.precombat+=//food,type=sleeper_surprise
+actions.precombat=flask,type=earth
+actions.precombat+=//food,type=mogu_fish_stew
 actions.precombat+=/stance,choose=sturdy_ox
 # Snapshot raid buffed stats before combat begins and pre-potting is done.
 actions.precombat+=/snapshot_stats
-actions.precombat+=/potion,name=draenic_agility
+actions.precombat+=/potion,name=virmens_bite
 actions.precombat+=/dampen_harm
 
 # Executed every time the actor is available.
@@ -58,7 +58,7 @@ actions.st+=/tiger_palm,if=(energy+(energy.regen*(cooldown.keg_smash.remains)))>
 actions.st+=/tiger_palm,if=cooldown.keg_smash.remains>=gcd
 
 actions.aoe=guard
-actions.aoe+=/breath_of_fire,if=chi>=3&buff.shuffle.remains>=6&dot.breath_of_fire.remains<=gcd
+actions.aoe+=/breath_of_fire,if=chi>=3&buff.shuffle.remains>=6&dot.breath_of_fire.remains<=1&target.debuff.dizzying_haze.up
 actions.aoe+=/chi_explosion,if=chi>=4
 actions.aoe+=/rushing_jade_wind,if=chi.max-chi>=1&talent.rushing_jade_wind.enabled
 actions.aoe+=/purifying_brew,if=!talent.chi_explosion.enabled&stagger.heavy
@@ -77,31 +77,34 @@ actions.aoe+=/purifying_brew,if=!talent.chi_explosion.enabled&talent.rushing_jad
 actions.aoe+=/tiger_palm,if=talent.rushing_jade_wind.enabled&(energy+(energy.regen*(cooldown.keg_smash.remains)))>=40
 actions.aoe+=/tiger_palm,if=talent.rushing_jade_wind.enabled&cooldown.keg_smash.remains>=gcd
 
-head=acidic_jaws,id=113880,bonus_id=567
-neck=fiery_links_of_courage,id=113923,bonus_id=567,enchant=gift_of_versatility
-shoulders=mantle_of_the_somber_gaze,id=115559,bonus_id=567
-back=gronnstitched_greatcloak,id=113873,bonus_id=567,enchant=gift_of_versatility
-chest=vest_of_the_somber_gaze,id=115558,bonus_id=567
-wrists=bracers_of_shattered_limbs,id=119333,bonus_id=567
-hands=handwraps_of_the_somber_gaze,id=115555,bonus_id=567
-waist=belt_of_bloody_guts,id=113636,bonus_id=567
-legs=legwraps_of_the_somber_gaze,id=115557,bonus_id=567
-feet=ironflecked_sandals,id=119340,bonus_id=567
-finger1=spellbound_runic_band_of_elemental_invincibility,id=118308,enchant=gift_of_versatility
-finger2=stonefist_band,id=113938,bonus_id=567,enchant=gift_of_versatility
-trinket1=blast_furnace_door,id=113893,bonus_id=567
-trinket2=pillar_of_the_earth,id=113650,bonus_id=567
-main_hand=headlopper_skullscythe,id=119448,bonus_id=567,enchant_id=5352
+head=crown_of_seven_sacred_seals,id=99384,upgrade=4,gems=indomitable_primal_20crit
+neck=gleaming_eye_of_the_devilsaur,id=105353,upgrade=4
+shoulders=shoulderguards_of_seven_sacred_seals,id=99386,upgrade=4,gems=10haste_10crit_10haste_10crit_8agi,enchant=15agi_5crit
+back=qianle_courage_of_niuzao,id=102245,upgrade=4,gems=20crit,enchant=13crit
+chest=chestguard_of_seven_sacred_seals,id=99382,upgrade=4,gems=10haste_10crit_10haste_10crit_10haste_10crit_11agi,enchant=5all
+wrists=mantid_carapace_augments,id=105583,upgrade=4,enchant=12agi
+hands=gloves_of_the_golden_protector,id=105453,upgrade=4,gems=10haste_10crit_20crit_8agi,enchant=15agi
+waist=cord_of_black_dreams,id=105635,upgrade=4,gems=10haste_10crit_20crit_20crit_8agi
+legs=legguards_of_seven_sacred_seals,id=99385,upgrade=4,gems=20haste_20haste_8agi,enchant=19agi_11crit
+feet=unrepentant_heels,id=105484,upgrade=4,gems=20crit_4mastery,enchant=12agi
+finger1=swift_serpent_signet,id=105483,upgrade=4,gems=20crit_4crit
+finger2=reality_ripper_ring,id=105451,upgrade=4,gems=20crit_4crit
+trinket1=vial_of_living_corruption,id=105568,upgrade=4
+trinket2=juggernauts_focusing_crystal,id=105514,upgrade=4
+main_hand=seismic_bore,id=105504,upgrade=4,gems=10haste_10crit_4agi,enchant=12crit
+off_hand=seismic_bore,id=105504,upgrade=4,gems=10haste_10crit_4agi,enchant=12crit
 
 # Gear Summary
-# gear_agility=3009
-# gear_stamina=4912
-# gear_crit_rating=1341
-# gear_haste_rating=365
-# gear_mastery_rating=641
-# gear_armor=1142
-# gear_bonus_armor=950
-# gear_multistrike_rating=332
-# gear_versatility_rating=1245
-# set_bonus=tier17_2pc=1
-# set_bonus=tier17_4pc=1
+# gear_strength=5
+# gear_agility=1132
+# gear_stamina=1804
+# gear_intellect=5
+# gear_crit_rating=930
+# gear_haste_rating=678
+# gear_mastery_rating=136
+# gear_armor=589
+# gear_bonus_armor=149
+# gear_leech_rating=107
+# meta_gem=indomitable_primal
+# set_bonus=tier16_2pc_tank=1
+# set_bonus=tier16_4pc_tank=1

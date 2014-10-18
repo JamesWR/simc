@@ -332,8 +332,6 @@ public:
     // Miscellaneous
     incanters_flow_stack_mult = find_spell( 116267 ) -> effectN( 1 ).percent();
 
-    wod_19005_hotfix = false;
-
     // Options
     base.distance = 40;
     regen_type = REGEN_DYNAMIC;
@@ -2682,7 +2680,7 @@ struct frostfire_bolt_t : public mage_spell_t
   virtual void execute()
   {
     // Brain Freeze treats the target as frozen
-    frozen = p() -> buffs.brain_freeze -> check();
+    frozen = p() -> buffs.brain_freeze -> check() != 0;
     mage_spell_t::execute();
 
 
@@ -2934,7 +2932,7 @@ struct ice_lance_t : public mage_spell_t
   virtual void execute()
   {
     // Ice Lance treats the target as frozen with FoF up
-    frozen = p() -> buffs.fingers_of_frost -> check();
+    frozen = p() -> buffs.fingers_of_frost -> check() != 0;
 
     mage_spell_t::execute();
 
@@ -4945,9 +4943,11 @@ void mage_t::apl_fire()
   single_target -> add_action( this, "Pyroblast",
                                "if=buff.pyroblast.up&buff.heating_up.up&action.fireball.in_flight",
                                "Pyro camp during regular sequence; Do not use Pyro procs without HU and first using fireball" );
+  single_target -> add_action( this, "Inferno Blast",
+                               "if=buff.pyroblast.down&buff.heating_up.up" );
   single_target -> add_action( "call_action_list,name=active_talents" );
   single_target -> add_action( this, "Inferno Blast",
-                               "if=(buff.pyroblast.down&buff.heating_up.up)|(buff.pyroblast.up&buff.heating_up.down&!action.fireball.in_flight)" );
+                               "if=buff.pyroblast.up&buff.heating_up.down&!action.fireball.in_flight" );
   single_target -> add_action( this, "Fireball" );
   single_target -> add_action( this, "Scorch", "moving=1" );
 }
