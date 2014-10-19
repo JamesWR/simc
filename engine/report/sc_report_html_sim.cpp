@@ -428,7 +428,7 @@ void print_html_sim_summary( report::sc_html_stream& os, sim_t* sim, const sim_r
      << "</tr>\n";
 
   os.printf( "<tr class=\"left\">\n"
-             "<th>Fight Length%s:</th>\n"
+             "<th><a href=\"#help-fight-length\" class=\"help\">Fight Length%s:</a></th>\n"
              "<td>%.0f - %.0f ( %.1f )</td>\n"
              "</tr>\n",
              (sim -> fixed_time ? " (fixed time)" : ""),

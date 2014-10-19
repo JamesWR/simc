@@ -6,7 +6,7 @@
 #define SIMULATIONCRAFT_H
 
 #define SC_MAJOR_VERSION "602"
-#define SC_MINOR_VERSION "4"
+#define SC_MINOR_VERSION "5"
 #define SC_USE_PTR ( 0 )
 #define SC_BETA ( 0 )
 #define SC_BETA_STR "wod"
@@ -1950,6 +1950,7 @@ protected:
   timespan_t last_trigger;
   timespan_t iteration_uptime_sum;
   unsigned int up_count, down_count, start_count, refresh_count;
+  unsigned int overflow_count, overflow_total;
   int trigger_attempts, trigger_successes;
   int simulation_max_stack;
 
@@ -1957,6 +1958,7 @@ protected:
 public:
   simple_sample_data_t benefit_pct, trigger_pct;
   simple_sample_data_t avg_start, avg_refresh;
+  simple_sample_data_t avg_overflow_count, avg_overflow_total;
   simple_sample_data_t uptime_pct, start_intervals, trigger_intervals;
   auto_dispose< std::vector<buff_uptime_t*> > stack_uptime;
 
@@ -5711,6 +5713,7 @@ struct action_t : public noncopyable
   action_t* execute_action;
   action_t* impact_action;
   bool dynamic_tick_action; // Used with tick_action, tells tick_action to update state on every tick.
+  proc_t* starved_proc;
   int64_t total_executions;
   cooldown_t line_cooldown;
   const action_priority_t* signature;

@@ -2411,6 +2411,7 @@ struct shadow_bolt_t: public warlock_spell_t
     hand_of_guldan               -> background = true;
     hand_of_guldan               -> base_costs[RESOURCE_MANA] = 0;
     hand_of_guldan               -> cooldown = p -> get_cooldown( "t16_4pc_demo" );
+    generate_fury = data().effectN( 2 ).base_value();
   }
 
   virtual void impact( action_state_t* s )
@@ -4925,7 +4926,8 @@ double warlock_t::mana_regen_per_second() const
 {
   double mp5 = player_t::mana_regen_per_second();
 
-  mp5 /= cache.spell_speed();
+  if ( spec.chaotic_energy -> ok() )
+    mp5 /= cache.spell_haste();
 
   return mp5;
 }
@@ -5260,8 +5262,7 @@ void warlock_t::init_base_stats()
 
   base.attribute_multiplier[ATTR_STAMINA] *= 1.0 + spec.fel_armor -> effectN( 1 ).percent();
 
-  // If we don't have base mp5 defined for this level in extra_data.inc, approximate:
-  if ( base.mana_regen_per_second == 0 ) base.mana_regen_per_second = resources.base[RESOURCE_MANA] * 0.01;
+  base.mana_regen_per_second = resources.base[RESOURCE_MANA] * 0.01;
 
   base.mana_regen_per_second *= 1.0 + spec.chaotic_energy -> effectN( 1 ).percent();
 
@@ -5582,10 +5583,7 @@ void warlock_t::apl_demonology()
 
 void warlock_t::apl_destruction()
 {
-  if ( level == 100 )
-    add_action( "Shadowburn", "if=talent.charred_remains.enabled&(burning_ember>=2.5|target.time_to_die<20|trinket.proc.intellect.react|(trinket.stacking_proc.intellect.remains<cast_time*4&trinket.stacking_proc.intellect.remains>cast_time))" );
-  else
-    add_action( "Shadowburn", "if=(burning_ember>=3.5|target.time_to_die<20|trinket.proc.intellect.react|(trinket.stacking_proc.intellect.remains<cast_time*4&trinket.stacking_proc.intellect.remains>cast_time)|(burning_ember>=3&buff.ember_master.react))" );
+  add_action( "Shadowburn", "if=talent.charred_remains.enabled&(burning_ember>=2.5|target.time_to_die<20|trinket.proc.intellect.react|(trinket.stacking_proc.intellect.remains<cast_time*4&trinket.stacking_proc.intellect.remains>cast_time))" );
   add_action( "Immolate", "if=remains<=cast_time" );
   add_action( "Conflagrate", "if=charges=2" );
   action_list_str += "/cataclysm";

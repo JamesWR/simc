@@ -125,10 +125,6 @@ public:
     proc_t* invigoration;
     proc_t* thrill_of_the_hunt;
     proc_t* lock_and_load;
-    proc_t* explosive_shot_focus_starved;
-    proc_t* black_arrow_focus_starved;
-    proc_t* chimaera_shot_focus_starved;
-    proc_t* barrage_focus_starved;
     proc_t* tier15_2pc_melee;
     proc_t* tier15_4pc_melee_aimed_shot;
     proc_t* tier15_4pc_melee_arcane_shot;
@@ -783,7 +779,7 @@ public:
 
     owner_coeff.ap_from_ap = 0.3333;
     owner_coeff.sp_from_ap = 0.3333;
-    if ( wod_hotfix )
+    if ( o() -> wod_hotfix )
     {
       owner_coeff.ap_from_ap = 0.6;
       owner_coeff.sp_from_ap = 0.6;
@@ -2022,6 +2018,8 @@ struct glaive_toss_strike_t: public ranged_attack_t
     weapon = &( player -> main_hand_weapon );
     weapon_multiplier = 0;
     aoe = -1;    
+    if ( player -> wod_hotfix )
+      base_multiplier *= 1.15;
   }
 
   virtual double composite_target_multiplier( player_t* target ) const
@@ -2046,7 +2044,9 @@ struct glaive_rebound_t: public ranged_attack_t
     special = true;
     weapon = &( player -> main_hand_weapon );
     weapon_multiplier = 0;
-    aoe = -1;    
+    aoe = -1;   
+    if ( player -> wod_hotfix )
+      base_multiplier *= 1.15;
   }
 
   size_t available_targets( std::vector< player_t* >& tl ) const
@@ -2084,8 +2084,8 @@ struct glaive_t: public ranged_attack_t
     glaive_rebound -> stats = stats;
     dot_duration = timespan_t::zero();
     travel_speed = player -> talents.glaive_toss -> effectN( 3 ).trigger() -> missile_speed();
-    if ( player -> wod_hotfix )
-      base_multiplier *= 1.15;
+
+    starved_proc = player -> get_proc( "starved: glaive_toss" );
   }
 
   virtual void impact( action_state_t* s )
@@ -2188,27 +2188,19 @@ struct black_arrow_t: public hunter_ranged_attack_t
     cooldown -> duration += p() -> specs.trap_mastery -> effectN( 4 ).time_value();
     base_multiplier *= 1.0 + p() -> specs.trap_mastery -> effectN( 2 ).percent();
     
+    starved_proc = player -> get_proc( "starved: black_arrow" );
+
     // Last minute Celestalon fixes before WoD release
     if ( p() -> wod_hotfix ) 
     {
-      attack_power_mod.tick *= 1.12;
-      attack_power_mod.direct *= 1.12;
+      attack_power_mod.tick *= 1.12 * 1.15;
+      attack_power_mod.direct *= 1.12 * 1.15;
     }
 
     may_multistrike = 1;
     lnl_chance = data().effectN( 2 ).percent();
   }
-
-  virtual bool ready()
-  {
-    if ( cooldown -> up() && !p() -> resource_available( RESOURCE_FOCUS, cost() ) )
-    {
-      if ( sim -> log ) sim -> out_log.printf( "Player %s was focus starved when Black Arrow was ready.", p() -> name() );
-      p() -> procs.black_arrow_focus_starved -> occur();
-    }
-    return hunter_ranged_attack_t::ready();
-  }
-
+  
   virtual void tick( dot_t* d )
   {
     hunter_ranged_attack_t::tick( d );
@@ -2343,17 +2335,8 @@ struct chimaera_shot_t: public hunter_ranged_attack_t
     nature = new chimaera_shot_impact_t( player, "chimaera_shot_nature", player -> find_spell( 171457 ) );
     add_child( nature );
     school = SCHOOL_FROSTSTRIKE; // Just so the report shows a mixture of the two colors.
-  }
-
-  bool ready()
-  {
-    if ( cooldown -> up() && !p() -> resource_available( RESOURCE_FOCUS, cost() ) )
-    {
-      if ( sim -> log ) sim -> out_log.printf( "Player %s was focus starved when Chimaera Shot was ready.", p() -> name() );
-      p() -> procs.chimaera_shot_focus_starved -> occur();
-    }
-
-    return hunter_ranged_attack_t::ready();
+   
+    starved_proc = player -> get_proc( "starved: chimaera_shot" );
   }
 
   virtual void impact( action_state_t* s )
@@ -2461,11 +2444,13 @@ struct explosive_shot_t: public hunter_ranged_attack_t
     dot_duration = timespan_t::zero();
     tick_count = player -> active.explosive_ticks -> dot_duration.total_seconds();
 
+    starved_proc = player -> get_proc( "starved: explosive_shot" );
+
     // Last minute Celestalon fixes before WoD release
     if ( p() -> wod_hotfix ) 
     {
-      attack_power_mod.tick *= 1.12;
-      attack_power_mod.direct *= 1.12;
+      attack_power_mod.tick *= 1.12 * 1.15;
+      attack_power_mod.direct *= 1.12 * 1.15;
     }
   }
 
@@ -2483,17 +2468,6 @@ struct explosive_shot_t: public hunter_ranged_attack_t
     if ( p() -> buffs.lock_and_load -> check() )
       return 0;
     return hunter_ranged_attack_t::cost();
-  }
-
-  bool ready()
-  {
-    if ( cooldown -> up() && !p() -> resource_available( RESOURCE_FOCUS, cost() ) )
-    {
-      if ( sim -> log ) sim -> out_log.printf( "Player %s was focus starved when Explosive Shot was ready.", p() -> name() );
-      p() -> procs.explosive_shot_focus_starved -> occur();
-    }
-
-    return hunter_ranged_attack_t::ready();
   }
 
   void update_ready( timespan_t cd_duration )
@@ -2588,9 +2562,9 @@ struct serpent_sting_t: public hunter_ranged_attack_t
     // Last minute Celestalon fixes before WoD release
     if ( p() -> wod_hotfix ) 
     {
-      attack_power_mod.tick *= 1.12;
-      attack_power_mod.direct *= 1.12;
-    }
+      attack_power_mod.tick *= 1.12 * 1.15;
+      attack_power_mod.direct *= 1.12 * 1.15;
+  }
   }
 };
 
@@ -2925,19 +2899,10 @@ struct barrage_t: public hunter_spell_t
     dynamic_tick_action = true;
     travel_speed = 0.0;
     tick_action = new barrage_damage_t( player );
+    
+    starved_proc = player -> get_proc( "starved: barrage" );
   }
-
-  bool ready()
-  {
-    if ( cooldown -> up() && !p() -> resource_available( RESOURCE_FOCUS, cost() ) )
-    {
-      if ( sim -> log ) sim -> out_log.printf( "Player %s was focus starved when Barrage was ready.", p() -> name() );
-      p() -> procs.barrage_focus_starved -> occur();
-    }
-
-    return hunter_spell_t::ready();
-  }
-
+  
   virtual void schedule_execute( action_state_t* state = 0 )
   {
     hunter_spell_t::schedule_execute( state );
@@ -2996,6 +2961,8 @@ struct moc_t: public ranged_attack_t
     callbacks = false;
     may_crit = false;
     may_miss = false;
+
+    starved_proc = player -> get_proc( "starved: a_murder_of_crows" );
   }
 
   hunter_t* p() const { return static_cast<hunter_t*>( player ); }
@@ -3664,10 +3631,6 @@ void hunter_t::init_procs()
   procs.invigoration                 = get_proc( "invigoration" );
   procs.thrill_of_the_hunt           = get_proc( "thrill_of_the_hunt" );
   procs.lock_and_load                = get_proc( "lock_and_load" );
-  procs.explosive_shot_focus_starved = get_proc( "explosive_shot_focus_starved" );
-  procs.black_arrow_focus_starved    = get_proc( "black_arrow_focus_starved" );
-  procs.chimaera_shot_focus_starved  = get_proc( "chimaera_shot_focus_starved" );
-  procs.barrage_focus_starved        = get_proc( "barrage_focus_starved" );
   procs.tier15_2pc_melee             = get_proc( "tier15_2pc_melee" );
   procs.tier15_4pc_melee_aimed_shot  = get_proc( "tier15_4pc_melee_aimed_shot" );
   procs.tier15_4pc_melee_arcane_shot = get_proc( "tier15_4pc_melee_arcane_shot" );
