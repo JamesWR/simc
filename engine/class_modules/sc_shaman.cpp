@@ -199,6 +199,7 @@ public:
     cooldown_t* lava_lash;
     cooldown_t* shock;
     cooldown_t* strike;
+    cooldown_t* t16_2pc_melee;
     cooldown_t* t16_4pc_caster;
     cooldown_t* t16_4pc_melee;
     cooldown_t* windfury_weapon;
@@ -368,10 +369,6 @@ public:
   shaman_attack_t* windfury;
   shaman_spell_t*  flametongue;
 
-  // Tier16 random imbues
-  action_t* t16_wind;
-  action_t* t16_flame;
-
   shaman_t( sim_t* sim, const std::string& name, race_e r = RACE_TAUREN ) :
     player_t( sim, SHAMAN, name, r ),
     ls_reset( timespan_t::zero() ), lava_surge_during_lvb( false ),
@@ -413,6 +410,7 @@ public:
     cooldown.shock                = get_cooldown( "shock"                 );
     cooldown.strike               = get_cooldown( "strike"                );
     cooldown.storm_elemental_totem= get_cooldown( "storm_elemental_totem" );
+    cooldown.t16_2pc_melee        = get_cooldown( "t16_2pc_melee"         );
     cooldown.t16_4pc_caster       = get_cooldown( "t16_4pc_caster"        );
     cooldown.t16_4pc_melee        = get_cooldown( "t16_4pc_melee"         );
     cooldown.windfury_weapon      = get_cooldown( "windfury_weapon"       );
@@ -425,9 +423,6 @@ public:
     // Weapon Enchants
     windfury    = 0;
     flametongue = 0;
-
-    t16_wind = 0;
-    t16_flame = 0;
 
     regen_type = REGEN_DYNAMIC;
   }
@@ -474,6 +469,7 @@ public:
   virtual double    matching_gear_multiplier( attribute_e attr ) const;
   virtual void      create_options();
   virtual action_t* create_action( const std::string& name, const std::string& options );
+  virtual action_t* create_proc_action( const std::string& /* name */ );
   virtual pet_t*    create_pet   ( const std::string& name, const std::string& type = std::string() );
   virtual void      create_pets();
   virtual expr_t* create_expression( action_t*, const std::string& name );
@@ -1443,9 +1439,7 @@ struct fire_elemental_t : public primal_elemental_t
   {
     fire_blast_t( fire_elemental_t* player, const std::string& options ) :
       primal_elemental_spell_t( "fire_blast", player, player -> find_spell( 57984 ), options )
-    { 
-      base_dd_min = 0; // Hard-coded to match in-game values
-      base_dd_max = 0; // Hard-coded to match in-game values
+    {
     }
 
     bool usable_moving() const
@@ -1804,20 +1798,6 @@ struct windfury_weapon_melee_attack_t : public shaman_attack_t
   }
 };
 
-struct unleash_wind_t : public shaman_attack_t
-{
-  unleash_wind_t( const std::string& name, shaman_t* player ) :
-    shaman_attack_t( name, player, player -> dbc.spell( 73681 ) )
-  {
-    background = true;
-    may_proc_maelstrom = may_dodge = may_parry = false;
-    callbacks = false;
-
-    // Don't cooldown here, unleash elements will handle it
-    cooldown -> duration = timespan_t::zero();
-  }
-};
-
 struct stormstrike_attack_t : public shaman_attack_t
 {
   const spell_data_t* lightning_shield;
@@ -1898,6 +1878,28 @@ struct windlash_t : public shaman_attack_t
     }
   }
 };
+
+struct shaman_flurry_of_xuen_t : public shaman_attack_t
+{
+  shaman_flurry_of_xuen_t( shaman_t* p ) :
+    shaman_attack_t( "flurry_of_xuen", p, p -> find_spell( 147891 ) )
+  {
+    special = may_miss = may_parry = may_block = may_dodge = may_crit = background = true;
+
+    may_proc_windfury = false;
+    may_proc_maelstrom = false;
+    may_proc_flametongue = false;
+    aoe = 5;
+  }
+
+  // We need to override shaman_action_state_t returning here, as tick_action
+  // and custom state objects do not mesh at all really. They technically
+  // work, but in reality we are doing naughty things in the code that are
+  // not safe.
+  action_state_t* new_state()
+  { return new action_state_t( this, target ); }
+};
+
 
 // ==========================================================================
 // Shaman Action / Spell Base
@@ -4413,6 +4415,13 @@ action_t* shaman_t::create_action( const std::string& name,
   return player_t::create_action( name, options_str );
 }
 
+action_t* shaman_t::create_proc_action( const std::string& name )
+{
+  if ( util::str_compare_ci( name, "flurry_of_xuen" ) ) return new shaman_flurry_of_xuen_t( this );
+
+  return 0;
+};
+
 // shaman_t::create_pet =====================================================
 
 pet_t* shaman_t::create_pet( const std::string& pet_name,
@@ -4628,14 +4637,6 @@ void shaman_t::init_spells()
   if ( sets.has_set_bonus( SET_CASTER, T15, B2 ) )
     action_lightning_strike = new t15_2pc_caster_t( this );
 
-  // Tier16 2PC Enhancement bonus actions, these need to bypass imbue checks
-  // presumably, so we cannot just re-use our actual imbued ones
-  if ( sets.has_set_bonus( SET_MELEE, T16, B2 ) )
-  {
-    t16_wind = new unleash_wind_t( "t16_unleash_wind", this );
-    t16_flame = new unleash_flame_spell_t( "t16_unleash_flame", this );
-  }
-
   if ( mastery.molten_earth -> ok() )
     molten_earth = new molten_earth_driver_t( this );
 
@@ -4810,25 +4811,34 @@ void shaman_t::trigger_maelstrom_weapon( const action_state_t* state )
   buff.maelstrom_weapon -> trigger( attack, 1, chance );
 }
 
-void shaman_t::trigger_tier16_2pc_melee( const action_state_t* )
+void shaman_t::trigger_tier16_2pc_melee( const action_state_t* state )
 {
+  if ( ! state -> action -> callbacks )
+    return;
+
   if ( ! buff.tier16_2pc_melee -> up() )
     return;
 
-  if ( ! rng().roll( buff.tier16_2pc_melee -> data().proc_chance() ) )
+  if ( cooldown.t16_2pc_melee -> down() )
+    return;
+
+  if ( ! rng().roll( buff.tier16_2pc_melee -> data().proc_chance() / 2.0 ) )
     return;
 
   proc.t16_2pc_melee -> occur();
+  cooldown.t16_2pc_melee -> start( buff.tier16_2pc_melee -> data().internal_cooldown() );
 
-  switch ( static_cast< int >( rng().range( 0, 2 ) ) )
+  switch ( static_cast< int >( rng().range( 0, bugs ? 4 : 2 ) ) )
   {
     // Windfury
     case 0:
-      t16_wind -> execute();
+      buff.unleash_wind -> trigger( buff.unleash_wind -> data().initial_stacks() );
       break;
     // Flametongue
     case 1:
-      t16_flame -> execute();
+    case 2:
+    case 3:
+      buff.unleash_flame -> trigger();
       break;
     default:
       assert( false );

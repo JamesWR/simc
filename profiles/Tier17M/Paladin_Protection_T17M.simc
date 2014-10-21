@@ -55,7 +55,9 @@ actions+=/seal_of_truth,if=talent.empowered_seals.enabled&!seal.truth&buff.uther
 actions+=/avengers_shield,if=buff.grand_crusader.react&active_enemies>1&!glyph.focused_shield.enabled
 actions+=/hammer_of_the_righteous,if=active_enemies>=3
 actions+=/crusader_strike
+actions+=/wait,sec=cooldown.crusader_strike.remains,if=cooldown.crusader_strike.remains>0&cooldown.crusader_strike.remains<=0.35
 actions+=/judgment
+actions+=/wait,sec=cooldown.judgment.remains,if=cooldown.judgment.remains>0&cooldown.judgment.remains<=0.35
 actions+=/avengers_shield,if=active_enemies>1&!glyph.focused_shield.enabled
 actions+=/holy_wrath,if=talent.sanctified_wrath.enabled
 actions+=/avengers_shield,if=buff.grand_crusader.react
@@ -88,7 +90,9 @@ actions.max_dps+=/avengers_shield,if=buff.grand_crusader.react&active_enemies>1&
 actions.max_dps+=/hammer_of_the_righteous,if=active_enemies>=3
 actions.max_dps+=/holy_wrath,if=talent.sanctified_wrath.enabled&buff.seraphim.react
 actions.max_dps+=/crusader_strike
+actions.max_dps+=/wait,sec=cooldown.crusader_strike.remains,if=cooldown.crusader_strike.remains>0&cooldown.crusader_strike.remains<=0.35
 actions.max_dps+=/judgment
+actions.max_dps+=/wait,sec=cooldown.judgment.remains,if=cooldown.judgment.remains>0&cooldown.judgment.remains<=0.35
 actions.max_dps+=/avengers_shield,if=active_enemies>1&!glyph.focused_shield.enabled
 actions.max_dps+=/holy_wrath,if=talent.sanctified_wrath.enabled
 actions.max_dps+=/avengers_shield,if=buff.grand_crusader.react
@@ -122,7 +126,9 @@ actions.max_survival+=/shield_of_the_righteous,if=(holy_power>=5|buff.divine_pur
 actions.max_survival+=/shield_of_the_righteous,if=buff.holy_avenger.remains>time_to_hpg&(!talent.seraphim.enabled|cooldown.seraphim.remains>time_to_hpg)
 actions.max_survival+=/hammer_of_the_righteous,if=active_enemies>=3
 actions.max_survival+=/crusader_strike
+actions.max_survival+=/wait,sec=cooldown.crusader_strike.remains,if=cooldown.crusader_strike.remains>0&cooldown.crusader_strike.remains<=0.35
 actions.max_survival+=/judgment
+actions.max_survival+=/wait,sec=cooldown.judgment.remains,if=cooldown.judgment.remains>0&cooldown.judgment.remains<=0.35
 actions.max_survival+=/avengers_shield,if=buff.grand_crusader.react&active_enemies>1
 actions.max_survival+=/holy_wrath,if=talent.sanctified_wrath.enabled
 actions.max_survival+=/avengers_shield,if=buff.grand_crusader.react
@@ -158,11 +164,11 @@ main_hand=kromogs_brutal_fist,id=113927,bonus_id=567,enchant=mark_of_warsong
 off_hand=kromogs_protecting_palm,id=113926,bonus_id=567
 
 # Gear Summary
-# gear_strength=3607
-# gear_stamina=4538
+# gear_strength=3609
+# gear_stamina=4540
 # gear_crit_rating=746
-# gear_haste_rating=1427
-# gear_mastery_rating=849
+# gear_haste_rating=1428
+# gear_mastery_rating=850
 # gear_armor=3041
 # gear_bonus_armor=260
 # gear_multistrike_rating=596

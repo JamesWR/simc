@@ -1111,14 +1111,6 @@ struct melee_t: public warrior_attack_t
     background = repeating = auto_attack = may_glance = true;
     trigger_gcd = timespan_t::zero();
     sudden_death_chance += p -> talents.sudden_death -> proc_chance();
-    if ( sudden_death_chance > 0 )
-    {
-      if ( p -> main_hand_weapon.group() == WEAPON_1H &&
-           p -> off_hand_weapon.group() == WEAPON_1H )
-           sudden_death_chance += p -> spec.singleminded_fury -> effectN( 4 ).percent();
-      if ( p -> wod_hotfix )
-        sudden_death_chance = 0.1;
-    }
     if ( p -> dual_wield() )
       base_hit -= 0.19;
   }
@@ -1867,7 +1859,6 @@ struct heroic_leap_t: public warrior_attack_t
     cooldown -> duration = data().cooldown();
     cooldown -> duration += p -> glyphs.death_from_above -> effectN( 1 ).time_value();
     cooldown -> duration *= p -> buffs.cooldown_reduction -> default_value;
-    use_off_gcd = true;
   }
 
   timespan_t travel_time() const
@@ -2266,8 +2257,8 @@ struct blood_craze_t: public residual_action::residual_periodic_action_t < warri
   {
     hasted_ticks = harmful = false;
     background = true;
-    base_tick_time = p -> spec.blood_craze -> effectN( 1 ).trigger() -> effectN( 1 ).period();
-    dot_duration = p -> spec.blood_craze -> effectN( 1 ).trigger() -> duration() + timespan_t::from_seconds( 2 ); // Blood craze actually ticks for 5 seconds, because... reasons?
+    base_tick_time = p -> find_spell( 159363 ) -> effectN( 1 ).period();
+    dot_duration = p -> find_spell( 159363 ) -> duration();
     dot_behavior = DOT_REFRESH;
   }
 };
@@ -4534,7 +4525,7 @@ void warrior_t::create_buffs()
   buff.bloodbath = buff_creator_t( this, "bloodbath", talents.bloodbath )
     .cd( timespan_t::zero() );
 
-  buff.blood_craze = buff_creator_t( this, "blood_craze", spec.blood_craze -> effectN( 1 ).trigger() );
+  buff.blood_craze = buff_creator_t( this, "blood_craze", find_spell( 159363 ) );
 
   buff.bloodsurge = new buffs::bloodsurge_t( *this, "bloodsurge", spec.bloodsurge -> effectN( 1 ).trigger() );
 

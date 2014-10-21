@@ -891,7 +891,7 @@ namespace actions {
 
 struct mage_spell_t : public spell_t
 {
-  bool frozen, may_hot_streak, may_proc_missiles, is_copy, consumes_ice_floes, fof_active;
+  bool frozen, may_hot_streak, may_proc_missiles, consumes_ice_floes;
   bool hasted_by_pom; // True if the spells time_to_execute was set to zero exactly because of Presence of Mind
 private:
   bool pom_enabled;
@@ -904,9 +904,7 @@ public:
     frozen( false ),
     may_hot_streak( false ),
     may_proc_missiles( true ),
-    is_copy( false ),
     consumes_ice_floes( true ),
-    fof_active( false ),
     hasted_by_pom( false ),
     pom_enabled( true )
   {
@@ -1141,13 +1139,13 @@ public:
     if ( background )
       return;
 
-    if ( ! channeled && !is_copy && hasted_by_pom )
+    if ( ! channeled && hasted_by_pom )
     {
       p() -> buffs.presence_of_mind -> expire();
       hasted_by_pom = false;
     }
 
-    if ( !is_copy && execute_time() > timespan_t::zero() && consumes_ice_floes )
+    if ( execute_time() > timespan_t::zero() && consumes_ice_floes )
     {
       p() -> buffs.ice_floes -> decrement();
     }
@@ -1762,10 +1760,8 @@ struct arcane_orb_t : public mage_spell_t
 
   virtual timespan_t travel_time() const
   {
-    timespan_t t = mage_spell_t::travel_time();
-    double distance = mage_spell_t::player -> current.distance;
-    t  = timespan_t::from_seconds( ( distance - 10 ) / 16 );
-    return t;
+    return timespan_t::from_seconds( ( player -> current.distance - 10.0 ) /
+                                     16.0 );
   }
 
   virtual void impact( action_state_t* s )
@@ -1891,9 +1887,9 @@ struct blizzard_shard_t : public mage_spell_t
 
       if ( p() -> perks.improved_blizzard -> ok() )
       {
-        p() -> cooldowns.frozen_orb -> adjust(
-          - p() -> perks.improved_blizzard -> effectN( 1 ).time_value() * 10.0
-        );
+        p() -> cooldowns.frozen_orb
+            -> adjust( -10.0 * p() -> perks.improved_blizzard
+                                   -> effectN( 1 ).time_value() );
       }
 
       double fof_proc_chance = p() -> spec.fingers_of_frost
@@ -2060,7 +2056,6 @@ struct combustion_t : public mage_spell_t
 
     mage_spell_t::execute();
   }
-
 };
 
 // Comet Storm Spell =======================================================
@@ -2082,7 +2077,6 @@ struct comet_storm_projectile_t : public mage_spell_t
     t = timespan_t::from_seconds( 1.0 );
     return t;
   }
-
 };
 
 struct comet_storm_t : public mage_spell_t
@@ -2116,12 +2110,7 @@ struct comet_storm_t : public mage_spell_t
     mage_spell_t::tick( d );
     projectile -> execute();
   }
-
-
 };
-
-
-
 
 // Cone of Cold Spell =======================================================
 
@@ -2167,8 +2156,8 @@ struct counterspell_t : public mage_spell_t
   {
     parse_options( options_str );
     may_miss = may_crit = false;
+    may_proc_missiles = false;
   }
-
 
   virtual bool ready()
   {
@@ -2269,7 +2258,6 @@ public:
     p.buffs.arcane_charge -> expire();
     mage_spell_t::execute();
   }
-
 };
 
 // Fire Blast Spell =========================================================
@@ -2281,7 +2269,6 @@ struct fire_blast_t : public mage_spell_t
   {
     parse_options( options_str );
     may_hot_streak = true;
-
   }
 };
 
@@ -2414,8 +2401,6 @@ struct flamestrike_t : public mage_spell_t
 
     trigger_ignite( s );
   }
-
-
 };
 
 // Frost Bomb Spell ===============================================================
@@ -2460,18 +2445,16 @@ struct frost_bomb_t : public mage_spell_t
 
   virtual void execute()
   {
-    mage_t& p = *this -> p();
-
     mage_spell_t::execute();
 
     if ( result_is_hit( execute_state -> result ) )
     {
-      if (p.last_bomb_target != execute_state -> target && p.last_bomb_target != 0)
+      if ( p() -> last_bomb_target != 0 &&
+           p() -> last_bomb_target != execute_state -> target )
       {
-        td(p.last_bomb_target) -> dots.frost_bomb -> cancel();
-        td(p.last_bomb_target) -> debuffs.frost_bomb -> expire();
+        td( p() -> last_bomb_target ) -> dots.frost_bomb -> cancel();
       }
-      p.last_bomb_target = execute_state -> target;
+      p() -> last_bomb_target = execute_state -> target;
     }
   }
 
@@ -2488,7 +2471,7 @@ struct frost_bomb_t : public mage_spell_t
 
 struct frostbolt_t : public mage_spell_t
 {
-  double bf_proc_chance;
+  double bf_multistrike_bonus;
   timespan_t enhanced_frostbolt_duration,
              last_enhanced_frostbolt;
   // Icicle stats variable to parent icicle damage to Frostbolt, instead of
@@ -2497,7 +2480,7 @@ struct frostbolt_t : public mage_spell_t
 
   frostbolt_t( mage_t* p, const std::string& options_str ) :
     mage_spell_t( "frostbolt", p, p -> find_specialization_spell( "Frostbolt" ) ),
-    bf_proc_chance( p -> spec.brain_freeze -> effectN( 1 ).percent() ),
+    bf_multistrike_bonus( 0.0 ),
     enhanced_frostbolt_duration( p -> find_spell( 157648 ) -> duration() ),
     icicle( p -> get_stats( "icicle_fb" ) )
   {
@@ -2511,6 +2494,7 @@ struct frostbolt_t : public mage_spell_t
   virtual void schedule_execute( action_state_t* execute_state )
   {
     if ( p() -> perks.enhanced_frostbolt -> ok() &&
+         !p() -> buffs.enhanced_frostbolt -> check() &&
          sim -> current_time > last_enhanced_frostbolt +
                                enhanced_frostbolt_duration )
     {
@@ -2524,7 +2508,8 @@ struct frostbolt_t : public mage_spell_t
   {
     int sm = mage_spell_t::schedule_multistrike( s, dmg_type, tick_multiplier );
 
-    bf_proc_chance += p() -> spec.brain_freeze -> effectN( 2 ).percent() * sm;
+    bf_multistrike_bonus = sm * p() -> spec.brain_freeze
+                                    -> effectN( 2 ).percent();
 
     return sm;
   }
@@ -2541,10 +2526,8 @@ struct frostbolt_t : public mage_spell_t
     return cast;
   }
 
-
   virtual void execute()
   {
-
     mage_spell_t::execute();
 
     if ( p() -> buffs.enhanced_frostbolt -> up() )
@@ -2568,11 +2551,12 @@ struct frostbolt_t : public mage_spell_t
       p() -> buffs.fingers_of_frost
           -> trigger( 1, buff_t::DEFAULT_VALUE(), fof_proc_chance );
       p() -> buffs.brain_freeze
-          -> trigger( 1, buff_t::DEFAULT_VALUE(), bf_proc_chance );
+          -> trigger( 1, buff_t::DEFAULT_VALUE(),
+                      p() -> spec.brain_freeze -> effectN( 1 ).percent() +
+                      bf_multistrike_bonus );
     }
 
     p() -> buffs.frozen_thoughts -> expire();
-    bf_proc_chance = p() -> spec.brain_freeze -> effectN( 1 ).percent();
   }
 
   virtual void impact( action_state_t* s )
@@ -2654,27 +2638,19 @@ struct frostfire_bolt_t : public mage_spell_t
   // Icicle stats variable to parent icicle damage to Frostfire Bolt, instead of
   // clumping FB/FFB icicle damage together in reports.
   stats_t* icicle;
-  double brain_freeze_bonus;
 
   frostfire_bolt_t( mage_t* p, const std::string& options_str ) :
     mage_spell_t( "frostfire_bolt", p, p -> find_spell( 44614 ) ),
     frigid_blast( new frigid_blast_t( p ) ),
-    icicle( 0 ),
-    brain_freeze_bonus( p -> find_spell( 44549 ) -> effectN( 3 ).percent() )
+    icicle( 0 )
   {
     parse_options( options_str );
     may_hot_streak = true;
     base_execute_time += p -> glyphs.frostfire -> effectN( 1 ).time_value();
 
-
     if ( p -> sets.has_set_bonus( SET_CASTER, T16, B2 ) )
     {
       add_child( frigid_blast );
-    }
-
-    if ( p -> wod_hotfix )
-    {
-      brain_freeze_bonus = 0.85;
     }
 
     if ( p -> specialization() == MAGE_FROST )
@@ -2723,7 +2699,8 @@ struct frostfire_bolt_t : public mage_spell_t
     }
 
     p() -> buffs.frozen_thoughts -> expire();
-    if ( p() -> buffs.brain_freeze -> check() && p() -> sets.has_set_bonus( SET_CASTER, T16, B2 ) )
+    if ( p() -> buffs.brain_freeze -> check() &&
+         p() -> sets.has_set_bonus( SET_CASTER, T16, B2 ) )
     {
       p() -> buffs.frozen_thoughts -> trigger();
     }
@@ -2821,7 +2798,14 @@ struct frostfire_bolt_t : public mage_spell_t
 
     if ( p() -> buffs.brain_freeze -> up() )
     {
-      am *= 1.0 + brain_freeze_bonus;
+      if ( p() -> wod_hotfix )
+      {
+        am *= 1.85;
+      }
+      else
+      {
+        am *= 1.0 + p() -> spec.brain_freeze -> effectN( 3 ).percent();
+      }
     }
 
     if ( p() -> wod_hotfix )
@@ -3418,9 +3402,7 @@ struct nether_tempest_aoe_t: public mage_spell_t
 
   virtual timespan_t travel_time() const
   {
-    timespan_t t = mage_spell_t::travel_time();
-    t = timespan_t::from_seconds( 1.3 );
-    return t;
+    return timespan_t::from_seconds( 1.3 );
   }
 
 };
@@ -3428,7 +3410,7 @@ struct nether_tempest_aoe_t: public mage_spell_t
 // Nether Tempest Spell ===========================================================
 struct nether_tempest_t : public mage_spell_t
 {
-  nether_tempest_aoe_t *add_aoe;
+  nether_tempest_aoe_t* add_aoe;
 
   nether_tempest_t( mage_t* p, const std::string& options_str ) :
     mage_spell_t( "nether_tempest", p, p -> talents.nether_tempest ),
@@ -3440,18 +3422,16 @@ struct nether_tempest_t : public mage_spell_t
 
   virtual void execute()
   {
-    mage_t& p = *this -> p();
-
-
     mage_spell_t::execute();
 
     if ( result_is_hit( execute_state -> result ) )
     {
-      if (p.last_bomb_target != execute_state -> target && p.last_bomb_target != 0)
+      if ( p() -> last_bomb_target != 0 &&
+           p() -> last_bomb_target != execute_state -> target )
       {
-        td(p.last_bomb_target) -> dots.nether_tempest -> cancel();
+        td( p() -> last_bomb_target ) -> dots.nether_tempest -> cancel();
       }
-      p.last_bomb_target = execute_state -> target;
+      p() -> last_bomb_target = execute_state -> target;
     }
   }
 
@@ -3624,6 +3604,7 @@ struct pyroblast_t : public mage_spell_t
     if ( p() -> wod_hotfix )
     {
       am *= 1.05;
+      am *= 0.8;
     }
 
     return am;
@@ -4042,9 +4023,8 @@ struct water_jet_t : public action_t
     parse_options( options_str );
 
     may_miss = may_crit = callbacks = false;
-    quiet = dual = true;
+    dual = true;
     trigger_gcd = timespan_t::zero();
-    use_off_gcd = true;
   }
 
   void reset()
@@ -4505,11 +4485,7 @@ void mage_t::create_buffs()
                                   .chance( sets.has_set_bonus( MAGE_FIRE, T17, B4 ) );
 
   // Frost
-  buffs.brain_freeze          = buff_creator_t( this, "brain_freeze", spec.brain_freeze )
-                                  .duration( find_spell( 57761 ) -> duration() )
-                                  .default_value( spec.brain_freeze -> effectN( 1 ).percent() )
-                                  .max_stack( find_spell( 57761 ) -> max_stacks() )
-                                  .chance( find_spell( 44549 ) -> effectN( 1 ).percent() );
+  buffs.brain_freeze          = buff_creator_t( this, "brain_freeze", find_spell( 57761 ) );
   buffs.fingers_of_frost      = buff_creator_t( this, "fingers_of_frost", find_spell( 44544 ) );
   buffs.frost_armor           = buff_creator_t( this, "frost_armor", find_spell( 7302 ) )
                                   .add_invalidate( CACHE_MULTISTRIKE );
