@@ -550,6 +550,8 @@ bar_chart_t::bar_chart_t( const std::string& id_str, const sim_t* sim ) :
   set( "plotOptions.bar.pointWidth", 15 );
   set( "plotOptions.bar.dataLabels.style.color", TEXT_COLOR );
   set( "plotOptions.bar.dataLabels.style.textShadow", TEXT_OUTLINE );
+  set( "tooltip.backgroundColor", "#3F3E38" );
+  set( "tooltip.style.color", TEXT_COLOR );
   set( "xAxis.tickLength", 0 );
   set( "xAxis.type", "category" );
   set( "xAxis.labels.style.textShadow", TEXT_OUTLINE );
