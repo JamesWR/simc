@@ -206,6 +206,7 @@ std::string class_color( player_e type )
     case ENEMY_ADD:    return color::grey;
     case HEALING_ENEMY:    return color::grey;
     case PLAYER_PET: return color::grey;
+    case PLAYER_GUARDIAN: return color::grey;
     default: assert( 0 ); return std::string();
   }
 }
@@ -1597,7 +1598,7 @@ bool chart::generate_distribution( highchart::histogram_chart_t& hc,
   for ( int i = 0; i < max_buckets; i++ )
   {
     highchart::data_entry_t e;
-    e.value = dist_data[ i ];
+    e.value = static_cast<double>( dist_data[ i ] );
     if ( i == 0 )
     {
       tick_indices.push_back( i );
