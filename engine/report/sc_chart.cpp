@@ -325,7 +325,7 @@ std::string school_color( school_e type )
                                    school_color( SCHOOL_SHADOW ) +
                                    school_color( SCHOOL_HOLY ) );
 
-    default: return std::string();
+    default: assert( 0 ); return std::string();
   }
 }
 
@@ -2285,7 +2285,7 @@ bool chart::generate_spent_time( highchart::pie_chart_t& pc, const player_t* p )
    if ( p -> collected_data.waiting_time.mean() > 0 )
    {
      highchart::data_entry_t e;
-     e.color = "#000000";
+     e.color = "#FFFFFF";
      e.value = p -> collected_data.waiting_time.mean();
      e.name = "player waiting time";
      data.push_back( e );

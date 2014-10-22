@@ -812,6 +812,7 @@ const char* util::school_type_string( school_e school )
     case SCHOOL_CHROMATIC:        return "chromatic";
     case SCHOOL_MAGIC:            return "magic";
     case SCHOOL_DRAIN:            return "drain";
+    case SCHOOL_NONE:             return "none";
     default:                      return "unknown";
   }
 }
