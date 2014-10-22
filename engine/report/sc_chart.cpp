@@ -2501,7 +2501,7 @@ bool chart::generate_raid_aps( highchart::bar_chart_t& bc,
     data.push_back( e );
   }
 
-  bc.height_ = 92 + player_list.size() * 16;
+  bc.height_ = 92 + player_list.size() * 24;
   bc.set_title( long_type + " Ranking" );
   bc.set( "yAxis.title.text", long_type.c_str() );
   // Make the Y-axis a bit longer, so we can put in all numbers on the right
@@ -2545,7 +2545,7 @@ highchart::bar_chart_t& chart::generate_dpet( highchart::bar_chart_t& bc , sim_t
   {
     size_t num_stats = stats_list.size();
 
-    bc.height_ = 92 + num_stats * 16;
+    bc.height_ = 92 + num_stats * 24;
 
     std::vector<highchart::data_entry_t> data;
     for ( size_t i = 0; i < num_stats; ++i )

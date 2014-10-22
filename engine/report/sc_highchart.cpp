@@ -29,20 +29,24 @@ sc_chart_formatter_t::sc_chart_formatter_t( std::string bg_color, std::string te
 void sc_chart_formatter_t::do_format( chart_t& c )
 {
   c.set( "chart.backgroundColor", _bg_color );
-  c.set( "chart.style.fontSize", "11px" );
+  c.set( "chart.style.fontSize", "14px" );
 
   c.set( "xAxis.lineColor", _text_color );
   c.set( "xAxis.tickColor", _text_color );
   c.set( "xAxis.title.style.color", _text_color );
   c.set( "xAxis.labels.style.color", _text_color );
+  c.set( "xAxis.labels.style.fontSize", "14px" );
 
   c.set( "yAxis.lineColor", _text_color );
   c.set( "yAxis.tickColor", _text_color );
   c.set( "yAxis.title.style.color", _text_color );
   c.set( "yAxis.labels.style.color", _text_color );
+  c.set( "yAxis.labels.style.fontSize", "14px" );
 
-  c.set( "title.style.fontSize", "13px" );
+  c.set( "title.style.fontSize", "16px" );
   c.set( "title.style.color", _text_color );
+  c.set( "tooltip.backgroundColor", "#3F3E38" );
+  c.set( "tooltip.style.color", TEXT_COLOR );
 }
 
 default_chart_formatter_t::default_chart_formatter_t() :
@@ -482,7 +486,7 @@ time_series_t& time_series_t::add_yplotline( double value_,
     if ( obj -> GetType() != rapidjson::kArrayType )
       obj -> SetArray();
     set( "credits", false);
-    set( "subtitle.style.fontsize", "10px" );
+    set( "subtitle.style.fontsize", "14px" );
     set( "subtitle.style.textShadow", TEXT_OUTLINE );
 
     std::string color = color_;
@@ -547,11 +551,9 @@ bar_chart_t::bar_chart_t( const std::string& id_str, const sim_t* sim ) :
 
   set( "plotOptions.series.shadow", true );
   set( "plotOptions.bar.borderWidth", 0 );
-  set( "plotOptions.bar.pointWidth", 15 );
+  set( "plotOptions.bar.pointWidth", 16 );
   set( "plotOptions.bar.dataLabels.style.color", TEXT_COLOR );
   set( "plotOptions.bar.dataLabels.style.textShadow", TEXT_OUTLINE );
-  set( "tooltip.backgroundColor", "#3F3E38" );
-  set( "tooltip.style.color", TEXT_COLOR );
   set( "xAxis.tickLength", 0 );
   set( "xAxis.type", "category" );
   set( "xAxis.labels.style.textShadow", TEXT_OUTLINE );
