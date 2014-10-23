@@ -57,8 +57,7 @@ const OptionEntry debuffOptions[] =
 
 const OptionEntry scalingOptions[] =
 {
-  { "Analyze All Stats",                "",         "Scale factors are necessary for gear ranking.\nThey only require an additional simulation for each RELEVANT stat." },
-  { "Use Positive Deltas Only",         "",         "This option forces a positive scale delta, which is useful for classes with soft caps."  },
+  { "Toggle All Character Stats",       "",         "Toggles all stats except Latency."                    },
   { "Analyze Strength",                 "str",      "Calculate scale factors for Strength"                 },
   { "Analyze Agility",                  "agi",      "Calculate scale factors for Agility"                  },
   { "Analyze Stamina",                  "sta",      "Calculate scale factors for Stamina"                  },
@@ -152,7 +151,7 @@ SC_OptionsTab::SC_OptionsTab( SC_MainWindow* parent ) :
 
   QAbstractButton* allBuffs   =   buffsButtonGroup -> buttons().at( 0 );
   QAbstractButton* allDebuffs = debuffsButtonGroup -> buttons().at( 0 );
-  QAbstractButton* allScaling = scalingButtonGroup -> buttons().at( 0 );
+  QAbstractButton* allScaling = scalingButtonGroup -> buttons().at( 1 );
 
   connect( allBuffs,   SIGNAL( toggled( bool ) ), this, SLOT( allBuffsChanged( bool ) )   );
   connect( allDebuffs, SIGNAL( toggled( bool ) ), this, SLOT( allDebuffsChanged( bool ) ) );
@@ -181,6 +180,7 @@ SC_OptionsTab::SC_OptionsTab( SC_MainWindow* parent ) :
   connect( choice.plots_points,       SIGNAL( currentIndexChanged( int ) ), this, SLOT( _optionsChanged() ) );
   connect( choice.plots_step,         SIGNAL( currentIndexChanged( int ) ), this, SLOT( _optionsChanged() ) );
   connect( choice.print_style,        SIGNAL( currentIndexChanged( int ) ), this, SLOT( _optionsChanged() ) );
+  connect( choice.pvp_crit,           SIGNAL( currentIndexChanged( int ) ), this, SLOT( _optionsChanged() ) );
   connect( choice.reforgeplot_amount, SIGNAL( currentIndexChanged( int ) ), this, SLOT( _optionsChanged() ) );
   connect( choice.reforgeplot_step,   SIGNAL( currentIndexChanged( int ) ), this, SLOT( _optionsChanged() ) );
   connect( choice.report_pets,        SIGNAL( currentIndexChanged( int ) ), this, SLOT( _optionsChanged() ) );
@@ -237,6 +237,7 @@ void SC_OptionsTab::createGlobalsTab()
 
   globalsLayout_middle -> addRow( tr( "Num Enemies" ), choice.num_target = createChoice( 20, "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20" ) );
   globalsLayout_middle -> addRow( tr( "Target Level" ), choice.target_level = createChoice( 4, "Raid Boss", "5-Man Heroic", "5-Man Normal", "Max Player Level" ) );
+  globalsLayout_middle -> addRow( tr( "PVP Crit Damage Reduction" ), choice.pvp_crit = createChoice( 2, "Disable", "Enable" ) );
   globalsLayout_middle -> addRow( tr( "Target Race" ),   choice.target_race = createChoice( 7, "Humanoid", "Beast", "Demon", "Dragonkin", "Elemental", "Giant", "Undead" ) );
 
   globalsLayout_middle -> addRow( tr( "Target Type" ),       choice.boss_type = createChoice( 4, "Custom", "Fluffy Pillow", "Tank Dummy", "TMI Standard Boss" ) );
@@ -340,30 +341,79 @@ void SC_OptionsTab::createBuffsDebuffsTab()
 
 void SC_OptionsTab::createScalingTab()
 {
+  // layout for entire tab
   QVBoxLayout* scalingLayout = new QVBoxLayout();
+
+  // Box containing enable button
+  QGroupBox* enableButtonGroupBox = new QGroupBox();
+  enableButtonGroupBox -> setTitle( tr( "Enable Scaling" ) );
+  enableButtonGroupBox -> setSizePolicy( QSizePolicy( QSizePolicy::Minimum, QSizePolicy::Fixed ) );
+  scalingLayout -> addWidget( enableButtonGroupBox );
+
+  QFormLayout* enableButtonGroupBoxLayout = new QFormLayout();
+  
+  QLabel* enableButtonLabel = new QLabel( tr( "This button enables/disables scale factor calculations, allowing you to toggle scaling while keeping a particular set of stats selected." ) );
+  enableButtonGroupBoxLayout -> addWidget( enableButtonLabel );
+  
   scalingButtonGroup = new QButtonGroup();
   scalingButtonGroup -> setExclusive( false );
-  for ( int i = 0; scalingOptions[ i ].label; i++ )
-  {
-    QCheckBox* checkBox = new QCheckBox( scalingOptions[ i ].label );
 
+  QCheckBox* enableBox = new QCheckBox( tr("Enable Scaling" ) );
+  enableBox -> setToolTip( tr( "Enable Scaling. This box MUST be checked to enable scaling calculations." ) );
+  scalingButtonGroup -> addButton( enableBox );
+  enableButtonGroupBoxLayout -> addWidget( enableBox );
+  enableButtonGroupBox -> setLayout( enableButtonGroupBoxLayout );
+  
+  // Box containing additional options
+  QGroupBox* scalingOptionsGroupBox = new QGroupBox();
+  scalingOptionsGroupBox -> setSizePolicy( QSizePolicy( QSizePolicy::Minimum, QSizePolicy::Fixed ) );
+  scalingOptionsGroupBox -> setTitle( tr( "Scaling Options" ) );
+  scalingLayout -> addWidget( scalingOptionsGroupBox );
+
+  QFormLayout* scalingOptionsGroupBoxLayout = new QFormLayout();
+  scalingOptionsGroupBoxLayout -> setFieldGrowthPolicy( QFormLayout::FieldsStayAtSizeHint );
+  scalingOptionsGroupBoxLayout -> addRow( tr( "Center Scale Delta" ),  choice.center_scale_delta = createChoice( 2, "Yes", "No" ) );
+  choice.center_scale_delta -> setToolTip( tr( "Controls the simulations that the tool compares to determine stat weights.\nIf set to No, it will sim once at profile stats and again with +2X of each selected stat.\nIf set to Yes, it will sim once at profile-X and once at profile+X." ) );
+  scalingOptionsGroupBoxLayout -> addRow( tr( "Scale Over" ),  choice.scale_over = createChoice( 9, "Default", "DPS", "HPS", "DTPS", "HTPS", "Raid_DPS", "Raid_HPS", "TMI", "ETMI" ) );
+  choice.scale_over -> setToolTip( tr( "Choose the stat over which you're primarily interested in scaling.\nThis is the metric that will be displayed on the Scale Factors plot.\nNote that the sim will still generate and display scale factors for all other metrics in tabular form." ) );
+
+  scalingOptionsGroupBox -> setLayout( scalingOptionsGroupBoxLayout );
+
+  // Box containing buttons for each stat to scale
+  QGroupBox* scalingButtonsGroupBox = new QGroupBox();
+  scalingButtonsGroupBox -> setSizePolicy( QSizePolicy( QSizePolicy::Minimum, QSizePolicy::Expanding ) );
+  scalingButtonsGroupBox -> setTitle( tr( "Stats to scale" ) );
+  scalingLayout -> addWidget( scalingButtonsGroupBox );
+
+  QVBoxLayout* scalingButtonsGroupBoxLayout = new QVBoxLayout();
+
+  QLabel* scalingButtonToggleAllLabel = new QLabel( tr( "This button toggles scaling for all stats except Latency.\nNote that additional simulations will only be run for RELEVANT stats.\nIn other words, Agility and Intellect would be skipped for a Warrior even if they are checked." ) );
+  scalingButtonsGroupBoxLayout -> addWidget( scalingButtonToggleAllLabel );
+
+  QCheckBox* checkBox = new QCheckBox( scalingOptions[ 0 ].label );
+  checkBox -> setToolTip( scalingOptions[ 0 ].tooltip );
+  scalingButtonGroup -> addButton( checkBox );
+  scalingButtonsGroupBoxLayout -> addWidget( checkBox );
+
+  QSpacerItem* spacer0 = new QSpacerItem( 20, 20 );
+  scalingButtonsGroupBoxLayout -> addSpacerItem( spacer0 );
+
+  for ( int i = 2; scalingOptions[ i ].label; i++ )
+  {
+    checkBox = new QCheckBox( scalingOptions[ i ].label );
     checkBox -> setToolTip( scalingOptions[ i ].tooltip );
     scalingButtonGroup -> addButton( checkBox );
-    scalingLayout -> addWidget( checkBox );
+    scalingButtonsGroupBoxLayout -> addWidget( checkBox );
   }
-  //scalingLayout->addStretch( 1 );
-  QGroupBox* scalingGroupBox = new QGroupBox();
-  scalingGroupBox -> setLayout( scalingLayout );
 
-  QFormLayout* scalingLayout2 = new QFormLayout();
-  scalingLayout2 -> setFieldGrowthPolicy( QFormLayout::FieldsStayAtSizeHint );
-  scalingLayout2 -> addRow( tr( "Center Scale Delta" ),  choice.center_scale_delta = createChoice( 2, "Yes", "No" ) );
-  scalingLayout2 -> addRow( tr( "Scale Over" ),  choice.scale_over = createChoice( 9, "Default", "DPS", "HPS", "DTPS", "HTPS", "Raid_DPS", "Raid_HPS", "TMI", "ETMI" ) );
+  QSpacerItem* spacer1 = new QSpacerItem( 20, 20, QSizePolicy::Expanding, QSizePolicy::Expanding );
+  scalingButtonsGroupBoxLayout -> addSpacerItem( spacer1 );
+  scalingButtonsGroupBox -> setLayout( scalingButtonsGroupBoxLayout );
 
-  scalingLayout -> addLayout( scalingLayout2 );
-
+  // Now put the tab together
   QScrollArea* scalingGroupBoxScrollArea = new QScrollArea;
-  scalingGroupBoxScrollArea -> setWidget( scalingGroupBox );
+  scalingGroupBoxScrollArea -> setLayout( scalingLayout );
+  //scalingGroupBoxScrollArea -> setWidget( scalingGroupBox );
   scalingGroupBoxScrollArea -> setWidgetResizable( true );
   addTab( scalingGroupBoxScrollArea, tr ( "Scaling" ) );
 }
@@ -555,6 +605,7 @@ void SC_OptionsTab::decodeOptions()
   load_setting( settings, "armory_spec", choice.armory_spec );
   load_setting( settings, "default_role", choice.default_role );
   load_setting( settings, "boss_type", choice.boss_type, "Custom" );
+  load_setting( settings, "pvp_crit", choice.pvp_crit, "Disable" );
   load_setting( settings, "tank_dummy", choice.tank_dummy, "None" );
   load_setting( settings, "tmi_boss", choice.tmi_boss, "None" );
   load_setting( settings, "tmi_window_global", choice.tmi_window, "6" );
@@ -658,6 +709,7 @@ void SC_OptionsTab::encodeOptions()
   settings.setValue( "world_lag", choice.world_lag -> currentText() );
   settings.setValue( "debug", choice.debug -> currentText() );
   settings.setValue( "target_level", choice.target_level -> currentText() );
+  settings.setValue( "pvp_crit", choice.pvp_crit -> currentText() );
   settings.setValue( "report_pets", choice.report_pets -> currentText() );
   settings.setValue( "print_style", choice.print_style -> currentText() );
   settings.setValue( "statistics_level", choice.statistics_level -> currentText() );
@@ -727,6 +779,9 @@ void SC_OptionsTab::createToolTips()
   choice.num_target -> setToolTip( tr( "Number of enemies." ) );
 
   choice.target_level -> setToolTip( tr( "Level of the target and any adds." ) );
+
+  choice.pvp_crit -> setToolTip( tr( "In PVP, critical strikes deal 150% damage instead of 200%.\n"
+                                     "Enabling this option will set target level to max player level." ) );
 
   choice.player_skill -> setToolTip( tr( "Elite:       No mistakes.  No cheating either." ) + "\n" +
                                      tr( "Fire-is-Hot: Frequent DoT-clipping and skipping high-priority abilities." ) );
@@ -863,10 +918,18 @@ QString SC_OptionsTab::get_globalSettings()
   else
   {
     static const char* const targetlevel[] = { "3", "2", "1", "0" };
-    options += "target_level+=";
-    options += targetlevel[ choice.target_level -> currentIndex() ];
-    options += "\n";
-    options += "target_race=" + choice.target_race->currentText() + "\n";
+    if ( choice.pvp_crit -> currentIndex() == 1 )
+    {
+      options += "target_level+=0\n";
+      options += "pvp_crit=1\n";
+    }
+    else
+    {
+      options += "target_level+=";
+      options += targetlevel[choice.target_level -> currentIndex()];
+      options += "\n";
+      options += "target_race=" + choice.target_race->currentText() + "\n";
+    }
   }
   options += "default_skill=";
   const char *skill[] = { "1.0", "0.9", "0.75", "0.50" };
@@ -914,40 +977,50 @@ QString SC_OptionsTab::mergeOptions()
   options += "thread_priority=" + choice.thread_priority -> currentText() + "\n";
 
   QList<QAbstractButton*> buttons = scalingButtonGroup -> buttons();
-  for ( int i = 2; i < buttons.size(); i++ )
+
+  /////// Scaling Options ///////
+
+  // skip if scaling checkbox isn't enabled
+  if ( buttons.at( 0 ) -> isChecked() )
   {
-    if ( buttons.at( i ) -> isChecked() )
+
+    for ( int i = 2; i < buttons.size(); i++ )
     {
-      options += "calculate_scale_factors=1\n";
-      break;
+      if ( buttons.at( i ) -> isChecked() )
+      {
+        options += "calculate_scale_factors=1\n";
+        break;
+      }
     }
-  }
 
-  if ( buttons.at( 1 )->isChecked() ) options += "positive_scale_delta=1\n";
-  if ( buttons.at( buttons.size() - 1 )->isChecked() ) options += "scale_lag=1\n";
+    // latency is always the last button
+    if ( buttons.at( buttons.size() - 1 )->isChecked() ) options += "scale_lag=1\n";
 
-  options += "scale_only=none";
-  for ( int i = 2; scalingOptions[ i ].label; i++ )
-  {
-    if ( buttons.at( i ) -> isChecked() )
+    options += "scale_only=none";
+    for ( int i = 2; scalingOptions[ i ].label; i++ )
     {
-      options += ",";
-      options += scalingOptions[ i ].option;
+      if ( buttons.at( i ) -> isChecked() )
+      {
+        options += ",";
+        options += scalingOptions[ i ].option;
+      }
     }
-  }
-  options += "\n";
-
-  if ( choice.center_scale_delta->currentIndex() == 0 )
-  {
-    options += "center_scale_delta=1\n";
-  }
-
-  if ( choice.scale_over -> currentIndex() != 0 )
-  {
-    options += "scale_over=";
-    options +=  choice.scale_over -> currentText();
     options += "\n";
+
+    if ( choice.center_scale_delta->currentIndex() == 0 )
+    {
+      options += "center_scale_delta=1\n";
+    }
+
+    if ( choice.scale_over -> currentIndex() != 0 )
+    {
+      options += "scale_over=";
+      options += choice.scale_over -> currentText();
+      options += "\n";
+    }
   }
+
+  /////// Plotting Options ///////
 
   options += "dps_plot_stat=none";
   buttons = plotsButtonGroup->buttons();

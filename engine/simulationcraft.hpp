@@ -5,8 +5,8 @@
 #ifndef SIMULATIONCRAFT_H
 #define SIMULATIONCRAFT_H
 
-#define SC_MAJOR_VERSION "602"
-#define SC_MINOR_VERSION "6"
+#define SC_MAJOR_VERSION "603"
+#define SC_MINOR_VERSION "1"
 #define SC_USE_PTR ( 0 )
 #define SC_BETA ( 0 )
 #define SC_BETA_STR "wod"
@@ -2633,6 +2633,7 @@ struct sim_t : public core_sim_t, private sc_thread_t
   bool challenge_mode; // if active, players will get scaled down to 620 and set bonuses are deactivated
   int scale_to_itemlevel; //itemlevel to scale to. if -1, we don't scale down
   bool disable_set_bonuses; // Disables set bonuses.
+  bool pvp_crit; // Sets critical strike damage to 150% instead of 200%.
 
   // Actor tracking
   int active_enemies;
