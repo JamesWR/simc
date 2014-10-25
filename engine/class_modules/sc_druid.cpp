@@ -18,7 +18,6 @@ namespace { // UNNAMED NAMESPACE
 
     = Feral =
     Update LI implementation to work like in-game
-    Update Glyph of Ferocious Bite to be a heal
 
     = Balance =
     PvP/Tier Bonuses
@@ -154,6 +153,7 @@ public:
   double time_to_next_lunar; // Amount of seconds until eclipse energy reaches 100 (Lunar Eclipse)
   double time_to_next_solar; // Amount of seconds until eclipse energy reaches -100 (Solar Eclipse)
   int active_rejuvenations; // Number of rejuvenations on raid.  May be useful for Nature's Vigil timing or resto stuff.
+  double max_fb_energy;
 
   // counters for snapshot tracking
   std::vector<buff_counter_t*> counters;
@@ -449,6 +449,7 @@ public:
 
   struct spells_t
   {
+    const spell_data_t* ferocious_bite; 
     const spell_data_t* bear_form; // Bear form bonuses
     const spell_data_t* berserk_bear; // Berserk bear mangler
     const spell_data_t* berserk_cat; // Berserk cat resource cost reducer
@@ -527,6 +528,7 @@ public:
     time_to_next_lunar( 10 ),
     time_to_next_solar( 30 ),
     active_rejuvenations( 0 ),
+    max_fb_energy( 0 ),
     t16_2pc_starfall_bolt( nullptr ),
     t16_2pc_sun_bolt( nullptr ),
     active( active_actions_t() ),
@@ -691,7 +693,7 @@ struct gushing_wound_t : public residual_action::residual_periodic_action_t< att
   gushing_wound_t( druid_t* p ) :
     base_t( "gushing_wound", p, p -> find_spell( 166638 ) )
   {
-    background = dual = true;
+    background = dual = proc = true;
   }
 
   virtual void init()
@@ -907,6 +909,7 @@ struct cenarion_ward_hot_t : public heal_t
     harmful = false;
     background = proc = true;
     target = p;
+    hasted_ticks = false;
   }
 
   virtual void execute()
@@ -1401,6 +1404,8 @@ struct berserk_buff_t : public druid_buff_t<buff_t>
 
   virtual bool trigger( int stacks, double value, double chance, timespan_t duration )
   {
+    druid.max_fb_energy *= 1.0 + druid.spell.berserk_cat -> effectN( 1 ).percent();
+
     if ( druid.perk.enhanced_berserk -> ok() )
       player -> resources.max[ RESOURCE_ENERGY ] += druid.perk.enhanced_berserk -> effectN( 1 ).base_value();
 
@@ -1409,6 +1414,8 @@ struct berserk_buff_t : public druid_buff_t<buff_t>
 
   virtual void expire_override()
   {
+    druid.max_fb_energy /= 1.0 + druid.spell.berserk_cat -> effectN( 1 ).percent();
+
     if ( druid.perk.enhanced_berserk -> ok() )
     {
       player -> resources.max[ RESOURCE_ENERGY ] -= druid.perk.enhanced_berserk -> effectN( 1 ).base_value();
@@ -1507,6 +1514,34 @@ struct moonkin_form_t : public druid_buff_t< buff_t >
 
     if ( ! sim -> overrides.mastery )
       sim -> auras.mastery -> trigger();
+  }
+};
+
+// Omen of Clarity =========================================================
+
+struct omen_of_clarity_buff_t : public druid_buff_t<buff_t>
+{
+  omen_of_clarity_buff_t( druid_t& p ) :
+    druid_buff_t<buff_t>( p, buff_creator_t( &p, "omen_of_clarity", p.spec.omen_of_clarity -> effectN( 1 ).trigger() )
+      .chance( p.specialization() == DRUID_RESTORATION ? p.find_spell( 113043 ) -> proc_chance()
+                                                     : p.find_spell( 16864 ) -> proc_chance() )
+      .cd( timespan_t::from_seconds( 0.0 ) ) // Cooldown handled by ability
+    )
+  {}
+
+  virtual bool trigger( int stacks, double value, double chance, timespan_t duration )
+  {
+    if ( ! druid.buff.omen_of_clarity -> check() )
+      druid.max_fb_energy -= druid.spell.ferocious_bite -> powerN( 1 ).cost() * ( 1.0 + ( druid.buff.berserk -> check() ? druid.spell.berserk_cat -> effectN( 1 ).percent() : 0.0 ) );
+
+    return druid_buff_t<buff_t>::trigger( stacks, value, chance, duration );
+  }
+
+  virtual void expire_override()
+  {
+    druid.max_fb_energy += druid.spell.ferocious_bite -> powerN( 1 ).cost() * ( 1.0 + ( druid.buff.berserk -> check() ? druid.spell.berserk_cat -> effectN( 1 ).percent() : 0.0 ) );
+
+    druid_buff_t<buff_t>::expire_override();
   }
 };
 
@@ -1934,6 +1969,8 @@ struct druid_melee_t : public caster_attack_t
     may_glance  = background = repeating = true;
     trigger_gcd = timespan_t::zero();
     special     = false;
+
+    triggers_natures_vigil = false;
   }
 
   virtual timespan_t execute_time() const
@@ -2190,6 +2227,8 @@ struct cat_melee_t : public cat_attack_t
     may_glance = background = repeating = true;
     trigger_gcd = timespan_t::zero();
     special = false;
+
+    triggers_natures_vigil = false;
   }
 
   virtual timespan_t execute_time() const
@@ -2247,8 +2286,65 @@ struct feral_charge_cat_t : public cat_attack_t
 
 struct ferocious_bite_t : public cat_attack_t
 {
+  struct glyph_of_ferocious_bite_t : public heal_t
+  {
+    double energy_spent, energy_divisor;
+
+    glyph_of_ferocious_bite_t( druid_t* p ) :
+      heal_t( "glyph_of_ferocious_bite", p, spell_data_t::nil() ),
+      energy_spent( 0.0 )
+    {
+      background = dual = proc = true;
+      target = p;
+      may_crit = false;
+      may_multistrike = 0;
+      harmful = false;
+
+      const spell_data_t* glyph = p -> find_glyph_spell( "Glyph of Ferocious Bite" );
+      pct_heal = glyph -> effectN( 1 ).percent() / 10.0;
+      energy_divisor = glyph -> effectN( 2 ).resource( RESOURCE_ENERGY );
+    }
+
+    druid_t* p() const
+    { return static_cast<druid_t*>( player ); }
+
+    void init()
+    {
+      heal_t::init();
+
+      snapshot_flags |= STATE_MUL_DA;
+    }
+
+    double action_multiplier() const
+    {
+      double am = heal_t::action_multiplier();
+
+      am *= energy_spent / energy_divisor;
+
+      return am;
+    }
+
+    void execute()
+    {
+      if ( energy_spent <= 0 )
+        return;
+
+      heal_t::execute();
+    }
+
+    void impact( action_state_t* s )
+    {
+      heal_t::impact( s );
+
+      // Explicitly trigger Nature's Vigil since this isn't in druid_heal_t
+      if ( p() -> buff.natures_vigil -> check() )
+        p() -> active.natures_vigil -> trigger( s -> result_amount, false );
+    }
+  };
+
   double excess_energy;
   double max_excess_energy;
+  glyph_of_ferocious_bite_t* glyph_effect;
 
   ferocious_bite_t( druid_t* p, const std::string& options_str ) :
     cat_attack_t( "ferocious_bite", p, p -> find_class_spell( "Ferocious Bite" ), options_str ),
@@ -2260,6 +2356,12 @@ struct ferocious_bite_t : public cat_attack_t
     max_excess_energy      = data().effectN( 2 ).base_value();
     special                = true;
     spell_power_mod.direct = 0;
+
+    if ( p -> glyph.ferocious_bite -> ok() )
+      glyph_effect = new glyph_of_ferocious_bite_t( p );
+
+    p -> max_fb_energy = max_excess_energy + cost();
+
     if ( p -> wod_hotfix )
       base_multiplier *= 1.12;
   }
@@ -2272,7 +2374,6 @@ struct ferocious_bite_t : public cat_attack_t
 
     excess_energy = std::min( max_excess_energy,
                               ( p() -> resources.current[ RESOURCE_ENERGY ] - cat_attack_t::cost() ) );
-
 
     cat_attack_t::execute();
 
@@ -2290,13 +2391,9 @@ struct ferocious_bite_t : public cat_attack_t
     {
       if ( p() -> glyph.ferocious_bite -> ok() )
       {
-        double heal_pct = p() -> glyph.ferocious_bite -> effectN( 1 ).percent() / 10.0 * //off by factor of 10 in spell data
-                          ( excess_energy + cost() ) /
-                          p() -> glyph.ferocious_bite -> effectN( 2 ).base_value();
-        double amount = p() -> resources.max[ RESOURCE_HEALTH ] * heal_pct;
-        p() -> resource_gain( RESOURCE_HEALTH, amount, p() -> gain.glyph_ferocious_bite );
-        if( p() -> buff.natures_vigil -> up() )
-          p() -> active.natures_vigil -> trigger( amount , 0 ); // Natures Vigil procs from glyph
+        // Heal based on the energy spent before Berserk's reduction
+        glyph_effect -> energy_spent = ( cost() + excess_energy ) * ( 1.0 + p() -> buff.berserk -> check() );
+        glyph_effect -> execute();
       }
 
       double health_percentage = 25.0;
@@ -2836,6 +2933,7 @@ struct bear_melee_t : public bear_attack_t
     special     = false;
 
     rage_amount = 5.0;
+    triggers_natures_vigil = false;
   }
 
   virtual timespan_t execute_time() const
@@ -5688,6 +5786,7 @@ void druid_t::init_spells()
     active.gushing_wound      = new gushing_wound_t( this );
 
   // Spells
+  spell.ferocious_bite                  = find_class_spell( "Ferocious Bite"              ) -> ok() ? find_spell( 22568  ) : spell_data_t::not_found(); // Get spell data for max_fb_energy calculation.
   spell.bear_form                       = find_class_spell( "Bear Form"                   ) -> ok() ? find_spell( 1178   ) : spell_data_t::not_found(); // This is the passive applied on shapeshift!
   spell.berserk_bear                    = find_class_spell( "Berserk"                     ) -> ok() ? find_spell( 50334  ) : spell_data_t::not_found(); // Berserk bear mangler
   spell.berserk_cat                     = find_class_spell( "Berserk"                     ) -> ok() ? find_spell( 106951 ) : spell_data_t::not_found(); // Berserk cat resource cost reducer
@@ -5816,9 +5915,7 @@ void druid_t::create_buffs()
                                .cd( timespan_t::zero() );
   buff.frenzied_regeneration = buff_creator_t( this, "frenzied_regeneration", find_class_spell( "Frenzied Regeneration" ) );
   buff.moonkin_form          = new moonkin_form_t( *this );
-  buff.omen_of_clarity       = buff_creator_t( this, "omen_of_clarity", spec.omen_of_clarity -> effectN( 1 ).trigger() )
-                               .chance( specialization() == DRUID_RESTORATION ? find_spell( 113043 ) -> proc_chance()
-                                                                              : find_spell( 16864 ) -> proc_chance() );
+  buff.omen_of_clarity       = new omen_of_clarity_buff_t( *this );
   buff.soul_of_the_forest    = buff_creator_t( this, "soul_of_the_forest", talent.soul_of_the_forest -> ok() ? find_spell( 114108 ) : spell_data_t::not_found() )
                                .default_value( find_spell( 114108 ) -> effectN( 1 ).percent() );
   buff.prowl                 = buff_creator_t( this, "prowl", find_class_spell( "Prowl" ) );
@@ -6067,12 +6164,8 @@ void druid_t::apl_precombat()
   // Spec Specific Optimizations
   if ( specialization() == DRUID_BALANCE )
     precombat -> add_talent( this, "Stellar Flare" );
-
   if ( specialization() == DRUID_GUARDIAN )
-  {
-    precombat -> add_action( this, "Rejuvenation" );
     precombat -> add_talent( this, "Cenarion Ward" );
-  }
 }
 
 // NO Spec Combat Action Priority List ======================================
@@ -6157,7 +6250,9 @@ void druid_t::apl_feral()
     def -> add_action( "incarnation,sync=tigers_fury" );
   def -> add_action( this, "Tiger's Fury", "if=(!buff.omen_of_clarity.react&energy.max-energy>=60)|energy.max-energy>=80" );
   if ( ! find_item( "assurance_of_consequence" ) )
-    def -> add_action( "incarnation,sync=berserk" );
+    def -> add_action( "incarnation,if=cooldown.berserk.remains<10&energy.time_to_max>1" );
+  if ( sim -> allow_potions && level >= 80 )
+    def -> add_action( potion_action + ",sync=berserk,if=target.health.pct<25" );
   def -> add_action( this, "Berserk", "if=buff.tigers_fury.up" );
   if ( race == RACE_NIGHT_ELF )
     def -> add_action( "shadowmeld,if=(buff.bloodtalons.up|!talent.bloodtalons.enabled)&dot.rake.remains<0.3*dot.rake.duration" );
@@ -6165,16 +6260,14 @@ void druid_t::apl_feral()
                      "Keep Rip from falling off during execute range." );
   def -> add_action( this, "Healing Touch", "if=talent.bloodtalons.enabled&buff.predatory_swiftness.up&(combo_points>=4|buff.predatory_swiftness.remains<1.5)" );
   def -> add_action( this, "Savage Roar", "if=buff.savage_roar.remains<3" );
-  if ( sim -> allow_potions && level >= 80 )
-    def -> add_action( potion_action + ",sync=berserk,if=target.health.pct<25" );
   def -> add_action( "thrash_cat,if=buff.omen_of_clarity.react&remains<=duration*0.3&active_enemies>1" );
 
   // Finishers
-  def -> add_action( this, "Ferocious Bite", "cycle_targets=1,if=combo_points=5&target.health.pct<25&dot.rip.ticking&energy>=50" );
+  def -> add_action( this, "Ferocious Bite", "cycle_targets=1,if=combo_points=5&target.health.pct<25&dot.rip.ticking&energy>=max_fb_energy" );
   def -> add_action( this, "Rip", "cycle_targets=1,if=combo_points=5&remains<=3" );
   def -> add_action( this, "Rip", "cycle_targets=1,if=combo_points=5&remains<=duration*0.3&persistent_multiplier>dot.rip.pmultiplier" );
   def -> add_action( this, "Savage Roar", "if=combo_points=5&(energy.time_to_max<=1|buff.berserk.up|cooldown.tigers_fury.remains<3)&buff.savage_roar.remains<42*0.3" );
-  def -> add_action( this, "Ferocious Bite", "if=combo_points=5&(energy.time_to_max<=1|buff.berserk.up|(cooldown.tigers_fury.remains<3&energy>=50))" );
+  def -> add_action( this, "Ferocious Bite", "if=combo_points=5&(energy.time_to_max<=1|buff.berserk.up|(cooldown.tigers_fury.remains<3&energy>=max_fb_energy))" );
 
   def -> add_action( this, "Rake", "cycle_targets=1,if=remains<=3&combo_points<5" );
   def -> add_action( this, "Rake", "cycle_targets=1,if=remains<=duration*0.3&combo_points<5&persistent_multiplier>dot.rake.pmultiplier" );
@@ -6249,42 +6342,30 @@ void druid_t::apl_guardian()
 
   std::vector<std::string> item_actions       = get_item_actions();
   std::vector<std::string> racial_actions     = get_racial_actions();
-  std::string              potion_action = "potion,name=";
-  if ( level > 90 )
-    potion_action += "draenic_armor";
-  else if ( level > 85 )
-    potion_action += "tolvir";
 
   default_list -> add_action( "auto_attack" );
+  default_list -> add_action( this, "Skull Bash" );
+  default_list -> add_action( this, "Savage Defense" );
 
   for ( size_t i = 0; i < racial_actions.size(); i++ )
     default_list -> add_action( racial_actions[i] );
   for ( size_t i = 0; i < item_actions.size(); i++ )
     default_list -> add_action( item_actions[i] );
-  if ( sim -> allow_potions && level >= 80 )
-    default_list -> add_action( potion_action + ",if=buff.berserking.up|buff.berserk.up" );
 
-  default_list -> add_action( this, "Skull Bash" );
   default_list -> add_action( this, "Barkskin" );
-  default_list -> add_action( this, "Survival Instincts", "if=health.pct<50" );
-  default_list -> add_action( this, "Savage Defense", "if=buff.savage_defense.down" );
-  default_list -> add_action( this, "Frenzied Regeneration", "if=health.pct<40" );
-  default_list -> add_action( this, "Maul" );
-  default_list -> add_talent( this, "Force of Nature", "if=charges=3|trinket.proc.all.react|target.time_to_die<20" );
-  default_list -> add_talent( this, "Incarnation" );
-  default_list -> add_action( this, "Berserk", "if=dot.thrash_bear.remains>10&dot.lacerate.stack=3&dot.lacerate.remains>10&buff.son_of_ursoc.down" );
-  default_list -> add_talent( this, "Renewal", "if=health.pct<30" );
-  default_list -> add_talent( this, "Nature's Vigil" );
-  default_list -> add_talent( this, "Heart of the Wild" );
+  default_list -> add_action( this, "Maul", "if=buff.tooth_and_claw.react&incoming_damage_1s&rage>=80" );
   default_list -> add_talent( this, "Cenarion Ward" );
-  default_list -> add_action( this, "Lacerate", "cycle_targets=1,if=dot.lacerate.ticking&dot.lacerate.remains<2" );
-  default_list -> add_action( this, "Mangle", "if=active_enemies<4" );
-  default_list -> add_action( "thrash_bear,if=dot.thrash_bear.remains<1" );
-  default_list -> add_action( this, "Healing Touch", "if=buff.dream_of_cenarius.react&health.pct<10" );
-  default_list -> add_action( "thrash_bear,if=active_enemies>4" );
-  default_list -> add_action( this, "Lacerate", "cycle_targets=1,if=!dot.lacerate.ticking" );
-  default_list -> add_action( this, "Lacerate", "cycle_targets=1,if=dot.lacerate.stack<3" );
-  default_list -> add_action( "thrash_bear,if=active_enemies>1" );
+  default_list -> add_talent( this, "Renewal", "if=health.pct<30" );
+  default_list -> add_talent( this, "Heart of the Wild" );
+  default_list -> add_action( this, "Rejuvenation", "if=!ticking&buff.heart_of_the_wild.up" );
+  default_list -> add_talent( this, "Nature's Vigil" );
+  default_list -> add_action( this, "Healing Touch", "if=buff.dream_of_cenarius.react&health.pct<30" );
+  default_list -> add_talent( this, "Pulverize", "if=buff.pulverize.remains<0.5" );
+  default_list -> add_action( this, "Lacerate", "if=talent.pulverize.enabled&buff.pulverize.remains<=(3-dot.lacerate.stack)*gcd" );
+  default_list -> add_action( "incarnation" );
+  default_list -> add_action( this, "Mangle", "if=buff.son_of_ursoc.down" );
+  default_list -> add_action( "thrash_bear,if=!ticking" );
+  default_list -> add_action( this, "Mangle" );
   default_list -> add_action( this, "Lacerate" );
 }
 
@@ -6953,6 +7034,10 @@ expr_t* druid_t::create_expression( action_t* a, const std::string& name_str )
   else if ( util::str_compare_ci( name_str, "combo_points" ) )
   {
     return make_ref_expr( "combo_points", resources.current[ RESOURCE_COMBO_POINT ] );
+  }
+  else if ( util::str_compare_ci( name_str, "max_fb_energy" ) )
+  {
+    return make_ref_expr( "max_fb_energy", max_fb_energy );
   }
   return player_t::create_expression( a, name_str );
 }
