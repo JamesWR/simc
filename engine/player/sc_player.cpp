@@ -709,6 +709,7 @@ player_t::base_initial_current_t::base_initial_current_t() :
   block_reduction(),
   mastery(),
   skill( 1.0 ),
+  skill_debuff( 0.0 ),
   distance( 0 ),
   distance_to_move( 0 ),
   armor_coeff( 0 ),
@@ -1250,10 +1251,6 @@ void player_t::init_resources( bool force )
   }
 
   resources.current = resources.max = resources.initial;
-  if ( type == WARRIOR )
-    resources.current[ RESOURCE_RAGE ] = 0; // Warriors do not have full resource bars pre-combat.
-  else if ( specialization() == DRUID_BALANCE )
-    resources.current[ RESOURCE_ECLIPSE ] = 0; // Same for eclipse.
 
   // Only collect pet resource timelines if they get reported separately
   if ( ! is_pet() || sim -> report_pets_separately )
@@ -5313,6 +5310,7 @@ struct start_moving_t : public action_t
     trigger_gcd = timespan_t::zero();
     cooldown -> duration = timespan_t::from_seconds( 0.5 );
     harmful = false;
+    ignore_false_positive = true;
   }
 
   virtual void execute()
@@ -5343,6 +5341,7 @@ struct stop_moving_t : public action_t
     trigger_gcd = timespan_t::zero();
     cooldown -> duration = timespan_t::from_seconds( 0.5 );
     harmful = false;
+    ignore_false_positive = true;
   }
 
   virtual void execute()
@@ -5699,7 +5698,7 @@ struct restart_sequence_t : public action_t
   {
     add_option( opt_string( "name", seq_name_str ) );
     parse_options( options_str );
-
+    ignore_false_positive = true;
     trigger_gcd = timespan_t::zero();
   }
 
@@ -6125,7 +6124,7 @@ struct cancel_buff_t : public action_t
     std::string buff_name;
     add_option( opt_string( "name", buff_name ) );
     parse_options( options_str );
-
+    ignore_false_positive = true;
     if ( buff_name.empty() )
     {
       sim -> errorf( "Player %s uses cancel_buff without specifying the name of the buff\n", player -> name() );
@@ -6179,7 +6178,7 @@ struct swap_action_list_t : public action_t
     std::string alist_name;
     add_option( opt_string( "name", alist_name ) );
     parse_options( options_str );
-
+    ignore_false_positive = true;
     if ( alist_name.empty() )
     {
       sim -> errorf( "Player %s uses %s without specifying the name of the action list\n", player -> name(), name.c_str() );
@@ -6219,6 +6218,7 @@ struct run_action_list_t : public swap_action_list_t
     swap_action_list_t( player, options_str, "run_action_list" )
   {
     quiet = true;
+    ignore_false_positive = true;
   }
 
   virtual void execute()
@@ -6253,7 +6253,6 @@ struct pool_resource_t : public action_t
     next_action( 0 ), amount( 0 )
   {
     quiet = true;
-
     add_option( opt_timespan( "wait", wait ) );
     add_option( opt_bool( "for_next", for_next ) );
     add_option( opt_string( "resource", resource_str ) );
@@ -7247,8 +7246,10 @@ expr_t* player_t::create_expression( action_t* a,
 
     if ( util::str_in_str_ci( parts[2], "die" ) )
       percent = 0.0;
-    else
+    else if ( util::str_in_str_ci( parts[2], "pct" ) )
       percent = static_cast<double>( util::str_to_num<int>( parts[2] ) ) / 100;
+    else
+      percent = -1;
     // skip construction if the percent is nonsensical
     if ( percent >= 0.0 )
     {
@@ -10091,6 +10092,7 @@ void manager_t::stop()
 
   _diminishing_return_list -> reset();
   _damage_list -> reset();
+  update_event_t::cancel( _update_event );
 
   _started = false;
 }

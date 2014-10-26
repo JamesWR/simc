@@ -35,7 +35,7 @@ actions+=/call_action_list,name=combust_sequence,if=pyro_chain
 actions+=/call_action_list,name=crystal_sequence,if=pet.prismatic_crystal.active
 actions+=/call_action_list,name=init_combust,if=!pyro_chain
 # Utilize level 90 active talents while avoiding pyro munching
-actions+=/rune_of_power,if=buff.rune_of_power.remains<action.fireball.execute_time+gcd&!(buff.heating_up.up&action.fireball.in_flight)
+actions+=/rune_of_power,if=buff.rune_of_power.remains<action.fireball.execute_time+gcd.max&!(buff.heating_up.up&action.fireball.in_flight)
 actions+=/mirror_image,if=!(buff.heating_up.up&action.fireball.in_flight)
 actions+=/call_action_list,name=aoe,if=active_enemies>=5
 actions+=/call_action_list,name=single_target
@@ -44,18 +44,18 @@ actions+=/call_action_list,name=single_target
 # Spread Combustion from PC; "active_enemies+1" because PC is not counted
 actions.crystal_sequence=inferno_blast,cycle_targets=1,if=dot.combustion.ticking&active_dot.combustion<active_enemies+1
 # Use pyros before PC's expiration
-actions.crystal_sequence+=/pyroblast,if=execute_time=gcd&pet.prismatic_crystal.remains<gcd+travel_time&pet.prismatic_crystal.remains>travel_time
+actions.crystal_sequence+=/pyroblast,if=execute_time=gcd.max&pet.prismatic_crystal.remains<gcd.max+travel_time&pet.prismatic_crystal.remains>travel_time
 actions.crystal_sequence+=/call_action_list,name=single_target
 
 # Combustion sequence initialization
 # This sequence lists the requirements for preparing a Combustion combo with each talent choice
 # Meteor Combustion
-actions.init_combust=start_pyro_chain,if=talent.meteor.enabled&cooldown.meteor.up&((cooldown.combustion.remains<action.pyroblast.gcd*3&buff.pyroblast.up&(buff.heating_up.up^action.fireball.in_flight))|(buff.pyromaniac.up&(cooldown.combustion.remains<ceil(buff.pyromaniac.remains%action.pyroblast.gcd)*action.pyroblast.gcd)))
+actions.init_combust=start_pyro_chain,if=talent.meteor.enabled&cooldown.meteor.up&((cooldown.combustion.remains<gcd.max*3&buff.pyroblast.up&(buff.heating_up.up^action.fireball.in_flight))|(buff.pyromaniac.up&(cooldown.combustion.remains<ceil(buff.pyromaniac.remains%gcd.max)*gcd.max)))
 # Prismatic Crystal Combustion
-actions.init_combust+=/start_pyro_chain,if=talent.prismatic_crystal.enabled&cooldown.prismatic_crystal.up&((cooldown.combustion.remains<action.pyroblast.gcd*2&buff.pyroblast.up&(buff.heating_up.up^action.fireball.in_flight))|(buff.pyromaniac.up&(cooldown.combustion.remains<ceil(buff.pyromaniac.remains%action.pyroblast.gcd)*action.pyroblast.gcd)))
-actions.init_combust+=/start_pyro_chain,if=talent.prismatic_crystal.enabled&!glyph.combustion.enabled&cooldown.prismatic_crystal.remains>20&((cooldown.combustion.remains<action.pyroblast.gcd*2&buff.pyroblast.up&buff.heating_up.up&action.fireball.in_flight)|(buff.pyromaniac.up&(cooldown.combustion.remains<ceil(buff.pyromaniac.remains%action.pyroblast.gcd)*action.pyroblast.gcd)))
+actions.init_combust+=/start_pyro_chain,if=talent.prismatic_crystal.enabled&cooldown.prismatic_crystal.up&((cooldown.combustion.remains<gcd.max*2&buff.pyroblast.up&(buff.heating_up.up^action.fireball.in_flight))|(buff.pyromaniac.up&(cooldown.combustion.remains<ceil(buff.pyromaniac.remains%gcd.max)*gcd.max)))
+actions.init_combust+=/start_pyro_chain,if=talent.prismatic_crystal.enabled&!glyph.combustion.enabled&cooldown.prismatic_crystal.remains>20&((cooldown.combustion.remains<gcd.max*2&buff.pyroblast.up&buff.heating_up.up&action.fireball.in_flight)|(buff.pyromaniac.up&(cooldown.combustion.remains<ceil(buff.pyromaniac.remains%gcd.max)*gcd.max)))
 # Kindling or Level 90 Combustion
-actions.init_combust+=/start_pyro_chain,if=!talent.prismatic_crystal.enabled&!talent.meteor.enabled&((cooldown.combustion.remains<action.pyroblast.gcd*4&buff.pyroblast.up&buff.heating_up.up&action.fireball.in_flight)|(buff.pyromaniac.up&cooldown.combustion.remains<ceil(buff.pyromaniac.remains%action.pyroblast.gcd)*(action.pyroblast.gcd+talent.kindling.enabled)))
+actions.init_combust+=/start_pyro_chain,if=!talent.prismatic_crystal.enabled&!talent.meteor.enabled&((cooldown.combustion.remains<gcd.max*4&buff.pyroblast.up&buff.heating_up.up&action.fireball.in_flight)|(buff.pyromaniac.up&cooldown.combustion.remains<ceil(buff.pyromaniac.remains%gcd.max)*(gcd.max+talent.kindling.enabled)))
 
 # Combustion Sequence
 actions.combust_sequence=stop_pyro_chain,if=cooldown.combustion.duration-cooldown.combustion.remains<15
@@ -63,7 +63,6 @@ actions.combust_sequence+=/prismatic_crystal
 actions.combust_sequence+=/blood_fury
 actions.combust_sequence+=/berserking
 actions.combust_sequence+=/arcane_torrent
-actions.combust_sequence+=/use_item,slot=trinket1
 actions.combust_sequence+=/potion,name=draenic_intellect
 actions.combust_sequence+=/meteor
 actions.combust_sequence+=/pyroblast,if=buff.pyromaniac.up
@@ -71,7 +70,7 @@ actions.combust_sequence+=/inferno_blast,if=set_bonus.tier16_4pc_caster&(buff.py
 actions.combust_sequence+=/fireball,if=!dot.ignite.ticking&!in_flight
 actions.combust_sequence+=/pyroblast,if=buff.pyroblast.up
 # Meteor Combustions can run out of Pyro procs before impact. Use IB to delay Combustion
-actions.combust_sequence+=/inferno_blast,if=talent.meteor.enabled&cooldown.meteor.duration-cooldown.meteor.remains<gcd*3
+actions.combust_sequence+=/inferno_blast,if=talent.meteor.enabled&cooldown.meteor.duration-cooldown.meteor.remains<gcd.max*3
 actions.combust_sequence+=/combustion
 
 # Active talents usage
@@ -81,7 +80,7 @@ actions.active_talents+=/blast_wave,if=(!talent.incanters_flow.enabled|buff.inca
 
 # Living Bomb application
 actions.living_bomb=inferno_blast,cycle_targets=1,if=dot.living_bomb.ticking&active_dot.living_bomb<active_enemies
-actions.living_bomb+=/living_bomb,cycle_targets=1,if=target!=prismatic_crystal&(active_dot.living_bomb=0|(ticking&active_dot.living_bomb=1))&(((!talent.incanters_flow.enabled|incanters_flow_dir<0|buff.incanters_flow.stack=5)&remains<3.6)|((incanters_flow_dir>0|buff.incanters_flow.stack=1)&remains<gcd))&target.time_to_die>remains+12
+actions.living_bomb+=/living_bomb,cycle_targets=1,if=target!=prismatic_crystal&(active_dot.living_bomb=0|(ticking&active_dot.living_bomb=1))&(((!talent.incanters_flow.enabled|incanters_flow_dir<0|buff.incanters_flow.stack=5)&remains<3.6)|((incanters_flow_dir>0|buff.incanters_flow.stack=1)&remains<gcd.max))&target.time_to_die>remains+12
 
 # AoE sequence
 actions.aoe=inferno_blast,cycle_targets=1,if=(dot.combustion.ticking&active_dot.combustion<active_enemies)|(dot.pyroblast.ticking&active_dot.pyroblast<active_enemies)
@@ -96,7 +95,7 @@ actions.aoe+=/flamestrike,if=mana.pct>10&remains<2.4
 actions.single_target=inferno_blast,if=(dot.combustion.ticking&active_dot.combustion<active_enemies)|(dot.living_bomb.ticking&active_dot.living_bomb<active_enemies)
 # Use Pyro procs before they run out
 actions.single_target+=/pyroblast,if=buff.pyroblast.up&buff.pyroblast.remains<action.fireball.execute_time
-actions.single_target+=/pyroblast,if=buff.pyroblast.up&buff.potent_flames.up&buff.potent_flames.remains<gcd
+actions.single_target+=/pyroblast,if=buff.pyroblast.up&buff.potent_flames.up&buff.potent_flames.remains<gcd.max
 actions.single_target+=/pyroblast,if=buff.pyromaniac.react
 # Pyro camp during regular sequence; Do not use Pyro procs without HU and first using fireball
 actions.single_target+=/pyroblast,if=buff.pyroblast.up&buff.heating_up.up&action.fireball.in_flight
@@ -110,27 +109,27 @@ head=arcanoshatter_hood,id=115553
 neck=gruuls_lip_ring,id=113872,enchant=gift_of_critical_strike
 shoulders=arcanoshatter_mantle,id=115551
 back=runefrenzy_greatcloak,id=113937,enchant=gift_of_critical_strike
-chest=eyecatching_gilded_robe,id=113898
-wrists=bracers_of_enkindled_power,id=113956
+chest=arcanoshatter_robes,id=115550
+wrists=bracers_of_spattered_steel,id=113887
 hands=arcanoshatter_gloves,id=115552
 waist=seeking_ember_girdle,id=113941
-legs=arcanoshatter_leggings,id=115554
+legs=turret_mechanics_legwraps,id=113970
 feet=cavedwellers_climbers,id=113864
 finger1=timeless_solium_band_of_the_archmage,id=118296,enchant=gift_of_critical_strike
-finger2=epicenter_loop,id=113947,enchant=gift_of_critical_strike
-trinket1=shards_of_nothing,id=113835
-trinket2=blackiron_micro_crucible,id=113984
-main_hand=blackhand_doomstaff,id=113988,enchant=mark_of_the_thunderlord
+finger2=ukuroggs_corrupted_seal,id=113975,enchant=gift_of_critical_strike
+trinket1=blackiron_micro_crucible,id=113984
+trinket2=formidable_orb_of_putrescence,id=114611
+main_hand=infernoflame_staff,id=113869,enchant=mark_of_warsong
 
 # Gear Summary
 # gear_stamina=3437
 # gear_intellect=2711
 # gear_spell_power=1325
-# gear_crit_rating=1270
-# gear_haste_rating=758
-# gear_mastery_rating=906
+# gear_crit_rating=928
+# gear_haste_rating=730
+# gear_mastery_rating=1313
 # gear_armor=700
-# gear_multistrike_rating=165
-# gear_versatility_rating=170
+# gear_multistrike_rating=235
+# gear_versatility_rating=78
 # set_bonus=tier17_2pc=1
 # set_bonus=tier17_4pc=1

@@ -6,7 +6,7 @@
 #define SIMULATIONCRAFT_H
 
 #define SC_MAJOR_VERSION "603"
-#define SC_MINOR_VERSION "1"
+#define SC_MINOR_VERSION "3"
 #define SC_USE_PTR ( 0 )
 #define SC_BETA ( 0 )
 #define SC_BETA_STR "wod"
@@ -2620,7 +2620,6 @@ struct sim_t : public core_sim_t, private sc_thread_t
   int         rel_target_level, target_level;
   std::string target_race;
   int         target_adds;
-  timespan_t  add_duration;
   std::string sim_phase_str;
   int         desired_targets; // desired number of targets
   bool        enable_taunts;
@@ -4294,7 +4293,6 @@ struct player_t : public actor_t
   bool scale_player;
   double death_pct; // Player will die if he has equal or less than this value as health-pct
   double size; // Actor size, only used for enemies. Affects the travel distance calculation for spells.
-  timespan_t  add_duration; // Length of time that an add with a set duration will live. 
 
   // dynamic attributes - things which change during combat
   player_t*   target;
@@ -4356,7 +4354,7 @@ struct player_t : public actor_t
     double miss, dodge, parry, block;
     double hit, expertise;
     double spell_crit, attack_crit, block_reduction, mastery;
-    double skill, distance;
+    double skill, skill_debuff, distance;
     double distance_to_move;
     movement_direction_e movement_direction;
     double armor_coeff;
@@ -5654,6 +5652,8 @@ struct action_t : public noncopyable
   bool background; // Background actions cannot be executed via action list, but can be triggered by other actions. Background actions do not count for executes.
   bool use_off_gcd; // When set to true, will check every 100 ms to see if this action needs to be used, rather than waiting until the next gcd.
   bool interrupt_auto_attack; // true if channeled action does not reschedule autoattacks.
+  bool ignore_false_positive; // Used for actions that will do awful things to the sim when a "false positive" skill roll happens.
+  double action_skill; // Skill is now done per ability, with the default being set to the player option.
   bool direct_tick; // Used with DoT Drivers, tells simc that the direct hit is actually a tick.
   bool periodic_hit, repeating, harmful;
   bool proc; // Procs do not consume resources.
@@ -5739,6 +5739,8 @@ struct action_t : public noncopyable
   { options.insert( options.begin(), new_option ); }
   virtual double cost() const;
   virtual timespan_t gcd() const;
+  virtual double false_positive_pct() const;
+  virtual double false_negative_pct() const;
   virtual timespan_t execute_time() const { return base_execute_time; }
   virtual timespan_t tick_time( double haste ) const;
   virtual timespan_t travel_time() const;
@@ -6464,10 +6466,10 @@ inline void dot_tick_event_t::execute()
   dot -> current_tick++;
 
   if ( dot -> current_action -> channeled &&
-       dot -> current_action -> player -> current.skill < 1.0 &&
+       dot -> current_action -> action_skill < 1.0 &&
        dot -> remains() >= dot -> current_action -> tick_time( dot -> state -> haste ) )
   {
-    if ( rng().roll( dot -> current_action -> player -> current.skill ) )
+    if ( rng().roll( std::max( 0.0, dot -> current_action -> action_skill - dot -> current_action -> player -> current.skill_debuff ) ) )
     {
       dot -> tick();
     }

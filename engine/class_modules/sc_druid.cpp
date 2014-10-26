@@ -592,7 +592,7 @@ public:
   virtual void      init_scaling();
   virtual void      init_gains();
   virtual void      init_procs();
-  virtual void      init_benefits();
+  virtual void      init_resources( bool );
   virtual void      invalidate_cache( cache_e );
   virtual void      combat_begin();
   virtual void      reset();
@@ -730,8 +730,7 @@ struct natures_vigil_proc_t : public spell_t
     {
       heal_t::init();
       // Disable the snapshot_flags for all multipliers, but specifically allow factors in
-      // action_state_t::composite_da_multiplier() to be called. This works and I stole it 
-      // from the paladin module but I don't understand why.
+      // action_state_t::composite_da_multiplier() to be called.
       snapshot_flags &= STATE_NO_MULTIPLIER;
       snapshot_flags |= STATE_MUL_DA;
     }
@@ -754,90 +753,18 @@ struct natures_vigil_proc_t : public spell_t
 
       heal_t::execute();
     }
-
-  private:
-    player_t* find_lowest_target()
-    {
-      // Ignoring range for the time being
-      double lowest_health_pct_found = 100.1;
-      player_t* lowest_player_found = nullptr;
-
-      for ( size_t i = 0, size = sim -> player_no_pet_list.size(); i < size; i++ )
-      {
-        player_t* p = sim -> player_no_pet_list[ i ];
-
-        // check their health against the current lowest
-        if ( p -> health_percentage() < lowest_health_pct_found )
-        {
-          // if this player is lower, make them the current lowest
-          lowest_health_pct_found = p -> health_percentage();
-          lowest_player_found = p;
-        }
-      }
-      return lowest_player_found;
-    }
   };
-/*
-  struct damage_proc_t : public spell_t
-  {
-    damage_proc_t( druid_t* p ) :
-      spell_t( "natures_vigil_damage", p, p -> find_spell( 124991 ) )
-    {
-      background = proc = dual = true;
-      may_crit = may_miss = false;
-      may_multistrike = 0;
-      trigger_gcd     = timespan_t::zero();
-      base_multiplier = p -> talent.natures_vigil -> effectN( 3 ).percent();
-    }
 
-    virtual void init()
-    {
-      spell_t::init();
-      // Disable the snapshot_flags for all multipliers, but specifically allow factors in
-      // action_state_t::composite_da_multiplier() to be called. This works and I stole it 
-      // from the paladin module.
-      snapshot_flags &= STATE_NO_MULTIPLIER;
-      snapshot_flags |= STATE_MUL_DA;
-    }
-
-    virtual void execute()
-    {
-      target = pick_random_target();
-
-      spell_t::execute();
-    }
-
-  private:
-    player_t* pick_random_target()
-    {
-      // Targeting is probably done by range, but since the sim doesn't really have
-      // have a concept of that we'll just pick a target at random.
-
-      unsigned t = static_cast<unsigned>( rng().range( 0, as<double>( sim -> target_list.size() ) ) );
-      if ( t >= sim-> target_list.size() ) --t; // dsfmt range should not give a value actually equal to max, but be paranoid
-      return sim-> target_list[ t ];
-    }
-  };
-*/
-//  damage_proc_t* damage;
   heal_proc_t*   heal;
 
   natures_vigil_proc_t( druid_t* p ) :
     spell_t( "natures_vigil", p, spell_data_t::nil() )
   {
-//    damage  = new damage_proc_t( p );
     heal    = new heal_proc_t( p );
   }
 
   void trigger( double amount, bool harmful = true )
   {
-    /*
-    if ( ! harmful )
-    {
-      damage -> base_dd_min = damage -> base_dd_max = amount;
-      damage -> execute();
-    }  
-    */
     heal -> base_dd_min = heal -> base_dd_max = amount;
     heal -> fromDmg = harmful;
     heal -> execute();
@@ -954,6 +881,10 @@ struct yseras_gift_t : public heal_t
     target = p;
 
     tick_pct_heal = data().effectN( 1 ).percent();
+    
+    // 10/26/14: Heals for half for Guardians.
+    if ( p -> specialization() == DRUID_GUARDIAN )
+      tick_pct_heal *= 0.5;
   }
 
   virtual void init()
@@ -2615,7 +2546,6 @@ struct savage_roar_t : public cat_attack_t
     cat_attack_t( "savage_roar", p, p -> find_specialization_spell( "Savage Roar" ), options_str )
   {
     base_costs[ RESOURCE_COMBO_POINT ] = 1;
-
     may_miss = harmful = false;
     dot_duration  = timespan_t::zero();
     base_tick_time = timespan_t::zero();
@@ -2973,7 +2903,7 @@ struct lacerate_t : public bear_attack_t
 
     rage_amount = data().effectN( 3 ).resource( RESOURCE_RAGE );
     if ( p -> wod_hotfix )
-      attack_power_mod.tick *= 1.05;
+      base_multiplier *= 1.05;
   }
 
   virtual void impact( action_state_t* state )
@@ -3083,8 +3013,9 @@ struct maul_t : public bear_attack_t
 
       // Coeff is in tooltip but not spell data, so hardcode the value here.
       attack_power_mod.direct = 2.40;
+
       if ( p -> wod_hotfix )
-        attack_power_mod.direct *= 1.05;
+        base_multiplier *= 1.05;
     }
 
     virtual void impact( action_state_t* s )
@@ -3125,7 +3056,7 @@ struct maul_t : public bear_attack_t
     if ( p() -> buff.tooth_and_claw -> check() && p() -> sets.has_set_bonus( DRUID_GUARDIAN, T17, B2 ) )
       c -= cost_reduction;
 
-    return bear_attack_t::cost();
+    return c;
   }
 
   virtual double composite_target_multiplier( player_t* t ) const
@@ -3152,7 +3083,7 @@ struct maul_t : public bear_attack_t
   {
     bear_attack_t::impact( s );
 
-    if ( result_is_hit( s -> result ) && p() -> buff.tooth_and_claw -> up() )
+    if ( result_is_hit( s -> result ) && p() -> buff.tooth_and_claw -> check() )
     {
       if ( p() -> sets.has_set_bonus( DRUID_GUARDIAN, T17, B2 ) )
       {
@@ -3160,8 +3091,17 @@ struct maul_t : public bear_attack_t
         p() -> gain.tier17_2pc_tank -> add( RESOURCE_RAGE, cost_reduction );
       }
       absorb -> execute();
-      p() -> buff.tooth_and_claw -> decrement(); // Only decrements on hit, tested 6/27/2014 by Zerrahki
     }
+  }
+
+  virtual void execute()
+  {
+    // Benefit tracking
+    p() -> buff.tooth_and_claw -> up();
+
+    bear_attack_t::execute();
+
+    p() -> buff.tooth_and_claw -> decrement();
   }
 };
 
@@ -3173,8 +3113,9 @@ struct pulverize_t : public bear_attack_t
     bear_attack_t( "pulverize", player, player -> talent.pulverize )
   {
     parse_options( options_str );
+
     if ( player -> wod_hotfix )
-      attack_power_mod.direct *= 1.05;
+      base_multiplier *= 1.05;
   }
 
   virtual void impact( action_state_t* s )
@@ -3450,9 +3391,7 @@ struct frenzied_regeneration_t : public druid_heal_t
     may_crit = false;
     may_multistrike = 0;
     target = p;
-    /* As of build 18837 & 18850 the spell data is no longer
-       accurate so we have to hardcode the coefficient */
-    attack_power_mod.direct = 6.00;
+
     maximum_rage_cost = data().effectN( 2 ).base_value();
 
     triggers_natures_vigil = false;
@@ -3484,10 +3423,10 @@ struct frenzied_regeneration_t : public druid_heal_t
     // Benefit tracking
     p() -> buff.tier17_4pc_tank -> up();
 
+    druid_heal_t::execute();
+
     p() -> buff.tier15_2pc_tank -> expire();
     p() -> buff.tier17_4pc_tank -> expire();
-
-    druid_heal_t::execute();
 
     if ( p() -> sets.has_set_bonus( SET_TANK, T16, B4 ) )
       p() -> active.ursocs_vigor -> trigger_hot( resource_consumed );
@@ -3517,6 +3456,7 @@ struct healing_touch_t : public druid_heal_t
     druid_heal_t( "healing_touch", p, p -> find_class_spell( "Healing Touch" ), options_str )
   {
     init_living_seed();
+    ignore_false_positive = true; // Prevents cat/bear from failing a skill check and going into caster form.
   }
 
   double spell_direct_power_coefficient( const action_state_t* /* state */ ) const
@@ -3681,6 +3621,7 @@ struct lifebloom_t : public druid_heal_t
     bloom( new lifebloom_bloom_t( p ) )
   {
     may_crit   = false;
+    ignore_false_positive = true;
 
     // TODO: this can be only cast on one target, unless Tree of Life is up
   }
@@ -3744,7 +3685,7 @@ struct regrowth_t : public druid_heal_t
       base_td    = 0;
       dot_duration  = timespan_t::zero();
     }
-
+    ignore_false_positive = true;
     init_living_seed();
   }
 
@@ -3812,6 +3753,7 @@ struct rejuvenation_t : public druid_heal_t
     druid_heal_t( "rejuvenation", p, p -> find_class_spell( "Rejuvenation" ), options_str )
   {
     tick_zero = true;
+    ignore_false_positive = true; // Prevents cat/bear from failing a skill check and going into caster form.
   }
 
   virtual void execute()
@@ -3960,6 +3902,7 @@ struct wild_growth_t : public druid_heal_t
   {
     aoe = data().effectN( 3 ).base_value() + p -> glyph.wild_growth -> effectN( 1 ).base_value();
     cooldown -> duration = data().cooldown() + p -> glyph.wild_growth -> effectN( 2 ).time_value();
+    ignore_false_positive = true;
   }
 
   virtual void execute()
@@ -4070,6 +4013,7 @@ struct auto_attack_t : public melee_attack_t
     parse_options( options_str );
 
     trigger_gcd = timespan_t::zero();
+    ignore_false_positive = true;
   }
 
   virtual void execute()
@@ -4168,6 +4112,7 @@ struct bear_form_t : public druid_spell_t
   {
     harmful = false;
     min_gcd = timespan_t::from_seconds( 1.5 );
+    ignore_false_positive = true;
 
     if ( ! player -> bear_melee_attack )
     {
@@ -4250,6 +4195,7 @@ struct cat_form_t : public druid_spell_t
   {
     harmful = false;
     min_gcd = timespan_t::from_seconds( 1.5 );
+    ignore_false_positive = true;
 
     if ( ! player -> cat_melee_attack )
     {
@@ -4326,6 +4272,7 @@ struct dash_t : public druid_spell_t
 
     harmful = false;
     use_off_gcd = true;
+    ignore_false_positive = true;
   }
 
   void execute()
@@ -4449,6 +4396,7 @@ struct growl_t: public druid_spell_t
     druid_spell_t( "growl", player, player -> find_class_spell( "Growl" ) )
   {
     parse_options( options_str );
+    ignore_false_positive = true;
     use_off_gcd = true;
   }
 
@@ -4518,6 +4466,7 @@ struct hurricane_t : public druid_spell_t
 
     tick_action = new hurricane_tick_t( player, data().effectN( 3 ).trigger() );
     dynamic_tick_action = true;
+    ignore_false_positive = true;
   }
 
   double action_multiplier() const
@@ -4639,6 +4588,7 @@ struct mark_of_the_wild_t : public druid_spell_t
 
     trigger_gcd = timespan_t::zero();
     harmful     = false;
+    ignore_false_positive = true;
     background  = ( sim -> overrides.str_agi_int != 0 );
   }
 
@@ -4852,7 +4802,6 @@ struct moonfire_t : public druid_spell_t
     p() -> buff.lunar_peak -> expire();
   }
 
-
   void schedule_execute( action_state_t* state = 0 )
   {
     druid_spell_t::schedule_execute( state );
@@ -4935,6 +4884,7 @@ struct moonkin_form_t : public druid_spell_t
     parse_options( options_str );
 
     harmful           = false;
+    ignore_false_positive = true;
 
     base_costs[ RESOURCE_MANA ] *= 1.0 + p() -> glyph.master_shapeshifter -> effectN( 1 ).percent();
   }
@@ -5015,6 +4965,7 @@ struct prowl_t : public druid_spell_t
 
     trigger_gcd = timespan_t::zero();
     harmful     = false;
+    ignore_false_positive = true;
   }
 
   void execute()
@@ -5107,6 +5058,7 @@ struct skull_bash_t : public druid_spell_t
     parse_options( options_str );
     may_miss = may_glance = may_block = may_dodge = may_parry = may_crit = false;
     use_off_gcd = true;
+    ignore_false_positive = true;
 
     cooldown -> duration += player -> glyph.skull_bash -> effectN( 1 ).time_value();
   }
@@ -5399,6 +5351,7 @@ struct typhoon_t : public druid_spell_t
     druid_spell_t( "typhoon", player, player -> talent.typhoon )
   {
     parse_options( options_str );
+    ignore_false_positive = true;
   }
 };
 
@@ -5412,6 +5365,7 @@ struct wild_mushroom_t : public druid_spell_t
     parse_options( options_str );
 
     harmful = false;
+    ignore_false_positive = true;
   }
 
   void execute()
@@ -6261,6 +6215,8 @@ void druid_t::apl_feral()
   def -> add_action( this, "Healing Touch", "if=talent.bloodtalons.enabled&buff.predatory_swiftness.up&(combo_points>=4|buff.predatory_swiftness.remains<1.5)" );
   def -> add_action( this, "Savage Roar", "if=buff.savage_roar.remains<3" );
   def -> add_action( "thrash_cat,if=buff.omen_of_clarity.react&remains<=duration*0.3&active_enemies>1" );
+  if ( ! talent.bloodtalons -> ok() )
+    def -> add_action( "thrash_cat,if=combo_points=5&remains<=duration*0.3&buff.omen_of_clarity.react");
 
   // Finishers
   def -> add_action( this, "Ferocious Bite", "cycle_targets=1,if=combo_points=5&target.health.pct<25&dot.rip.ticking&energy>=max_fb_energy" );
@@ -6271,11 +6227,12 @@ void druid_t::apl_feral()
 
   def -> add_action( this, "Rake", "cycle_targets=1,if=remains<=3&combo_points<5" );
   def -> add_action( this, "Rake", "cycle_targets=1,if=remains<=duration*0.3&combo_points<5&persistent_multiplier>dot.rake.pmultiplier" );
-  def -> add_action( "thrash_cat,if=combo_points=5&buff.omen_of_clarity.react");
+  if ( talent.bloodtalons -> ok() )
+    def -> add_action( "thrash_cat,if=combo_points=5&remains<=duration*0.3&buff.omen_of_clarity.react");
   def -> add_action( "pool_resource,for_next=1" );
   def -> add_action( "thrash_cat,if=remains<=duration*0.3&active_enemies>1" );
-  if ( level >= 100 )
-    def -> add_action( "moonfire,cycle_targets=1,if=remains<=duration*0.3&active_enemies<=10" );
+  if ( talent.lunar_inspiration -> ok() )
+    def -> add_action( "moonfire,cycle_targets=1,if=combo_points<5&remains<=duration*0.3&active_enemies<=10" );
   def -> add_action( this, "Rake", "cycle_targets=1,if=persistent_multiplier>dot.rake.pmultiplier&combo_points<5" );
 
   // Fillers
@@ -6473,11 +6430,13 @@ void druid_t::init_procs()
   proc.wrong_eclipse_starfire   = get_proc( "wrong_eclipse_starfire" );
 }
 
-// druid_t::init_benefits ===================================================
+// druid_t::init_resources ===========================================
 
-void druid_t::init_benefits()
+void druid_t::init_resources( bool force )
 {
-  player_t::init_benefits();
+  player_t::init_resources( force );
+
+  resources.current[RESOURCE_ECLIPSE] = 0;
 }
 
 // druid_t::init_actions ====================================================

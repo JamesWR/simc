@@ -1107,6 +1107,7 @@ struct beacon_of_light_t : public paladin_heal_t
     paladin_heal_t( "beacon_of_light", p, p -> find_class_spell( "Beacon of Light" ) )
   {
     parse_options( options_str );
+    ignore_false_positive = true;
 
     // Target is required for Beacon
     if ( target_str.empty() )
@@ -1152,6 +1153,7 @@ struct blessing_of_kings_t : public paladin_spell_t
     parse_options( options_str );
 
     harmful = false;
+    ignore_false_positive = true;
 
     background = ( sim -> overrides.str_agi_int != 0 );
   }
@@ -1184,6 +1186,7 @@ struct blessing_of_might_t : public paladin_spell_t
     parse_options( options_str );
 
     harmful = false;
+    ignore_false_positive = true;
 
     background = ( sim -> overrides.mastery != 0 );
   }
@@ -2810,6 +2813,7 @@ struct lights_hammer_t : public paladin_spell_t
     cooldown -> duration = p -> find_spell( 114158 ) -> cooldown();
     hasted_ticks   = false;
     tick_zero = true;
+    ignore_false_positive = true;
 
     dynamic_tick_action = true;
     //tick_action = new lights_hammer_tick_t( p, p -> find_spell( 114919 ) );
@@ -3052,6 +3056,7 @@ struct speed_of_light_t: public paladin_spell_t
     : paladin_spell_t( "speed_of_light", p, p -> talents.speed_of_light )
   {
     parse_options( options_str );
+    ignore_false_positive = true;
   }
 
   virtual void execute()
@@ -3650,6 +3655,7 @@ struct hammer_of_justice_t : public paladin_melee_attack_t
     : paladin_melee_attack_t( "hammer_of_justice", p, p -> find_class_spell( "Hammer of Justice" ) )
   {
     parse_options( options_str );
+    ignore_false_positive = true;
   }
 };
 
@@ -4090,6 +4096,7 @@ struct rebuke_t : public paladin_melee_attack_t
     parse_options( options_str );
 
     may_miss = may_glance = may_block = may_dodge = may_parry = may_crit = false;
+    ignore_false_positive = true;
 
     // no weapon multiplier
     weapon_multiplier = 0.0;
@@ -4137,6 +4144,8 @@ struct paladin_seal_t : public paladin_melee_attack_t
 
     harmful    = false;
     resource_current = RESOURCE_MANA;
+    ignore_false_positive = true;
+    school = SCHOOL_HOLY;
     // all seals cost 16.4% of base mana
     base_costs[ current_resource() ]  = p -> resources.base[ current_resource() ] * 0.164;
   }
@@ -4184,7 +4193,6 @@ struct paladin_seal_t : public paladin_melee_attack_t
     }
 
     // if we've swapped to or from Seal of Insight, we'll need to refresh spell haste cache
-
   }
 
   virtual bool ready()
@@ -5252,29 +5260,23 @@ void paladin_t::generate_action_prio_list_ret()
   single -> add_action( this, "Divine Storm", "if=buff.divine_crusader.react&holy_power=5&buff.final_verdict.up" );
   single -> add_action( this, "Divine Storm", "if=buff.divine_crusader.react&holy_power=5&active_enemies=2&!talent.final_verdict.enabled" );
   single -> add_action( this, "Divine Storm", "if=holy_power=5&active_enemies=2&buff.final_verdict.up" );
+  single -> add_action( this, "Divine Storm", "if=buff.divine_crusader.react&holy_power=5&(talent.seraphim.enabled&cooldown.seraphim.remains<=4)" );
   single -> add_action( this, "Templar's Verdict", "if=holy_power=5|buff.holy_avenger.up&holy_power>=3&(!talent.seraphim.enabled|cooldown.seraphim.remains>4)" );
   single -> add_action( this, "Templar's Verdict", "if=buff.divine_purpose.react&buff.divine_purpose.remains<4" );
   single -> add_talent( this, "Final Verdict", "if=holy_power=5|buff.holy_avenger.up&holy_power>=3" );
   single -> add_talent( this, "Final Verdict", "if=buff.divine_purpose.react&buff.divine_purpose.remains<4" );
   single -> add_action( this, "Hammer of Wrath" );
-  single -> add_action( "wait,sec=cooldown.hammer_of_wrath.remains,if=cooldown.hammer_of_wrath.remains>0&cooldown.hammer_of_wrath.remains<=0.4" );
-  single -> add_action( this, "Judgment", "if=talent.empowered_seals.enabled&((seal.truth&buff.maraads_truth.down)|(seal.righteousness&buff.liadrins_righteousness.down))&cooldown.avenging_wrath.remains<=3" );
+  single -> add_action( this, "Judgment", "if=talent.empowered_seals.enabled&((seal.truth&buff.maraads_truth.remains<cooldown.judgment.duration*2)|(seal.righteousness&buff.liadrins_righteousness.remains<cooldown.judgment.duration*2))" );
   single -> add_action( this, "Exorcism","if=buff.blazing_contempt.up&holy_power<=2&buff.holy_avenger.down" );
+  single -> add_action( this, "Seal of Truth", "if=talent.empowered_seals.enabled&buff.maraads_truth.remains<(cooldown.judgment.duration)&buff.maraads_truth.remains<=3" );
   single -> add_action( this, "Divine Storm","if=buff.divine_crusader.react&buff.final_verdict.up" );
-  single -> add_action( this, "Judgment", "if=talent.empowered_seals.enabled&((seal.truth&buff.maraads_truth.remains<=6)|(seal.righteousness&buff.liadrins_righteousness.remains<=6))" );
-  single -> add_action( this, "Seal of Truth", "if=talent.empowered_seals.enabled&buff.maraads_truth.remains<(cooldown.judgment.remains+2*cooldown.judgment.duration)" );
-  single -> add_action( this, "Seal of Truth", "if=talent.empowered_seals.enabled&cooldown.avenging_wrath.remains<(cooldown.judgment.remains+2*cooldown.judgment.duration)" );
-  single -> add_action( this, "Seal of Truth", "if=talent.empowered_seals.enabled&buff.maraads_truth.down" );
-  single -> add_action( this, "Templar's Verdict","if=buff.avenging_wrath.up&(!talent.seraphim.enabled|cooldown.seraphim.remains>4)" );
-  single -> add_action( this, "Divine Storm","if=talent.divine_purpose.enabled&buff.divine_crusader.react&buff.avenging_wrath.up&!talent.final_verdict.enabled" );
+  single -> add_talent( this, "Final Verdict", "if=buff.divine_purpose.react" );
+  single -> add_action( this, "Templar's Verdict","if=(buff.avenging_wrath.up|talent.divine_purpose.enabled)&(!talent.seraphim.enabled|cooldown.seraphim.remains>4)" );
+  single -> add_action( this, "Divine Storm","if=talent.divine_purpose.enabled&buff.divine_crusader.react&!talent.final_verdict.enabled" );
   single -> add_action( this, "Crusader Strike");
-  single -> add_action( "wait,sec=cooldown.crusader_strike.remains,if=cooldown.crusader_strike.remains>0&cooldown.crusader_strike.remains<=0.4");
   single -> add_talent( this, "Final Verdict" );
-  single -> add_action( this, "Seal of Righteousness", "if=talent.empowered_seals.enabled&buff.maraads_truth.remains>(cooldown.judgment.remains+2*cooldown.judgment.duration)&buff.liadrins_righteousness.remains<=3" );
-  single -> add_action( this, "Seal of Righteousness", "if=talent.empowered_seals.enabled&buff.liadrins_righteousness.down" );
+  single -> add_action( this, "Seal of Righteousness", "if=talent.empowered_seals.enabled&buff.liadrins_righteousness.remains<(cooldown.judgment.duration)&buff.liadrins_righteousness.remains<=3" );
   single -> add_action( this, "Judgment" );
-  single -> add_action( this, "Seal of Righteousness", "if=talent.empowered_seals.enabled&buff.liadrins_righteousness.remains<=6" );
-  single -> add_action( this, "Templar's Verdict","if=buff.divine_purpose.react" );
   single -> add_action( this, "Divine Storm","if=buff.divine_crusader.react&!talent.final_verdict.enabled" );
   single -> add_action( this, "Templar's Verdict", "if=holy_power>=4&(!talent.seraphim.enabled|cooldown.seraphim.remains>4)" );
   single -> add_action( this, "Exorcism" );
@@ -5288,11 +5290,10 @@ void paladin_t::generate_action_prio_list_ret()
   cleave -> add_action( this, "Divine Storm", "if=holy_power=5&(!talent.seraphim.enabled|cooldown.seraphim.remains>4)&!talent.final_verdict.enabled" );
   cleave -> add_action( this, "Exorcism","if=buff.blazing_contempt.up&holy_power<=2&buff.holy_avenger.down" );
   cleave -> add_action( this, "Hammer of Wrath" );
-  cleave -> add_action( "wait,sec=cooldown.hammer_of_wrath.remains,if=cooldown.hammer_of_wrath.remains>0&cooldown.hammer_of_wrath.remains<=0.4" );
   cleave -> add_action( this, "Judgment", "if=talent.empowered_seals.enabled&seal.righteousness&buff.liadrins_righteousness.remains<=5" );
   cleave -> add_action( this, "Divine Storm", "if=(!talent.seraphim.enabled|cooldown.seraphim.remains>4)&!talent.final_verdict.enabled" );
   cleave -> add_action( this, "Crusader Strike" );
-  cleave -> add_action( "wait,sec=cooldown.crusader_strike.remains,if=cooldown.crusader_strike.remains>0&cooldown.crusader_strike.remains<=0.4" );
+  cleave -> add_action( this, "Final Verdict", "if=buff.final_verdict.down" );
   cleave -> add_action( this, "Divine Storm", "if=buff.final_verdict.up" );
   cleave -> add_action( this, "Judgment" );
   cleave -> add_action( this, "Exorcism" );
@@ -5303,10 +5304,8 @@ void paladin_t::generate_action_prio_list_ret()
   aoe -> add_action( this, "Divine Storm", "if=holy_power=5&(!talent.seraphim.enabled|cooldown.seraphim.remains>4)" );
   aoe -> add_action( this, "Exorcism","if=buff.blazing_contempt.up&holy_power<=2&buff.holy_avenger.down" );
   aoe -> add_action( this, "Hammer of the Righteous" );
-  aoe -> add_action( "wait,sec=cooldown.hammer_of_the_righteous.remains,if=cooldown.hammer_of_the_righteous.remains>0&cooldown.hammer_of_the_righteous.remains<=0.4" );
   aoe -> add_action( this, "Judgment", "if=talent.empowered_seals.enabled&seal.righteousness&buff.liadrins_righteousness.remains<=5" );
   aoe -> add_action( this, "Hammer of Wrath" );
-  aoe -> add_action( "wait,sec=cooldown.hammer_of_wrath.remains,if=cooldown.hammer_of_wrath.remains>0&cooldown.hammer_of_wrath.remains<=0.4" );
   aoe -> add_action( this, "Divine Storm", "if=(!talent.seraphim.enabled|cooldown.seraphim.remains>4)" );
   aoe -> add_action( this, "Exorcism","if=glyph.mass_exorcism.enabled" );
   aoe -> add_action( this, "Judgment" );
