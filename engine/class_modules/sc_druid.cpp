@@ -3013,9 +3013,6 @@ struct maul_t : public bear_attack_t
 
       // Coeff is in tooltip but not spell data, so hardcode the value here.
       attack_power_mod.direct = 2.40;
-
-      if ( p -> wod_hotfix )
-        base_multiplier *= 1.05;
     }
 
     virtual void impact( action_state_t* s )
@@ -3047,6 +3044,11 @@ struct maul_t : public bear_attack_t
       if ( p() -> sets.has_set_bonus( DRUID_GUARDIAN, T17, B2 ) )
         cost_reduction = p() -> find_spell( 165410 ) -> effectN( 1 ).resource( RESOURCE_RAGE ) * -1.0;
     }
+
+    if ( player -> wod_hotfix )
+      base_multiplier *= 1.05;
+
+    normalize_weapon_speed = false;
   }
 
   virtual double cost() const
@@ -3116,6 +3118,8 @@ struct pulverize_t : public bear_attack_t
 
     if ( player -> wod_hotfix )
       base_multiplier *= 1.05;
+
+    normalize_weapon_speed = false;
   }
 
   virtual void impact( action_state_t* s )
@@ -6227,12 +6231,10 @@ void druid_t::apl_feral()
 
   def -> add_action( this, "Rake", "cycle_targets=1,if=remains<=3&combo_points<5" );
   def -> add_action( this, "Rake", "cycle_targets=1,if=remains<=duration*0.3&combo_points<5&persistent_multiplier>dot.rake.pmultiplier" );
-  if ( talent.bloodtalons -> ok() )
-    def -> add_action( "thrash_cat,if=combo_points=5&remains<=duration*0.3&buff.omen_of_clarity.react");
+  def -> add_action( "thrash_cat,if=talent.bloodtalons.enabled&combo_points=5&remains<=duration*0.3&buff.omen_of_clarity.react");
   def -> add_action( "pool_resource,for_next=1" );
   def -> add_action( "thrash_cat,if=remains<=duration*0.3&active_enemies>1" );
-  if ( talent.lunar_inspiration -> ok() )
-    def -> add_action( "moonfire,cycle_targets=1,if=combo_points<5&remains<=duration*0.3&active_enemies<=10" );
+  def -> add_action( "moonfire,cycle_targets=1,if=combo_points<5&remains<=duration*0.3&active_enemies<=10" );
   def -> add_action( this, "Rake", "cycle_targets=1,if=persistent_multiplier>dot.rake.pmultiplier&combo_points<5" );
 
   // Fillers
@@ -6358,9 +6360,12 @@ void druid_t::init_scaling()
   equipped_weapon_dps = main_hand_weapon.damage / main_hand_weapon.swing_time.total_seconds();
 
   if ( specialization() == DRUID_GUARDIAN )
+  {
     scales_with[ STAT_WEAPON_DPS ] = false;
+    scales_with[ STAT_PARRY_RATING ] = false;
+  }
 
-  scales_with[STAT_STRENGTH] = false;
+  scales_with[ STAT_STRENGTH ] = false;
 
   // Save a copy of the weapon
   caster_form_weapon = main_hand_weapon;
