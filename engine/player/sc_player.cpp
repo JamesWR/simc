@@ -141,7 +141,7 @@ bool parse_talent_override( sim_t* sim,
   return true;
 }
 
-// parse_talent_override ====================================================
+// parse_timeofday ====================================================
 
 bool parse_timeofday( sim_t* sim,
                             const std::string& name,
@@ -1616,8 +1616,8 @@ void player_t::override_talent( std::string override_str )
   {
     for ( int i = 0; i < MAX_TALENT_COLS; i++ )
     {
-      talent_data_t* td = talent_data_t::find( type, j, i, SPEC_NONE, dbc.ptr );
-      if ( td && ( td -> spell_id() == spell_id ) )
+      talent_data_t* t = talent_data_t::find( type, j, i, specialization(), dbc.ptr );
+      if ( t && ( t -> spell_id() == spell_id ) )
       {
         if ( level < std::min( ( j + 1 ) * 15, 100 ) )
         {
@@ -2382,7 +2382,7 @@ double player_t::composite_melee_expertise( weapon_t* ) const
 {
   double e = current.expertise;
 
-  e += composite_expertise_rating() / current.rating.expertise;
+  //e += composite_expertise_rating() / current.rating.expertise;
 
   return e;
 }
@@ -2393,7 +2393,7 @@ double player_t::composite_melee_hit() const
 {
   double ah = current.hit;
 
-  ah += composite_melee_hit_rating() / current.rating.attack_hit;
+  //ah += composite_melee_hit_rating() / current.rating.attack_hit;
 
   return ah;
 }
@@ -2651,7 +2651,7 @@ double player_t::composite_spell_hit() const
 {
   double sh = current.hit;
 
-  sh += composite_spell_hit_rating() / current.rating.spell_hit;
+  //sh += composite_spell_hit_rating() / current.rating.spell_hit;
 
   sh += composite_melee_expertise();
 
@@ -3205,8 +3205,12 @@ void player_t::combat_end()
   if ( ready_type == READY_POLL && sim -> auto_ready_trigger )
     if ( ! is_pet() && ! is_enemy() )
       if ( f_length > 0 && ( w_time / f_length ) > 0.25 )
-        if ( sim -> debug )
-          sim -> out_debug.printf( "Combat ends for player %s at time %.4f fight_length=%.4f", name(), sim -> current_time.total_seconds(), iteration_fight_length.total_seconds() );
+      {
+	; // ready_type = READY_TRIGGER
+      }
+
+  if ( sim -> debug )
+    sim -> out_debug.printf( "Combat ends for player %s at time %.4f fight_length=%.4f", name(), sim -> current_time.total_seconds(), iteration_fight_length.total_seconds() );
 }
 
 // startpoint for statistical data collection
@@ -4673,7 +4677,7 @@ void account_parry_haste( player_t& p, action_state_t* s )
 
 void account_hand_of_sacrifice( player_t& p, action_state_t* s )
 {
-  if ( p.buffs.hand_of_sacrifice -> check() && s -> result_amount > 0 )
+  if ( p.buffs.hand_of_sacrifice -> check() )
   {
     // figure out how much damage gets redirected
     double redirected_damage = s -> result_amount * ( p.buffs.hand_of_sacrifice -> data().effectN( 1 ).percent() );
@@ -4840,9 +4844,12 @@ void player_t::assess_damage( school_e school,
 
   account_parry_haste( *this, s );
 
+  if ( s -> result_amount <= 0.0 )
+    return;
+
   target_mitigation( school, type, s );
 
-  if ( s -> result_total > 0 && buffs.aspect_of_the_pack -> check() ) // Aspect of the daze.
+  if ( buffs.aspect_of_the_pack -> check() ) // Aspect of the daze.
     debuffs.dazed -> trigger();
 
   // store post-mitigation, pre-absorb value
@@ -4868,22 +4875,22 @@ void player_t::assess_damage( school_e school,
 
   // New callback system; proc abilities on incoming events.
   // TODO: How to express action causing/not causing incoming callbacks?
-  if ( s -> action -> callbacks )
+  if ( s -> action )
   {
-    proc_types pt = s -> proc_type();
-    proc_types2 pt2 = s -> execute_proc_type2();
-    // For incoming landed abilities, get the impact type for the proc.
-    //if ( pt2 == PROC2_LANDED )
-    //  pt2 = s -> impact_proc_type2();
+    if ( s -> action -> callbacks )
+    {
+      proc_types pt = s -> proc_type();
+      proc_types2 pt2 = s -> execute_proc_type2();
+      // For incoming landed abilities, get the impact type for the proc.
+      //if ( pt2 == PROC2_LANDED )
+      //  pt2 = s -> impact_proc_type2();
 
-    // On damage/heal in. Proc flags are arranged as such that the "incoming"
-    // version of the primary proc flag is always follows the outgoing version.
-    if ( pt != PROC1_INVALID && pt2 != PROC2_INVALID )
-      action_callback_t::trigger( callbacks.procs[ pt + 1 ][ pt2 ], s -> action, s );
+      // On damage/heal in. Proc flags are arranged as such that the "incoming"
+      // version of the primary proc flag is always follows the outgoing version.
+      if ( pt != PROC1_INVALID && pt2 != PROC2_INVALID )
+        action_callback_t::trigger( callbacks.procs[pt + 1][pt2], s -> action, s );
+    }
   }
-
-  if ( s -> result_amount <= 0.0 )
-    return;
 
   // Check if target is dying
   if ( health_percentage() <= death_pct && ! resources.is_infinite( RESOURCE_HEALTH ) )
@@ -5174,7 +5181,7 @@ proc_t* player_t::get_proc( const std::string& name )
   return p;
 }
 
-// player_t::get_proc =======================================================
+// player_t::get_sample_data =======================================================
 
 luxurious_sample_data_t* player_t::get_sample_data( const std::string& name )
 {
@@ -6095,6 +6102,9 @@ struct use_item_t : public action_t
     //if ( ! dual ) stats -> add_execute( time_to_execute );
 
     update_ready();
+
+    if ( triggered && buff )
+      lockout( buff -> buff_duration );
   }
 
   virtual void reset()
@@ -6194,8 +6204,7 @@ struct swap_action_list_t : public action_t
       sim -> errorf( "Player %s uses %s with unknown action list %s\n", player -> name(), name.c_str(), alist_name.c_str() );
       sim -> cancel();
     }
-
-    if ( randomtoggle == 1 )
+    else if ( randomtoggle == 1 )
       alist -> random = randomtoggle;
 
     trigger_gcd = timespan_t::zero();
@@ -6840,7 +6849,7 @@ void player_t::replace_spells()
     {
       if ( talent_points.has_row_col( j, i ) && level < std::min( ( j + 1 ) * 15, 100 ) )
       {
-        talent_data_t* td = talent_data_t::find( type, j, i, SPEC_NONE, dbc.ptr );
+        talent_data_t* td = talent_data_t::find( type, j, i, specialization(), dbc.ptr );
         if ( td && td -> replace_id() )
         {
           dbc.replace_id( td -> replace_id(), td -> spell_id() );
@@ -7759,7 +7768,10 @@ expr_t* player_t::create_expression( action_t* a,
       s = const_cast< spell_data_t* >( find_talent_spell( splits[ 1 ], std::string(), specialization(), true ) );
     }
 
-    return new s_expr_t( expression_str, *this, s );
+    if( sim -> optimize_expressions )
+      return expr_t::create_constant( expression_str, ( s && s -> ok() ) ? 1.0 : 0.0 );
+    else
+      return new s_expr_t( expression_str, *this, s );
   }
   else if ( ( splits.size() == 3 && splits[ 0 ] == "action" ) || splits[ 0 ] == "in_flight" || splits[ 0 ] == "in_flight_to_target" )
   {
@@ -10186,6 +10198,8 @@ action_t* player_t::select_action( const action_priority_list_t& list )
   // call_action_list tree, with nothing to show for it.
   uint64_t _visited = visited_apls_;
   size_t attempted_random = 0;
+  size_t max_random_attempts = static_cast<size_t>( static_cast<double>( list.foreground_action_list.size() ) *
+                                             ( ( list.player -> current.skill - list.player -> current.skill_debuff ) / 2.0 ) );
 
   for ( size_t i = 0, num_actions = list.foreground_action_list.size(); i < num_actions; ++i )
   {
@@ -10195,12 +10209,13 @@ action_t* player_t::select_action( const action_priority_list_t& list )
     action_t* a = list.foreground_action_list[i];
 
     if ( list.random == 1 )
-      random = static_cast<size_t>(std::floor( rng().range( 0, static_cast<int>( num_actions ) ) ) );
-    else if ( rng().roll( ( 1 - a -> player -> current.skill ) / 4 ) )
+      random = static_cast<size_t>( rng().range( 0, static_cast<double>( num_actions ) ) );
+    else if ( rng().roll( ( 1 - ( a -> player -> current.skill - a -> player -> current.skill_debuff ) ) / 2 ) )
     {
-      random = static_cast<size_t>( std::floor( rng().range( 0, static_cast<int>( num_actions ) ) ) );
+      random = static_cast<size_t>( rng().range( 0, static_cast<double>( num_actions ) ) );
       attempted_random++;
-      if ( attempted_random > num_actions )
+      // Limit the amount of attempts to select a random action based on skill, then bail out and try again in 100 ms.
+      if ( attempted_random > max_random_attempts )
         break;
     }
 

@@ -914,7 +914,7 @@ sim_t::sim_t( sim_t* p, int index ) :
   travel_variance( 0 ), default_skill( 1.0 ), reaction_time( timespan_t::from_seconds( 0.5 ) ),
   regen_periodicity( timespan_t::from_seconds( 0.25 ) ),
   ignite_sampling_delta( timespan_t::from_seconds( 0.2 ) ),
-  fixed_time( false ),
+  fixed_time( false ), optimize_expressions( false ),
   seed( 0 ), current_slot( -1 ),
   optimal_raid( 0 ), log( 0 ), debug_each( 0 ), save_profiles( 0 ), default_actions( 0 ),
   normalized_stat( STAT_NONE ),
@@ -1996,6 +1996,59 @@ void sim_t::partition()
     children[ i ] -> launch( thread_priority );
 }
 
+// sim_t::calc_num_iterations ===========================================================
+
+int sim_t::calc_num_iterations()
+{
+    int max_new_iterations=0;
+    //Do a short test run to get estimates
+    partition();
+    iterate();
+    merge();
+    analyze();
+    
+    //TODO set the following two as standard commandline option parameters
+    double opt_target_error = 0.005; //for 0.5% Error
+    double opt_target_scale_error = 0.5; //for an 0.5 scaling error
+    
+    
+    //take maximum of each player's necessary iterations for target_error
+    for ( size_t i = 0; i < player_list.size(); ++i )
+    {
+        //TODO get collected data for the correct scale_over stat
+        const extended_sample_data_t& data = player_list[ i ] -> collected_data.dps; //get dps data
+        double mean_error = data.mean_std_dev * confidence_estimator;
+        
+        int new_iterations = ( int ) ( data.mean() ? ( ( mean_error * mean_error * ( ( float ) data.size() ) / ( opt_target_error  * data.mean() * opt_target_error * data.mean() ) ) ) : 0 ) ; //get estimated sample size for opt_target_error
+        
+        if (new_iterations > max_new_iterations) max_new_iterations = new_iterations; //get maximum
+    }
+    
+    
+    scaling -> init_deltas();
+    //take maximum of each player's necessary iterations for target_scaling_error
+    for ( size_t i = 0; i < player_list.size(); ++i )
+    {
+        //TODO get collected data for the correct scale_over stat
+        const extended_sample_data_t& data = player_list[ i ] -> collected_data.dps; //get dps data
+        double mean_error = data.mean_std_dev * confidence_estimator;
+        for ( stat_e k = STAT_NONE; k < STAT_MAX; k++ )
+        {
+            if ( ! player_list[i] -> scales_with[ k ] )
+                continue;
+            double delta = scaling -> stats.get_stat( k );
+            
+            int new_iterations = ( int ) ( data.mean() ? (( 2.0 * mean_error * mean_error * ( ( float ) data.size() ) / ( opt_target_scale_error * delta * opt_target_scale_error * delta) ) ) : 0 ) ; //get estimated sample size for opt_target_scale error
+            if (new_iterations > max_new_iterations) max_new_iterations = new_iterations; //get maximum
+        }
+    }
+    
+    //TODO clean up old sim data so it doesnt end in the final result
+    
+    
+    return max_new_iterations;
+}
+
 // sim_t::execute ===========================================================
 
 bool sim_t::execute()
@@ -2005,64 +2058,20 @@ bool sim_t::execute()
     {
         iterations = 50; //gives enough information about variance and error for a given class
     }
-  {
-    auto_lock_t( work_queue.mutex );
-      work_queue.iterations_to_process = iterations;
-  }
-
-    
-    int max_new_iterations=0;
-    if (calc_num_iterations)
     {
-        //Do a short test run to get estimates
-        partition();
-        iterate();
-        merge();
-        analyze();
-        
-        //TODO set the following two as standard commandline option parameters
-        double opt_target_error = 0.005; //for 0.5% Error
-        double opt_target_scale_error = 0.5; //for an 0.5 scaling error
-        
-        
-        //take maximum of each player's necessary iterations for target_error
-        for ( size_t i = 0; i < player_list.size(); ++i )
-        {
-            //TODO get collected data for the correct scale_over stat
-            const extended_sample_data_t& data = player_list[ i ] -> collected_data.dps; //get dps data
-            double mean_error = data.mean_std_dev * confidence_estimator;
-            
-            int new_iterations = ( int ) ( data.mean() ? ( ( mean_error * mean_error * ( ( float ) data.size() ) / ( opt_target_error  * data.mean() * opt_target_error * data.mean() ) ) ) : 0 ) ; //get estimated sample size for opt_target_error
-            
-            if (new_iterations > max_new_iterations) max_new_iterations = new_iterations; //get maximum
-        }
-        
-        
-        scaling -> init_deltas();
-        //take maximum of each player's necessary iterations for target_scaling_error
-        for ( size_t i = 0; i < player_list.size(); ++i )
-        {
-            //TODO get collected data for the correct scale_over stat
-            const extended_sample_data_t& data = player_list[ i ] -> collected_data.dps; //get dps data
-            double mean_error = data.mean_std_dev * confidence_estimator;
-            for ( stat_e k = STAT_NONE; k < STAT_MAX; k++ )
-            {
-                if ( ! player_list[i] -> scales_with[ k ] )
-                    continue;
-                double delta = scaling -> stats.get_stat( k );
-
-                int new_iterations = ( int ) ( data.mean() ? (( 2.0 * mean_error * mean_error * ( ( float ) data.size() ) / ( opt_target_scale_error * delta * opt_target_scale_error * delta) ) ) : 0 ) ; //get estimated sample size for opt_target_scale error
-                if (new_iterations > max_new_iterations) max_new_iterations = new_iterations; //get maximum
-            }
-        }
-        
-        //TODO clean up old sim data so it doesnt end in the final result
-        iterations=max_new_iterations;
+        auto_lock_t( work_queue.mutex );
         work_queue.iterations_to_process = iterations;
     }
-
-  double start_cpu_time = util::cpu_time();
-  double start_time = util::wall_time();
+    
+    if (calc_num_iterations)
+    {
+        
+        iterations = this -> calc_num_iterations();
+        work_queue.iterations_to_process = iterations;
+    }
+    
+    double start_cpu_time = util::cpu_time();
+    double start_time = util::wall_time();
 
   partition();
 
@@ -2268,9 +2277,9 @@ void sim_t::add_option( const option_t& opt )
 
 void sim_t::create_options()
 {
+  // General
   add_option( opt_int( "iterations", iterations ) );
   add_option( opt_func( "thread_priority", parse_thread_priority ) );
-  // General
   add_option( opt_timespan( "max_time", max_time, timespan_t::zero(), timespan_t::max() ) );
   add_option( opt_bool( "fixed_time", fixed_time ) );
   add_option( opt_float( "vary_combat_length", vary_combat_length, 0.0, 1.0 ) );
@@ -2284,6 +2293,7 @@ void sim_t::create_options()
   add_option( opt_int( "auto_ready_trigger", auto_ready_trigger ) );
   add_option( opt_int( "stat_cache", stat_cache ) );
   add_option( opt_int( "max_aoe_enemies", max_aoe_enemies ) );
+  add_option( opt_bool( "optimize_expressions", optimize_expressions ) );
   // Raid buff overrides
   add_option( opt_func( "optimal_raid", parse_optimal_raid ) );
   add_option( opt_int( "override.attack_power_multiplier", overrides.attack_power_multiplier ) );

@@ -637,11 +637,11 @@ void SC_MainWindow::createBestInSlotTab()
 
     QStringList profileList = dir.entryList();
     int numProfiles = profileList.count();
-    for ( int i = 0; i < numProfiles; i++ )
+    for ( int k = 0; k < numProfiles; k++ )
     {
       QString profile = dir.absolutePath() + "/";
       profile = QDir::toNativeSeparators( profile );
-      profile += profileList[i];
+      profile += profileList[k];
 
       player_e player = PLAYER_MAX;
 
@@ -686,7 +686,7 @@ void SC_MainWindow::createBestInSlotTab()
           }
         }
 
-        QTreeWidgetItem* item = new QTreeWidgetItem( QStringList() << profileList[i] << profile );
+        QTreeWidgetItem* item = new QTreeWidgetItem( QStringList() << profileList[k] << profile );
         rootItems[player][tier] -> addChild( item );
       }
     }

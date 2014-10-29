@@ -17,7 +17,6 @@ namespace { // UNNAMED NAMESPACE
       cast interval is not low enough for this to make sense.
 
     = Feral =
-    Update LI implementation to work like in-game
 
     = Balance =
     PvP/Tier Bonuses
@@ -95,23 +94,35 @@ struct druid_td_t : public actor_pair_t
   }
 };
 
-struct buff_counter_t
+struct snapshot_counter_t
 {
   const sim_t* sim;
   druid_t* p;
   buff_t* b;
-  double n_up;
-  double n_down;
+  double exe_up;
+  double exe_down;
+  double tick_up;
+  double tick_down;
+  bool is_snapped;
 
-  buff_counter_t( druid_t* player , buff_t* buff );
+  snapshot_counter_t( druid_t* player , buff_t* buff );
 
-  void increment()
+  void count_execute()
   {
     // Skip iteration 0 for non-debug, non-log sims
     if ( sim -> current_iteration == 0 && sim -> iterations > sim -> threads && ! sim -> debug && ! sim -> log )
       return;
 
-    b -> check() ? n_up++ : n_down++;
+    b -> check() ? ( exe_up++ , is_snapped = true ) : ( exe_down++ , is_snapped = false );
+  }
+
+  void count_tick()
+  {
+    // Skip iteration 0 for non-debug, non-log sims
+    if ( sim -> current_iteration == 0 && sim -> iterations > sim -> threads && ! sim -> debug && ! sim -> log )
+      return;
+
+    is_snapped ? tick_up++ : tick_down++;
   }
 
   double divisor() const
@@ -122,19 +133,30 @@ struct buff_counter_t
       return std::min( sim -> iterations, sim -> threads );
   }
 
-  double mean_up() const
-  { return n_up / divisor(); }
+  double mean_exe_up() const
+  { return exe_up / divisor(); }
 
-  double mean_down() const
-  { return n_down / divisor(); }
+  double mean_exe_down() const
+  { return exe_down / divisor(); }
 
-  double mean_total() const
-  { return ( n_up + n_down ) / divisor(); }
+  double mean_tick_up() const
+  { return tick_up / divisor(); }
 
-  void merge( const buff_counter_t& other )
+  double mean_tick_down() const
+  { return tick_down / divisor(); }
+
+  double mean_exe_total() const
+  { return ( exe_up + exe_down ) / divisor(); }
+
+  double mean_tick_total() const
+  { return ( tick_up + tick_down ) / divisor(); }
+
+  void merge( const snapshot_counter_t& other )
   {
-    n_up += other.n_up;
-    n_down += other.n_down;
+    exe_up += other.exe_up;
+    exe_down += other.exe_down;
+    tick_up += other.tick_up;
+    tick_down += other.tick_down;
   }
 };
 
@@ -156,7 +178,7 @@ public:
   double max_fb_energy;
 
   // counters for snapshot tracking
-  std::vector<buff_counter_t*> counters;
+  std::vector<snapshot_counter_t*> counters;
 
   // Active
   action_t* t16_2pc_starfall_bolt;
@@ -679,8 +701,9 @@ druid_t::~druid_t()
   range::dispose( counters );
 }
 
-buff_counter_t::buff_counter_t( druid_t* player , buff_t* buff ) :
-  sim( player -> sim ), p( player ), b( buff ), n_up( 0 ), n_down( 0 )
+snapshot_counter_t::snapshot_counter_t( druid_t* player , buff_t* buff ) :
+  sim( player -> sim ), p( player ), b( buff ), 
+  exe_up( 0 ), exe_down( 0 ), tick_up( 0 ), tick_down( 0 )
 {
   p -> counters.push_back( this );
 }
@@ -1744,8 +1767,8 @@ public:
   typedef druid_attack_t base_t;
   
   bool consume_bloodtalons;
-  buff_counter_t* bt_counter;
-  buff_counter_t* tf_counter;
+  snapshot_counter_t* bt_counter;
+  snapshot_counter_t* tf_counter;
 
   druid_attack_t( const std::string& n, druid_t* player,
                   const spell_data_t* s = spell_data_t::nil() ) :
@@ -1761,9 +1784,9 @@ public:
     
     consume_bloodtalons = ab::harmful && ab::special;
     if ( consume_bloodtalons )
-      bt_counter = new buff_counter_t( ab::p() , ab::p() -> buff.bloodtalons );
+      bt_counter = new snapshot_counter_t( ab::p() , ab::p() -> buff.bloodtalons );
     if ( consume_bloodtalons )
-      tf_counter = new buff_counter_t( ab::p() , ab::p() -> buff.tigers_fury );
+      tf_counter = new snapshot_counter_t( ab::p() , ab::p() -> buff.tigers_fury );
   }
 
   virtual void execute()
@@ -1772,8 +1795,8 @@ public:
 
     if( consume_bloodtalons )
     {
-      bt_counter -> increment();
-      tf_counter -> increment();
+      bt_counter -> count_execute();
+      tf_counter -> count_execute();
     }
 
     if ( ab::p() -> talent.bloodtalons -> ok() && consume_bloodtalons & ab::p() -> buff.bloodtalons -> up() )
@@ -1799,6 +1822,12 @@ public:
   virtual void tick( dot_t* d )
   {
     ab::tick( d );
+
+    if( consume_bloodtalons )
+    {
+      bt_counter -> count_tick();
+      tf_counter -> count_tick();
+    }
 
     if ( ab::p() -> sets.has_set_bonus( DRUID_FERAL, T17, B2 ) && dbc::is_school( ab::school, SCHOOL_PHYSICAL ) )
       ab::p() -> resource_gain( RESOURCE_ENERGY,
@@ -1923,17 +1952,18 @@ namespace cat_attacks {
 
 struct cat_attack_t : public druid_attack_t < melee_attack_t >
 {
-  bool             requires_stealth;
-  int              combo_point_gain;
-  double           base_dd_bonus;
-  double           base_td_bonus;
+  bool   requires_stealth;
+  int    combo_point_gain;
+  double base_dd_bonus;
+  double base_td_bonus;
+  bool   consume_ooc;
 
   cat_attack_t( const std::string& token, druid_t* p,
                 const spell_data_t* s = spell_data_t::nil(),
                 const std::string& options = std::string() ) :
     base_t( token, p, s ),
     requires_stealth( false ), combo_point_gain( 0 ),
-    base_dd_bonus( 0.0 ), base_td_bonus( 0.0 )
+    base_dd_bonus( 0.0 ), base_td_bonus( 0.0 ), consume_ooc( true )
   {
     parse_options( options );
 
@@ -1970,7 +2000,7 @@ public:
     if ( c == 0 )
       return 0;
 
-    if ( p() -> buff.omen_of_clarity -> check() )
+    if ( consume_ooc && p() -> buff.omen_of_clarity -> check() )
       return 0;
 
     if ( p() -> buff.berserk -> check() )
@@ -2092,11 +2122,14 @@ public:
                               consumed * p() -> talent.soul_of_the_forest -> effectN( 1 ).base_value(),
                               p() -> gain.soul_of_the_forest );
     }
-
-    if ( base_t::cost() > 0 && p() -> buff.omen_of_clarity -> up() )
+    
+    // Treat Omen of Clarity energy savings like an energy gain for tracking purposes.
+    if ( base_t::cost() > 0 && consume_ooc && p() -> buff.omen_of_clarity -> up() )
     {
-      // Treat the savings like a energy gain for tracking purposes.
-      p() -> gain.omen_of_clarity -> add( RESOURCE_ENERGY, base_t::cost() );
+      // Base cost doesn't factor in Berserk, but Omen of Clarity does net us less energy during it, so account for that here.
+      double eff_cost = base_t::cost() * ( 1.0 + p() -> buff.berserk -> check() * p() -> spell.berserk_cat -> effectN( 1 ).percent() );
+      p() -> gain.omen_of_clarity -> add( RESOURCE_ENERGY, eff_cost );
+
       p() -> buff.omen_of_clarity -> expire();
     }
   }
@@ -2323,7 +2356,7 @@ struct ferocious_bite_t : public cat_attack_t
       if ( p() -> glyph.ferocious_bite -> ok() )
       {
         // Heal based on the energy spent before Berserk's reduction
-        glyph_effect -> energy_spent = ( cost() + excess_energy ) * ( 1.0 + p() -> buff.berserk -> check() );
+        glyph_effect -> energy_spent = ( cost() + excess_energy ) / ( 1.0 + p() -> buff.berserk -> check() * p() -> spell.berserk_cat -> effectN( 1 ).percent() );
         glyph_effect -> execute();
       }
 
@@ -2549,6 +2582,9 @@ struct savage_roar_t : public cat_attack_t
     may_miss = harmful = false;
     dot_duration  = timespan_t::zero();
     base_tick_time = timespan_t::zero();
+
+    // Does not consume Omen of Clarity. http://us.battle.net/wow/en/blog/16549669/603-patch-notes-10-27-2014
+    consume_ooc = false;
   }
 
   timespan_t duration( int combo_points = -1 )
@@ -4843,17 +4879,18 @@ struct moonfire_t : public druid_spell_t
 
 // Moonfire (Lunar Inspiration) Spell =======================================
 
-struct moonfire_li_t : public druid_spell_t
+struct moonfire_cat_t : public druid_spell_t
 {
-  moonfire_li_t( druid_t* player, const std::string& options_str ) :
-    druid_spell_t( "moonfire", player, player -> find_spell( 155625 ) )
+  moonfire_cat_t( druid_t* player, const std::string& options_str ) :
+    druid_spell_t( "moonfire_cat", player, player -> find_spell( 155625 ) )
   {
     parse_options( options_str );
+
     if ( player -> wod_hotfix )
       base_multiplier *= 1.12;
   }
 
-  void impact( action_state_t* s )
+  virtual void impact( action_state_t* s )
   {
     druid_spell_t::impact( s );
 
@@ -4869,7 +4906,7 @@ struct moonfire_li_t : public druid_spell_t
     }
   }
 
-  bool ready()
+  virtual bool ready()
   {
     if ( ! p() -> talent.lunar_inspiration -> ok() )
       return false;
@@ -5523,11 +5560,8 @@ action_t* druid_t::create_action( const std::string& name,
   if ( name == "mangle"                 ) return new                 mangle_t( this, options_str );
   if ( name == "mark_of_the_wild"       ) return new       mark_of_the_wild_t( this, options_str );
   if ( name == "maul"                   ) return new                   maul_t( this, options_str );
-  if ( name == "moonfire"               )
-  {
-    if ( specialization() == DRUID_FERAL )  return new            moonfire_li_t( this, options_str );
-    else                                    return new               moonfire_t( this, options_str );
-  }
+  if ( name == "moonfire"               ) return new               moonfire_t( this, options_str );
+  if ( name == "moonfire_cat"           ) return new           moonfire_cat_t( this, options_str );
   if ( name == "sunfire"                ) return new                sunfire_t( this, options_str ); // Moonfire and Sunfire are selected based on how much balance energy the player has.
   if ( name == "moonkin_form"           ) return new           moonkin_form_t( this, options_str );
   if ( name == "natures_swiftness"      ) return new       druids_swiftness_t( this, options_str );
@@ -6213,14 +6247,13 @@ void druid_t::apl_feral()
     def -> add_action( potion_action + ",sync=berserk,if=target.health.pct<25" );
   def -> add_action( this, "Berserk", "if=buff.tigers_fury.up" );
   if ( race == RACE_NIGHT_ELF )
-    def -> add_action( "shadowmeld,if=(buff.bloodtalons.up|!talent.bloodtalons.enabled)&dot.rake.remains<0.3*dot.rake.duration" );
+    def -> add_action( "shadowmeld,if=dot.rake.remains<=0.3*dot.rake.duration&energy>=35&dot.rake.pmultiplier<2&(buff.bloodtalons.up|!talent.bloodtalons.enabled)&(!talent.incarnation.enabled|cooldown.incarnation.remains>15)" );
   def -> add_action( this, "Ferocious Bite", "cycle_targets=1,if=dot.rip.ticking&dot.rip.remains<=3&target.health.pct<25",
                      "Keep Rip from falling off during execute range." );
   def -> add_action( this, "Healing Touch", "if=talent.bloodtalons.enabled&buff.predatory_swiftness.up&(combo_points>=4|buff.predatory_swiftness.remains<1.5)" );
   def -> add_action( this, "Savage Roar", "if=buff.savage_roar.remains<3" );
   def -> add_action( "thrash_cat,if=buff.omen_of_clarity.react&remains<=duration*0.3&active_enemies>1" );
-  if ( ! talent.bloodtalons -> ok() )
-    def -> add_action( "thrash_cat,if=combo_points=5&remains<=duration*0.3&buff.omen_of_clarity.react");
+  def -> add_action( "thrash_cat,if=!talent.bloodtalons.enabled&combo_points=5&remains<=duration*0.3&buff.omen_of_clarity.react");
 
   // Finishers
   def -> add_action( this, "Ferocious Bite", "cycle_targets=1,if=combo_points=5&target.health.pct<25&dot.rip.ticking&energy>=max_fb_energy" );
@@ -6234,7 +6267,7 @@ void druid_t::apl_feral()
   def -> add_action( "thrash_cat,if=talent.bloodtalons.enabled&combo_points=5&remains<=duration*0.3&buff.omen_of_clarity.react");
   def -> add_action( "pool_resource,for_next=1" );
   def -> add_action( "thrash_cat,if=remains<=duration*0.3&active_enemies>1" );
-  def -> add_action( "moonfire,cycle_targets=1,if=combo_points<5&remains<=duration*0.3&active_enemies<=10" );
+  def -> add_action( "moonfire_cat,cycle_targets=1,if=combo_points<5&remains<=duration*0.3&active_enemies<=10" );
   def -> add_action( this, "Rake", "cycle_targets=1,if=persistent_multiplier>dot.rake.pmultiplier&combo_points<5" );
 
   // Fillers
@@ -6312,19 +6345,22 @@ void druid_t::apl_guardian()
     default_list -> add_action( item_actions[i] );
 
   default_list -> add_action( this, "Barkskin" );
-  default_list -> add_action( this, "Maul", "if=buff.tooth_and_claw.react&incoming_damage_1s&rage>=80" );
+  default_list -> add_action( this, "Maul", "if=buff.tooth_and_claw.react&incoming_damage_1s" );
+  default_list -> add_action( this, "Berserk", "if=buff.pulverize.remains>10" );
+  default_list -> add_action( this, "Frenzied Regeneration", "if=rage>=80" );
   default_list -> add_talent( this, "Cenarion Ward" );
   default_list -> add_talent( this, "Renewal", "if=health.pct<30" );
   default_list -> add_talent( this, "Heart of the Wild" );
-  default_list -> add_action( this, "Rejuvenation", "if=!ticking&buff.heart_of_the_wild.up" );
+  default_list -> add_action( this, "Rejuvenation", "if=buff.heart_of_the_wild.up&remains<=0.3*duration" );
   default_list -> add_talent( this, "Nature's Vigil" );
   default_list -> add_action( this, "Healing Touch", "if=buff.dream_of_cenarius.react&health.pct<30" );
   default_list -> add_talent( this, "Pulverize", "if=buff.pulverize.remains<0.5" );
-  default_list -> add_action( this, "Lacerate", "if=talent.pulverize.enabled&buff.pulverize.remains<=(3-dot.lacerate.stack)*gcd" );
+  default_list -> add_action( this, "Lacerate", "if=talent.pulverize.enabled&buff.pulverize.remains<=(3-dot.lacerate.stack)*gcd&buff.berserk.down" );
   default_list -> add_action( "incarnation" );
-  default_list -> add_action( this, "Mangle", "if=buff.son_of_ursoc.down" );
+  default_list -> add_action( this, "Lacerate", "if=!ticking" );
   default_list -> add_action( "thrash_bear,if=!ticking" );
   default_list -> add_action( this, "Mangle" );
+  default_list -> add_action( "thrash_bear,if=remains<=0.3*duration" );
   default_list -> add_action( this, "Lacerate" );
 }
 
@@ -7402,6 +7438,17 @@ void druid_t::balance_expressions()
   eclipse_max = std::min( time_to_next_lunar, time_to_next_solar );
 }
 
+// Copypasta for reporting
+bool has_amount_results( const std::vector<stats_t::stats_results_t>& res )
+{
+  return (
+      res[ RESULT_HIT ].actual_amount.mean() > 0 ||
+      res[ RESULT_CRIT ].actual_amount.mean() > 0 ||
+      res[ RESULT_MULTISTRIKE ].actual_amount.mean() > 0 ||
+      res[ RESULT_MULTISTRIKE_CRIT ].actual_amount.mean() > 0
+  );
+}
+
 /* Report Extension Class
  * Here you can define class specific report extensions/overrides
  */
@@ -7417,64 +7464,33 @@ public:
     // Write header
     os << "<table class=\"sc\" style=\"float: left;margin-right: 10px;\">\n"
          << "<tr>\n"
-           << "<th colspan=2>Ability</th>\n"
-           << "<th colspan=3>Tiger's Fury</th>\n";
+           << "<th >Ability</th>\n"
+           << "<th colspan=2>Tiger's Fury</th>\n";
     if ( p.talent.bloodtalons -> ok() )
     {
-      os << "<th colspan=3>Bloodtalons</th>\n";
+      os << "<th colspan=2>Bloodtalons</th>\n";
     }
     os << "</tr>\n";
 
     os << "<tr>\n"
          << "<th>Name</th>\n"
-         << "<th>Executes</th>\n"
-         << "<th>Buffed</th>\n"
-         << "<th>% Buffed</th>\n"
-         << "<th>% of Buff Usage</th>\n";
+         << "<th>Execute %</th>\n"
+         << "<th>Benefit %</th>\n";
     if ( p.talent.bloodtalons -> ok() )
     {
-      os << "<th>Buffed</th>\n"
-         << "<th>% Buffed</th>\n"
-         << "<th>% of Buff Usage</th>\n";
+      os << "<th>Execute %</th>\n"
+         << "<th>Benefit %</th>\n";
     }
     os << "</tr>\n";
 
-    // Write contents
-    double tf_total_executes = 0, tf_total_up = 0, tf_total_down = 0;
-    double bt_total_executes = 0, bt_total_up = 0, bt_total_down = 0;
-
-    // Get Totals
-    for( size_t i = 0, end = p.stats_list.size(); i < end; i++ )
-    {
-      stats_t* stats = p.stats_list[ i ];
-
-      for ( size_t j = 0, end2 = stats -> action_list.size(); j < end2; j++ )
-      {
-        cat_attacks::cat_attack_t* a = dynamic_cast<cat_attacks::cat_attack_t*>( stats -> action_list[ j ] );
-        if ( ! a )
-          continue;
-
-        if ( ! a -> consume_bloodtalons )
-          continue;
-
-        tf_total_executes += a -> tf_counter -> mean_total();
-        tf_total_up += a -> tf_counter -> mean_up();
-        tf_total_down += a -> tf_counter -> mean_down();
-
-        if ( p.talent.bloodtalons -> ok() )
-        {
-          bt_total_executes += a -> bt_counter -> mean_total();
-          bt_total_up += a -> bt_counter -> mean_up();
-          bt_total_down += a -> bt_counter -> mean_down();
-        }
-      }
-    }
-
+// Compile and Write Contents 
     for ( size_t i = 0, end = p.stats_list.size(); i < end; i++ )
     {
       stats_t* stats = p.stats_list[ i ];
-      double tf_total = 0, tf_up = 0;
-      double bt_total = 0, bt_up = 0;
+      double tf_exe_up = 0, tf_exe_total = 0;
+      double tf_benefit_up = 0, tf_benefit_total = 0;
+      double bt_exe_up = 0, bt_exe_total = 0;
+      double bt_benefit_up = 0, bt_benefit_total = 0;
       int n = 0;
 
       for ( size_t j = 0, end2 = stats -> action_list.size(); j < end2; j++ )
@@ -7486,20 +7502,32 @@ public:
         if ( ! a -> consume_bloodtalons )
           continue;
 
-        tf_total += a -> tf_counter -> mean_total();
-        tf_up += a -> tf_counter -> mean_up();
+        tf_exe_up += a -> tf_counter -> mean_exe_up();
+        tf_exe_total += a -> tf_counter -> mean_exe_total();
+        tf_benefit_up += a -> tf_counter -> mean_tick_up();
+        tf_benefit_total += a -> tf_counter -> mean_tick_total();
+        if ( has_amount_results( stats -> direct_results ) )
+        {
+          tf_benefit_up += a -> tf_counter -> mean_exe_up();
+          tf_benefit_total += a -> tf_counter -> mean_exe_total();
+        }
         if ( p.talent.bloodtalons -> ok() )
         {
-          bt_total += a -> bt_counter -> mean_total();
-          bt_up += a -> bt_counter -> mean_up();
+          bt_exe_up += a -> bt_counter -> mean_exe_up();
+          bt_exe_total += a -> bt_counter -> mean_exe_total();
+          bt_benefit_up += a -> bt_counter -> mean_tick_up();
+          bt_benefit_total += a -> bt_counter -> mean_tick_total();
+          if ( has_amount_results( stats -> direct_results ) )
+          {
+            bt_benefit_up += a -> bt_counter -> mean_exe_up();
+            bt_benefit_total += a -> bt_counter -> mean_exe_total();
+          }
         }
       }
 
-      if ( tf_total > 0 || bt_total > 0 )
+      if ( tf_exe_total > 0 || bt_exe_total > 0 )
       {
-        wowhead::wowhead_e domain = SC_BETA ? wowhead::BETA : wowhead::LIVE;
-        if ( ! SC_BETA && p.dbc.ptr )
-          domain = wowhead::PTR;
+        wowhead::wowhead_e domain = SC_BETA ? wowhead::BETA : p.dbc.ptr ? wowhead::PTR : wowhead::LIVE;
 
         std::string name_str = wowhead::decorated_action_name( stats -> name_str, 
                                                                stats -> action_list[ 0 ],
@@ -7509,40 +7537,23 @@ public:
           row_class_str = " class=\"odd\"";
 
         // Table Row : Name, TF up, TF total, TF up/total, TF up/sum(TF up)
-        os.printf("<tr%s><td class=\"left\">%s</td><td class=\"right\">%.2f</td><td class=\"right\">%.2f</td><td class=\"right\">%.2f %%</td><td class=\"right\">%.2f %%</td>\n",
+        os.printf("<tr%s><td class=\"left\">%s</td><td class=\"right\">%.2f %%</td><td class=\"right\">%.2f %%</td>\n",
             row_class_str.c_str(),
             name_str.c_str(),
-            util::round( tf_total, 2 ),
-            util::round( tf_up, 2 ),
-            util::round( tf_up / tf_total * 100, 2 ),
-            util::round( tf_up / tf_total_up * 100, 2 ) );
+            util::round( tf_exe_up / tf_exe_total * 100, 2 ),
+            util::round( tf_benefit_up / tf_benefit_total * 100, 2 ) );
 
         if ( p.talent.bloodtalons -> ok() )
         {
           // Table Row : Name, TF up, TF total, TF up/total, TF up/sum(TF up)
-          os.printf("<td class=\"right\">%.2f</td><td class=\"right\">%.2f %%</td><td class=\"right\">%.2f %%</td>\n",
-              util::round( bt_up, 2 ),
-              util::round( bt_up / bt_total * 100, 2 ),
-              util::round( bt_up / bt_total_up * 100, 2 ) );
+          os.printf("<td class=\"right\">%.2f %%</td><td class=\"right\">%.2f %%</td>\n",
+              util::round( bt_exe_up / bt_exe_total * 100, 2 ),
+              util::round( bt_benefit_up / bt_benefit_total * 100, 2 ) );
         }
 
         os << "</tr>";
       }
       
-    }
-
-    os.printf("<tr><td class=\"left\">Total</td><td class=\"right\">%.2f</td><td class=\"right\">%.2f</td><td class=\"right\">%.2f %%</td><td class=\"right\">%.2f %%</td>\n",
-        util::round( tf_total_executes, 2 ),
-        util::round( tf_total_up, 2 ),
-        util::round( tf_total_up / tf_total_executes * 100, 2 ),
-        util::round( tf_total_up / tf_total_up * 100, 2 ) );
-
-    if ( p.talent.bloodtalons -> ok() )
-    {
-      os.printf("<td class=\"right\">%.2f</td><td class=\"right\">%.2f %%</td><td class=\"right\">%.2f %%</td>\n",
-          util::round( bt_total_up, 2 ),
-          util::round( bt_total_up / bt_total_executes * 100, 2 ),
-          util::round( bt_total_up / bt_total_up * 100, 2 ) );
     }
 
     os << "</tr>";

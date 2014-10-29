@@ -6,7 +6,7 @@
 #define SIMULATIONCRAFT_H
 
 #define SC_MAJOR_VERSION "603"
-#define SC_MINOR_VERSION "3"
+#define SC_MINOR_VERSION "4"
 #define SC_USE_PTR ( 0 )
 #define SC_BETA ( 0 )
 #define SC_BETA_STR "wod"
@@ -894,10 +894,7 @@ enum food_e
   FOOD_BLACKROCK_HAM,
   FOOD_BRAISED_BASILISK,
   FOOD_CALAMARI_CREPES,
-  FOOD_CLEFTHOOF_POT_ROAST,
   FOOD_CLEFTHOOF_SAUSAGES,
-  FOOD_CRISPY_FRIED_SCORPION,
-  FOOD_DEEP_FRIED_BASILISK,
   FOOD_FAT_SLEEPER_CAKES,
   FOOD_FEAST_OF_BLOOD,
   FOOD_FEAST_OF_THE_WATERS,
@@ -906,13 +903,10 @@ enum food_e
   FOOD_GORGROND_CHOWDER,
   FOOD_GRILLED_GULPER,
   FOOD_HEARTY_ELEKK_STEAK,
-  FOOD_NAGRAND_TEMPURA,
   FOOD_PAN_SEARED_TALBUK,
   FOOD_RYLAK_CREPES,
-  FOOD_SALTED_SKULKER,
   FOOD_SAVAGE_FEAST,
   FOOD_SLEEPER_SURPRISE,
-  FOOD_STARFLOWER_SANDWICH,
   FOOD_STEAMED_SCORPION,
   FOOD_STURGEON_STEW,
   FOOD_TALADOR_SURF_AND_TURF,
@@ -2172,8 +2166,7 @@ struct expression_t
 
 struct expr_t
 {
-public:
-  expr_t( const std::string& name ) : name_( name ) {}
+  expr_t( const std::string& name, token_e op=TOK_UNKNOWN ) : name_( name ), op_( op ) { id_=++unique_id; }
   virtual ~expr_t() {}
 
   const std::string& name() { return name_; }
@@ -2181,14 +2174,24 @@ public:
   double eval() { return evaluate(); }
   bool success() { return eval() != 0; }
 
-  static expr_t* parse( action_t*, const std::string& expr_str );
-protected:
+  static expr_t* parse( action_t*, const std::string& expr_str, bool optimize=false );
+  static expr_t* create_constant( const std::string& name, double value );
+
   template <typename T> static double coerce( T t ) { return static_cast<double>( t ); }
   static double coerce( timespan_t t ) { return t.total_seconds(); }
 
+  virtual expr_t* optimize( int spacing=0 ) { spacing=0; return this; }
   virtual double evaluate() = 0;
-private:
+
+  virtual bool is_constant( double* /*return_value*/ ) { return false; }
+  bool always_true()  { double v; return is_constant( &v ) && v != 0.0; }
+  bool always_false() { double v; return is_constant( &v ) && v == 0.0; }
+
   std::string name_;
+  token_e op_;
+  int id_;
+
+  static int unique_id;
 };
 
 // Reference Expression - ref_expr_t
@@ -2598,7 +2601,7 @@ struct sim_t : public core_sim_t, private sc_thread_t
   double      travel_variance, default_skill;
   timespan_t  reaction_time, regen_periodicity;
   timespan_t  ignite_sampling_delta;
-  bool        fixed_time;
+  bool        fixed_time, optimize_expressions;
   int         seed, current_slot;
   int         optimal_raid, log, debug_each;
   int         save_profiles, default_actions;
@@ -2808,6 +2811,7 @@ public:
   bool      iterate();
   void      partition();
   bool      execute();
+  int       calc_num_iterations();
   void      print_options();
   void      add_option( const option_t& opt );
   void      create_options();

@@ -2805,7 +2805,7 @@ struct immolate_t: public warlock_spell_t
 
   immolate_t( warlock_t* p ):
     warlock_spell_t( p, "Immolate" ),
-    fnb( new immolate_t( "immolate", p, p -> find_spell( 108686 ) ) )
+    fnb( new immolate_t( "immolate_fnb", p, p -> find_spell( 108686 ) ) )
   {
     havoc_consume = 1;
     base_costs[RESOURCE_MANA] *= 1.0 + p -> spec.chaotic_energy -> effectN( 2 ).percent();
@@ -2821,23 +2821,25 @@ struct immolate_t: public warlock_spell_t
     warlock_spell_t( n, p, spell ),
     fnb( 0 )
   {
+    base_tick_time = p -> find_spell( 157736 ) -> effectN( 1 ).period();
+    dot_duration = p -> find_spell( 157736 ) -> duration();
+    hasted_ticks = true;
+    tick_may_crit = true;
+    spell_power_mod.tick = data().effectN( 1 ).sp_coeff();
     aoe = -1;
-
-    stats = p -> get_stats( "immolate_fnb", this );
   }
 
-  void execute()
+  void schedule_travel( action_state_t* s )
   {
-    warlock_spell_t::execute();
-
-    if ( result_is_hit( execute_state -> result ) )
-    {
-      if ( execute_state -> result == RESULT_CRIT ) trigger_ember_gain( p(), 0.1, gain );
+    if ( result_is_hit( s -> result ) )
+    { // Embers are granted on execute, but are granted depending on the amount of targets hit. 
+      if ( s -> result == RESULT_CRIT ) trigger_ember_gain( p(), 0.1, gain );
       if ( p() -> sets.has_set_bonus( WARLOCK_DESTRUCTION, T17, B2 ) )
       {
         trigger_ember_gain( p(), 1, p() -> gains.immolate_t17_2pc, p() -> sets.set( WARLOCK_DESTRUCTION, T17, B2 ) -> effectN( 1 ).percent() );
       }
     }
+    warlock_spell_t::schedule_travel( s );
   }
 
   void init()
@@ -2933,7 +2935,7 @@ struct conflagrate_t: public warlock_spell_t
 
   conflagrate_t( warlock_t* p ):
     warlock_spell_t( p, "Conflagrate" ),
-    fnb( new conflagrate_t( "conflagrate", p, p -> find_spell( 108685 ) ) )
+    fnb( new conflagrate_t( "conflagrate_fnb", p, p -> find_spell( 108685 ) ) )
   {
     if ( p -> talents.charred_remains -> ok() ){
       base_multiplier *= 1.0 + p -> talents.charred_remains -> effectN( 1 ).percent();
@@ -2947,7 +2949,6 @@ struct conflagrate_t: public warlock_spell_t
     fnb( 0 )
   {
     aoe = -1;
-    stats = p -> get_stats( "conflagrate_fnb", this );
   }
 
   void schedule_execute( action_state_t* state )
@@ -2974,19 +2975,23 @@ struct conflagrate_t: public warlock_spell_t
     cooldown -> charges = 2;
   }
 
+  void schedule_travel( action_state_t* s )
+  {
+    if ( p() -> talents.charred_remains -> ok() )
+    {
+      trigger_ember_gain( p(), s -> result == RESULT_CRIT ? 0.2 * ( 1.0 + p() -> talents.charred_remains -> effectN( 2 ).percent() ) : 0.1 * ( 1.0 + p() -> talents.charred_remains -> effectN( 2 ).percent() ), gain );
+    }
+    else
+      trigger_ember_gain( p(), s -> result == RESULT_CRIT ? 0.2 : 0.1, gain );
+    warlock_spell_t::schedule_travel( s );
+  }
+
   void execute()
   {
     warlock_spell_t::execute();
 
     if ( result_is_hit( execute_state -> result ) && p() -> spec.backdraft -> ok() )
       p() -> buffs.backdraft -> trigger( 3 );
-
-    if ( p() -> talents.charred_remains -> ok() )
-    {
-      trigger_ember_gain( p(), execute_state -> result == RESULT_CRIT ? 0.2 * ( 1.0 + p() -> talents.charred_remains -> effectN( 2 ).percent() ) : 0.1 * ( 1.0 + p() -> talents.charred_remains -> effectN( 2 ).percent() ), gain );
-    }
-    else
-      trigger_ember_gain( p(), execute_state -> result == RESULT_CRIT ? 0.2 : 0.1, gain );
   }
 
   virtual double action_multiplier() const
@@ -3038,7 +3043,7 @@ struct incinerate_t: public warlock_spell_t
   // Normal incinerate
   incinerate_t( warlock_t* p ):
     warlock_spell_t( p, "Incinerate" ),
-    fnb( new incinerate_t( "incinerate", p, p -> find_spell( 114654 ) ) )
+    fnb( new incinerate_t( "incinerate_fnb", p, p -> find_spell( 114654 ) ) )
   {
     if ( p -> talents.charred_remains -> ok() )
       base_multiplier *= 1.0 + p -> talents.charred_remains -> effectN( 1 ).percent();
@@ -3052,7 +3057,6 @@ struct incinerate_t: public warlock_spell_t
     fnb( 0 )
   {
     aoe = -1;
-    stats = p -> get_stats( "incinerate_fnb", this );
   }
 
   void init()
@@ -3107,21 +3111,21 @@ struct incinerate_t: public warlock_spell_t
     return m;
   }
 
-  void execute()
+  void schedule_travel( action_state_t * s )
   {
-    warlock_spell_t::execute();
-    if ( result_is_hit( execute_state -> result ) )
+    if ( result_is_hit( s -> result ) )
     {
       if ( p() -> talents.charred_remains -> ok() )
       {
-        trigger_ember_gain( p(), execute_state -> result == RESULT_CRIT ? 0.2 * ( 1.0 + p() -> talents.charred_remains -> effectN( 2 ).percent() ) : 0.1 * ( 1.0 + p() -> talents.charred_remains -> effectN( 2 ).percent() ), gain );
+        trigger_ember_gain( p(), s -> result == RESULT_CRIT ? 0.2 * ( 1.0 + p() -> talents.charred_remains -> effectN( 2 ).percent() ) : 0.1 * ( 1.0 + p() -> talents.charred_remains -> effectN( 2 ).percent() ), gain );
       }
       else
-        trigger_ember_gain( p(), execute_state -> result == RESULT_CRIT ? 0.2 : 0.1, gain );
+        trigger_ember_gain( p(), s -> result == RESULT_CRIT ? 0.2 : 0.1, gain );
 
       if ( rng().roll( p() -> sets.set( SET_CASTER, T15, B4 ) -> effectN( 2 ).percent() ) )
-        trigger_ember_gain( p(), execute_state -> result == RESULT_CRIT ? 0.2 : 0.1, p() -> gains.incinerate_t15_4pc );
+        trigger_ember_gain( p(), s -> result == RESULT_CRIT ? 0.2 : 0.1, p() -> gains.incinerate_t15_4pc );
     }
+    warlock_spell_t::schedule_travel( s );
   }
 
   void impact( action_state_t* s )
@@ -3269,7 +3273,7 @@ struct chaos_bolt_t: public warlock_spell_t
   chaos_bolt_t* fnb;
   chaos_bolt_t( warlock_t* p ):
     warlock_spell_t( p, "Chaos Bolt" ),
-    fnb( new chaos_bolt_t( "chaos_bolt", p, p -> find_spell( 116858 ) ) )
+    fnb( new chaos_bolt_t( "chaos_bolt_fnb", p, p -> find_spell( 116858 ) ) )
   {
     if ( !p -> talents.charred_remains -> ok() )
       fnb = 0;
@@ -3286,7 +3290,6 @@ struct chaos_bolt_t: public warlock_spell_t
     aoe = -1;
     backdraft_consume = 3;
     base_execute_time += p -> perk.enhanced_chaos_bolt -> effectN( 1 ).time_value();
-    stats = p -> get_stats( "chaos_bolt_fnb", this );
   }
 
   void schedule_execute( action_state_t* state )
@@ -3993,12 +3996,11 @@ struct rain_of_fire_tick_t: public warlock_spell_t
     background = true;
   }
 
-  void execute()
+  void schedule_travel( action_state_t* s )
   {
-    warlock_spell_t::execute();
-
-    if ( result_is_hit( execute_state -> result ) )
+    if ( result_is_hit( s -> result ) )
       trigger_ember_gain( p(), 0.2, p() -> gains.rain_of_fire, 0.125 );
+    warlock_spell_t::schedule_travel( s );
   }
 
   virtual proc_types proc_type() const override
@@ -5238,6 +5240,7 @@ void warlock_t::init_spells()
   perk.enhanced_chaos_bolt          = find_perk_spell( "Enhanced Chaos Bolt" );
   perk.enhanced_corruption          = find_perk_spell( "Enhanced Corruption" );
   perk.enhanced_haunt               = find_perk_spell( "Enhanced Haunt" );
+  perk.enhanced_havoc               = find_perk_spell( "Enhanced Havoc" );
   perk.empowered_corruption         = find_perk_spell( "Empowered Corruption" );
   perk.improved_drain_soul          = find_perk_spell( "Improved Drain Soul" );
   perk.improved_ember_tap           = find_perk_spell( "Improved Ember Tap" );
