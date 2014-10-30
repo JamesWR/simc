@@ -76,8 +76,8 @@ struct counter_t
 
     value += val;
     if ( last > timespan_t::min() )
-      interval += ( sim -> current_time - last ).total_seconds();
-    last = sim -> current_time;
+      interval += ( sim -> current_time() - last ).total_seconds();
+    last = sim -> current_time();
   }
 
   void reset()
@@ -1922,7 +1922,7 @@ void shaman_spell_base_t<Base>::schedule_execute( action_state_t* state )
   if ( ! ab::background )
   {
     p -> executing = this;
-    p -> gcd_ready = p -> sim -> current_time + ab::gcd();
+    p -> gcd_ready = p -> sim -> current_time() + ab::gcd();
     if ( p -> action_queued && p -> sim -> strict_gcd_queue )
       p -> gcd_ready -= p -> sim -> queue_gcd_reduction;
   }
@@ -2929,7 +2929,6 @@ struct lava_burst_t : public shaman_spell_t
 
     shaman_spell_t::execute();
 
-    // FIXME: DBC Value modified in dbc_t::apply_hotfixes()
     p() -> cooldown.ascendance -> ready -= p() -> sets.set( SET_CASTER, T15, B4 ) -> effectN( 1 ).time_value();
 
     // Lava Surge buff does not get eaten, if the Lava Surge proc happened
@@ -2967,7 +2966,14 @@ struct lightning_bolt_t : public shaman_spell_t
     shaman_spell_t( "lightning_bolt", player, player -> find_class_spell( "Lightning Bolt" ), options_str )
   {
     may_fulmination    = player -> spec.fulmination -> ok();
-    base_multiplier   *= 1.0 + player -> spec.shamanism -> effectN( 1 ).percent();
+    if ( player -> wod_hotfix && player -> spec.shamanism -> ok() )
+    {
+      base_multiplier *= 1.7;
+    }
+    else
+    {
+      base_multiplier *= 1.0 + player -> spec.shamanism -> effectN( 1 ).percent();
+    }
     base_multiplier   *= 1.0 + player -> perk.improved_lightning_bolt -> effectN( 1 ).percent();
     base_execute_time += player -> spec.shamanism -> effectN( 3 ).time_value();
   }
@@ -3024,6 +3030,10 @@ struct elemental_blast_t : public shaman_spell_t
   {
     may_fulmination    = player -> spec.fulmination -> ok();
     base_multiplier *= 1.0 + player -> spec.mental_quickness -> effectN( 5 ).percent();
+    if ( player -> wod_hotfix )
+    {
+      base_multiplier *= 1.2;
+    }
   }
 
   virtual void execute()
@@ -4741,14 +4751,14 @@ void shaman_t::trigger_fulmination_stack( const action_state_t* state )
   if ( rng().roll( spec.fulmination -> proc_chance() ) )
   {
     if ( buff.lightning_shield -> check() == 1 )
-      ls_reset = sim -> current_time;
+      ls_reset = sim -> current_time();
 
     int stacks = ( sets.has_set_bonus( SET_CASTER, T14, B4 ) ) ? 2 : 1;
     int wasted_stacks = ( buff.lightning_shield -> check() + stacks ) - buff.lightning_shield -> max_stack();
 
     for ( int i = 0; i < wasted_stacks; i++ )
     {
-      if ( sim -> current_time - ls_reset >= cooldown.shock -> duration )
+      if ( sim -> current_time() - ls_reset >= cooldown.shock -> duration )
         proc.wasted_ls -> occur();
       else
         proc.wasted_ls_shock_cd -> occur();
@@ -4756,7 +4766,7 @@ void shaman_t::trigger_fulmination_stack( const action_state_t* state )
 
     if ( wasted_stacks > 0 )
     {
-      if ( sim -> current_time - ls_reset < cooldown.shock -> duration )
+      if ( sim -> current_time() - ls_reset < cooldown.shock -> duration )
         proc.ls_fast -> occur();
       ls_reset = timespan_t::zero();
     }

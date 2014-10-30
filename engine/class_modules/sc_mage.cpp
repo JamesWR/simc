@@ -1074,7 +1074,7 @@ public:
     // Shoot one
     if ( as<int>( p() -> icicles.size() ) == p() -> spec.icicles -> effectN( 2 ).base_value() )
       p() -> trigger_icicle( state );
-    p() -> icicles.push_back( icicle_tuple_t( p() -> sim -> current_time, icicle_data_t( amount, stats ) ) );
+    p() -> icicles.push_back( icicle_tuple_t( p() -> sim -> current_time(), icicle_data_t( amount, stats ) ) );
 
     if ( p() -> sim -> debug )
       p() -> sim -> out_debug.printf( "%s icicle gain, damage=%f, total=%u",
@@ -2482,7 +2482,6 @@ struct frost_bomb_t : public mage_spell_t
 
 // Frostbolt Spell ==========================================================
 
-
 struct frostbolt_t : public mage_spell_t
 {
   double bf_multistrike_bonus;
@@ -2509,8 +2508,8 @@ struct frostbolt_t : public mage_spell_t
   {
     if ( p() -> perks.enhanced_frostbolt -> ok() &&
          !p() -> buffs.enhanced_frostbolt -> check() &&
-         sim -> current_time > last_enhanced_frostbolt +
-                               enhanced_frostbolt_duration )
+         sim -> current_time() > ( last_enhanced_frostbolt +
+         enhanced_frostbolt_duration ) )
     {
       p() -> buffs.enhanced_frostbolt -> trigger();
     }
@@ -2547,7 +2546,7 @@ struct frostbolt_t : public mage_spell_t
     if ( p() -> buffs.enhanced_frostbolt -> up() )
     {
       p() -> buffs.enhanced_frostbolt -> expire();
-      last_enhanced_frostbolt = sim -> current_time;
+      last_enhanced_frostbolt = sim -> current_time();
     }
 
     if ( result_is_hit( execute_state -> result ) )
@@ -2618,11 +2617,6 @@ struct frostbolt_t : public mage_spell_t
     if ( p() -> buffs.ice_shard -> up() )
     {
       am *= 1.0 + ( p() -> buffs.ice_shard -> stack() * p() -> buffs.ice_shard -> data().effectN( 2 ).percent() );
-    }
-
-    if ( p() -> wod_hotfix )
-    {
-      am *= 1.0 + 0.05 + 0.2;
     }
 
     return am;
@@ -3945,7 +3939,7 @@ struct choose_target_t : public action_t
 
     mage_t* p = debug_cast<mage_t*>( player );
 
-    if ( sim -> current_time == last_execute )
+    if ( sim -> current_time() == last_execute )
     {
       sim -> errorf( "%s choose_target infinite loop detected (due to no time passing between executes) at '%s'",
         p -> name(), signature_str.c_str() );
@@ -3953,7 +3947,7 @@ struct choose_target_t : public action_t
       return;
     }
 
-    last_execute = sim -> current_time;
+    last_execute = sim -> current_time();
 
     if ( sim -> debug )
       sim -> out_debug.printf( "%s swapping target from %s to %s", player -> name(), p -> current_target -> name(), selected_target -> name() );
@@ -4031,7 +4025,7 @@ struct start_pyro_chain_t : public action_t
   {
     mage_t* p = debug_cast<mage_t*>( player );
 
-    if ( sim -> current_time == last_execute )
+    if ( sim -> current_time() == last_execute )
     {
       sim -> errorf( "%s start_pyro_chain infinite loop detected (no time passing between executes) at '%s'",
         p -> name(), signature_str.c_str() );
@@ -4039,7 +4033,7 @@ struct start_pyro_chain_t : public action_t
       return;
     }
 
-    last_execute = sim -> current_time;
+    last_execute = sim -> current_time();
 
     p -> pyro_switch.dump_state = true;
   }
@@ -5133,12 +5127,12 @@ void mage_t::apl_frost()
   single_target -> add_action( this, "Ice Lance",
                                "if=buff.fingers_of_frost.react=2|(buff.fingers_of_frost.react&dot.frozen_orb.ticking)" );
   single_target -> add_talent( this, "Comet Storm" );
-  single_target -> add_action( this, "Ice Lance",
-                               "if=set_bonus.tier17_4pc&talent.thermal_void.enabled&dot.frozen_orb.ticking" );
   single_target -> add_talent( this, "Ice Nova",
                                "if=(!talent.prismatic_crystal.enabled|(charges=1&cooldown.prismatic_crystal.remains>recharge_time))&(buff.icy_veins.up|(charges=1&cooldown.icy_veins.remains>recharge_time))" );
   single_target -> add_action( this, "Frostfire Bolt",
                                "if=buff.brain_freeze.react" );
+  single_target -> add_action( this, "Ice Lance",
+                               "if=set_bonus.tier17_4pc&talent.thermal_void.enabled&talent.mirror_image.enabled&dot.frozen_orb.ticking" );
   single_target -> add_action( this, "Ice Lance",
                                "if=talent.frost_bomb.enabled&buff.fingers_of_frost.react&debuff.frost_bomb.remains>travel_time&(!talent.thermal_void.enabled|cooldown.icy_veins.remains>8)" );
   single_target -> add_action( this, "Frostbolt",
@@ -5147,7 +5141,7 @@ void mage_t::apl_frost()
   single_target -> add_action( this, "Ice Lance",
                                "if=!talent.frost_bomb.enabled&buff.fingers_of_frost.react&(!talent.thermal_void.enabled|cooldown.icy_veins.remains>8)" );
   single_target -> add_action( this, "Ice Lance",
-                               "if=talent.thermal_void.enabled&buff.icy_veins.up&buff.icy_veins.remains<6&buff.icy_veins.remains<cooldown.icy_veins.remains",
+                               "if=talent.thermal_void.enabled&talent.mirror_image.enabled&buff.icy_veins.up&buff.icy_veins.remains<6&buff.icy_veins.remains<cooldown.icy_veins.remains",
                                "Thermal Void IV extension" );
   single_target -> add_action( "water_jet,if=buff.fingers_of_frost.react=0&!dot.frozen_orb.ticking" );
   single_target -> add_action( this, "Frostbolt" );
@@ -5584,14 +5578,14 @@ expr_t* mage_t::create_expression( action_t* a, const std::string& name_str )
       {
         if ( mage.icicles.size() == 0 )
           return 0;
-        else if ( mage.sim -> current_time - mage.icicles[ 0 ].first < mage.spec.icicles_driver -> duration() )
+        else if ( mage.sim -> current_time() - mage.icicles[ 0 ].first < mage.spec.icicles_driver -> duration() )
           return static_cast<double>(mage.icicles.size());
         else
         {
           size_t icicles = 0;
           for ( int i = as<int>( mage.icicles.size() - 1 ); i >= 0; i-- )
           {
-            if ( mage.sim -> current_time - mage.icicles[ i ].first >= mage.spec.icicles_driver -> duration() )
+            if ( mage.sim -> current_time() - mage.icicles[ i ].first >= mage.spec.icicles_driver -> duration() )
               break;
 
             icicles++;
@@ -5650,7 +5644,7 @@ icicle_data_t mage_t::get_icicle_object()
                                          end = icicles.end();
   for ( ; idx < end; ++idx )
   {
-    if ( sim -> current_time - ( *idx ).first < threshold )
+    if ( sim -> current_time() - ( *idx ).first < threshold )
       break;
   }
 

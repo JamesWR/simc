@@ -2100,9 +2100,7 @@ struct raging_blow_attack_t: public warrior_attack_t
     may_miss = may_dodge = may_parry = may_block = false;
     dual = true;
     if ( p -> wod_hotfix )
-    {
       weapon_multiplier *= 0.75;
-    }
   }
 
   void impact( action_state_t* s )
@@ -2604,6 +2602,10 @@ struct slam_t: public warrior_attack_t
     stancemask = STANCE_BATTLE;
     weapon = &( p -> main_hand_weapon );
     base_costs[RESOURCE_RAGE] = 10;
+    if ( p -> wod_hotfix )
+    {
+      weapon_multiplier *= 0.7;
+    }
   }
 
   void consume_resource()
@@ -2823,6 +2825,10 @@ struct whirlwind_off_hand_t: public warrior_attack_t
     melee_range += p -> glyphs.wind_and_thunder -> effectN( 1 ).base_value(); // Increased by the glyph.
     weapon_multiplier *= 1.0 + p -> spec.crazed_berserker -> effectN( 4 ).percent();
     weapon = &( p -> off_hand_weapon );
+    if ( p -> wod_hotfix )
+    {
+      weapon_multiplier *= 0.7;
+    }
   }
 
   double action_multiplier() const
@@ -2849,15 +2855,22 @@ struct whirlwind_t: public warrior_attack_t
 
     melee_range = p -> spec.whirlwind -> effectN( 2 ).radius_max(); // 8 yard range.
     melee_range += p -> glyphs.wind_and_thunder -> effectN( 1 ).base_value(); // Increased by the glyph.
-    if ( p -> specialization() == WARRIOR_FURY )
+    if ( p -> specialization() == WARRIOR_FURY && p -> off_hand_weapon.type != WEAPON_NONE )
     {
       oh_attack = new whirlwind_off_hand_t( p );
       add_child( oh_attack );
       weapon_multiplier *= 1.0 + p -> spec.crazed_berserker -> effectN( 4 ).percent();
       base_costs[RESOURCE_RAGE] += p -> spec.crazed_berserker -> effectN( 3 ).resource( RESOURCE_RAGE );
     }
-    else
+    else if ( p -> specialization() == WARRIOR_ARMS )
+    {
       weapon_multiplier *= 2;
+    }
+
+    if ( p -> wod_hotfix )
+    {
+      weapon_multiplier *= 0.7;
+    }
 
     weapon = &( p -> main_hand_weapon );
   }
@@ -2908,9 +2921,7 @@ struct wild_strike_t: public warrior_attack_t
     weapon = &( player -> off_hand_weapon );
     min_gcd = data().gcd();
     if ( p -> wod_hotfix )
-    {
       weapon_multiplier *= 0.76;
-    }
   }
 
   timespan_t gcd() const
@@ -3192,6 +3203,10 @@ struct ravager_tick_t: public warrior_spell_t
   {
     aoe = -1;
     dual = true;
+    if ( p -> wod_hotfix )
+    {
+      attack_power_mod.direct *= 0.75;
+    }
   }
 };
 
@@ -3918,21 +3933,27 @@ void warrior_t::apl_precombat( bool probablynotgladiator )
 
   if ( specialization() == WARRIOR_ARMS )
   {
-    precombat -> add_action( "stance,choose=battle" );
+    precombat -> add_action( "stance,choose=battle\n"
+                             "talent_override=bladestorm,if=raid_event.adds.count>3\n"
+                             "talent_override=dragon_roar,if=raid_event.adds.count>3");
     precombat -> add_action( "snapshot_stats", "Snapshot raid buffed stats before combat begins and pre-potting is done.\n"
                              "# Generic on-use trinket line if needed when swapping trinkets out. \n"
                              "#actions+=/use_item,slot=trinket1,if=active_enemies=1&(buff.bloodbath.up|(!talent.bloodbath.enabled&debuff.colossus_smash.up))|(active_enemies>=2&buff.ravager.up)" );
   }
   else if ( specialization() == WARRIOR_FURY )
   {
-    precombat -> add_action( "stance,choose=battle" );
+    precombat -> add_action( "stance,choose=battle\n"
+                             "talent_override=bladestorm,if=raid_event.adds.count>3\n"
+                             "talent_override=dragon_roar,if=raid_event.adds.count>3" );
     precombat -> add_action( "snapshot_stats", "Snapshot raid buffed stats before combat begins and pre-potting is done.\n"
                              "# Generic on-use trinket line if needed when swapping trinkets out. \n"
                              "#actions+=/use_item,slot=trinket1,if=active_enemies=1&(buff.bloodbath.up|(!talent.bloodbath.enabled&(buff.avatar.up|!talent.avatar.enabled)))|(active_enemies>=2&buff.ravager.up)" );
   }
   else if ( !probablynotgladiator )
   {
-    precombat -> add_action( "stance,choose=gladiator" );
+    precombat -> add_action( "stance,choose=gladiator\n"
+                             "talent_override=bladestorm,if=raid_event.adds.count>3\n"
+                             "talent_override=dragon_roar,if=raid_event.adds.count>3" );
     precombat -> add_action( "snapshot_stats", "Snapshot raid buffed stats before combat begins and pre-potting is done.\n"
                              "# Generic on-use trinket line if needed when swapping trinkets out. \n"
                              "#actions+=/use_item,slot=trinket1,if=buff.bloodbath.up|buff.avatar.up|buff.shield_charge.up|target.time_to_die<10" );
@@ -3982,6 +4003,8 @@ void warrior_t::apl_fury()
   default_list -> add_action( this, "Charge" );
   default_list -> add_action( "auto_attack" );
   default_list -> add_action( "call_action_list,name=movement,if=movement.distance>5", "This is mostly to prevent cooldowns from being accidentally used during movement." );
+  default_list -> add_action( this, "Berserker Rage", "if=buff.enrage.down|(talent.unquenchable_thirst.enabled&buff.raging_blow.down)" );
+  default_list -> add_action( this, "Heroic Leap", "if=(raid_event.movement.distance>25&raid_event.movement.in>45)|!raid_event.movement.exists" );
 
   int num_items = (int)items.size();
   for ( int i = 0; i < num_items; i++ )
@@ -3998,15 +4021,14 @@ void warrior_t::apl_fury()
       default_list -> add_action( "potion,name=mogu_power,if=(target.health.pct<20&buff.recklessness.up)|target.time_to_die<=25" );
   }
 
-  default_list -> add_action( this, "Recklessness", "if=((target.time_to_die>190|target.health.pct<20)&(buff.bloodbath.up|!talent.bloodbath.enabled))|target.time_to_die<=10|talent.anger_management.enabled",
+  default_list -> add_action( "call_action_list,name=single_target,if=(raid_event.adds.cooldown<60&raid_event.adds.count>3&active_enemies=1)|raid_event.movement.cooldown<5", "Skip cooldown usage if we can line them up with bladestorm on a large set of adds, or if movement is coming soon." );
+  default_list -> add_action( this, "Recklessness", "if=((target.time_to_die>190|target.health.pct<20)&(buff.bloodbath.up|!talent.bloodbath.enabled))|target.time_to_die<=12|talent.anger_management.enabled",
                               "This incredibly long line (Due to differing talent choices) says 'Use recklessness on cooldown, unless the boss will die before the ability is usable again, and then use it with execute.'" );
-  default_list -> add_talent( this, "Avatar", "if=(buff.recklessness.up|target.time_to_die<=25)" );
-  default_list -> add_action( this, "Berserker Rage", "if=buff.enrage.down|(talent.unquenchable_thirst.enabled&buff.raging_blow.down)" );
+  default_list -> add_talent( this, "Avatar", "if=(buff.recklessness.up|target.time_to_die<=30)" );
 
   for ( size_t i = 0; i < racial_actions.size(); i++ )
     default_list -> add_action( racial_actions[i] + ",if=buff.bloodbath.up|!talent.bloodbath.enabled|buff.recklessness.up" );
 
-  default_list -> add_action( this, "Heroic Leap", "if=(raid_event.movement.distance>25&raid_event.movement.in>45)|!raid_event.movement.exists" );
   default_list -> add_action( "call_action_list,name=single_target,if=active_enemies=1" );
   default_list -> add_action( "call_action_list,name=two_targets,if=active_enemies=2" );
   default_list -> add_action( "call_action_list,name=three_targets,if=active_enemies=3" );
@@ -4017,10 +4039,10 @@ void warrior_t::apl_fury()
   movement -> add_action( this, "Heroic Throw" );
 
   single_target -> add_talent( this, "Bloodbath" );
+  single_target -> add_action( this, "Recklessness", "if=target.health.pct<20&raid_event.adds.exists" );
   single_target -> add_action( this, "Wild Strike", "if=rage>110&target.health.pct>20" );
-  single_target -> add_action( this, "Bloodthirst", "if=!talent.unquenchable_thirst.enabled&(buff.enrage.down|rage<80)" );
-  single_target -> add_action( this, "Bloodthirst", "if=talent.unquenchable_thirst.enabled&buff.enrage.down" );
-  single_target -> add_talent( this, "Ravager", "if=buff.bloodbath.up|!talent.bloodbath.enabled" );
+  single_target -> add_action( this, "Bloodthirst", "if=(!talent.unquenchable_thirst.enabled&rage<80)|buff.enrage.down" );
+  single_target -> add_talent( this, "Ravager", "if=buff.bloodbath.up|(!talent.bloodbath.enabled&(!raid_event.adds.exists|raid_event.adds.cooldown>60|target.time_to_die<40))" );
   single_target -> add_action( this, "Execute", "if=buff.sudden_death.react" );
   single_target -> add_talent( this, "Siegebreaker" );
   single_target -> add_talent( this, "Storm Bolt" );
@@ -4062,7 +4084,8 @@ void warrior_t::apl_fury()
   aoe -> add_action( this, "Raging Blow", "if=buff.meat_cleaver.stack>=3&buff.enrage.up" );
   aoe -> add_action( this, "Bloodthirst", "if=buff.enrage.down|rage<50|buff.raging_blow.down" );
   aoe -> add_action( this, "Raging Blow", "if=buff.meat_cleaver.stack>=3" );
-  aoe -> add_talent( this, "Bladestorm", "if=buff.enrage.up" );
+  aoe -> add_action( this, "Recklessness", "sync=bladestorm" );
+  aoe -> add_talent( this, "Bladestorm", "if=buff.enrage.remains>6" );
   aoe -> add_action( this, "Whirlwind" );
   aoe -> add_action( this, "Execute", "if=buff.sudden_death.react" );
   aoe -> add_talent( this, "Dragon Roar", "if=buff.bloodbath.up|!talent.bloodbath.enabled" );

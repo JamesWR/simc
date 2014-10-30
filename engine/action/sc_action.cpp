@@ -39,7 +39,7 @@ struct player_gcd_event_t : public event_t
           p() -> iteration_executed_foreground_actions++;
           a -> total_executions++;
 
-          p() -> sequence_add( a, a -> target, sim().current_time );
+          p() -> sequence_add( a, a -> target, sim().current_time() );
         }
 
         // Need to restart because the active action list changed
@@ -239,6 +239,7 @@ action_t::action_t( action_e       ty,
   aoe(),
   pre_combat( 0 ),
   may_multistrike( -1 ),
+  instant_multistrike( true ),
   dual(),
   callbacks( true ),
   special(),
@@ -458,7 +459,7 @@ action_t::~action_t()
 
 void action_t::parse_spell_data( const spell_data_t& spell_data )
 {
-  if ( ! spell_data.id() ) // FIXME: Replace/augment with ok() check once it is in there
+  if ( ! spell_data.ok() )
   {
     sim -> errorf( "%s %s: parse_spell_data: no spell to parse.\n", player -> name(), name() );
     return;
@@ -1271,7 +1272,7 @@ int action_t::schedule_multistrike( action_state_t* state, dmg_e type, double ti
 
     // Schedule multistrike "execute"; in reality it calls either impact, or
     // assess_damage (for ticks).
-    new ( *sim ) multistrike_execute_event_t( ms_state );
+    new ( *sim ) multistrike_execute_event_t( ms_state, n_strikes );
 
     n_strikes++;
   }
@@ -1395,7 +1396,7 @@ void action_t::update_resolve( dmg_e type,
       // Diminishing Returns hotfixed out 10/2/2014 - will clean up code once we're sure this is a permanent change
       // http://us.battle.net/wow/en/forum/topic/14058407204?page=10#198
       //// update the player's resolve diminishing return list first!
-      //target -> resolve_manager.add_diminishing_return_entry( source, source -> get_raw_dps( s ), sim -> current_time );
+      //target -> resolve_manager.add_diminishing_return_entry( source, source -> get_raw_dps( s ), sim -> current_time() );
 
       //assert( source -> actor_spawn_index >= 0 && "Trying to register resolve damage event from a unspawned player!" );
 
@@ -1404,7 +1405,7 @@ void action_t::update_resolve( dmg_e type,
       //int rank = target -> resolve_manager.get_diminsihing_return_rank( source -> actor_spawn_index );
 
       // update the player's resolve damage table 
-      target -> resolve_manager.add_damage_event( raw_resolve_amount, sim -> current_time );
+      target -> resolve_manager.add_damage_event( raw_resolve_amount, sim -> current_time() );
     
       // cycle through the resolve damage table and add the appropriate amount of Resolve from each event
       target -> resolve_manager.update();
@@ -1501,7 +1502,7 @@ void action_t::schedule_execute( action_state_t* execute_state )
   if ( ! background )
   {
     player -> executing = this;
-    player -> gcd_ready = sim -> current_time + gcd();
+    player -> gcd_ready = sim -> current_time() + gcd();
     if ( player -> action_queued && sim -> strict_gcd_queue )
     {
       player -> gcd_ready -= sim -> queue_gcd_reduction;
@@ -1516,7 +1517,7 @@ void action_t::schedule_execute( action_state_t* execute_state )
       if ( player -> main_hand_attack && player -> main_hand_attack -> execute_event )
       {
         time_to_next_hit  = player -> main_hand_attack -> execute_event -> occurs();
-        time_to_next_hit -= sim -> current_time;
+        time_to_next_hit -= sim -> current_time();
         time_to_next_hit += time_to_execute;
         player -> main_hand_attack -> execute_event -> reschedule( time_to_next_hit );
       }
@@ -1524,7 +1525,7 @@ void action_t::schedule_execute( action_state_t* execute_state )
       if ( player -> off_hand_attack && player -> off_hand_attack -> execute_event )
       {
         time_to_next_hit  = player -> off_hand_attack -> execute_event -> occurs();
-        time_to_next_hit -= sim -> current_time;
+        time_to_next_hit -= sim -> current_time();
         time_to_next_hit += time_to_execute;
         player -> off_hand_attack -> execute_event -> reschedule( time_to_next_hit );
       }
@@ -1541,7 +1542,7 @@ void action_t::reschedule_execute( timespan_t time )
     sim -> out_log.printf( "%s reschedules execute for %s", player -> name(), name() );
   }
 
-  timespan_t delta_time = sim -> current_time + time - execute_event -> occurs();
+  timespan_t delta_time = sim -> current_time() + time - execute_event -> occurs();
 
   time_to_execute += delta_time;
 
@@ -2057,15 +2058,31 @@ expr_t* action_t::create_expression( const std::string& name_str )
     return make_mem_fn_expr( name_str, *this, &action_t::gcd );
   else if ( name_str == "execute_time" )
   {
-    struct execute_time_expr_t : public action_expr_t
+    struct execute_time_expr_t: public action_expr_t
     {
-      execute_time_expr_t( action_t& a ) : action_expr_t( "execute_time", a )
+      action_t& action;
+      action_state_t* state;
+      execute_time_expr_t( action_t& a ):
+        action_expr_t( "execute_time", a ), state( a.get_state() ), action( a )
       { }
 
       double evaluate()
-      { return std::max( action.execute_time().total_seconds(), action.gcd().total_seconds() ); }
-    };
+      {
+        if ( action.channeled )
+        {
+          action.snapshot_state( state, RESULT_TYPE_NONE );
+          state -> target = action.target;
+          return action.composite_dot_duration( state ).total_seconds() + action.execute_time().total_seconds();
+        }
+        else
+          return std::max( action.execute_time().total_seconds(), action.gcd().total_seconds() );
+      }
 
+      virtual ~execute_time_expr_t()
+      {
+        delete state;
+      }
+    };
     return new execute_time_expr_t( *this );
   }
   else if ( name_str == "cooldown" )
@@ -2114,7 +2131,7 @@ expr_t* action_t::create_expression( const std::string& name_str )
       {
         dot_t* dot = action.get_dot();
         if ( dot -> miss_time < timespan_t::zero() ||
-             action.sim -> current_time >= ( dot -> miss_time + action.last_reaction_time ) )
+             action.sim -> current_time() >= ( dot -> miss_time + action.last_reaction_time ) )
           return true;
         else
           return false;
@@ -2130,7 +2147,7 @@ expr_t* action_t::create_expression( const std::string& name_str )
       virtual double evaluate()
       {
         return action.cooldown -> up() &&
-               action.cooldown -> reset_react <= action.sim -> current_time;
+               action.cooldown -> reset_react <= action.sim -> current_time();
       }
     };
     return new cooldown_react_expr_t( *this );
@@ -2148,11 +2165,11 @@ expr_t* action_t::create_expression( const std::string& name_str )
                                 action.player -> name_str.c_str(),
                                 action.name_str.c_str(),
                                 ( action.player -> cast_delay_occurred + action.player -> cast_delay_reaction ).total_seconds(),
-                                action.sim -> current_time.total_seconds() );
+                                action.sim -> current_time().total_seconds() );
         }
 
         if ( action.player -> cast_delay_occurred == timespan_t::zero() ||
-             action.player -> cast_delay_occurred + action.player -> cast_delay_reaction < action.sim -> current_time )
+             action.player -> cast_delay_occurred + action.player -> cast_delay_reaction < action.sim -> current_time() )
           return true;
         else
           return false;

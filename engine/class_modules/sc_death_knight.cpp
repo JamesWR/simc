@@ -535,7 +535,7 @@ public:
   void      trigger_t17_4pc_frost( const action_state_t* );
   void      trigger_t17_4pc_unholy( const action_state_t* );
   void      apply_diseases( action_state_t* state, unsigned diseases );
-  int       runes_count( rune_type rt, bool include_death, int position );
+  double    runes_count( rune_type rt, bool include_death, int position );
   double    runes_cooldown_any( rune_type rt, bool include_death, int position );
   double    runes_cooldown_all( rune_type rt, bool include_death, int position );
   double    runes_cooldown_time( rune_t* r );
@@ -3010,6 +3010,10 @@ struct necrosis_t : public death_knight_spell_t
     death_knight_spell_t( "necrosis", player, player -> spec.necrosis -> effectN( 2 ).trigger() )
   {
     background = true;
+    if ( player -> wod_hotfix )
+    {
+      base_multiplier *= 1.67;
+    }
   }
 };
 
@@ -4896,7 +4900,10 @@ struct scourge_strike_t : public death_knight_melee_attack_t
       school = SCHOOL_SHADOW;
 
       if ( p -> wod_hotfix )
+      {
         attack_power_mod.direct *= 0.95;
+        attack_power_mod.direct *= 1.5;
+      }
     }
 
     void impact( action_state_t* state )
@@ -5856,7 +5863,14 @@ void death_knight_t::init_base_stats()
 {
   player_t::init_base_stats();
 
-  base.attribute_multiplier[ ATTR_STRENGTH ] *= 1.0 + spec.unholy_might -> effectN( 1 ).percent();
+  if ( wod_hotfix && spec.unholy_might -> ok() )
+  {
+    base.attribute_multiplier[ATTR_STRENGTH] *= 1.05;
+  }
+  else
+  {
+    base.attribute_multiplier[ATTR_STRENGTH] *= 1.0 + spec.unholy_might -> effectN( 1 ).percent();
+  }
 
   base.attack_power_per_strength = 1.0;
   base.attack_power_per_agility = 0.0;
@@ -6086,7 +6100,7 @@ void death_knight_t::default_apl_blood()
     def -> add_action( this, "Rune Tap", "if=health.pct<50&buff.army_of_the_dead.down&buff.dancing_rune_weapon.down&buff.bone_shield.down&buff.vampiric_blood.down&buff.icebound_fortitude.down" );
     def -> add_action( this, "Dancing Rune Weapon", "if=health.pct<80&buff.army_of_the_dead.down&buff.icebound_fortitude.down&buff.bone_shield.down&buff.vampiric_blood.down" );
     def -> add_talent( this, "Death Pact", "if=health.pct<50" );
-    def -> add_action( this, "Outbreak", "if=(!talent.necrotic_plague.enabled&!disease.min_remains<8)|!disease.ticking" );
+    def -> add_action( this, "Outbreak", "if=(!talent.necrotic_plague.enabled&disease.min_remains<8)|!disease.ticking" );
     def -> add_action( this, "Death Coil", "if=runic_power>90" );
     def -> add_action( this, "Plague Strike", "if=(!talent.necrotic_plague.enabled&!dot.blood_plague.ticking)|(talent.necrotic_plague.enabled&!dot.necrotic_plague.ticking)" );
     def -> add_action( this, "Icy Touch", "if=(!talent.necrotic_plague.enabled&!dot.frost_fever.ticking)|(talent.necrotic_plague.enabled&!dot.necrotic_plague.ticking)" );
@@ -6096,7 +6110,6 @@ void death_knight_t::default_apl_blood()
     def -> add_action( this, "Soul Reaper", "if=target.health.pct-3*(target.health.pct%target.time_to_die)<=" + srpct + "&blood>=1" );
     def -> add_action( this, "Blood Boil", "if=blood=2" );
     def -> add_talent( this, "Blood Tap" );
-    def -> add_action( this, "Blood Boil" );
     def -> add_action( this, "Death Coil" );
     def -> add_action( this, "Empower Rune Weapon", "if=!blood&!unholy&!frost" );
   }
@@ -6613,7 +6626,7 @@ void runeforge::razorice_debuff( special_effect_t& effect,
     void execute( action_t* a, action_state_t* state )
     {
       debug_cast< death_knight_t* >( a -> player ) -> get_target_data( state -> target ) -> debuffs_razorice -> trigger();
-      if ( a -> sim -> current_time < timespan_t::from_seconds( 0.01 ) )
+      if ( a -> sim -> current_time() < timespan_t::from_seconds( 0.01 ) )
         debug_cast< death_knight_t* >( a -> player ) -> get_target_data( state -> target ) -> debuffs_razorice -> constant = false;
     }
   };
@@ -7642,7 +7655,7 @@ void death_knight_t::apply_diseases( action_state_t* state, unsigned diseases )
 
 // death_knight_t::runes_count ==============================================
 // how many runes of type rt are available
-int death_knight_t::runes_count( rune_type rt, bool include_death, int position )
+double death_knight_t::runes_count( rune_type rt, bool include_death, int position )
 {
   double result = 0;
   // positional checks first
@@ -7673,7 +7686,7 @@ int death_knight_t::runes_count( rune_type rt, bool include_death, int position 
       }
     }
   }
-  return static_cast<int>( result );
+  return result;
 }
 
 // death_knight_t::runes_cooldown_any =======================================

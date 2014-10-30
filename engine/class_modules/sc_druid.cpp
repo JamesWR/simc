@@ -1021,9 +1021,9 @@ struct force_of_nature_feral_t : public pet_t
   struct melee_t : public melee_attack_t
   {
     druid_t* owner;
-
+    bool first_swing;
     melee_t( force_of_nature_feral_t* p )
-      : melee_attack_t( "melee", p, spell_data_t::nil() ), owner( 0 )
+      : melee_attack_t( "melee", p, spell_data_t::nil() ), owner( 0 ), first_swing( true )
     {
       school = SCHOOL_PHYSICAL;
       weapon = &( p -> main_hand_weapon );
@@ -1039,6 +1039,27 @@ struct force_of_nature_feral_t : public pet_t
 
     force_of_nature_feral_t* p()
     { return static_cast<force_of_nature_feral_t*>( player ); }
+
+    timespan_t execute_time() const
+    {
+      timespan_t t = melee_attack_t::execute_time();
+      if ( first_swing )
+        t = timespan_t::from_seconds( rng().range( 1.0, 1.5 ) );
+      return t;
+    }
+
+    void execute()
+    {
+      melee_attack_t::execute();
+      if ( first_swing )
+        first_swing = false;
+    }
+
+    void reset()
+    {
+      melee_attack_t::reset();
+      first_swing = true;
+    }
 
     void init()
     {
@@ -1105,7 +1126,6 @@ struct force_of_nature_feral_t : public pet_t
   };
   
   melee_t* melee;
-
   force_of_nature_feral_t( sim_t* sim, druid_t* p ) :
     pet_t( sim, p, "treant", true, true ), melee( 0 )
   {
@@ -1158,10 +1178,12 @@ struct force_of_nature_feral_t : public pet_t
 
   void schedule_ready( timespan_t delta_time = timespan_t::zero(), bool waiting = false )
   {
-    // FIXME: Currently first swing happens after swingtime # seconds, it should happen after 1-1.5 seconds (random).
-    if ( melee && ! melee -> execute_event )
+    if ( melee && !melee -> execute_event )
+    {
+      melee -> first_swing = true;
       melee -> schedule_execute();
-
+    }
+    
     pet_t::schedule_ready( delta_time, waiting );
   }
 };
@@ -1282,10 +1304,10 @@ struct astral_communion_t : public druid_buff_t < buff_t >
   {
     base_t::expire_override();
 
-    druid.last_check = sim -> current_time - druid.last_check;
+    druid.last_check = sim -> current_time() - druid.last_check;
     druid.last_check *= 1 + druid.buff.astral_communion -> data().effectN( 1 ).percent();
     druid.balance_time += druid.last_check;
-    druid.last_check = sim -> current_time;
+    druid.last_check = sim -> current_time();
   }
 };
 
@@ -1439,7 +1461,7 @@ struct celestial_alignment_t : public druid_buff_t < buff_t >
   {
     base_t::expire_override();
 
-    druid.last_check = sim -> current_time;
+    druid.last_check = sim -> current_time();
   }
 };
 
@@ -3928,8 +3950,6 @@ struct tranquility_t : public druid_heal_t
 
     // Healing is in spell effect 1
     parse_spell_data( ( *player -> dbc.spell( data().effectN( 1 ).trigger_spell_id() ) ) );
-
-    // FIXME: The hot should stack
   }
 };
 
@@ -5158,6 +5178,10 @@ struct starfire_t : public druid_spell_t
   {
     parse_options( options_str );
     base_execute_time *= 1 + player -> sets.set( DRUID_BALANCE, T17, B2 ) -> effectN( 1 ).percent();
+    if ( player -> wod_hotfix )
+    {
+      spell_power_mod.direct *= 1.25;
+    }
   }
 
   double action_multiplier() const
@@ -5212,6 +5236,10 @@ struct starfall_pulse_t : public druid_spell_t
   {
     direct_tick = true;
     aoe = -1;
+    if ( player -> wod_hotfix )
+    {
+      spell_power_mod.direct *= 1.75;
+    }
   }
 };
 
@@ -5268,6 +5296,11 @@ struct starsurge_t : public druid_spell_t
     base_crit += p() -> sets.set( SET_CASTER, T15, B2 ) -> effectN( 1 ).percent();
     cooldown = player -> cooldown.starfallsurge;
     base_execute_time *= 1.0 + player -> perk.enhanced_starsurge -> effectN( 1 ).percent();
+
+    if ( player -> wod_hotfix )
+    {
+      spell_power_mod.direct *= 1.25;
+    }
   }
 
   void execute()
@@ -5426,6 +5459,10 @@ struct wrath_t : public druid_spell_t
   {
     parse_options( options_str );
     base_execute_time *= 1 + player -> sets.set( DRUID_BALANCE, T17, B2 ) -> effectN( 1 ).percent();
+    if ( player -> wod_hotfix )
+    {
+      spell_power_mod.direct *= 1.25;
+    }
   }
 
   double action_multiplier() const
@@ -7276,7 +7313,7 @@ druid_td_t::druid_td_t( player_t& target, druid_t& source )
 
 void druid_t::balance_tracker()
 {
-  if ( last_check == sim -> current_time ) // No need to re-check balance if the time hasn't changed.
+  if ( last_check == sim -> current_time() ) // No need to re-check balance if the time hasn't changed.
     return;
 
   if ( buff.celestial_alignment -> up() ) // Balance power is locked while celestial alignment is active.
@@ -7293,7 +7330,7 @@ void druid_t::balance_tracker()
     return;
   }
 
-  last_check = sim -> current_time - last_check;
+  last_check = sim -> current_time() - last_check;
   // Subtract current time by the last time we checked to get the amount of time elapsed
 
   if ( talent.euphoria -> ok() ) // Euphoria speeds up the cycle to 20 seconds.
@@ -7305,7 +7342,7 @@ void druid_t::balance_tracker()
   // Similarly, when astral communion is running, we will just multiply elapsed time by 3.
 
   balance_time += last_check; // Add the amount of elapsed time to balance_time
-  last_check = sim -> current_time; // Set current time for last check.
+  last_check = sim -> current_time(); // Set current time for last check.
 
   eclipse_amount = 105 * sin( 2 * M_PI * balance_time / timespan_t::from_millis( 40000 ) ); // Re-calculate eclipse
 

@@ -958,9 +958,20 @@ public:
 
     // Pet combat experience
     if ( o() -> talents.adaptation -> ok() )
-      m *= 1.0 + specs.adaptation_combat_experience -> effectN( 2 ).percent();
+    {
+      if ( o() -> wod_hotfix )
+      {
+        m *= 1.7;
+      }
+      else
+      {
+        m *= 1.0 + specs.adaptation_combat_experience -> effectN( 2 ).percent();
+      }
+    }
     else
+    {
       m *= 1.0 + specs.combat_experience -> effectN( 2 ).percent();
+    }
 
     return m;
   }
@@ -2295,8 +2306,8 @@ struct chimaera_shot_impact_t: public hunter_ranged_attack_t
     hunter_ranged_attack_t( name, p, s )
   {
     dual = true;
-    if ( player -> wod_hotfix )
-      weapon_multiplier *= 1.15;
+    //if ( player -> wod_hotfix ) Hotfix from 10/29 negates this.
+      //weapon_multiplier *= 1.15;
   }
 
   virtual double action_multiplier() const
@@ -2686,7 +2697,11 @@ struct focusing_shot_t: public hunter_ranged_attack_t
     parse_options( options_str );
     focus_gain = data().effectN( 2 ).base_value();
     if ( player -> wod_hotfix )
+    {
       base_multiplier *= 1.15;
+      base_multiplier *= 1.25;
+      base_execute_time *= ( 5.0 / 6.0 ); // 2.5 seconds
+    }
   }
 
   bool usable_moving() const
@@ -3132,6 +3147,10 @@ struct kill_command_t: public hunter_spell_t
     parse_options( options_str );
 
     harmful = false;
+    if ( player -> wod_hotfix )
+    {
+      base_multiplier *= 1.2;
+    }
     for ( size_t i = 0, pets = p() -> pet_list.size(); i < pets; ++i )
     {
       pet_t* pet = p() -> pet_list[i];
@@ -3966,7 +3985,7 @@ struct sniper_training_event_t : public event_t
   {
     if ( ! hunter -> is_moving() )
     {
-      if ( sim().current_time - hunter -> movement_ended >= hunter -> sniper_training_cd -> duration() )
+      if ( sim().current_time() - hunter -> movement_ended >= hunter -> sniper_training_cd -> duration() )
         hunter -> buffs.sniper_training -> trigger();
     }
 
@@ -4078,7 +4097,7 @@ double hunter_t::composite_player_critical_damage_multiplier() const
   if ( sets.has_set_bonus( HUNTER_MARKSMANSHIP, T17, B4 ) && buffs.rapid_fire -> check() )
   {
     // deadly_aim_driver
-    double seconds_buffed = floor( buffs.rapid_fire -> elapsed( sim -> current_time ).total_seconds() );
+    double seconds_buffed = floor( buffs.rapid_fire -> elapsed( sim -> current_time() ).total_seconds() );
     // from Nimox
     cdm += bugs ? std::min(15.0, seconds_buffed) * 0.03
                 : seconds_buffed * sets.set( HUNTER_MARKSMANSHIP, T17, B4 ) -> effectN( 1 ).percent();
@@ -4378,7 +4397,7 @@ void hunter_t::finish_moving()
 {
   player_t::finish_moving();
 
-  movement_ended = sim -> current_time;
+  movement_ended = sim -> current_time();
 }
 
 /* Report Extension Class
