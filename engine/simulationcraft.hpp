@@ -87,9 +87,6 @@ inline std::ostream& operator<<(std::ostream &os, const timespan_t& x )
 // Random Number Generators
 #include "util/rng.hpp"
 
-// Hookup rng containers for easy use in SimulationCraft
-typedef rng::sc_distribution_t rng_t;
-
 // Forward Declarations =====================================================
 
 struct absorb_buff_t;
@@ -1381,6 +1378,7 @@ option_t opt_string( const std::string& n, std::string& v );
 option_t opt_append( const std::string& n, std::string& v );
 option_t opt_bool( const std::string& n, int& v );
 option_t opt_bool( const std::string& n, bool& v );
+option_t opt_uint64( const std::string& n, uint64_t& v );
 option_t opt_int( const std::string& n, int& v );
 option_t opt_int( const std::string& n, int& v, int , int );
 option_t opt_uint( const std::string& n, unsigned& v );
@@ -2543,10 +2541,13 @@ struct sim_t : private sc_thread_t
   double vary_combat_length;
   int current_iteration, iterations;
   bool canceled;
+  double target_error;
+  double current_error;
+  int analyze_error_interval;
 
   sim_control_t* control;
   sim_t*      parent;
-  bool initialized, paused;
+  bool initialized;
   player_t*   target;
   player_t*   heal_target;
   vector_with_callback<player_t*> target_list;
@@ -2574,7 +2575,7 @@ struct sim_t : private sc_thread_t
   timespan_t  reaction_time, regen_periodicity;
   timespan_t  ignite_sampling_delta;
   bool        fixed_time, optimize_expressions;
-  int         seed, current_slot;
+  int         current_slot;
   int         optimal_raid, log, debug_each;
   int         save_profiles, default_actions;
   stat_e      normalized_stat;
@@ -2621,16 +2622,15 @@ struct sim_t : private sc_thread_t
   std::vector<std::string> item_db_sources;
 
   // Random Number Generation
-private:
-  int deterministic_rng;
-  mutable rng_t _rng;
-public:
+  rng_t* _rng;
+  std::string rng_str;
+  uint64_t seed;
+  int deterministic;
   int average_range, average_gauss;
   int convergence_scale;
 
-  rng_t& rng() { return _rng; }
-  rng_t& rng() const { return _rng; }
-  double    averaged_range( double min, double max );
+  rng_t& rng() const { return *_rng; }
+  double averaged_range( double min, double max );
 
   // Raid Events
   auto_dispose< std::vector<raid_event_t*> > raid_events;
@@ -2694,6 +2694,8 @@ public:
   double     iteration_dmg, iteration_heal, iteration_absorb;
   simple_sample_data_t raid_dps, total_dmg, raid_hps, total_heal, total_absorb, raid_aps;
   extended_sample_data_t simulation_length;
+  std::vector<uint64_t> iteration_seed;
+  std::vector<uint64_t> iteration_initial_health;
   int        report_progress;
   int        bloodlust_percent;
   timespan_t bloodlust_time;
@@ -2743,12 +2745,17 @@ public:
   std::vector<sim_t*> children; // Manual delete!
   int thread_index;
   sc_thread_t::priority_e thread_priority;
-  struct work_queue_t {
-    mutex_t mutex;
-    int iterations_to_process;
-    work_queue_t() : mutex(), iterations_to_process( 0 ) {}
-  } work_queue;
-
+  struct work_queue_t
+  {
+    mutex_t m;
+    int total_work, work;
+    work_queue_t() : total_work( 0 ), work( 0 ) {}
+    void init( int w ) { AUTO_LOCK(m); total_work = work = w; }
+    void flush() { init(0); }
+    int  pop() { AUTO_LOCK(m); int w = work; if( work > 0 ) --work; return w; }
+    int  size() { AUTO_LOCK(m); return work; }
+  };
+  std::shared_ptr<work_queue_t> work_queue;
   virtual void run();
 
   // Spell database access
@@ -2789,7 +2796,8 @@ public:
   bool      iterate();
   void      partition();
   bool      execute();
-  int       calc_num_iterations();
+  void      predict();
+  void      analyze_error();
   void      print_options();
   void      add_option( const option_t& opt );
   void      create_options();
@@ -2807,42 +2815,34 @@ public:
 
   timespan_t current_time() const { return event_mgr.current_time; }
 
-  bool is_paused()
-  {
-    if ( parent )
-      return parent -> is_paused();
-    else
-    {
-      pause_mutex.lock();
-      bool p = paused;
-      pause_mutex.unlock();
-      return p;
-    }
-  }
-
-  void toggle_pause();
-
   static double distribution_mean_error( const sim_t& s, const extended_sample_data_t& sd )
   { return s.confidence_estimator * sd.mean_std_dev; }
 
+  // External pause mutex, instantiated an external entity (in our case the
+  // GUI).
+  mutex_t* pause_mutex;
+  bool paused;
 private:
-  mutex_t pause_mutex;
-  condition_variable_t pause_cvar;
 
-  bool use_load_balancing() const;
-
+  // Sit in an external pause mutex (lock) of the first simulator thread until
+  // it's our turn to lock/unlock it. In theory can have racing issues, but in
+  // practice all iterations do enough work for it not to matter.
+  //
+  // Lock/unlock is done per iteration, so processing cost should be minimal.
   void do_pause()
   {
     if ( parent )
       parent -> do_pause();
     else
     {
-      pause_mutex.lock();
-      while ( paused )
-        pause_cvar.wait();
-      pause_mutex.unlock();
+      if ( pause_mutex && paused )
+      {
+        pause_mutex -> lock();
+        pause_mutex -> unlock();
+      }
     }
   }
+
   void print_spell_query();
 };
 
@@ -3967,6 +3967,10 @@ struct player_collected_data_t
   extended_sample_data_t effective_theck_meloree_index;
   extended_sample_data_t max_spike_amount;
 
+  // Metric used to end simulations early
+  extended_sample_data_t target_metric;
+  mutex_t target_metric_mutex;
+
   std::array<simple_sample_data_t,RESOURCE_MAX> resource_lost, resource_gained;
   struct resource_timeline_t
   {
@@ -4240,6 +4244,7 @@ struct player_t : public actor_t
 
   // static values
   player_e type;
+  player_t* parent; // corresponding player in main thread
   int index;
   size_t actor_index;
   int actor_spawn_index; // a unique identifier for each arise() of the actor
@@ -6440,6 +6445,12 @@ inline void dot_tick_event_t::execute()
   {
     dot -> tick();
   }
+
+  // Some dots actually cancel themselves mid-tick. If this happens, we presume
+  // that the cancel has been "proper", and just stop event execution here, as
+  // the dot no longer exists.
+  if ( ! dot -> is_ticking() )
+    return;
 
   assert ( dot -> ticking );
   expr_t* expr = dot -> current_action -> interrupt_if_expr;

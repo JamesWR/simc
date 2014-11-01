@@ -570,6 +570,7 @@ void print_text_performance( FILE* file, sim_t* sim )
     date_str = date_str.substr( 0, date_str.size() - 1 );
   util::fprintf( file,
                  "\nBaseline Performance:\n"
+		 "  RNG Engine    = %s\n"
 #if !defined( SC_WINDOWS )
                  "  TotalEvents   = %llu\n"
 #else
@@ -582,6 +583,7 @@ void print_text_performance( FILE* file, sim_t* sim )
                  "  WallSeconds   = %.3f\n"
                  "  SpeedUp       = %.0f\n"
                  "  EndTime       = %s (%ld)\n\n",
+		 sim -> rng().name(),
                  sim -> event_mgr.total_events_processed,
                  (long) sim -> event_mgr.max_events_remaining,
                  sim -> target -> resources.base[ RESOURCE_HEALTH ],
@@ -589,8 +591,7 @@ void print_text_performance( FILE* file, sim_t* sim )
                  sim -> elapsed_cpu,
                  sim -> elapsed_time,
                  sim -> iterations * sim -> simulation_length.mean() / sim -> elapsed_cpu,
-                 date_str.c_str(),
-                 as<long int>(cur_time) );
+                 date_str.c_str(), as<long int>(cur_time) );
 }
 
 // print_text_scale_factors =================================================
@@ -860,7 +861,7 @@ void print_text_player( FILE* file, player_t* p )
                  dbc::specialization_string( p -> specialization() ).c_str(), p -> level );
 
   double dps_error = sim_t::distribution_mean_error( *p -> sim, p -> collected_data.dps );
-  util::fprintf( file, "  DPS: %.1f  DPS-Error=%.1f/%.1f%%  DPS-Range=%.0f/%.1f%%  DPS-Convergence=%.1f%%\n",
+  util::fprintf( file, "  DPS: %.1f  DPS-Error=%.1f/%.3f%%  DPS-Range=%.0f/%.1f%%  DPS-Convergence=%.1f%%\n",
                  p -> collected_data.dps.mean(),
                  dps_error, cd.dps.mean() ? dps_error * 100 / cd.dps.mean() : 0,
                  ( cd.dps.max() - cd.dps.min() ) / 2.0 , cd.dps.mean() ? ( ( cd.dps.max() - cd.dps.min() ) / 2 ) * 100 / cd.dps.mean() : 0,

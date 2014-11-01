@@ -779,13 +779,8 @@ public:
 
     resources.infinite_resource[RESOURCE_FOCUS] = o() -> resources.infinite_resource[RESOURCE_FOCUS];
 
-    owner_coeff.ap_from_ap = 0.3333;
-    owner_coeff.sp_from_ap = 0.3333;
-    if ( o() -> wod_hotfix )
-    {
-      owner_coeff.ap_from_ap = 0.6;
-      owner_coeff.sp_from_ap = 0.6;
-    }
+    owner_coeff.ap_from_ap = 0.6;
+    owner_coeff.sp_from_ap = 0.6;
   }
 
   virtual void create_buffs()
@@ -905,6 +900,8 @@ public:
     base_t::summon( duration );
     // pet appears at the target
     current.distance = 0;
+    owner_coeff.ap_from_ap = 1.0 / 3.0;
+    owner_coeff.sp_from_ap = 1.0 / 3.0;
 
     buffs.tier17_4pc_bm -> trigger( 1, buff_t::DEFAULT_VALUE(), 1.0, duration );
 
@@ -1145,6 +1142,7 @@ struct pet_melee_t: public hunter_main_pet_attack_t
     repeating = true;
     auto_attack = true;
     school = SCHOOL_PHYSICAL;
+
   }
 
   virtual void impact( action_state_t* s )
@@ -1193,7 +1191,7 @@ struct basic_attack_t: public hunter_main_pet_attack_t
     parse_options( options_str );
     school = SCHOOL_PHYSICAL;
 
-    attack_power_mod.direct = 1;
+    attack_power_mod.direct = 1.0 / 3.0;
     base_multiplier *= 1.0 + p -> specs.spiked_collar -> effectN( 1 ).percent();
     chance_invigoration = p -> find_spell( 53397 ) -> proc_chance();
     gain_invigoration = p -> find_spell( 53398 ) -> effectN( 1 ).resource( RESOURCE_FOCUS );
@@ -1208,6 +1206,12 @@ struct basic_attack_t: public hunter_main_pet_attack_t
 
     if ( o() -> specs.frenzy -> ok() )
       p() -> buffs.frenzy -> trigger( 1 );
+  }
+
+  // Override behavior so that Basic Attacks use hunter's attack power rather than the pet's
+  double composite_attack_power() const
+  {
+    return o() -> cache.attack_power() * o()->composite_attack_power_multiplier();
   }
 
   void impact( action_state_t* s )
@@ -1281,8 +1285,7 @@ struct basic_attack_t: public hunter_main_pet_attack_t
 
   void update_ready( timespan_t cd_duration )
   {
-    hunter_main_pet_attack_t::update_ready( cd_duration ); // Currently on beta enhanced basic attacks seems to proc 50% of the time, rather than 15%.
-    // Added in an option to tweak it for now, default set at 50%
+    hunter_main_pet_attack_t::update_ready( cd_duration );
     if ( o() -> rng().roll( o() -> perks.enhanced_basic_attacks -> effectN( 1 ).percent() ) )
     {
       cooldown -> reset( true );

@@ -1131,6 +1131,8 @@ void rune_t::regen_rune( death_knight_t* p, timespan_t periodicity, bool rc )
       overflow = paired_rune -> value - 1.0;
       paired_rune -> value = 1.0;
     }
+    else
+      overflow = 0;
     if ( paired_rune -> value >= 1.0 )
     {
       if ( paired_rune -> state == STATE_REGENERATING )
@@ -3093,7 +3095,8 @@ struct soul_reaper_dot_t : public death_knight_melee_attack_t
   {
     death_knight_melee_attack_t::execute();
 
-    if ( p() -> sets.has_set_bonus( DEATH_KNIGHT_UNHOLY, T17, B2 ) )
+    if ( ! p() -> buffs.dark_transformation -> check() &&
+         p() -> sets.has_set_bonus( DEATH_KNIGHT_UNHOLY, T17, B2 )  )
       p() -> buffs.shadow_infusion -> trigger( p() -> sets.set( DEATH_KNIGHT_UNHOLY, T17, B2 ) -> effectN( 1 ).base_value() );
   }
 };
@@ -3477,7 +3480,7 @@ struct dark_command_t: public death_knight_spell_t
 struct dark_transformation_t : public death_knight_spell_t
 {
   dark_transformation_t( death_knight_t* p, const std::string& options_str ) :
-    death_knight_spell_t( "dark_transformation", p, p -> find_class_spell( "Dark Transformation" ) )
+    death_knight_spell_t( "dark_transformation", p, p -> find_specialization_spell( "Dark Transformation" ) )
   {
     parse_options( options_str );
 
@@ -4562,6 +4565,8 @@ struct blood_boil_t : public death_knight_spell_t
     if ( p -> wod_hotfix )
       attack_power_mod.direct *= 1.20;
 
+    rp_gain = data().effectN( 2 ).resource( RESOURCE_RUNIC_POWER );
+
     aoe = -1;
   }
 
@@ -5110,7 +5115,7 @@ struct breath_of_sindragosa_tick_t: public death_knight_spell_t
       death_knight_spell_t::impact( s );
     }
     if ( result_is_hit( s -> result ) )
-      td( target ) -> debuffs_mark_of_sindragosa -> trigger();
+      td( s -> target ) -> debuffs_mark_of_sindragosa -> trigger();
   }
 };
 
@@ -5709,7 +5714,7 @@ expr_t* death_knight_t::create_expression( action_t* a, const std::string& name_
       {
         switch ( myaction )
         {
-          case 0: return dk -> runes_count( r, include_death, position );
+          case 0: return util::floor( dk -> runes_count( r, include_death, position ) );
           case 1: return dk -> runes_cooldown_any( r, include_death, position );
           case 2: return dk -> runes_cooldown_all( r, include_death, position );
           case 3: return dk -> runes_depleted( r, position );
@@ -5719,7 +5724,7 @@ expr_t* death_knight_t::create_expression( action_t* a, const std::string& name_
     };
     return new rune_inspection_expr_t( this, rt, include_death, position, act );
   }
-  else if ( splits.size() == 2 )
+  else if ( splits.size() == 2 && ! util::str_compare_ci( splits[ 1 ], "frac" ) )
   {
     rune_type rt = RUNE_TYPE_NONE;
     bool include_death = false;
@@ -5764,18 +5769,19 @@ expr_t* death_knight_t::create_expression( action_t* a, const std::string& name_
     rune_type rt = RUNE_TYPE_NONE;
     bool include_death = false;
     parse_rune_type( splits[ 0 ], include_death, rt );
+    bool frac = splits.size() == 2 && util::str_compare_ci( splits[ 1 ], "frac" );
 
     struct rune_expr_t : public expr_t
     {
       death_knight_t* dk;
       rune_type r;
-      bool death;
-      rune_expr_t( death_knight_t* p, rune_type r, bool include_death ) :
-        expr_t( "rune" ), dk( p ), r( r ), death( include_death ) { }
+      bool death, fractional;
+      rune_expr_t( death_knight_t* p, rune_type r, bool include_death, bool frac ) :
+        expr_t( "rune" ), dk( p ), r( r ), death( include_death ), fractional( frac ) { }
       virtual double evaluate()
-      { return dk -> runes_count( r, death, 0 ); }
+      { return fractional ? dk -> runes_count( r, death, 0 ) : util::floor( dk -> runes_count( r, death, 0 ) ); }
     };
-    if ( rt ) return new rune_expr_t( this, rt, include_death );
+    if ( rt ) return new rune_expr_t( this, rt, include_death, frac );
 
   }
 
@@ -6259,8 +6265,8 @@ void death_knight_t::init_action_list()
       def -> add_action( get_item_actions()[i] );
 
     //decide between single_target and aoe rotation
-    def -> add_action( "call_action_list,name=aoe,if=active_enemies>=3" );
-    def -> add_action( "call_action_list,name=single_target,if=active_enemies<3" );
+    def -> add_action( "run_action_list,name=aoe,if=active_enemies>=3" );
+    def -> add_action( "run_action_list,name=single_target,if=active_enemies<3" );
 
     // Breath of Sindragosa specific APLs
     action_priority_list_t* bos_aoe = get_action_priority_list( "bos_aoe" );
@@ -6269,7 +6275,7 @@ void death_knight_t::init_action_list()
     bos_aoe -> add_action( this, "Death and Decay", "if=unholy=1" );
     bos_aoe -> add_action( this, "Plague Strike", "if=unholy=2" );
     bos_aoe -> add_talent( this, "Blood Tap" );
-    bos_aoe -> add_talent( this, "Plague Leech", "if=unholy=1" );
+    bos_aoe -> add_talent( this, "Plague Leech" );
     bos_aoe -> add_action( this, "Plague Strike", "if=unholy=1" );
     bos_aoe -> add_action( this, "Empower Rune Weapon" );
 
@@ -6303,7 +6309,7 @@ void death_knight_t::init_action_list()
 
       // Breath of Sindragosa in use, cast it and then keep it up
       st -> add_talent( this, "Breath of Sindragosa", "if=runic_power>75");
-      st -> add_action( "call_action_list,name=bos_st,if=dot.breath_of_sindragosa.ticking" );
+      st -> add_action( "run_action_list,name=bos_st,if=dot.breath_of_sindragosa.ticking" );
 
       // Breath of Sindragosa coming off cooldown, get ready to use
       st -> add_action( this, "Obliterate", "if=talent.breath_of_sindragosa.enabled&cooldown.breath_of_sindragosa.remains<7&runic_power<76");
@@ -6366,15 +6372,16 @@ void death_knight_t::init_action_list()
 
       // Breath of Sindragosa in use, cast it and then keep it up
       st -> add_talent( this, "Breath of Sindragosa", "if=runic_power>75");
-      st -> add_action( "call_action_list,name=bos_st,if=dot.breath_of_sindragosa.ticking" );
+      st -> add_action( "run_action_list,name=bos_st,if=dot.breath_of_sindragosa.ticking" );
+      
+      // Defile
+      st -> add_talent( this, "Defile" );
+      st -> add_talent( this, "Blood Tap", "if=talent.defile.enabled&cooldown.defile.remains=0" );
 
       // Breath of Sindragosa coming off cooldown, get ready to use
       st -> add_action( this, "Howling Blast", "if=talent.breath_of_sindragosa.enabled&cooldown.breath_of_sindragosa.remains<7&runic_power<88");
       st -> add_action( this, "Obliterate", "if=talent.breath_of_sindragosa.enabled&cooldown.breath_of_sindragosa.remains<3&runic_power<76");
 
-      // Defile
-      st -> add_talent( this, "Defile" );
-      st -> add_talent( this, "Blood Tap", "if=talent.defile.enabled&cooldown.defile.remains=0" );
 
       // Killing Machine / Very High RP
       st -> add_action( this, "Frost Strike", "if=buff.killing_machine.react|runic_power>88" );
@@ -6396,14 +6403,12 @@ void death_knight_t::init_action_list()
 
       // Don't waste Runic Power
       st -> add_action( this, "Frost Strike", "if=set_bonus.tier17_2pc=1&(runic_power>=50|(cooldown.pillar_of_frost.remains<5))" );
-      st -> add_action( this, "Frost Strike", "if=runic_power>=50" );
+      st -> add_action( this, "Frost Strike", "if=runic_power>76" );
 
       // Keep Runes on Cooldown
       st -> add_action( this, "Obliterate", "if=unholy>0&!buff.killing_machine.react" );
-      st -> add_action( this, "Howling Blast", "if=!(target.health.pct-3*(target.health.pct%target.time_to_die)<=35&cooldown.soul_reaper.remains<2)|death+frost>=2" );
+      st -> add_action( this, "Howling Blast", "if=!(target.health.pct-3*(target.health.pct%target.time_to_die)<=35&cooldown.soul_reaper.remains<3)|death+frost>=2" );
 
-      // Generate Runic Power or Runes
-      st -> add_talent( this, "Blood Tap", "if=target.health.pct-3*(target.health.pct%target.time_to_die)>35|buff.blood_charge.stack>=8" );
 
       // Better than waiting
       st -> add_talent( this, "Blood Tap" );
@@ -6413,19 +6418,18 @@ void death_knight_t::init_action_list()
 
     //AoE
     aoe -> add_talent( this, "Unholy Blight" );
-    aoe -> add_action( this, "Blood Boil", "if=!talent.necrotic_plague.enabled&dot.blood_plague.ticking&talent.plague_leech.enabled,line_cd=28" );
-    aoe -> add_action( this, "Blood Boil", "if=!talent.necrotic_plague.enabled&dot.blood_plague.ticking&talent.unholy_blight.enabled&cooldown.unholy_blight.remains<49,line_cd=28" );
+    aoe -> add_action( this, "Blood Boil", "if=dot.blood_plague.ticking&(!talent.unholy_blight.enabled|cooldown.unholy_blight.remains<49),line_cd=28" );
     aoe -> add_talent( this, "Defile" );
     aoe -> add_talent( this, "Breath of Sindragosa", "if=runic_power>75");
-    aoe -> add_action( "call_action_list,name=bos_aoe,if=dot.breath_of_sindragosa.ticking" );
+    aoe -> add_action( "run_action_list,name=bos_aoe,if=dot.breath_of_sindragosa.ticking" );
     aoe -> add_action( this, "Howling Blast" );
     aoe -> add_talent( this, "Blood Tap", "if=buff.blood_charge.stack>10" );
-    aoe -> add_action( this, "Frost Strike", "if=runic_power>76" );
+    aoe -> add_action( this, "Frost Strike", "if=runic_power>88" );
     aoe -> add_action( this, "Death and Decay", "if=unholy=1" );
     aoe -> add_action( this, "Plague Strike", "if=unholy=2" );
     aoe -> add_talent( this, "Blood Tap" );
-    aoe -> add_action( this, "Frost Strike" );
-    aoe -> add_talent( this, "Plague Leech", "if=unholy=1" );
+    aoe -> add_action( this, "Frost Strike", "if=!talent.breath_of_sindragosa.enabled|cooldown.breath_of_sindragosa.remains>=10" );
+    aoe -> add_talent( this, "Plague Leech" );
     aoe -> add_action( this, "Plague Strike", "if=unholy=1" );
     aoe -> add_action( this, "Empower Rune Weapon" );
 
@@ -6469,8 +6473,8 @@ void death_knight_t::init_action_list()
     bos_aoe -> add_action( this, "Death Coil", "if=buff.sudden_doom.react" );
 
     //decide between single_target and aoe rotation
-    def -> add_action( "call_action_list,name=aoe,if=active_enemies>=2" );
-    def -> add_action( "call_action_list,name=single_target,if=active_enemies<2" );
+    def -> add_action( "run_action_list,name=aoe,if=active_enemies>=2" );
+    def -> add_action( "run_action_list,name=single_target,if=active_enemies<2" );
 
     // Stop BT charges from capping
     st -> add_talent( this, "Blood Tap", "if=buff.blood_charge.stack>10&runic_power>=32" );
@@ -6500,7 +6504,7 @@ void death_knight_t::init_action_list()
 
     // Breath of Sindragosa in use, cast it and then keep it up
     st -> add_talent( this, "Breath of Sindragosa", "if=runic_power>75");
-    st -> add_action( "call_action_list,name=bos_st,if=dot.breath_of_sindragosa.ticking" );
+    st -> add_action( "run_action_list,name=bos_st,if=dot.breath_of_sindragosa.ticking" );
 
     // Breath of Sindragosa coming off cooldown, get ready to use
     st -> add_action( this, "Death and Decay", "if=cooldown.breath_of_sindragosa.remains<7&runic_power<88&talent.breath_of_sindragosa.enabled");
@@ -6542,7 +6546,7 @@ void death_knight_t::init_action_list()
 
     // AoE Breath of Sindragosa in use, cast and then keep up
     aoe -> add_talent( this, "Breath of Sindragosa", "if=runic_power>75");
-    aoe -> add_action( "call_action_list,name=bos_aoe,if=dot.breath_of_sindragosa.ticking" );
+    aoe -> add_action( "run_action_list,name=bos_aoe,if=dot.breath_of_sindragosa.ticking" );
 
     //AoE continued
     aoe -> add_action( this, "Blood Boil", "if=blood=2|(frost=2&death=2)" );
