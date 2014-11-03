@@ -541,8 +541,10 @@ bool parse_fight_style( sim_t*             sim,
     sim -> fight_style = "HecticAddCleave";
 
     sim -> raid_events_str += "/adds,count=5,first=" + util::to_string( int( sim -> max_time.total_seconds() * 0.05 ) ) + ",cooldown=" + util::to_string( int( sim -> max_time.total_seconds() * 0.075 ) ) + ",duration=" + util::to_string( int( sim -> max_time.total_seconds() * 0.05 ) ) + ",last=" + util::to_string( int( sim -> max_time.total_seconds() * 0.75 ) ); //P1
-    sim -> raid_events_str += "/movement,players_only=1,first=" + util::to_string( int( sim -> max_time.total_seconds() * 0.05 ) ) + ",cooldown=" + util::to_string( int( sim -> max_time.total_seconds() * 0.075 ) ) + ",distance=" + util::to_string( int( sim -> max_time.total_seconds() * 0.056 ) ) + ",last=" + util::to_string( int( sim -> max_time.total_seconds() * 0.75 ) ); //move to new position of adds
-    sim -> raid_events_str += "/movement,players_only=1,first=" + util::to_string( int( sim -> max_time.total_seconds() * 0.03 ) ) + ",cooldown=" + util::to_string( int( sim -> max_time.total_seconds() * 0.03 ) ) + ",distance=" + util::to_string( std::max( int( sim -> max_time.total_seconds() * 0.021 ), 1 ) ); //move out of stuff
+      
+    sim -> raid_events_str += "/movement,first=" + util::to_string( int( sim -> max_time.total_seconds() * 0.05 ) ) + ",cooldown=" + util::to_string( int( sim -> max_time.total_seconds() * 0.075 ) ) + ",distance=25,last=" + util::to_string( int( sim -> max_time.total_seconds() * 0.75 ) ); //move to new position of adds
+      
+    sim -> raid_events_str += "/movement,players_only=1,first=" + util::to_string( int( sim -> max_time.total_seconds() * 0.03 ) ) + ",cooldown=" + util::to_string( int( sim -> max_time.total_seconds() * 0.04 ) ) + ",distance=8"; //move out of stuff
 
   }
   else
@@ -898,7 +900,7 @@ sim_t::sim_t( sim_t* p, int index ) :
   expected_iteration_time( timespan_t::zero() ),
   vary_combat_length( 0.0 ),
   current_iteration( -1 ),
-  iterations( 1000 ),
+  iterations( 0 ),
   canceled( 0 ),
   target_error( 0 ),
   current_error( 0 ),
@@ -1003,7 +1005,10 @@ sim_t::sim_t( sim_t* p, int index ) :
     // Inherit 'plot' settings from parent because are set outside of the config file
     enchant = parent -> enchant;
 
+    // While we inherit the parent seed, it may get overwritten in sim_t::init
     seed = parent -> seed;
+
+    parent -> add_relative( this );
   }
 }
 
@@ -1011,6 +1016,8 @@ sim_t::sim_t( sim_t* p, int index ) :
 
 sim_t::~sim_t()
 {
+  assert( relatives.size() == 0 );
+  if( parent ) parent -> remove_relative( this );
   delete scaling;
   delete plot;
   delete reforge_plot;
@@ -1046,6 +1053,43 @@ double sim_t::expected_max_time() const
   return max_time.total_seconds() * ( 1.0 + vary_combat_length );
 }
 
+// sim_t::add_relative ======================================================
+
+void sim_t::add_relative( sim_t* cousin )
+{
+  if( parent )
+  {
+    parent -> add_relative( cousin );
+  }
+  else
+  {
+    AUTO_LOCK( relatives_mutex );
+    relatives.push_back( cousin );
+  }
+}
+
+// sim_t::remove_relative ===================================================
+
+void sim_t::remove_relative( sim_t* cousin )
+{
+  if( parent )
+  {
+    parent -> remove_relative( cousin );
+  }
+  else
+  {
+    AUTO_LOCK( relatives_mutex );
+    for( size_t i=0, size=relatives.size(); i < size; i++ )
+      if( relatives[ i ] == cousin )
+      {
+	relatives[ i ] = relatives[ size-1 ];
+	relatives.pop_back();
+	return;
+      }
+    assert(0);
+  }
+}
+
 // sim_t::cancel ============================================================
 
 void sim_t::cancel()
@@ -1065,22 +1109,22 @@ void sim_t::cancel()
 
   canceled = 1;
   
-  for ( size_t i = 0; i < children.size(); i++ )
+  for ( size_t i = 0, size = relatives.size(); i < size; i++ )
   {
-    children[ i ] -> cancel();
+    relatives[ i ] -> cancel();
   }
+}
 
-  if ( scaling -> delta_sim )
-    scaling -> delta_sim -> cancel();
+// sim_t::interrupt =========================================================
 
-  if ( scaling -> delta_sim2 )
-    scaling -> delta_sim2 -> cancel();
+void sim_t::interrupt()
+{
+  work_queue -> flush();
 
-  if ( scaling -> ref_sim )
-    scaling -> ref_sim -> cancel();
-
-  if ( scaling -> ref_sim2 )
-    scaling -> ref_sim2 -> cancel();
+  for ( size_t i = 0, size = children.size(); i < size; i++ )
+  {
+    children[ i ] -> interrupt();
+  }
 }
 
 // sim_t::is_canceled =======================================================
@@ -1253,7 +1297,7 @@ void sim_t::combat_begin()
           for ( size_t i = 0; i < sim.player_non_sleeping_list.size(); ++i )
           {
             player_t* p = sim.player_non_sleeping_list[ i ];
-            if ( p -> buffs.exhaustion -> check() || p -> is_pet() || p -> is_enemy() )
+            if ( p -> buffs.exhaustion -> check() || p -> is_pet() )
               continue;
 
             p -> buffs.bloodlust -> trigger();
@@ -1430,7 +1474,9 @@ void sim_t::analyze_error()
 
   if( current_error > 0 &&
       current_error < target_error ) 
-    cancel();
+  {
+    interrupt();
+  }
 }
 
 // sim_t::check_actors() ========================================================
@@ -1952,13 +1998,15 @@ bool progress_bar_t::update( bool finished )
   {
     if ( sim.current_iteration < ( sim.iterations - 1 ) )
     {
-      if ( sim.target_error == 0 && sim.current_iteration % interval ) return false;
-      if ( sim.target_error > 0 && sim.current_iteration % sim.analyze_error_interval != 0 ) return false;
+      int update_interval = ( sim.target_error > 0 ) ? sim.analyze_error_interval : interval;
+
+      if ( sim.current_iteration % update_interval ) 
+	return false;
     }
   }
 
-  int current, _final;
-  double pct = sim.progress( &current, &_final );
+  int current, last;
+  double pct = sim.progress( &current, &last );
   if ( pct <= 0 ) return false;
   if ( finished ) pct = 1.0;
 
@@ -1980,7 +2028,7 @@ bool progress_bar_t::update( bool finished )
   remaining_sec -= remaining_min * 60;
 
   char buffer[80];
-  snprintf( buffer, sizeof( buffer ), " %d/%d", finished ? _final : current, _final );
+  snprintf( buffer, sizeof( buffer ), " %d/%d", finished ? last : current, last );
   status += buffer;
 
   if( sim.target_error > 0 )
@@ -2722,13 +2770,15 @@ void sim_t::setup( sim_control_t* c )
     threads = 1;
   }
 
+  if( iterations <= 0 ) iterations = ( target_error > 0 ) ? 100000 : 1000;
+
   work_queue -> init( iterations );
 }
 
 // sim_t::progress ==========================================================
 
 double sim_t::progress( int* current,
-                        int* _final,
+                        int* last,
                         std::string* detailed )
 {
   int total_current_iterations = current_iteration + 1;
@@ -2750,8 +2800,16 @@ double sim_t::progress( int* current,
     }
   }
 
+  if( target_error > 0 && current_error > 0 )
+  {
+    int projected_work = total_current_iterations * ( current_error * current_error ) / ( target_error * target_error );
+    if( projected_work < total_work )
+      total_work = projected_work;
+  }
+
   if ( current ) *current = total_current_iterations;
-  if ( _final   ) *_final   = total_work;
+  if ( last    ) *last    = total_work;
+
   detailed_progress( detailed, total_current_iterations, total_work );
 
   return total_current_iterations / ( double ) total_work;

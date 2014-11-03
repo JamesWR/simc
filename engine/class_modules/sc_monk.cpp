@@ -2136,30 +2136,66 @@ struct touch_of_karma_dot_t: public residual_action::residual_periodic_action_t 
     base_t( "touch_of_karma", p, p -> find_spell( 124280 ) )
   {
     may_miss = may_crit = false;
+    dual = true;
   }
 };
 
 struct touch_of_karma_t: public monk_melee_attack_t
 {
+  double interval;
+  double interval_stddev;
+  double interval_stddev_opt;
+  double pct_health;
   touch_of_karma_dot_t* touch_of_karma_dot;
   touch_of_karma_t( monk_t* p, const std::string& options_str ):
     monk_melee_attack_t( "touch_of_karma", p, p -> spec.touch_of_karma ),
+    interval( 100 ), interval_stddev( 0.05 ), interval_stddev_opt( 0 ), pct_health( 0.4 ),
     touch_of_karma_dot( new touch_of_karma_dot_t( p ) )
   {
+    add_option( opt_float( "interval", interval ) );
+    add_option( opt_float( "interval_stddev", interval_stddev_opt ) );
+    add_option( opt_float( "pct_health", pct_health ) );
     parse_options( options_str );
     stancemask = FIERCE_TIGER;
     cooldown -> duration = data().cooldown();
+    base_dd_min = base_dd_max = 0;
+
+    double max_pct = data().effectN( 3 ).percent();
+    if ( pct_health > max_pct ) // Does a maximum of 50% of the monk's HP.
+      pct_health = max_pct;
+
+    if ( interval < cooldown -> duration.total_seconds() )
+    {
+      sim -> errorf( "%s minimum interval for Touch of Karma is 90 seconds.", player -> name() );
+      interval = cooldown -> duration.total_seconds();
+    }
+
+    if ( interval_stddev_opt < 1 )
+      interval_stddev = interval * interval_stddev_opt;
+    // >= 1 seconds is used as a standard deviation normally
+    else
+      interval_stddev = interval_stddev_opt;
 
     may_crit = may_miss = may_dodge = may_parry = false;
   }
 
   void execute()
   {
+    timespan_t new_cd = timespan_t::from_seconds( rng().gauss( interval, interval_stddev ) );
+    timespan_t data_cooldown = data().cooldown();
+    if ( new_cd < data_cooldown )
+      new_cd = data_cooldown;
+
+    cooldown -> duration = new_cd;
+
     monk_melee_attack_t::execute();
 
-    residual_action::trigger( // For now, just assume it does maximum damage.
-                              touch_of_karma_dot, execute_state -> target,
-                              data().effectN( 3 ).percent() * player -> resources.max[RESOURCE_HEALTH] );
+    if ( pct_health > 0 )
+    {
+      residual_action::trigger(
+        touch_of_karma_dot, execute_state -> target,
+        pct_health * player -> resources.max[RESOURCE_HEALTH] );
+    }
   }
 };
 
@@ -3484,11 +3520,11 @@ struct healing_elixirs_t: public monk_heal_t
     monk_heal_t( "healing_elixirs", p, p.talent.healing_elixirs ),
     healing_elixir( 0 )
   {
-    harmful = false;
+    harmful = may_crit = false;
     trigger_gcd = timespan_t::zero();
     healing_elixir = p.get_cooldown( "healing_elixir" );
-    healing_elixir -> duration = timespan_t::from_seconds( 18 );
-    pct_heal = data().effectN( 1 ).percent();
+    healing_elixir -> duration = data().effectN( 1 ).period();
+    pct_heal = p.passives.healing_elixirs -> effectN( 1 ).percent();
   }
 };
 
@@ -3814,19 +3850,10 @@ void monk_t::init_spells()
   stance_data.wise_serpent           = find_specialization_spell( "Stance of the Wise Serpent" );
   stance_data.spirited_crane         = find_specialization_spell( "Stance of the Spirited Crane" );
 
-  //SPELLS
-  active_actions.blackout_kick_dot   = new actions::dot_blackout_kick_t( this );
-  //active_actions.blackout_kick_heal = new actions::heal_blackout_kick_t( this );
-  active_actions.chi_explosion_dot   = new actions::dot_chi_explosion_t( this );
-  active_actions.healing_elixir      = new actions::healing_elixirs_t( *this );
-
-  if ( specialization() == MONK_BREWMASTER )
-    active_actions.stagger_self_damage = new actions::stagger_self_damage_t( this );
-
   passives.tier15_2pc_melee          = find_spell( 138311 );
   passives.enveloping_mist           = find_class_spell( "Enveloping Mist" );
   passives.surging_mist              = find_class_spell( "Surging Mist" );
-  passives.healing_elixirs           = find_spell( 134563 );
+  passives.healing_elixirs           = find_spell( 122281 );
   passives.storm_earth_and_fire      = find_spell( 138228 );
   passives.hotfix_passive            = find_spell( 137022 );
 
@@ -3844,6 +3871,15 @@ void monk_t::init_spells()
   mastery.bottled_fury               = find_mastery_spell( MONK_WINDWALKER );
   mastery.elusive_brawler            = find_mastery_spell( MONK_BREWMASTER );
   mastery.gift_of_the_serpent        = find_mastery_spell( MONK_MISTWEAVER );
+
+  //SPELLS
+  active_actions.blackout_kick_dot = new actions::dot_blackout_kick_t(this);
+  //active_actions.blackout_kick_heal = new actions::heal_blackout_kick_t( this );
+  active_actions.chi_explosion_dot = new actions::dot_chi_explosion_t(this);
+  active_actions.healing_elixir = new actions::healing_elixirs_t(*this);
+
+  if (specialization() == MONK_BREWMASTER)
+    active_actions.stagger_self_damage = new actions::stagger_self_damage_t(this);
 }
 
 // monk_t::init_base ========================================================
@@ -4067,7 +4103,7 @@ void monk_t::interrupt()
   // This function triggers stuns, movement, and other types of halts.
 
   // End any active soothing_mist channels
-  if ( buff.channeling_soothing_mist -> check() )
+  /*if ( buff.channeling_soothing_mist -> check() )
   {
     for ( size_t i = 0, actors = sim -> player_non_sleeping_list.size(); i < actors; ++i )
     {
@@ -4079,7 +4115,7 @@ void monk_t::interrupt()
         break;
       }
     }
-  }
+  }*/
   player_t::interrupt();
 }
 
@@ -4481,8 +4517,8 @@ void monk_t::combat_begin()
     for ( size_t i = 0; i < sim -> player_non_sleeping_list.size(); ++i )
     {
       player_t* p = sim -> player_non_sleeping_list[i];
-      if ( p -> is_enemy() || p -> type == PLAYER_GUARDIAN )
-        break;
+      if ( p -> type == PLAYER_GUARDIAN )
+        continue;
 
       p -> buffs.fierce_tiger_movement_aura -> trigger();
     }
@@ -5076,8 +5112,8 @@ bool monk_t::switch_to_stance( stance_e to )
     for ( size_t i = 0; i < sim -> player_non_sleeping_list.size(); ++i )
     {
       player_t* p = sim -> player_non_sleeping_list[i];
-      if ( p -> is_enemy() || p -> type == PLAYER_GUARDIAN )
-        break;
+      if ( p -> type == PLAYER_GUARDIAN )
+        continue;
 
       p -> buffs.fierce_tiger_movement_aura -> trigger();
     }
@@ -5087,8 +5123,8 @@ bool monk_t::switch_to_stance( stance_e to )
     for ( size_t i = 0; i < sim -> player_non_sleeping_list.size(); ++i )
     {
       player_t* p = sim -> player_non_sleeping_list[i];
-      if ( p -> is_enemy() || p -> type == PLAYER_GUARDIAN )
-        break;
+      if ( p -> type == PLAYER_GUARDIAN )
+        continue;
 
       p -> buffs.fierce_tiger_movement_aura -> expire();
     }

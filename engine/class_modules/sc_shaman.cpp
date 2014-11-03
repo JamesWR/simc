@@ -2536,7 +2536,7 @@ struct bloodlust_t : public shaman_spell_t
     for ( size_t i = 0; i < sim -> player_non_sleeping_list.size(); ++i )
     {
       player_t* p = sim -> player_non_sleeping_list[ i ];
-      if ( p -> buffs.exhaustion -> check() || p -> is_pet() || p -> is_enemy() )
+      if ( p -> buffs.exhaustion -> check() || p -> is_pet() )
         continue;
       p -> buffs.bloodlust -> trigger();
       p -> buffs.exhaustion -> trigger();
@@ -2598,8 +2598,6 @@ struct chain_lightning_t : public shaman_spell_t
     base_multiplier      *= 1.0 + player -> glyph.chain_lightning -> effectN( 2 ).percent();
     aoe                   = player -> glyph.chain_lightning -> effectN( 1 ).base_value() + 3;
     base_add_multiplier   = data().effectN( 1 ).chain_multiplier();
-    if ( player -> wod_hotfix )
-      base_costs[RESOURCE_MANA] *= 0.57;
   }
 
   action_state_t* new_state()
@@ -3378,10 +3376,39 @@ struct earth_shock_t : public shaman_spell_t
 
 // Flame Shock Spell ========================================================
 
+struct flame_shock_heal_t : public heal_t
+{
+  flame_shock_heal_t( shaman_t* player ) :
+    heal_t( "flame_shock_heal", player, player -> glyph.flame_shock )
+  {
+    background = true;
+    may_crit = false;
+    may_multistrike = 0;
+
+    target = player;
+  }
+
+  void init()
+  {
+    heal_t::init();
+
+    snapshot_flags = update_flags = 0;
+  }
+
+  // No way for our generic system to know this is an "amount heal", so we
+  // override the proc type to explicitly tell it's a heal, and as a
+  // consequence, procs healing effects (trinkets).
+  proc_types proc_type() const
+  { return PROC1_HEAL; }
+};
+
 struct flame_shock_t : public shaman_spell_t
 {
+  flame_shock_heal_t* heal;
+
   flame_shock_t( shaman_t* player, const std::string& options_str ) :
-    shaman_spell_t( "flame_shock", player, player -> find_class_spell( "Flame Shock" ), options_str )
+    shaman_spell_t( "flame_shock", player, player -> find_class_spell( "Flame Shock" ), options_str ),
+    heal( p() -> glyph.flame_shock -> ok() ? new flame_shock_heal_t( player ) : 0 )
   {
     // TODO-WOD: Separate to tick and direct amount to be safe
     base_multiplier      *= 1.0 + player -> perk.improved_shocks -> effectN( 1 ).percent();
@@ -3399,11 +3426,23 @@ struct flame_shock_t : public shaman_spell_t
       p() -> proc.uf_flame_shock -> occur();
 
     shaman_spell_t::execute();
+
+    if ( heal )
+    {
+      heal -> base_dd_min = heal -> base_dd_max = execute_state -> result_amount * p() -> glyph.flame_shock -> effectN( 1 ).percent();
+      heal -> execute();
+    }
   }
 
   virtual void tick( dot_t* d )
   {
     shaman_spell_t::tick( d );
+
+    if ( heal )
+    {
+      heal -> base_dd_min = heal -> base_dd_max = d -> state -> result_amount * p() -> glyph.flame_shock -> effectN( 1 ).percent();
+      heal -> execute();
+    }
 
     if ( rng().roll( p() -> spec.lava_surge -> proc_chance() ) )
     {

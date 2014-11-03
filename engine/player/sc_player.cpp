@@ -2196,8 +2196,6 @@ void player_t::create_buffs()
 
       buffs.nitro_boosts       = buff_creator_t( this, "nitro_boosts", find_spell( 54861 ) );
 
-      debuffs.dazed            = buff_creator_t( this, "dazed", find_spell( 15571 ) );
-
       buffs.cooldown_reduction = buff_creator_t( this, "readiness" ).chance( 0 )
         .default_value( 1 );
       buffs.amplification = buff_creator_t( this, "amplification", find_spell( 146051 ) )
@@ -2211,6 +2209,7 @@ void player_t::create_buffs()
                               .add_invalidate( CACHE_SPIRIT )
                               .chance( 0 );
     }
+    debuffs.dazed = buff_creator_t( this, "dazed", find_spell( 15571 ) );
 
   }
 
@@ -3539,8 +3538,24 @@ void player_t::merge( player_t& other )
   }
 
   // Action Map
-  for ( size_t i = 0; i < other.action_list.size(); ++i )
-    action_list[ i ] -> total_executions += other.action_list[ i ] -> total_executions;
+  size_t n_entries = std::min( action_list.size(), other.action_list.size() );
+  if ( action_list.size() != other.action_list.size() )
+  {
+    sim -> errorf( "%s player_t::merge action lists for actor differ!", name() );
+  }
+
+  for ( size_t i = 0; i < n_entries; ++i )
+  {
+    if ( action_list[ i ] -> internal_id == other.action_list[ i ] -> internal_id )
+    {
+      action_list[ i ] -> total_executions += other.action_list[ i ] -> total_executions;
+    }
+    else
+    {
+      sim -> errorf( "%s player_t::merge can't merge action %s with %s",
+          name(), action_list[ i ] -> name(), other.action_list[ i ] -> name() );
+    }
+  }
 }
 
 // player_t::reset ==========================================================
@@ -3935,8 +3950,10 @@ void player_t::stun()
 
 void player_t::moving()
 {
-  // FIXME! In the future, some movement events may not cause auto-attack to stop.
-  halt();
+  if ( buffs.aspect_of_the_fox -> up() )
+    return;
+  else
+    halt();
 }
 
 // player_t::clear_debuffs===================================================
