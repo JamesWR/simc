@@ -1332,6 +1332,15 @@ inline std::string from_string( const std::string& v )
   return v;
 }
 
+// These functions will concatenate to buffer.
+std::string& format( std::string& buffer, const char *fmt, va_list args );
+std::string& format( std::string& buffer, const char *fmt, ... );
+
+// Please use the above two if at all convenient.
+std::string format( const char *fmt, va_list args );
+std::string format( const char *fmt, ... );
+
+
 } // namespace util
 
 // Options ==================================================================
@@ -2749,7 +2758,7 @@ struct sim_t : private sc_thread_t
   {
     mutex_t m;
     int total_work, projected_work, work;
-    work_queue_t() : total_work( 0 ), work( 0 ) {}
+    work_queue_t() : total_work( 0 ), projected_work( 0 ), work( 0 ) {}
     void init( int w )    { AUTO_LOCK(m); total_work = projected_work = w; }
     void flush()          { AUTO_LOCK(m); total_work = projected_work = work; }
     void project( int w ) { AUTO_LOCK(m); projected_work = w; assert(w>=work); }
@@ -2822,7 +2831,6 @@ struct sim_t : private sc_thread_t
   void      add_option( const option_t& opt );
   void      create_options();
   bool      parse_option( const std::string& name, const std::string& value );
-  bool      parse_options( int argc, char** argv );
   void      setup( sim_control_t* );
   bool      time_to_think( timespan_t proc_time );
   timespan_t total_reaction_time ();
@@ -2843,25 +2851,7 @@ struct sim_t : private sc_thread_t
   mutex_t* pause_mutex;
   bool paused;
 private:
-
-  // Sit in an external pause mutex (lock) of the first simulator thread until
-  // it's our turn to lock/unlock it. In theory can have racing issues, but in
-  // practice all iterations do enough work for it not to matter.
-  //
-  // Lock/unlock is done per iteration, so processing cost should be minimal.
-  void do_pause()
-  {
-    if ( parent )
-      parent -> do_pause();
-    else
-    {
-      if ( pause_mutex && paused )
-      {
-        pause_mutex -> lock();
-        pause_mutex -> unlock();
-      }
-    }
-  }
+  void do_pause();
 
   void print_spell_query();
 };

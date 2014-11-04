@@ -444,11 +444,7 @@ void print_html_sim_summary( report::sc_html_stream& os, sim_t* sim, const sim_r
   os.printf(
     "<tr class=\"left\">\n"
     "<th>Total Events Processed:</th>\n"
-#if !defined( SC_WINDOWS )
-    "<td>%lu</td>\n"
-#else
-    "<td>%I64u</td>\n"
-#endif
+    "<td>%" PRIu64 "</td>\n"
     "</tr>\n",
     sim -> event_mgr.total_events_processed );
 

@@ -52,6 +52,10 @@
 #  endif
 #endif
 
+#if defined( SC_WINDOWS ) && !defined( SC_VS )
+#  define SC_MINGW
+#endif
+
 // Workaround for LLVM/Clang 3.2+ using glibc headers.
 #if defined( SC_CLANG ) && SC_CLANG >= 30200
 # define __extern_always_inline extern __always_inline __attribute__(( __gnu_inline__ ))
@@ -114,12 +118,27 @@ public:
 #endif
 
 #define SC_PACKED_STRUCT      __attribute__((packed))
-#define PRINTF_ATTRIBUTE(a,b) __attribute__((format(printf,a,b)))
+#if defined( SC_MINGW ) // TODO: check if other platforms should use gnu_printf format check as well.
+#  define PRINTF_ATTRIBUTE(a,b) __attribute__((format(gnu_printf,a,b)))
+#else
+#  define PRINTF_ATTRIBUTE(a,b) __attribute__((format(printf,a,b)))
+#endif
 
 #ifndef M_PI
 #define M_PI ( 3.14159265358979323846 )
 #endif
 
+#if ! defined( SC_VS )
+#define __STDC_FORMAT_MACROS
+#include <inttypes.h>
+#ifndef PRIu64
+#define PRIu64 "zu"
+#endif
+#else
+#ifndef PRIu64
+#define PRIu64 "I64"
+#endif
+#endif
 
 
 #endif // CONFIG_H
