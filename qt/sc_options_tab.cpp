@@ -179,6 +179,8 @@ SC_OptionsTab::SC_OptionsTab( SC_MainWindow* parent ) :
   connect( choice.player_skill,       SIGNAL( currentIndexChanged( int ) ), this, SLOT( _optionsChanged() ) );
   connect( choice.plots_points,       SIGNAL( currentIndexChanged( int ) ), this, SLOT( _optionsChanged() ) );
   connect( choice.plots_step,         SIGNAL( currentIndexChanged( int ) ), this, SLOT( _optionsChanged() ) );
+  connect( choice.plots_target_error, SIGNAL( currentIndexChanged( int ) ), this, SLOT( _optionsChanged() ) );
+  connect( choice.plots_iterations,   SIGNAL( currentIndexChanged( int ) ), this, SLOT( _optionsChanged() ) );
   connect( choice.print_style,        SIGNAL( currentIndexChanged( int ) ), this, SLOT( _optionsChanged() ) );
   connect( choice.pvp_crit,           SIGNAL( currentIndexChanged( int ) ), this, SLOT( _optionsChanged() ) );
   connect( choice.reforgeplot_amount, SIGNAL( currentIndexChanged( int ) ), this, SLOT( _optionsChanged() ) );
@@ -186,6 +188,7 @@ SC_OptionsTab::SC_OptionsTab( SC_MainWindow* parent ) :
   connect( choice.report_pets,        SIGNAL( currentIndexChanged( int ) ), this, SLOT( _optionsChanged() ) );
   connect( choice.scale_over,         SIGNAL( currentIndexChanged( int ) ), this, SLOT( _optionsChanged() ) );
   connect( choice.statistics_level,   SIGNAL( currentIndexChanged( int ) ), this, SLOT( _optionsChanged() ) );
+  connect( choice.target_error,       SIGNAL( currentIndexChanged( int ) ), this, SLOT( _optionsChanged() ) );
   connect( choice.target_level,       SIGNAL( currentIndexChanged( int ) ), this, SLOT( _optionsChanged() ) );
   connect( choice.target_race,        SIGNAL( currentIndexChanged( int ) ), this, SLOT( _optionsChanged() ) );
   connect( choice.threads,            SIGNAL( currentIndexChanged( int ) ), this, SLOT( _optionsChanged() ) );
@@ -220,6 +223,7 @@ void SC_OptionsTab::createGlobalsTab()
   globalsLayout_left -> addRow(        tr( "Version" ),        choice.version = createChoice( 1, "Live" ) );
 #endif
 #endif
+  globalsLayout_left -> addRow( tr(  "Target Error" ),    choice.target_error = createChoice( 8, "N/A", "Auto", "1%", "0.5%", "0.1%", "0.05%", "0.03%", "0.01%" ) );
   globalsLayout_left -> addRow( tr(    "Iterations" ),      choice.iterations = addValidatorToComboBox( 1, INT_MAX, createChoice( 8, "1", "100", "1000", "10000", "25000", "50000", "100000", "250000" ) ) );
   globalsLayout_left -> addRow( tr(  "Length (sec)" ),    choice.fight_length = addValidatorToComboBox( 1, 1000, createChoice( 10, "100", "150", "200", "250", "300", "350", "400", "450", "500", "600" ) ) );
   globalsLayout_left -> addRow( tr(   "Vary Length" ),  choice.fight_variance = createChoice( 3, "0%", "10%", "20%" ) );
@@ -430,6 +434,12 @@ void SC_OptionsTab::createPlotsTab()
   choice.plots_step = addValidatorToComboBox( 1, INT_MAX, createChoice( 6, "25", "50", "100", "150", "200", "250" ) );
   plotsLayout -> addRow( tr( "Plot Step Amount" ), choice.plots_step );
 
+  choice.plots_target_error = createChoice( 5, "N/A", "Auto", "1%", "0.5%", "0.1%" );
+  plotsLayout -> addRow( tr( "Plot Target Error" ), choice.plots_target_error );
+
+  choice.plots_iterations = createChoice( 4, "100", "1000", "Iter/10", "Iter/100" );
+  plotsLayout -> addRow( tr( "Plot Iterations" ), choice.plots_iterations );
+
   plotsButtonGroup = new QButtonGroup();
   plotsButtonGroup -> setExclusive( false );
   for ( int i = 0; plotOptions[ i ].label; i++ )
@@ -591,7 +601,8 @@ void SC_OptionsTab::decodeOptions()
 {
   QSettings settings;
   settings.beginGroup( "options" );
-  load_setting( settings, "version", choice.iterations );
+  load_setting( settings, "version", choice.version );
+  load_setting( settings, "target_error", choice.target_error, "N/A" );
   load_setting( settings, "iterations", choice.iterations, "10000" );
   load_setting( settings, "fight_length", choice.fight_length, "450" );
   load_setting( settings, "fight_variance", choice.fight_variance, "20%" );
@@ -624,6 +635,8 @@ void SC_OptionsTab::decodeOptions()
 
   load_setting( settings, "plot_points", choice.plots_points, "40" );
   load_setting( settings, "plot_step", choice.plots_step, "50" );
+  load_setting( settings, "plot_target_error", choice.plots_target_error, "1" );
+  load_setting( settings, "plot_iterations", choice.plots_iterations, "100" );
 
   load_setting( settings, "reforgeplot_amount", choice.reforgeplot_amount, "500" );
   load_setting( settings, "reforgeplot_step", choice.reforgeplot_step, "50" );
@@ -682,13 +695,13 @@ void store_button_group( QSettings& s, const QString& name, QButtonGroup* bg )
 }
 
 // Encode all options/setting into a string ( to be able to save it to the history )
-// Decode / Encode order needs to be equal!
 
 void SC_OptionsTab::encodeOptions()
 {
   QSettings settings;
   settings.beginGroup( "options" );
   settings.setValue( "version", choice.version -> currentText() );
+  settings.setValue( "target_error", choice.target_error -> currentText() );
   settings.setValue( "iterations", choice.iterations -> currentText() );
   settings.setValue( "fight_length", choice.fight_length -> currentText() );
   settings.setValue( "fight_variance", choice.fight_variance -> currentText() );
@@ -717,6 +730,11 @@ void SC_OptionsTab::encodeOptions()
   settings.setValue( "center_scale_delta", choice.center_scale_delta -> currentText() );
   settings.setValue( "scale_over", choice.scale_over -> currentText() );
   settings.setValue( "challenge_mode", choice.challenge_mode -> currentText() );
+
+  settings.setValue( "plot_points", choice.plots_points -> currentText() );
+  settings.setValue( "plot_step", choice.plots_step -> currentText() );
+  settings.setValue( "plot_target_error", choice.plots_target_error -> currentText() );
+  settings.setValue( "plot_iterations", choice.plots_iterations -> currentText() );
 
   QString encoded;
 
@@ -747,7 +765,11 @@ void SC_OptionsTab::createToolTips()
                                 tr( "PTR:  Use mechanics on PTR servers. ( WoW Build %1 )" ).arg( dbc::build_level( true ) ) + "\n" +
                                 tr( "Both: Create Evil Twin with PTR mechanics" ) );
 #endif
-
+  choice.target_error -> setToolTip( tr( "This options sets a target error threshold and\n" ) +
+                                     tr( "runs iterations until that threshold is reached.\n" ) +
+                                     tr( "N/A:  Do not use this feature.\n" ) +
+                                     tr( "Auto: use sim defaults based on other options.\n" ) +
+                                     tr( "X%:   Run until DPS error is less than X%." ) );
   choice.iterations -> setToolTip( tr( "%1:    Fast and Rough" ).arg( 100 ) + "\n" +
                                    tr( "%1:   Sufficient for DPS Analysis" ).arg( 1000 ) + "\n" +
                                    tr( "%1: Recommended for Scale Factor Generation" ).arg( 10000 ) + "\n" +
@@ -850,6 +872,14 @@ void SC_OptionsTab::createToolTips()
   choice.plots_step -> setToolTip( tr( "The delta between two points of the graph.\n"
                                        "The deltas on the horizontal axis will be within the [-points * steps / 2 ; +points * steps / 2] interval" ) );
 
+  choice.plots_target_error -> setToolTip( tr( "Target error for plots.\n" ) +
+                                           tr( "N/A:  Do not use this feature." ) +
+                                           tr( "Auto: Use simulation defaults.\n" ) +
+                                           tr( "X%:   Each plot point will sim until less than X% DPS error is reached." ) );
+  choice.plots_iterations -> setToolTip( tr( "Number of iterations for each plot point.\n" ) +
+                                         tr( "Iter/10 and Iter/100 scale with the number of\n" ) +
+                                         tr( "iterations selected on the general options tab." ) );
+
   choice.reforgeplot_amount -> setToolTip( tr( "The maximum amount to reforge per stat." ) );
   choice.reforgeplot_step -> setToolTip( tr( "The stat difference between two points.\n"
                                              "It's NOT the number of steps: a lower value will generate more points!" ) );
@@ -865,11 +895,26 @@ QString SC_OptionsTab::get_globalSettings()
   options += "\n";
 #endif
   options += "item_db_source=" + get_db_order() + '\n';
-  options += "iterations=" + choice.iterations->currentText() + "\n";
-  if ( choice.iterations->currentText() == "10000" )
+
+  // iterations/error stuff
+  if ( choice.target_error -> currentIndex() < 2 )
   {
-    options += "dps_plot_iterations=1000\n";
+    options += "target_error=0\n";
+
+    if ( choice.target_error -> currentIndex() == 0 )
+      options += "iterations=" + choice.iterations->currentText() + "\n";
+    else
+      options += "iterations=0\n";
   }
+  else
+  {
+    std::vector<std::string> splits = util::string_split( choice.target_error -> currentText().toStdString(), "%" );
+    assert( splits.size() > 0 );
+    options += "target_error=" + QString( splits[ 0 ].c_str() ) + "\n";
+    options += "iterations=0\n";
+  }
+
+  
 
   const char *world_lag[] = { "0.025", "0.05", "0.1", "0.15", "0.20" };
   options += "default_world_lag=";
@@ -1038,6 +1083,34 @@ QString SC_OptionsTab::mergeOptions()
   options += "dps_plot_points=" + choice.plots_points -> currentText() + "\n";
   options += "dps_plot_step=" + choice.plots_step -> currentText() + "\n";
 
+  if ( choice.plots_target_error -> currentIndex() < 2 )
+  {
+    options += "dps_plot_target_error=0\n";
+    if ( choice.plots_target_error -> currentIndex() == 0 )
+    {
+      options += "dps_plot_iterations=";
+
+      std::vector<std::string> splits = util::string_split( choice.plots_iterations -> currentText().toStdString(), "/" );
+      if ( splits.size() > 1 )
+      {
+        int base_iter = util::str_to_num<int>( choice.iterations -> currentText().toStdString() );
+        int divisor = util::str_to_num<int>( splits[ 1 ].c_str() );
+        options += base_iter / divisor + "\n";
+      }
+      else
+        options += choice.plots_iterations -> currentText() + "\n";
+    }
+    else
+      options += "dps_plot_iterations=0\n";
+  }
+  else
+  {
+    std::vector<std::string> splits = util::string_split( choice.plots_target_error -> currentText().toStdString(), "%" );
+    assert( splits.size() > 0 );
+    options += "dps_plot_target_error=" + QString( splits[ 0 ].c_str() ) + "\n";
+    options += "dps_plot_iterations=0\n";
+  }
+
   options += "reforge_plot_stat=none";
   buttons = reforgeplotsButtonGroup->buttons();
   for ( int i = 0; reforgePlotOptions[ i ].label; i++ )
@@ -1166,6 +1239,23 @@ QString SC_OptionsTab::get_db_order() const
   return options;
 }
 
+void SC_OptionsTab::toggleInterdependentOptions()
+{
+  // disable iterations box based on target_error setting
+  if ( choice.target_error -> currentIndex() > 0 )
+    choice.iterations -> setDisabled( true );
+  else
+    choice.iterations -> setEnabled( true );
+
+  // same thing for plot tab
+  if ( choice.plots_target_error -> currentIndex() > 0 )
+    choice.plots_iterations -> setDisabled( true );
+  else
+    choice.plots_iterations -> setEnabled( true );
+
+  // others go here
+
+}
 // ============================================================================
 // Private Slots
 // ============================================================================
@@ -1205,6 +1295,7 @@ void SC_OptionsTab::_optionsChanged()
   // Maybe hook up history save, depending on IO cost.
 
   emit optionsChanged();
+  toggleInterdependentOptions();
 }
 /* Reset all settings, with q nice question box asking for confirmation
  */

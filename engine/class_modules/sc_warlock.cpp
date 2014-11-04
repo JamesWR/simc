@@ -2822,7 +2822,7 @@ struct immolate_t: public warlock_spell_t
 
   immolate_t( warlock_t* p ):
     warlock_spell_t( p, "Immolate" ),
-    fnb( new immolate_t( "immolate_fnb", p, p -> find_spell( 108686 ) ) )
+    fnb( new immolate_t( "immolate", p, p -> find_spell( 108686 ) ) )
   {
     havoc_consume = 1;
     base_costs[RESOURCE_MANA] *= 1.0 + p -> spec.chaotic_energy -> effectN( 2 ).percent();
@@ -2844,6 +2844,8 @@ struct immolate_t: public warlock_spell_t
     tick_may_crit = true;
     spell_power_mod.tick = data().effectN( 1 ).sp_coeff();
     aoe = -1;
+    stats = p -> get_stats( "immolate_fnb", this );
+    gain = p -> get_gain( "immolate_fnb" );
   }
 
   void schedule_travel( action_state_t* s )
@@ -2952,7 +2954,7 @@ struct conflagrate_t: public warlock_spell_t
 
   conflagrate_t( warlock_t* p ):
     warlock_spell_t( p, "Conflagrate" ),
-    fnb( new conflagrate_t( "conflagrate_fnb", p, p -> find_spell( 108685 ) ) )
+    fnb( new conflagrate_t( "conflagrate", p, p -> find_spell( 108685 ) ) )
   {
     if ( p -> talents.charred_remains -> ok() ){
       base_multiplier *= 1.0 + p -> talents.charred_remains -> effectN( 1 ).percent();
@@ -2966,6 +2968,8 @@ struct conflagrate_t: public warlock_spell_t
     fnb( 0 )
   {
     aoe = -1;
+    stats = p -> get_stats( "conflagrate_fnb", this );
+    gain = p -> get_gain( "conflagrate_fnb" );
   }
 
   void schedule_execute( action_state_t* state )
@@ -3060,7 +3064,7 @@ struct incinerate_t: public warlock_spell_t
   // Normal incinerate
   incinerate_t( warlock_t* p ):
     warlock_spell_t( p, "Incinerate" ),
-    fnb( new incinerate_t( "incinerate_fnb", p, p -> find_spell( 114654 ) ) )
+    fnb( new incinerate_t( "incinerate", p, p -> find_spell( 114654 ) ) )
   {
     if ( p -> talents.charred_remains -> ok() )
       base_multiplier *= 1.0 + p -> talents.charred_remains -> effectN( 1 ).percent();
@@ -3074,6 +3078,8 @@ struct incinerate_t: public warlock_spell_t
     fnb( 0 )
   {
     aoe = -1;
+    stats = p -> get_stats( "incinerate_fnb", this );
+    gain = p -> get_gain( "incinerate_fnb" );
   }
 
   void init()
@@ -3280,7 +3286,7 @@ struct chaos_bolt_t: public warlock_spell_t
   chaos_bolt_t* fnb;
   chaos_bolt_t( warlock_t* p ):
     warlock_spell_t( p, "Chaos Bolt" ),
-    fnb( new chaos_bolt_t( "chaos_bolt_fnb", p, p -> find_spell( 116858 ) ) )
+    fnb( new chaos_bolt_t( "chaos_bolt", p, p -> find_spell( 116858 ) ) )
   {
     if ( !p -> talents.charred_remains -> ok() )
       fnb = 0;
@@ -3297,6 +3303,9 @@ struct chaos_bolt_t: public warlock_spell_t
     aoe = -1;
     backdraft_consume = 3;
     base_execute_time += p -> perk.enhanced_chaos_bolt -> effectN( 1 ).time_value();
+
+    stats = p -> get_stats( "chaos_bolt_fnb", this );
+    gain = p -> get_gain( "chaos_bolt_fnb" );
   }
 
   void schedule_execute( action_state_t* state )
@@ -5609,39 +5618,62 @@ void warlock_t::apl_destruction()
   action_priority_list_t* single_target       = get_action_priority_list( "single_target" );    
   action_priority_list_t* aoe                 = get_action_priority_list( "aoe" );
     
-  action_list_str +="/call_action_list,name=single_target,if=active_enemies<4";
-  action_list_str +="/call_action_list,name=aoe,if=active_enemies>=4";
+  action_list_str +="/run_action_list,name=single_target,if=active_enemies<4";
+  action_list_str +="/run_action_list,name=aoe,if=active_enemies>=4";
    
-  single_target -> action_list_str+= "/Shadowburn,if=talent.charred_remains.enabled&(burning_ember>=2.5|target.time_to_die<20|trinket.proc.intellect.react|(trinket.stacking_proc.intellect.remains<cast_time*4&trinket.stacking_proc.intellect.remains>cast_time))";
-  single_target -> action_list_str += "/cataclysm";
-  add_action( "Immolate", "cycle_targets=1,if=remains<=cast_time", "single_target" );
-  add_action( "Conflagrate", "if=charges=2", "single_target");
-  add_action( "Chaos Bolt", "if=set_bonus.tier17_4pc=1&buff.chaotic_infusion.react", "single_target" );
-  add_action( "Chaos Bolt", "if=set_bonus.tier17_2pc=1&buff.backdraft.stack<3&(burning_ember>=2.5|(trinket.proc.intellect.react&trinket.proc.intellect.remains>cast_time)|buff.dark_soul.up)", "single_target" );
-  add_action( "Chaos Bolt", "if=talent.charred_remains.enabled&buff.backdraft.stack<3&(burning_ember>=2.5|(trinket.proc.intellect.react&trinket.proc.intellect.remains>cast_time)|buff.dark_soul.up)", "single_target" );
-  add_action( "Chaos Bolt", "if=buff.backdraft.stack<3&(burning_ember>=3.5|(trinket.proc.intellect.react&trinket.proc.intellect.remains>cast_time)|buff.dark_soul.up|(burning_ember>=3&buff.ember_master.react))", "single_target" );
-  add_action( "Immolate", "cycle_targets=1,if=remains<=(duration*0.3)", "single_target" );
-  if ( level == 100 )
-    add_action( "Rain of Fire", "if=(!ticking|(talent.mannoroths_fury.enabled&buff.mannoroths_fury.up&buff.mannoroths_fury.remains<1))&(!buff.backdraft.down|(talent.mannoroths_fury.enabled&buff.mannoroths_fury.up))", "single_target" );
-  else
-    add_action( "Rain of Fire", "if=(!ticking|(talent.mannoroths_fury.enabled&buff.mannoroths_fury.up&buff.mannoroths_fury.remains<1))", "single_target" );
-  add_action( "Conflagrate", "","single_target" );
-  add_action( "Incinerate", "","single_target" );
+  single_target -> action_list_str += "/havoc,target=2";
+  single_target -> action_list_str += "/Shadowburn,if=talent.charred_remains.enabled&(burning_ember>=2.5|buff.dark_soul.up|target.time_to_die<10)";
+  single_target -> action_list_str += "/immolate,cycle_targets=1,if=remains<=cast_time&(cooldown.cataclysm.remains>cast_time|!talent.cataclysm.enabled)";
 
+  if (level == 100)
+  {
+    single_target -> action_list_str += "/rain_of_fire,if=!ticking";
+  }
+  single_target -> action_list_str += "/shadowburn,if=buff.havoc.remains";
+  single_target -> action_list_str += "/chaos_bolt,if=buff.havoc.remains>cast_time&buff.havoc.stack>=3";
+  single_target -> action_list_str += "/conflagrate,if=charges=2";
+  single_target -> action_list_str += "/cataclysm";
+  single_target -> action_list_str += "/chaos_bolt,if=talent.charred_remains.enabled&active_enemies>1&target.health.pct>20";
+  single_target -> action_list_str += "/chaos_bolt,if=talent.charred_remains.enabled&buff.backdraft.stack<3&burning_ember>=2.5";
+  single_target -> action_list_str += "/chaos_bolt,if=buff.backdraft.stack<3&(burning_ember>=3.5|buff.dark_soul.up|(burning_ember>=3&buff.ember_master.react)|target.time_to_die<20)";
+  single_target -> action_list_str += "/chaos_bolt,if=buff.backdraft.stack<3&set_bonus.tier17_2pc=1&burning_ember>=2.5";
+  single_target -> action_list_str += "/chaos_bolt,if=buff.backdraft.stack<3&buff.archmages_greater_incandescence_int.react&buff.archmages_greater_incandescence_int.remains>cast_time";
+  single_target -> action_list_str += "/chaos_bolt,if=buff.backdraft.stack<3&trinket.proc.intellect.react&trinket.proc.intellect.remains>cast_time";
+  single_target -> action_list_str += "/chaos_bolt,if=buff.backdraft.stack<3&trinket.stacking_proc.intellect.react>7&trinket.stacking_proc.intellect.remains>=cast_time";
+  single_target -> action_list_str += "/chaos_bolt,if=buff.backdraft.stack<3&trinket.proc.crit.react&trinket.proc.crit.remains>cast_time";
+  single_target -> action_list_str += "/chaos_bolt,if=buff.backdraft.stack<3&trinket.stacking_proc.multistrike.react>=8&trinket.stacking_proc.multistrike.remains>=cast_time";
+  single_target -> action_list_str += "/chaos_bolt,if=buff.backdraft.stack<3&trinket.proc.multistrike.react&trinket.proc.multistrike.remains>cast_time";
+  single_target -> action_list_str += "/chaos_bolt,if=buff.backdraft.stack<3&trinket.proc.versatility.react&trinket.proc.versatility.remains>cast_time";
+  single_target -> action_list_str += "/chaos_bolt,if=buff.backdraft.stack<3&trinket.proc.mastery.react&trinket.proc.mastery.remains>cast_time";
+  if ( level != 99 )
+  {
+    single_target -> action_list_str += "/rain_of_fire,if=!ticking";
+  }
+  single_target -> action_list_str += "/immolate,cycle_targets=1,if=remains<=(duration*0.3)";
+  single_target -> action_list_str += "/conflagrate";
+  if ( level == 100 )
+  {
+    single_target -> action_list_str += "/incinerate,if=talent.charred_remains.enabled";
+    single_target -> action_list_str += "/incinerate,if=buff.backdraft.up|mana>=48800";
+  }
+  else if ( level != 100 )
+  {
+    single_target -> action_list_str += "/incinerate";
+  }
     
-   aoe -> action_list_str += "/cataclysm";
-    add_action( "Fire and Brimstone", "if=buff.fire_and_brimstone.down&burning_ember>=2", "aoe" );
-    add_action( "Immolate", "if=remains<=cast_time", "aoe"  );
-    add_action( "Conflagrate", "if=charges=2", "aoe"  );
-    add_action( "Chaos Bolt", "if=talent.charred_remains.enabled&buff.backdraft.stack<3&(burning_ember>=2.5|(trinket.proc.intellect.react&trinket.proc.intellect.remains>cast_time)|buff.dark_soul.up)" , "aoe" );
-    add_action( "Chaos Bolt", "if=buff.backdraft.stack<3&(burning_ember>=3.5|(trinket.proc.intellect.react&trinket.proc.intellect.remains>cast_time)|buff.dark_soul.up|(burning_ember>=3&buff.ember_master.react))" , "aoe" );
-    add_action( "Immolate", "if=remains<=(duration*0.3)", "aoe"  );
-    if ( level == 100 )
-        add_action( "Rain of Fire", "if=(!ticking|(talent.mannoroths_fury.enabled&buff.mannoroths_fury.up&buff.mannoroths_fury.remains<1))&(!buff.backdraft.down|(talent.mannoroths_fury.enabled&buff.mannoroths_fury.up))" , "aoe" );
-    else
-        add_action( "Rain of Fire", "if=(!ticking|(talent.mannoroths_fury.enabled&buff.mannoroths_fury.up&buff.mannoroths_fury.remains<1))", "aoe"  );
-    add_action( "Conflagrate", "","aoe"  );
-    add_action( "Incinerate","", "aoe"  );
+  aoe -> action_list_str += "/rain_of_fire,if=remains<=tick_time";
+  aoe -> action_list_str += "/havoc,target=2";
+  aoe -> action_list_str += "/shadowburn,if=buff.havoc.remains";
+  aoe -> action_list_str += "/chaos_bolt,if=buff.havoc.remains>cast_time&buff.havoc.stack>=3";
+  aoe -> action_list_str += "/cataclysm";
+  aoe -> action_list_str += "/fire_and_brimstone,if=buff.fire_and_brimstone.down";
+  aoe -> action_list_str += "/immolate,if=buff.fire_and_brimstone.up&!dot.immolate.ticking";
+  aoe -> action_list_str += "/conflagrate,if=buff.fire_and_brimstone.up&charges=2";
+  aoe -> action_list_str += "/immolate,if=buff.fire_and_brimstone.up&dot.immolate.remains<=(dot.immolate.duration*0.3)";
+  aoe -> action_list_str += "/chaos_bolt,if=!talent.charred_remains.enabled&active_enemies=4";
+  aoe -> action_list_str += "/chaos_bolt,if=talent.charred_remains.enabled&buff.fire_and_brimstone.up&burning_ember>=2.5";
+  aoe -> action_list_str += "/incinerate";
+
 }
 
 void warlock_t::init_action_list()
