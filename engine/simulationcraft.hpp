@@ -5455,6 +5455,8 @@ public:
   timespan_t total_time;
   std::string aps_distribution_chart;
 
+  std::string timeline_aps_chart;
+
   // Scale factor container
   gear_stats_t scaling;
   gear_stats_t scaling_error;
