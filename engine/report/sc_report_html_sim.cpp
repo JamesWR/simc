@@ -444,7 +444,7 @@ void print_html_sim_summary( report::sc_html_stream& os, sim_t* sim, const sim_r
   os.printf(
     "<tr class=\"left\">\n"
     "<th>Total Events Processed:</th>\n"
-    "<td>%" PRIu64 "</td>\n"
+    "<td>%lu</td>\n"
     "</tr>\n",
     sim -> event_mgr.total_events_processed );
 
@@ -668,9 +668,94 @@ void print_html_raid_summary( report::sc_html_stream& os, sim_t* sim, const sim_
   os << "</div>\n";
 
   // closure
+<<<<<<< HEAD
   os << "\t\t\t\t<div class=\"clear\"></div>\n"
      << "\t\t\t</div>\n"
      << "\t\t</div>\n\n";
+=======
+  os << "<div class=\"clear\"></div>\n"
+     << "</div>\n"
+     << "</div>\n\n";
+
+}
+
+// print_html_raid_imagemaps ================================================
+
+void print_html_raid_imagemap( report::sc_html_stream& os, sim_t* sim, size_t num, bool dps )
+{
+  std::vector<player_t*> player_list = ( dps ) ? sim -> players_by_dps : sim -> players_by_hps;
+  size_t start = num * MAX_PLAYERS_PER_CHART;
+  size_t end = start + MAX_PLAYERS_PER_CHART;
+
+  for ( size_t i = 0; i < player_list.size(); i++ )
+  {
+    player_t* p = player_list[ i ];
+    if ( ( dps ? p -> collected_data.dps.mean() : p -> collected_data.hps.mean() ) <= 0 )
+    {
+      player_list.resize( i );
+      break;
+    }
+  }
+
+  if ( end > player_list.size() ) end = player_list.size();
+
+  os << "n = [";
+  for ( int i = ( int )end - 1; i >= ( int )start; i-- )
+  {
+    os << "\"player" << player_list[i] -> index << "\"";
+    if ( i != ( int )start ) os << ", ";
+  }
+  os << "];\n";
+
+  std::string imgid = str::format( "%sIMG%u", ( dps ) ? "DPS" : "HPS", as<unsigned>( num ) );
+  std::string mapid = str::format( "%sMAP%u", ( dps ) ? "DPS" : "HPS", as<unsigned>( num ) );
+
+  os.printf(
+    "u = document.getElementById('%s').src;\n"
+    "getMap(u, n, function(mapStr) {\n"
+    "document.getElementById('%s').innerHTML += mapStr;\n"
+    "$j('#%s').attr('usemap','#%s');\n"
+    "$j('#%s area').click(function(e) {\n"
+    "anchor = $j(this).attr('href');\n"
+    "target = $j(anchor).children('h2:first');\n"
+    "open_anchor(target);\n"
+    "});\n"
+    "});\n\n",
+    imgid.c_str(), mapid.c_str(), imgid.c_str(), mapid.c_str(), mapid.c_str() );
+}
+
+void print_html_raid_imagemaps( report::sc_html_stream& os, sim_t* sim, sim_report_information_t& ri )
+{
+
+  os << "<script type=\"text/javascript\">\n"
+     << "var $j = jQuery.noConflict();\n"
+     << "function getMap(url, names, mapWrite) {\n"
+     << "$j.getJSON(url + '&chof=json&callback=?', function(jsonObj) {\n"
+     << "var area = false;\n"
+     << "var chart = jsonObj.chartshape;\n"
+     << "var mapStr = '';\n"
+     << "for (var i = 0; i < chart.length; i++) {\n"
+     << "area = chart[i];\n"
+     << "area.coords[2] = 523;\n"
+     << "mapStr += \"\\n  <area name='\" + area.name + \"' shape='\" + area.type + \"' coords='\" + area.coords.join(\",\") + \"' href='#\" + names[i] + \"'  title='\" + names[i] + \"'>\";\n"
+     << "}\n"
+     << "mapWrite(mapStr);\n"
+     << "});\n"
+     << "}\n\n";
+
+  for ( size_t i = 0; i < ri.dps_charts.size(); i++ )
+  {
+    print_html_raid_imagemap( os, sim, i, true );
+  }
+
+  for ( size_t i = 0; i < ri.hps_charts.size(); i++ )
+  {
+    print_html_raid_imagemap( os, sim, i, false );
+  }
+
+  os << "</script>\n";
+
+>>>>>>> remotes/origin/master
 }
 
 // print_html_scale_factors =================================================

@@ -15,8 +15,6 @@
 
 // Platform, compiler and general configuration
 #include "config.hpp"
-
-#include <stdint.h>
 #include <algorithm>
 #include <cassert>
 #include <cctype>
@@ -86,6 +84,9 @@ inline std::ostream& operator<<(std::ostream &os, const timespan_t& x )
 
 // Random Number Generators
 #include "util/rng.hpp"
+
+// String Utilities
+#include "util/str.hpp"
 
 // Forward Declarations =====================================================
 
@@ -1331,15 +1332,6 @@ inline std::string from_string( const std::string& v )
 {
   return v;
 }
-
-// These functions will concatenate to buffer.
-std::string& format( std::string& buffer, const char *fmt, va_list args );
-std::string& format( std::string& buffer, const char *fmt, ... );
-
-// Please use the above two if at all convenient.
-std::string format( const char *fmt, va_list args );
-std::string format( const char *fmt, ... );
-
 
 } // namespace util
 
@@ -2921,6 +2913,7 @@ struct module_t
 
 struct scaling_t
 {
+  mutex_t mutex;
   sim_t* sim;
   sim_t* baseline_sim;
   sim_t* ref_sim;

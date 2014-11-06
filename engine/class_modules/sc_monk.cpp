@@ -3855,7 +3855,8 @@ void monk_t::init_spells()
   active_actions.blackout_kick_dot    = new actions::dot_blackout_kick_t( this );
   //active_actions.blackout_kick_heal   = new actions::heal_blackout_kick_t( this );
   active_actions.chi_explosion_dot    = new actions::dot_chi_explosion_t( this );
-  active_actions.healing_elixir       = new actions::healing_elixirs_t( *this );
+  if ( talent.healing_elixirs -> ok() )
+    active_actions.healing_elixir       = new actions::healing_elixirs_t( *this );
   active_actions.healing_sphere       = new actions::healing_sphere_t( *this );
 
   if (specialization() == MONK_BREWMASTER)
@@ -4999,8 +5000,6 @@ double monk_t::current_stagger_dmg()
     if ( dot && dot -> state )
     {
       dmg = dot -> state -> result_amount;
-      if ( dot -> state -> result == RESULT_HIT )
-        dmg *= 1.0 + active_actions.stagger_self_damage -> total_crit_bonus();
     }
   }
   return dmg;
@@ -5024,7 +5023,7 @@ expr_t* monk_t::create_expression( action_t* a, const std::string& name_str )
 
       virtual double evaluate()
       {
-        return player.current_stagger_dmg() / player.resources.max[RESOURCE_HEALTH] > stagger_health_pct;
+        return ( player.current_stagger_dmg() / player.resources.max[RESOURCE_HEALTH] ) > stagger_health_pct;
       }
     };
     struct stagger_amount_expr_t: public expr_t

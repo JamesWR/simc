@@ -1079,14 +1079,10 @@ void sim_t::remove_relative( sim_t* cousin )
   else
   {
     AUTO_LOCK( relatives_mutex );
-    for( size_t i=0, size=relatives.size(); i < size; i++ )
-      if( relatives[ i ] == cousin )
-      {
-	relatives[ i ] = relatives[ size-1 ];
-	relatives.pop_back();
-	return;
-      }
-    assert(0);
+    std::vector<sim_t*>::iterator it = range::find( relatives, cousin );
+    assert( it != relatives.end() && "Could not find relative to remove" );
+    *it = relatives.back();
+    relatives.pop_back();
   }
 }
 
@@ -1455,7 +1451,7 @@ void sim_t::analyze_error()
   {
     player_t* p = actor_list[i];
     player_collected_data_t& cd = p -> collected_data;
-    cd.target_metric_mutex.lock();
+    AUTO_LOCK( cd.target_metric_mutex );
     if ( cd.target_metric.size() != 0 )
     {
       cd.target_metric.analyze_basics();
@@ -1467,7 +1463,6 @@ void sim_t::analyze_error()
         if ( error > current_error ) current_error = error;
       }
     }
-    cd.target_metric_mutex.unlock();
   }
 
   current_error *= 100;
@@ -2029,26 +2024,21 @@ bool progress_bar_t::update( bool finished )
   int remaining_min = remaining_sec / 60;
   remaining_sec -= remaining_min * 60;
 
-  char buffer[80];
-  snprintf( buffer, sizeof( buffer ), " %d/%d", finished ? last : current, last );
-  status += buffer;
+  str::format( status, " %d/%d", finished ? last : current, last );
 
   if( sim.target_error > 0 )
   {
-    snprintf( buffer, sizeof( buffer ), " Error=%.3f%%", sim.current_error );
-    status += buffer;
+    str::format( status, " Error=%.3f%%", sim.current_error );
   }
 
   if ( remaining_min > 0 )
   {
-    snprintf( buffer, sizeof( buffer ), " %dmin", remaining_min );
-    status += buffer;
+    str::format( status, " %dmin", remaining_min );
   }
 
   if ( remaining_sec > 0 )
   {
-    snprintf( buffer, sizeof( buffer ), " %dsec", remaining_sec );
-    status += buffer;
+    str::format( status, " %dsec", remaining_sec );
   }
 
   if ( prev_size > status.size()  ) status.insert( status.end(), ( prev_size - status.size() ), ' ' );
@@ -2848,35 +2838,26 @@ void sim_t::detailed_progress( std::string* detail, int current_iterations, int 
 {
   if ( detail )
   {
-    char buf[512];
-    util::snprintf( buf, 512, "%d/%d", current_iterations, total_iterations );
-    (*detail) = buf;
+    detail -> clear();
+    str::format( *detail, "%d/%d", current_iterations, total_iterations );
   }
 }
 
 // sim_t::errorf ============================================================
 
-void sim_t::errorf( const char* format, ... )
+void sim_t::errorf( const char* fmt, ... )
 {
   if ( thread_index != 0 )
     return;
 
-  char buffer[ 1024 ];
-
   va_list fmtargs;
-  va_start( fmtargs, format );
-  int rval = ::vsnprintf( buffer, sizeof( buffer ), format, fmtargs );
+  va_start( fmtargs, fmt );
+  std::string s = str::format( fmt, fmtargs );
   va_end( fmtargs );
 
-  assert( rval < 0 || ( static_cast<size_t>( rval ) < sizeof( buffer ) ) );
-  (void) rval;
-
-  std::string s( buffer );
-  (void) buffer;
-
   util::replace_all( s, "\n", "" );
-
   std::cerr << s << "\n";
+
   error_list.push_back( s );
 }
 
@@ -2965,34 +2946,26 @@ void sc_timeline_t::adjust( sim_t& sim )
 
 // FIXME!  Move this to util at some point.
 
-sc_raw_ostream_t& sc_raw_ostream_t::printf( const char* format, ... )
+sc_raw_ostream_t& sc_raw_ostream_t::printf( const char* fmt, ... )
 {
-  char buffer[ 4048 ];
-
   va_list fmtargs;
-  va_start( fmtargs, format );
-  int rval = ::vsnprintf( buffer, sizeof( buffer ), format, fmtargs );
+  va_start( fmtargs, fmt );
+  std::string buffer = str::format( fmt, fmtargs );
   va_end( fmtargs );
 
-  assert( rval < 0 || ( static_cast<size_t>( rval ) < sizeof( buffer ) ) );
-  (void) rval;
-
   (*_stream) << buffer;
+
   return *this;
 }
 
-sim_ostream_t& sim_ostream_t::printf( const char* format, ... )
+sim_ostream_t& sim_ostream_t::printf( const char* fmt, ... )
 {
-  char buffer[ 4048 ];
-
   va_list fmtargs;
-  va_start( fmtargs, format );
-  int rval = ::vsnprintf( buffer, sizeof( buffer ), format, fmtargs );
+  va_start( fmtargs, fmt );
+  std::string buffer = str::format( fmt, fmtargs );
   va_end( fmtargs );
 
-  assert( rval < 0 || ( static_cast<size_t>( rval ) < sizeof( buffer ) ) );
-  (void) rval;
-
   _raw << util::to_string( sim.current_time().total_seconds(), 3 ) << " " << buffer << "\n";
+
   return *this;
 }
