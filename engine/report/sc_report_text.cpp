@@ -570,27 +570,26 @@ void print_text_performance( FILE* file, sim_t* sim )
     date_str = date_str.substr( 0, date_str.size() - 1 );
   util::fprintf( file,
                  "\nBaseline Performance:\n"
-#if !defined( SC_WINDOWS )
-                 "  TotalEvents   = %llu\n"
-#else
-                 "  TotalEvents   = %I64u\n"
-#endif
-                 "  MaxEventQueue = %ld\n"
+                 "  RNG Engine    = %s\n"
+                 "  Iterations    = %d\n"
+                 "  TotalEvents   = %lu\n"
+                 "  MaxEventQueue = %lu\n"
                  "  TargetHealth  = %.0f\n"
                  "  SimSeconds    = %.0f\n"
                  "  CpuSeconds    = %.3f\n"
                  "  WallSeconds   = %.3f\n"
                  "  SpeedUp       = %.0f\n"
-                 "  EndTime       = %s (%ld)\n\n",
-                 sim -> total_events_processed,
-                 ( long ) sim -> max_events_remaining,
+                 "  EndTime       = %s (%.0f)\n\n",
+		 sim -> rng().name(), sim -> iterations,
+                 sim -> event_mgr.total_events_processed,
+                 sim -> event_mgr.max_events_remaining,
                  sim -> target -> resources.base[ RESOURCE_HEALTH ],
                  sim -> iterations * sim -> simulation_length.mean(),
                  sim -> elapsed_cpu,
                  sim -> elapsed_time,
                  sim -> iterations * sim -> simulation_length.mean() / sim -> elapsed_cpu,
                  date_str.c_str(),
-                 as<long int>(cur_time) );
+                 static_cast<double>( cur_time ) );
 }
 
 // print_text_scale_factors =================================================
@@ -828,11 +827,11 @@ struct sort_by_event_stopwatch {
 };
 void print_text_monitor_cpu( FILE* file, sim_t* sim )
 {
-  if ( ! sim -> monitor_cpu ) return;
+  if ( ! sim -> event_mgr.monitor_cpu ) return;
 
   util::fprintf( file, "\nEvent Monitor CPU Report:\n" );
 
-  util::fprintf( file, "%10.2fsec : Global Events\n", sim -> event_stopwatch.current() );
+  util::fprintf( file, "%10.2fsec : Global Events\n", sim -> event_mgr.event_stopwatch.current() );
 
   std::vector<player_t*> sorted_p = sim -> player_list.data();
 
@@ -860,7 +859,7 @@ void print_text_player( FILE* file, player_t* p )
                  dbc::specialization_string( p -> specialization() ).c_str(), p -> level );
 
   double dps_error = sim_t::distribution_mean_error( *p -> sim, p -> collected_data.dps );
-  util::fprintf( file, "  DPS: %.1f  DPS-Error=%.1f/%.1f%%  DPS-Range=%.0f/%.1f%%  DPS-Convergence=%.1f%%\n",
+  util::fprintf( file, "  DPS: %.1f  DPS-Error=%.1f/%.3f%%  DPS-Range=%.0f/%.1f%%  DPS-Convergence=%.1f%%\n",
                  p -> collected_data.dps.mean(),
                  dps_error, cd.dps.mean() ? dps_error * 100 / cd.dps.mean() : 0,
                  ( cd.dps.max() - cd.dps.min() ) / 2.0 , cd.dps.mean() ? ( ( cd.dps.max() - cd.dps.min() ) / 2 ) * 100 / cd.dps.mean() : 0,

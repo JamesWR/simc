@@ -183,8 +183,8 @@ public:
     {
       double result = F( input_value );
       if( EXPRESSION_DEBUG ) printf( "%*d %s unary expression reduced to %f\n", spacing, id_, name().c_str(), result );
-      delete this;
       delete input;
+      delete this;
       return new const_expr_t( "const_unary", result );
     }
     expr_t* expr = select_unary( name(), op_, input );
@@ -257,7 +257,11 @@ public:
 
   expr_t* optimize( int spacing ) // override
   {
-    if( EXPRESSION_DEBUG ) printf( "%*d and %ld %ld %ld %ld ( %s %s )\n", spacing, id_, left_true, left_false, right_true, right_false, left -> name().c_str(), right -> name().c_str() );
+    if ( EXPRESSION_DEBUG )
+    {
+      util::printf( "%*d and %lu %lu %lu %lu ( %s %s )\n", spacing, id_, left_true,
+        left_false, right_true, right_false, left->name().c_str(), right->name().c_str() );
+    }
     left  = left  -> optimize( spacing+2 );
     right = right -> optimize( spacing+2 );
     bool left_always_true  = left -> always_true();
@@ -267,13 +271,13 @@ public:
     if( EXPRESSION_DEBUG )
     {
       if( left -> op_ == TOK_UNKNOWN )
-	if( ( ! left_always_true  && left_false == 0 ) ||
-	    ( ! left_always_false && left_true  == 0 ) )
-	  printf( "consider marking expression %d %s as constant\n", left -> id_, left -> name().c_str() );
+  if( ( ! left_always_true  && left_false == 0 ) ||
+      ( ! left_always_false && left_true  == 0 ) )
+    printf( "consider marking expression %d %s as constant\n", left -> id_, left -> name().c_str() );
       if( right -> op_ == TOK_UNKNOWN )
-	if( ( ! right_always_true  && right_false == 0 ) ||
-	    ( ! right_always_false && right_true  == 0 ) )
-	  printf( "consider marking expression %d %s as constant\n", right -> id_, right -> name().c_str() );
+  if( ( ! right_always_true  && right_false == 0 ) ||
+      ( ! right_always_false && right_true  == 0 ) )
+    printf( "consider marking expression %d %s as constant\n", right -> id_, right -> name().c_str() );
     }
     if( left_always_false || right_always_false )
     {
@@ -339,7 +343,11 @@ public:
 
   expr_t* optimize( int spacing ) // override
   {
-    if( EXPRESSION_DEBUG ) printf( "%*d or %ld %ld %ld %ld ( %s %s )\n", spacing, id_, left_true, left_false, right_true, right_false, left -> name().c_str(), right -> name().c_str() );
+    if ( EXPRESSION_DEBUG )
+    {
+      util::printf( "%*d or %lu %lu %lu %lu ( %s %s )\n", spacing, id_, left_true, left_false,
+        right_true, right_false, left->name().c_str(), right->name().c_str() );
+    }
     left  = left  -> optimize( spacing+2 );
     right = right -> optimize( spacing+2 );
     bool left_always_true  = left -> always_true();
@@ -349,13 +357,13 @@ public:
     if( EXPRESSION_DEBUG )
     {
       if( left -> op_ == TOK_UNKNOWN )
-	if( ( ! left_always_true  && left_false == 0 ) ||
-	    ( ! left_always_false && left_true  == 0 ) )
-	  printf( "consider marking expression %d %s as constant\n", left -> id_, left -> name().c_str() );
+  if( ( ! left_always_true  && left_false == 0 ) ||
+      ( ! left_always_false && left_true  == 0 ) )
+    printf( "consider marking expression %d %s as constant\n", left -> id_, left -> name().c_str() );
       if( right -> op_ == TOK_UNKNOWN )
-	if( ( ! right_always_true  && right_false == 0 ) ||
-	    ( ! right_always_false && right_true  == 0 ) )
-	  printf( "consider marking expression %d %s as constant\n", right -> id_, right -> name().c_str() );
+  if( ( ! right_always_true  && right_false == 0 ) ||
+      ( ! right_always_false && right_true  == 0 ) )
+    printf( "consider marking expression %d %s as constant\n", right -> id_, right -> name().c_str() );
     }
     if( left_always_true || right_always_true )
     {
@@ -429,7 +437,7 @@ public:
     bool right_always_true  = right -> always_true();
     bool right_always_false = right -> always_false();
     if( ( left_always_true  && right_always_false ) ||
-	( left_always_false && right_always_true  ) )
+  ( left_always_false && right_always_true  ) )
     {
       if( EXPRESSION_DEBUG ) printf( "%*d %s xor expression reduced to true\n", spacing, id_, name().c_str() );
       delete this;
@@ -438,7 +446,7 @@ public:
       return new const_expr_t( "const_xor", 1.0 );
     }
     if( ( left_always_true  && right_always_true  ) ||
-	( left_always_false && right_always_false ) )
+  ( left_always_false && right_always_false ) )
     {
       if( EXPRESSION_DEBUG ) printf( "%*d %s xor expression reduced to false\n", spacing, id_, name().c_str() );
       delete this;
@@ -518,10 +526,10 @@ public:
       if( EXPRESSION_DEBUG ) printf( "%*d %s binary expression reduced left\n", spacing, id_, name().c_str() );
       struct left_reduced_t : public expr_t
       {
-	double left;
-	expr_t* right;
-	left_reduced_t( const std::string& n, token_e o, double l, expr_t* r ) : expr_t( n, o ), left(l), right(r) {}
-	double evaluate() { return F<double>()( left, right -> eval() ); }
+  double left;
+  expr_t* right;
+  left_reduced_t( const std::string& n, token_e o, double l, expr_t* r ) : expr_t( n, o ), left(l), right(r) {}
+  double evaluate() { return F<double>()( left, right -> eval() ); }
       };
       expr_t* reduced = new left_reduced_t( name(), op_, left_value, right );
       delete this;
@@ -533,14 +541,14 @@ public:
       if( EXPRESSION_DEBUG ) printf( "%*d %s binary expression reduced right\n", spacing, id_, name().c_str() );
       struct right_reduced_t : public expr_t
       {
-	expr_t* left;
-	double right;
-	right_reduced_t( const std::string& n, token_e o, expr_t* l, double r ) : expr_t( n, o ), left(l), right(r) {}
-	double evaluate() { return F<double>()( left -> eval(), right ); }
+  expr_t* left;
+  double right;
+  right_reduced_t( const std::string& n, token_e o, expr_t* l, double r ) : expr_t( n, o ), left(l), right(r) {}
+  double evaluate() { return F<double>()( left -> eval(), right ); }
       };
       expr_t* reduced = new right_reduced_t( name(), op_, left, right_value );
-      delete this;
       delete right;
+      delete this;
       return reduced;
     }
     expr_t* expr = select_binary( name(), op_, left, right );
@@ -798,14 +806,10 @@ void expression_t::print_tokens( std::vector<expr_token_t>& tokens, sim_t* sim )
   if ( tokens.size() > 0 )
     str += "tokens: ";
 
-  char token_str_buf[512];
   for ( size_t i = 0; i < tokens.size(); i++ )
   {
     expr_token_t& t = tokens[ i ];
-
-    snprintf( token_str_buf, sizeof( token_str_buf ), "%2d '%s'", t.type, t.label.c_str() );
-    str += token_str_buf;
-
+    str::format( str, "%2d '%s'", t.type, t.label.c_str() );
     if ( i < tokens.size() - 1 )
       str += " | ";
   }
@@ -907,7 +911,7 @@ bool expression_t::convert_to_rpn( std::vector<expr_token_t>& tokens )
 
 static expr_t* build_expression_tree( action_t* action,
                                       std::vector<expr_token_t>& tokens,
-				      bool optimize )
+              bool optimize )
 {
   auto_dispose< std::vector<expr_t*> > stack;
 
@@ -938,8 +942,8 @@ static expr_t* build_expression_tree( action_t* action,
       expr_t* input = stack.back(); stack.pop_back();
       assert( input );
       expr_t* expr = ( optimize ? 
-		       select_analyze_unary( t.label, t.type, input ) : 
-		       select_unary        ( t.label, t.type, input ) );
+           select_analyze_unary( t.label, t.type, input ) : 
+           select_unary        ( t.label, t.type, input ) );
       stack.push_back( expr );
     }
     else if ( expression_t::is_binary( t.type ) )
@@ -951,8 +955,8 @@ static expr_t* build_expression_tree( action_t* action,
       expr_t* left  = stack.back(); stack.pop_back();
       assert( left );
       expr_t* expr = ( optimize ? 
-		       select_analyze_binary( t.label, t.type, left, right ) : 
-		       select_binary        ( t.label, t.type, left, right ) );
+           select_analyze_binary( t.label, t.type, left, right ) : 
+           select_binary        ( t.label, t.type, left, right ) );
       stack.push_back( expr );
     }
   }
@@ -968,7 +972,7 @@ static expr_t* build_expression_tree( action_t* action,
 // action_expr_t::create_constant ===========================================
 
 expr_t* expr_t::create_constant( const std::string& name,
-				 double value )
+         double value )
 {
   return new const_expr_t( name, value );
 }
@@ -977,7 +981,7 @@ expr_t* expr_t::create_constant( const std::string& name,
 
 expr_t* expr_t::parse( action_t* action,
                        const std::string& expr_str,
-		       bool optimize )
+           bool optimize )
 {
   if ( expr_str.empty() ) return 0;
 

@@ -76,8 +76,8 @@ struct counter_t
 
     value += val;
     if ( last > timespan_t::min() )
-      interval += ( sim -> current_time - last ).total_seconds();
-    last = sim -> current_time;
+      interval += ( sim -> current_time() - last ).total_seconds();
+    last = sim -> current_time();
   }
 
   void reset()
@@ -1922,7 +1922,7 @@ void shaman_spell_base_t<Base>::schedule_execute( action_state_t* state )
   if ( ! ab::background )
   {
     p -> executing = this;
-    p -> gcd_ready = p -> sim -> current_time + ab::gcd();
+    p -> gcd_ready = p -> sim -> current_time() + ab::gcd();
     if ( p -> action_queued && p -> sim -> strict_gcd_queue )
       p -> gcd_ready -= p -> sim -> queue_gcd_reduction;
   }
@@ -2536,7 +2536,7 @@ struct bloodlust_t : public shaman_spell_t
     for ( size_t i = 0; i < sim -> player_non_sleeping_list.size(); ++i )
     {
       player_t* p = sim -> player_non_sleeping_list[ i ];
-      if ( p -> buffs.exhaustion -> check() || p -> is_pet() || p -> is_enemy() )
+      if ( p -> buffs.exhaustion -> check() || p -> is_pet() )
         continue;
       p -> buffs.bloodlust -> trigger();
       p -> buffs.exhaustion -> trigger();
@@ -2598,8 +2598,6 @@ struct chain_lightning_t : public shaman_spell_t
     base_multiplier      *= 1.0 + player -> glyph.chain_lightning -> effectN( 2 ).percent();
     aoe                   = player -> glyph.chain_lightning -> effectN( 1 ).base_value() + 3;
     base_add_multiplier   = data().effectN( 1 ).chain_multiplier();
-    if ( player -> wod_hotfix )
-      base_costs[RESOURCE_MANA] *= 0.57;
   }
 
   action_state_t* new_state()
@@ -2859,15 +2857,22 @@ struct fire_nova_t : public shaman_spell_t
   std::vector< player_t* >& target_list() const
   {
     target_cache.list.clear();
-
+    int fire_nova_targets = 0;
+    // WoD Hotfix - 10-30-14
+    // Fire Nova now has a maximum of 7 novas that can be triggered if more than 7 targets are affected by Flame Shock.
     for ( size_t i = 0; i < sim -> target_non_sleeping_list.size(); ++i )
     {
+      if ( fire_nova_targets == 7 && p() -> wod_hotfix )
+        break;
       player_t* e = sim -> target_non_sleeping_list[ i ];
       if ( ! e -> is_enemy() )
         continue;
 
       if ( td( e ) -> dot.flame_shock -> is_ticking() )
+      {
         target_cache.list.push_back( e );
+        fire_nova_targets++;
+      }
     }
 
     return target_cache.list;
@@ -2929,7 +2934,6 @@ struct lava_burst_t : public shaman_spell_t
 
     shaman_spell_t::execute();
 
-    // FIXME: DBC Value modified in dbc_t::apply_hotfixes()
     p() -> cooldown.ascendance -> ready -= p() -> sets.set( SET_CASTER, T15, B4 ) -> effectN( 1 ).time_value();
 
     // Lava Surge buff does not get eaten, if the Lava Surge proc happened
@@ -2967,7 +2971,14 @@ struct lightning_bolt_t : public shaman_spell_t
     shaman_spell_t( "lightning_bolt", player, player -> find_class_spell( "Lightning Bolt" ), options_str )
   {
     may_fulmination    = player -> spec.fulmination -> ok();
-    base_multiplier   *= 1.0 + player -> spec.shamanism -> effectN( 1 ).percent();
+    if ( player -> wod_hotfix && player -> spec.shamanism -> ok() )
+    {
+      base_multiplier *= 1.7;
+    }
+    else
+    {
+      base_multiplier *= 1.0 + player -> spec.shamanism -> effectN( 1 ).percent();
+    }
     base_multiplier   *= 1.0 + player -> perk.improved_lightning_bolt -> effectN( 1 ).percent();
     base_execute_time += player -> spec.shamanism -> effectN( 3 ).time_value();
   }
@@ -3024,6 +3035,10 @@ struct elemental_blast_t : public shaman_spell_t
   {
     may_fulmination    = player -> spec.fulmination -> ok();
     base_multiplier *= 1.0 + player -> spec.mental_quickness -> effectN( 5 ).percent();
+    if ( player -> wod_hotfix )
+    {
+      base_multiplier *= 1.2069;
+    }
   }
 
   virtual void execute()
@@ -3361,10 +3376,39 @@ struct earth_shock_t : public shaman_spell_t
 
 // Flame Shock Spell ========================================================
 
+struct flame_shock_heal_t : public heal_t
+{
+  flame_shock_heal_t( shaman_t* player ) :
+    heal_t( "flame_shock_heal", player, player -> glyph.flame_shock )
+  {
+    background = true;
+    may_crit = false;
+    may_multistrike = 0;
+
+    target = player;
+  }
+
+  void init()
+  {
+    heal_t::init();
+
+    snapshot_flags = update_flags = 0;
+  }
+
+  // No way for our generic system to know this is an "amount heal", so we
+  // override the proc type to explicitly tell it's a heal, and as a
+  // consequence, procs healing effects (trinkets).
+  proc_types proc_type() const
+  { return PROC1_HEAL; }
+};
+
 struct flame_shock_t : public shaman_spell_t
 {
+  flame_shock_heal_t* heal;
+
   flame_shock_t( shaman_t* player, const std::string& options_str ) :
-    shaman_spell_t( "flame_shock", player, player -> find_class_spell( "Flame Shock" ), options_str )
+    shaman_spell_t( "flame_shock", player, player -> find_class_spell( "Flame Shock" ), options_str ),
+    heal( p() -> glyph.flame_shock -> ok() ? new flame_shock_heal_t( player ) : 0 )
   {
     // TODO-WOD: Separate to tick and direct amount to be safe
     base_multiplier      *= 1.0 + player -> perk.improved_shocks -> effectN( 1 ).percent();
@@ -3382,11 +3426,23 @@ struct flame_shock_t : public shaman_spell_t
       p() -> proc.uf_flame_shock -> occur();
 
     shaman_spell_t::execute();
+
+    if ( heal )
+    {
+      heal -> base_dd_min = heal -> base_dd_max = execute_state -> result_amount * p() -> glyph.flame_shock -> effectN( 1 ).percent();
+      heal -> execute();
+    }
   }
 
   virtual void tick( dot_t* d )
   {
     shaman_spell_t::tick( d );
+
+    if ( heal )
+    {
+      heal -> base_dd_min = heal -> base_dd_max = d -> state -> result_amount * p() -> glyph.flame_shock -> effectN( 1 ).percent();
+      heal -> execute();
+    }
 
     if ( rng().roll( p() -> spec.lava_surge -> proc_chance() ) )
     {
@@ -4741,14 +4797,14 @@ void shaman_t::trigger_fulmination_stack( const action_state_t* state )
   if ( rng().roll( spec.fulmination -> proc_chance() ) )
   {
     if ( buff.lightning_shield -> check() == 1 )
-      ls_reset = sim -> current_time;
+      ls_reset = sim -> current_time();
 
     int stacks = ( sets.has_set_bonus( SET_CASTER, T14, B4 ) ) ? 2 : 1;
     int wasted_stacks = ( buff.lightning_shield -> check() + stacks ) - buff.lightning_shield -> max_stack();
 
     for ( int i = 0; i < wasted_stacks; i++ )
     {
-      if ( sim -> current_time - ls_reset >= cooldown.shock -> duration )
+      if ( sim -> current_time() - ls_reset >= cooldown.shock -> duration )
         proc.wasted_ls -> occur();
       else
         proc.wasted_ls_shock_cd -> occur();
@@ -4756,7 +4812,7 @@ void shaman_t::trigger_fulmination_stack( const action_state_t* state )
 
     if ( wasted_stacks > 0 )
     {
-      if ( sim -> current_time - ls_reset < cooldown.shock -> duration )
+      if ( sim -> current_time() - ls_reset < cooldown.shock -> duration )
         proc.ls_fast -> occur();
       ls_reset = timespan_t::zero();
     }
@@ -5255,7 +5311,7 @@ void shaman_t::init_action_list()
     def -> add_action( "berserking" );
     def -> add_talent( this, "Elemental Mastery" );
     def -> add_talent( this, "Storm Elemental Totem" );
-    def -> add_action( this, "Fire Elemental Totem" );
+    def -> add_action( this, "Fire Elemental Totem", "if=(talent.primal_elementalist.enabled&active_enemies<=10)|active_enemies<=6" );
     def -> add_action( this, "Ascendance" );
     def -> add_action( this, "Feral Spirit" );
     def -> add_talent( this, "Liquid Magma", "if=pet.searing_totem.remains>=15|pet.magma_totem.remains>=15|pet.fire_elemental_totem.remains>=15" );
@@ -5269,7 +5325,7 @@ void shaman_t::init_action_list()
 
     single -> add_action( this, "Searing Totem", "if=!totem.fire.active" );
     single -> add_action( this, "Unleash Elements", "if=(talent.unleashed_fury.enabled|set_bonus.tier16_2pc_melee=1)" );
-    single -> add_talent( this, "Elemental Blast", "if=buff.maelstrom_weapon.react>=1" );
+    single -> add_talent( this, "Elemental Blast", "if=buff.maelstrom_weapon.react>=4|buff.ancestral_swiftness.up" );
     single -> add_action( this, spec.maelstrom_weapon, "lightning_bolt", "if=buff.maelstrom_weapon.react=5|(buff.maelstrom_weapon.react>=4&!buff.ascendance.up)|(buff.ancestral_swiftness.up&buff.maelstrom_weapon.react>=3)" );
     single -> add_action( this, find_class_spell( "Ascendance" ), "windstrike" );
     single -> add_action( this, "Stormstrike" );
@@ -5278,6 +5334,7 @@ void shaman_t::init_action_list()
     single -> add_action( this, "Flame Shock", "if=(talent.elemental_fusion.enabled&buff.elemental_fusion.stack=2&buff.unleash_flame.up&dot.flame_shock.remains<16)|(!talent.elemental_fusion.enabled&buff.unleash_flame.up&dot.flame_shock.remains<=9)|!ticking" );
     single -> add_action( this, "Unleash Elements" );
     single -> add_action( this, "Frost Shock", "if=(talent.elemental_fusion.enabled&dot.flame_shock.remains>=16)|!talent.elemental_fusion.enabled" );
+    single -> add_talent( this, "Elemental Blast", "if=buff.maelstrom_weapon.react>=1" );
     single -> add_action( this, spec.maelstrom_weapon, "lightning_bolt", "if=buff.maelstrom_weapon.react>=1&!buff.ascendance.up" );
     single -> add_action( this, "Searing Totem", "if=pet.searing_totem.remains<=20&!pet.fire_elemental_totem.active&!buff.liquid_magma.up" );
 
@@ -5286,20 +5343,23 @@ void shaman_t::init_action_list()
     aoe -> add_action( this, "Fire Nova", "if=active_dot.flame_shock>=3" );
     aoe -> add_action( "wait,sec=cooldown.fire_nova.remains,if=active_dot.flame_shock>=4&cooldown.fire_nova.remains<=action.fire_nova.gcd" );
     aoe -> add_action( this, "Magma Totem", "if=!totem.fire.active" );
-    aoe -> add_action( this, "Lava Lash", "if=dot.flame_shock.ticking" );
-    aoe -> add_talent( this, "Elemental Blast", "if=buff.maelstrom_weapon.react>=1" );
+    aoe -> add_action( this, "Lava Lash", "if=dot.flame_shock.ticking&(active_dot.flame_shock<active_enemies|!talent.echo_of_the_elements.enabled|!buff.echo_of_the_elements.up)" );
+    aoe -> add_talent( this, "Elemental Blast", "if=!buff.unleash_flame.up&(buff.maelstrom_weapon.react>=4|buff.ancestral_swiftness.up)" );
     aoe -> add_action( this, spec.maelstrom_weapon, "chain_lightning", "if=glyph.chain_lightning.enabled&active_enemies>=4&(buff.maelstrom_weapon.react=5|(buff.ancestral_swiftness.up&buff.maelstrom_weapon.react>=3))" );
     aoe -> add_action( this, "Unleash Elements", "if=active_enemies<4" );
     aoe -> add_action( this, "Flame Shock", "cycle_targets=1,if=!ticking" );
     aoe -> add_action( this, spec.maelstrom_weapon, "lightning_bolt", "if=(!glyph.chain_lightning.enabled|active_enemies<=3)&(buff.maelstrom_weapon.react=5|(buff.ancestral_swiftness.up&buff.maelstrom_weapon.react>=3))" );
     aoe -> add_action( this, find_class_spell( "Ascendance" ), "windstrike" );
+    aoe -> add_talent( this, "Elemental Blast", "if=!buff.unleash_flame.up&buff.maelstrom_weapon.react>=1" );
+    aoe -> add_action( this, spec.maelstrom_weapon, "chain_lightning", "if=glyph.chain_lightning.enabled&active_enemies>=4&buff.maelstrom_weapon.react>=1" );
     aoe -> add_action( this, "Fire Nova", "if=active_dot.flame_shock>=2" );
-    aoe -> add_action( this, spec.maelstrom_weapon, "chain_lightning", "if=active_enemies>=2&buff.maelstrom_weapon.react>=1" );
+    aoe -> add_action( this, "Magma Totem", "if=pet.magma_totem.remains<=20&!pet.fire_elemental_totem.active&!buff.liquid_magma.up" );
     aoe -> add_action( this, "Stormstrike" );
     aoe -> add_action( this, "Primal Strike" );
     aoe -> add_action( this, "Frost Shock", "if=active_enemies<4" );
-    aoe -> add_action( this, spec.maelstrom_weapon, "chain_lightning", "if=glyph.chain_lightning.enabled&active_enemies>=4&buff.maelstrom_weapon.react>=1" );
-    aoe -> add_action( this, spec.maelstrom_weapon, "lightning_bolt", "if=(!glyph.chain_lightning.enabled|active_enemies<=3)&buff.maelstrom_weapon.react>=1" );
+    aoe -> add_talent( this, "Elemental Blast", "if=buff.maelstrom_weapon.react>=1" );
+    aoe -> add_action( this, spec.maelstrom_weapon, "chain_lightning", "if=active_enemies>=3&buff.maelstrom_weapon.react>=1" );
+    aoe -> add_action( this, spec.maelstrom_weapon, "lightning_bolt", "if=active_enemies<3&buff.maelstrom_weapon.react>=1" );
     aoe -> add_action( this, "Fire Nova", "if=active_dot.flame_shock>=1" );
   }
   else if ( specialization() == SHAMAN_ELEMENTAL && ( primary_role() == ROLE_SPELL || primary_role() == ROLE_DPS ) )
@@ -5355,12 +5415,12 @@ void shaman_t::init_action_list()
     single -> add_action( this, "Lava Burst", "if=dot.flame_shock.remains>cast_time&(buff.ascendance.up|cooldown_react)" );
     single -> add_action( this, "Flame Shock", "if=dot.flame_shock.remains<=9" );
     single -> add_action( this, spec.fulmination, "earth_shock", "if=(set_bonus.tier17_4pc&buff.lightning_shield.react>=15&!buff.lava_surge.up)|(!set_bonus.tier17_4pc&buff.lightning_shield.react>15)" );
-    single -> add_action( this, "Earthquake", "if=!talent.unleashed_fury.enabled&((1+stat.spell_haste)*(1+(mastery_value*2%4.5))>=(1.5+(1.25*0.226305)+1.25*(2*0.226305*stat.multistrike_pct%100)))&target.time_to_die>10&buff.elemental_mastery.down&buff.bloodlust.down" );
-    single -> add_action( this, "Earthquake", "if=!talent.unleashed_fury.enabled&((1+stat.spell_haste)*(1+(mastery_value*2%4.5))>=1.3*(1.5+(1.25*0.226305)+1.25*(2*0.226305*stat.multistrike_pct%100)))&target.time_to_die>10&(buff.elemental_mastery.up|buff.bloodlust.up)" );
-    single -> add_action( this, "Earthquake", "if=!talent.unleashed_fury.enabled&((1+stat.spell_haste)*(1+(mastery_value*2%4.5))>=(1.5+(1.25*0.226305)+1.25*(2*0.226305*stat.multistrike_pct%100)))&target.time_to_die>10&(buff.elemental_mastery.remains>=10|buff.bloodlust.remains>=10)" );
-    single -> add_action( this, "Earthquake", "if=talent.unleashed_fury.enabled&((1+stat.spell_haste)*(1+(mastery_value*2%4.5))>=((1.3*1.5)+(1.25*0.226305)+1.25*(2*0.226305*stat.multistrike_pct%100)))&target.time_to_die>10&buff.elemental_mastery.down&buff.bloodlust.down" );
-    single -> add_action( this, "Earthquake", "if=talent.unleashed_fury.enabled&((1+stat.spell_haste)*(1+(mastery_value*2%4.5))>=1.3*((1.3*1.5)+(1.25*0.226305)+1.25*(2*0.226305*stat.multistrike_pct%100)))&target.time_to_die>10&(buff.elemental_mastery.up|buff.bloodlust.up)" );
-    single -> add_action( this, "Earthquake", "if=talent.unleashed_fury.enabled&((1+stat.spell_haste)*(1+(mastery_value*2%4.5))>=((1.3*1.5)+(1.25*0.226305)+1.25*(2*0.226305*stat.multistrike_pct%100)))&target.time_to_die>10&(buff.elemental_mastery.remains>=10|buff.bloodlust.remains>=10)" );
+    single -> add_action( this, "Earthquake", "if=!talent.unleashed_fury.enabled&((1+stat.spell_haste)*(1+(mastery_value*2%4.5))>=(1.875+(1.25*0.226305)+1.25*(2*0.226305*stat.multistrike_pct%100)))&target.time_to_die>10&buff.elemental_mastery.down&buff.bloodlust.down" );
+    single -> add_action( this, "Earthquake", "if=!talent.unleashed_fury.enabled&((1+stat.spell_haste)*(1+(mastery_value*2%4.5))>=1.3*(1.875+(1.25*0.226305)+1.25*(2*0.226305*stat.multistrike_pct%100)))&target.time_to_die>10&(buff.elemental_mastery.up|buff.bloodlust.up)" );
+    single -> add_action( this, "Earthquake", "if=!talent.unleashed_fury.enabled&((1+stat.spell_haste)*(1+(mastery_value*2%4.5))>=(1.875+(1.25*0.226305)+1.25*(2*0.226305*stat.multistrike_pct%100)))&target.time_to_die>10&(buff.elemental_mastery.remains>=10|buff.bloodlust.remains>=10)" );
+    single -> add_action( this, "Earthquake", "if=talent.unleashed_fury.enabled&((1+stat.spell_haste)*(1+(mastery_value*2%4.5))>=((1.3*1.875)+(1.25*0.226305)+1.25*(2*0.226305*stat.multistrike_pct%100)))&target.time_to_die>10&buff.elemental_mastery.down&buff.bloodlust.down" );
+    single -> add_action( this, "Earthquake", "if=talent.unleashed_fury.enabled&((1+stat.spell_haste)*(1+(mastery_value*2%4.5))>=1.3*((1.3*1.875)+(1.25*0.226305)+1.25*(2*0.226305*stat.multistrike_pct%100)))&target.time_to_die>10&(buff.elemental_mastery.up|buff.bloodlust.up)" );
+    single -> add_action( this, "Earthquake", "if=talent.unleashed_fury.enabled&((1+stat.spell_haste)*(1+(mastery_value*2%4.5))>=((1.3*1.875)+(1.25*0.226305)+1.25*(2*0.226305*stat.multistrike_pct%100)))&target.time_to_die>10&(buff.elemental_mastery.remains>=10|buff.bloodlust.remains>=10)" );
     single -> add_talent( this, "Elemental Blast" );
     single -> add_action( this, "Flame Shock", "if=time>60&remains<=buff.ascendance.duration&cooldown.ascendance.remains+buff.ascendance.duration<duration",
                           "After the initial Ascendance, use Flame Shock pre-emptively just before Ascendance to guarantee Flame Shock staying up for the full duration of the Ascendance buff" );
@@ -5375,7 +5435,7 @@ void shaman_t::init_action_list()
     single -> add_action( this, "Lightning Bolt" );
 
     // AoE
-    aoe -> add_action( this, "Earthquake", "if=(buff.enhanced_chain_lightning.up|level<=90)&active_enemies>=2" );
+    aoe -> add_action( this, "Earthquake", "cycle_targets=1,if=!ticking&(buff.enhanced_chain_lightning.up|level<=90)&active_enemies>=2" );
     aoe -> add_action( this, find_class_spell( "Ascendance" ), "lava_beam" );
     aoe -> add_action( this, spec.fulmination, "earth_shock", "if=buff.lightning_shield.react=buff.lightning_shield.max_stack" );
     aoe -> add_action( this, "Thunderstorm", "if=active_enemies>=10" );

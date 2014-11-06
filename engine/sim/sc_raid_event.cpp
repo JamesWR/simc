@@ -13,22 +13,25 @@ namespace { // UNNAMED NAMESPACE
 
 struct adds_event_t : public raid_event_t
 {
-  unsigned count;
+  double count;
   double health;
   std::string master_str;
   std::string name_str;
   player_t* master;
   std::vector< pet_t* > adds;
+  double random;
+  size_t adds_to_remove;
 
   adds_event_t( sim_t* s, const std::string& options_str ) :
     raid_event_t( s, "adds" ),
     count( 1 ), health( 100000 ), master_str( "Fluffy_Pillow" ), name_str( "Add" ),
-    master( 0 )
+    master( 0 ), random( false ), adds_to_remove( 0 )
   {
     add_option( opt_string( "name", name_str ) );
     add_option( opt_string( "master", master_str ) );
-    add_option( opt_uint( "count", count ) );
+    add_option( opt_float( "count", count ) );
     add_option( opt_float( "health", health ) );
+    add_option( opt_float( "count_range", random ) );
     parse_options( options_str );
 
     master = sim -> find_player( master_str );
@@ -61,9 +64,9 @@ struct adds_event_t : public raid_event_t
       duration = min_cd - timespan_t::from_seconds( 0.001 );
     }
 
-    for ( int i = 0; i < std::ceil( overlap ); i++ )
+    for ( int i = 0; i < util::ceil( overlap ); i++ )
     {
-      for ( unsigned add = 0; add < count; add++ )
+      for ( unsigned add = 0; add < util::ceil( count + random ); add++ )
       {
         std::string add_name_str = name_str;
         add_name_str += util::to_string( add + 1 );
@@ -71,7 +74,6 @@ struct adds_event_t : public raid_event_t
         pet_t* p = master -> create_pet( add_name_str );
         assert( p );
         p -> resources.base[ RESOURCE_HEALTH ] = health;
-
         adds.push_back( p );
       }
     }
@@ -79,14 +81,19 @@ struct adds_event_t : public raid_event_t
 
   virtual void _start()
   {
-    for ( size_t i = 0; i < adds.size(); i++ )
-      adds[ i ] -> summon( saved_duration );
+    adds_to_remove = static_cast<size_t>( util::round( sim -> rng().range( count - random, count + random ) ) );
+    for ( size_t i = 0; i < adds_to_remove; i++ )
+    {
+      adds[i] -> summon( saved_duration );
+    }
   }
 
   virtual void _finish()
   {
-    for ( size_t i = 0; i < adds.size(); i++ )
-      adds[ i ] -> dismiss();
+    for ( size_t i = 0; i < adds_to_remove; i++ )
+    {
+      adds[i] -> dismiss();
+    }
   }
 };
 
@@ -178,11 +185,6 @@ struct invulnerable_event_t : public raid_event_t
   virtual void _finish()
   {
     sim -> target -> debuffs.invulnerable -> decrement();
-
-    if ( ! sim -> target -> debuffs.invulnerable -> check() )
-    {
-      // FIXME! restoring optimal_raid target debuffs?
-    }
   }
 };
 
@@ -659,8 +661,7 @@ timespan_t raid_event_t::cooldown_time()
   {
     time = sim -> rng().gauss( cooldown, cooldown_stddev );
 
-    if ( time < cooldown_min ) time = cooldown_min;
-    if ( time > cooldown_max ) time = cooldown_max;
+    time = clamp( time, cooldown_min, cooldown_max );
   }
 
   return time;
@@ -672,8 +673,7 @@ timespan_t raid_event_t::duration_time()
 {
   timespan_t time = sim -> rng().gauss( duration, duration_stddev );
 
-  if ( time < duration_min ) time = duration_min;
-  if ( time > duration_max ) time = duration_max;
+  time = clamp( time, cooldown_min, cooldown_max );
 
   return time;
 }
@@ -772,7 +772,7 @@ void raid_event_t::schedule()
       else raid_event -> finish();
 
       if ( raid_event -> last <= timespan_t::zero() ||
-           raid_event -> last > ( sim().current_time + ct ) )
+           raid_event -> last > ( sim().current_time() + ct ) )
       {
         new ( sim() ) cooldown_event_t( sim(), raid_event, ct );
       }
@@ -995,10 +995,10 @@ double raid_event_t::evaluate_raid_event_expression( sim_t* s, std::string& type
   timespan_t time_to_event = timespan_t::from_seconds( -1 );
 
   for ( size_t i = 0; i < matching_type.size(); i++ )
-    if ( time_to_event < timespan_t::zero() || matching_type[ i ] -> next_time() - s -> current_time < time_to_event )
+    if ( time_to_event < timespan_t::zero() || matching_type[ i ] -> next_time() - s -> current_time() < time_to_event )
     {
     e = matching_type[ i ];
-    time_to_event = e -> next_time() - s -> current_time;
+    time_to_event = e -> next_time() - s -> current_time();
     }
   if ( e == 0 )
     return 0.0;
@@ -1020,6 +1020,8 @@ double raid_event_t::evaluate_raid_event_expression( sim_t* s, std::string& type
     return dynamic_cast<damage_event_t*>( e ) -> amount;
   else if ( util::str_compare_ci( filter, "to_pct" ) )
     return dynamic_cast<heal_event_t*>( e ) -> to_pct;
+  else if ( util::str_compare_ci( filter, "count" ) )
+    return dynamic_cast<adds_event_t*>( e ) -> count;
 
   // if we have no idea what filter they've specified, return 0
   // todo: should this generate an error or something instead?

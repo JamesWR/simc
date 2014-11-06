@@ -31,6 +31,7 @@ public:
     // options
     QComboBox* version;
     QComboBox* world_lag;
+    QComboBox* target_error;
     QComboBox* iterations;
     QComboBox* fight_length;
     QComboBox* fight_variance;
@@ -61,6 +62,8 @@ public:
     QComboBox* scale_over;
     QComboBox* plots_points;
     QComboBox* plots_step;
+    QComboBox* plots_target_error;
+    QComboBox* plots_iterations;
     QComboBox* reforgeplot_amount;
     QComboBox* reforgeplot_step;
   } choice;
@@ -81,6 +84,7 @@ protected:
   void createReforgePlotsTab();
   void createItemDataSourceSelector( QFormLayout* );
   QComboBox* addValidatorToComboBox( int lowerBound, int upperBound, QComboBox* );
+  void toggleInterdependentOptions();
 
 private slots:
   void allBuffsChanged( bool checked );

@@ -54,12 +54,12 @@ bool pred_ci ( char a, char b )
 
 // vfprintf_helper ==========================================================
 
-int vfprintf_helper( FILE *stream, const char *format, va_list args )
+int vfprintf_helper( FILE *stream, const char *fmt, va_list args )
 {
   std::string p_locale = setlocale( LC_CTYPE, NULL );
   setlocale( LC_CTYPE, "" );
 
-  int retcode = ::vfprintf( stream, format, args );
+  int retcode = ::fprintf( stream, "%s", str::format( fmt, args ).c_str() );
 
   setlocale( LC_CTYPE, p_locale.c_str() );
 
@@ -2529,11 +2529,11 @@ int util::snprintf( char* buf, size_t size, const char* fmt, ... )
 {
   va_list ap;
   va_start( ap, fmt );
-  int rval = ::vsnprintf( buf, size, fmt, ap );
-  va_end( ap );
-  if ( rval >= 0 )
-    assert( static_cast<size_t>( rval ) < size );
-  return rval;
+  std::string buffer;
+  str::format( buffer, fmt, ap );
+  assert( size > buffer.size() );
+  strncpy( buf, buffer.c_str(), size-1 );
+  return static_cast<int>( buffer.size() );
 }
 
 // vfprintf =================================================================
@@ -3131,19 +3131,14 @@ double stat_itemization_weight( stat_e s )
   }
 }
 
-std::ostream& stream_printf( std::ostream& stream, const char* format, ... )
+// stream_printf ============================================================
+
+std::ostream& stream_printf( std::ostream& stream, const char* fmt, ... )
 {
-  char buffer[ 4048 ];
-
   va_list fmtargs;
-  va_start( fmtargs, format );
-  int rval = ::vsnprintf( buffer, sizeof( buffer ), format, fmtargs );
+  va_start( fmtargs, fmt );
+  stream << str::format( fmt, fmtargs );
   va_end( fmtargs );
-
-  assert( rval < 0 || ( static_cast<size_t>( rval ) < sizeof( buffer ) ) );
-  (void) rval;
-
-  stream << buffer;
   return stream;
 }
 
@@ -3157,14 +3152,11 @@ int vsnprintf_simc( char* buf, size_t size, const char* fmt, va_list ap )
 {
   if ( buf && size )
   {
-    int rval = _vsnprintf( buf, size, fmt, ap );
-    if ( rval < 0 || static_cast<size_t>( rval ) < size )
-      return rval;
-
-    buf[ size - 1 ] = '\0';
+    std::string buffer = str::format( fmt, ap );
+    strncpy( buf, buffer.c_str(), size-1 );
+    return static_cast<int>( buffer.size() );
   }
-
-  return _vscprintf( fmt, ap );
+  return vfprintf_helper( stdout, fmt, ap );
 }
 
 #endif

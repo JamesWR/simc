@@ -4,6 +4,7 @@
 // ==========================================================================
 
 #include "io.hpp"
+#include "str.hpp"
 #include "utf8.h"
 #include <cassert>
 #include <cstring>
@@ -38,6 +39,17 @@ std::string narrow( const wchar_t* first, const wchar_t* last )
   std::string result;
   utf8::utf16to8( first, last, std::back_inserter( result ) );
   return result;
+}
+
+bool contains_non_ascii( const std::string& s )
+{
+  for ( std::string::const_iterator it = s.begin(), itEnd = s.end(); it != itEnd; ++it )
+  {
+    if ( *it < 0 || ! isprint( *it ) )
+      return true;
+  }
+
+  return false;
 }
 
 } // anonymous namespace ====================================================
@@ -119,31 +131,14 @@ FILE* fopen( const std::string& filename, const char* mode )
 { return _wfopen( widen( filename ).c_str(), widen( mode ).c_str() ); }
 #endif
 
-ofstream& ofstream::printf( const char* format, ... )
+ofstream& ofstream::printf( const char* fmt, ... )
 {
-  char buffer[ 4048 /*16384*/ ];
-
   va_list fmtargs;
-  va_start( fmtargs, format );
-  int rval = ::vsnprintf( buffer, sizeof( buffer ), format, fmtargs );
+  va_start( fmtargs, fmt );
+  std::string buffer = str::format( fmt, fmtargs );
   va_end( fmtargs );
 
-  if ( rval < 0 )
-    return *this;
-
-  // Not enough room on standard buffer, use a dynamic buffer (from heap)
-  if ( static_cast<size_t>( rval ) >= sizeof( buffer ) )
-  {
-    char* dynamic_buffer = new char[ rval + 1 ];
-    va_start( fmtargs, format );
-    rval = ::vsnprintf( dynamic_buffer, rval + 1, format, fmtargs );
-    va_end( fmtargs );
-    *this << dynamic_buffer;
-
-    delete[] dynamic_buffer;
-  }
-  else
-    *this << buffer;
+  *this << buffer;
 
   return *this;
 }
@@ -161,7 +156,7 @@ void ofstream::open( const char* name, openmode mode )
   // std::fstream in MinGW.
   std::ofstream::open( io::widen( name ).c_str(), mode );
 #elif defined( SC_MINGW )
-  if ( util::contains_non_ascii( name ) )
+  if ( contains_non_ascii( name ) )
   {
     assert( false && "File Names with non-ascii characters cannot be opened when built with MinGW." );
     return;
@@ -199,7 +194,7 @@ void ifstream::open( const char* name, openmode mode )
   // std::fstream in MinGW.
   std::ifstream::open( io::widen( name ).c_str(), mode );
 #elif defined( SC_MINGW )
-  if ( util::contains_non_ascii( name ) )
+  if ( contains_non_ascii( name ) )
   {
     assert( false && "File Names with non-ascii characters cannot be opened when built with MinGW." );
     return;

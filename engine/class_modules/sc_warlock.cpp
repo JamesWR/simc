@@ -286,6 +286,7 @@ public:
     buff_t* molten_core;
     buff_t* soul_swap;
     buff_t* soulburn;
+    buff_t* kiljaedens_cunning;
 
     buff_t* chaotic_infusion;
 
@@ -804,6 +805,7 @@ struct mortal_cleave_t: public warlock_pet_melee_attack_t
     warlock_pet_melee_attack_t( "mortal_cleave", p, p -> find_spell( 115625 ))
   {
     aoe = -1;
+    split_aoe_damage = true;
     weapon = &( p -> main_hand_weapon );
   }
 
@@ -1792,6 +1794,16 @@ public:
     return true;
   }
 
+  virtual bool usable_moving() const
+  {
+    bool um = spell_t::usable_moving();
+
+    if ( p() -> buffs.kiljaedens_cunning -> up() )
+      return true;
+
+    return um;
+  }
+
   virtual void init()
   {
     spell_t::init();
@@ -2108,9 +2120,9 @@ public:
 
     // If getting to 1 full ember was a surprise, the player would have to react to it
     if ( p -> resources.current[RESOURCE_BURNING_EMBER] == 1.0 && ( amount > 0.1 || chance < 1.0 ) )
-      p -> ember_react = p -> sim -> current_time + p -> total_reaction_time();
+      p -> ember_react = p -> sim -> current_time() + p -> total_reaction_time();
     else if ( p -> resources.current[RESOURCE_BURNING_EMBER] >= 1.0 )
-      p -> ember_react = p -> sim -> current_time;
+      p -> ember_react = p -> sim -> current_time();
     else
       p -> ember_react = timespan_t::max();
   }
@@ -2225,6 +2237,20 @@ struct doom_t: public warlock_spell_t
     if ( ! p() -> buffs.metamorphosis -> check() ) r = false;
 
     return r;
+  }
+};
+
+struct kiljaedens_cunning_t: public warlock_spell_t
+{
+  kiljaedens_cunning_t( warlock_t* p ):
+    warlock_spell_t( "kiljaedens_cunning", p, p -> talents.kiljaedens_cunning )
+  {
+  }
+
+  void execute()
+  {
+    warlock_spell_t::execute();
+    p() -> buffs.kiljaedens_cunning -> trigger();
   }
 };
 
@@ -2368,13 +2394,18 @@ struct hand_of_guldan_t: public warlock_spell_t
     return timespan_t::from_seconds( 1.5 );
   }
 
+  void schedule_travel( action_state_t* s )
+  {
+    /* Executed at the same time as HoG and given a travel time,
+    so that it can snapshot meta at the appropriate time. */
+    shadowflame -> target = s -> target;
+    shadowflame -> execute();
+    warlock_spell_t::schedule_travel( s );
+  }
+
   virtual void execute()
   {
     warlock_spell_t::execute();
-
-    /* Executed at the same time as HoG and given a travel time,
-       so that it can snapshot meta at the appropriate time. */
-    shadowflame -> execute();
 
     p() -> trigger_demonology_t17_4pc( execute_state );
   }
@@ -2446,16 +2477,6 @@ struct shadow_bolt_t: public warlock_spell_t
     if ( p() -> buffs.metamorphosis -> check() ) r = false;
 
     return r;
-  }
-
-  virtual bool usable_moving() const
-  {
-    bool um = warlock_spell_t::usable_moving();
-
-    if ( p() -> talents.kiljaedens_cunning -> ok() )
-      um = true;
-
-    return um;
   }
 };
 
@@ -2539,7 +2560,6 @@ struct shadowburn_t: public warlock_spell_t
 
 struct corruption_t: public warlock_spell_t
 {
-  //  bool soc_triggered;
   corruption_t( warlock_t* p ):
     warlock_spell_t( "Corruption", p, p -> find_spell( 172 ) ) //Use original corruption until DBC acts more friendly.
   {
@@ -2547,19 +2567,16 @@ struct corruption_t: public warlock_spell_t
     generate_fury = 4;
     generate_fury += p -> perk.enhanced_corruption -> effectN( 1 ).base_value();
     base_multiplier *= 1.0 + p -> sets.set( SET_CASTER, T14, B2 ) -> effectN( 1 ).percent();
-    //pulling duration from sub-curruption, since default id has no duration...
-    dot_duration = p -> find_spell( 146739 )-> duration();
-    spell_power_mod.tick = p -> find_spell( 146739 ) -> effectN( 1 ).sp_coeff(); //returning .180 for mod - supposed to be .165
-    base_tick_time = timespan_t::from_seconds( 2.0 );
+    dot_duration = data().effectN( 1 ).trigger() -> duration();
+    spell_power_mod.tick = data().effectN( 1 ).trigger() -> effectN( 1 ).sp_coeff();
+    base_tick_time = data().effectN( 1 ).trigger() -> effectN( 1 ).period();
     if ( p -> wod_hotfix )
       spell_power_mod.tick *= 0.9;
   }
 
-  virtual timespan_t travel_time() const
+  timespan_t travel_time() const
   {
-    //if ( soc_triggered ) return timespan_t::from_seconds( std::max( rng().gauss( sim -> aura_delay, 0.25 * sim -> aura_delay ).total_seconds() , 0.01 ) );
-
-    return warlock_spell_t::travel_time();
+    return timespan_t::from_millis( 100 );
   }
 
   virtual void execute()
@@ -2588,9 +2605,9 @@ struct corruption_t: public warlock_spell_t
         p() -> resource_gain( RESOURCE_SOUL_SHARD, 1, p() -> gains.nightfall );
         // If going from 0 to 1 shard was a surprise, the player would have to react to it
         if ( p() -> resources.current[RESOURCE_SOUL_SHARD] == 1 )
-          p() -> shard_react = p() -> sim -> current_time + p() -> total_reaction_time();
+          p() -> shard_react = p() -> sim -> current_time() + p() -> total_reaction_time();
         else if ( p() -> resources.current[RESOURCE_SOUL_SHARD] >= 1 )
-          p() -> shard_react = p() -> sim -> current_time;
+          p() -> shard_react = p() -> sim -> current_time();
         else
           p() -> shard_react = timespan_t::max();
 
@@ -2805,7 +2822,7 @@ struct immolate_t: public warlock_spell_t
 
   immolate_t( warlock_t* p ):
     warlock_spell_t( p, "Immolate" ),
-    fnb( new immolate_t( "immolate_fnb", p, p -> find_spell( 108686 ) ) )
+    fnb( new immolate_t( "immolate", p, p -> find_spell( 108686 ) ) )
   {
     havoc_consume = 1;
     base_costs[RESOURCE_MANA] *= 1.0 + p -> spec.chaotic_energy -> effectN( 2 ).percent();
@@ -2827,6 +2844,8 @@ struct immolate_t: public warlock_spell_t
     tick_may_crit = true;
     spell_power_mod.tick = data().effectN( 1 ).sp_coeff();
     aoe = -1;
+    stats = p -> get_stats( "immolate_fnb", this );
+    gain = p -> get_gain( "immolate_fnb" );
   }
 
   void schedule_travel( action_state_t* s )
@@ -2892,6 +2911,8 @@ struct immolate_t: public warlock_spell_t
     return m;
   }
 
+  // TODO: FIXME
+  /*
   virtual void impact( action_state_t* s )
   {
     warlock_spell_t::impact( s );
@@ -2902,6 +2923,7 @@ struct immolate_t: public warlock_spell_t
     else
       gain = p() -> gains.immolate;
   }
+  */
 
   virtual void tick( dot_t* d )
   {
@@ -2935,7 +2957,7 @@ struct conflagrate_t: public warlock_spell_t
 
   conflagrate_t( warlock_t* p ):
     warlock_spell_t( p, "Conflagrate" ),
-    fnb( new conflagrate_t( "conflagrate_fnb", p, p -> find_spell( 108685 ) ) )
+    fnb( new conflagrate_t( "conflagrate", p, p -> find_spell( 108685 ) ) )
   {
     if ( p -> talents.charred_remains -> ok() ){
       base_multiplier *= 1.0 + p -> talents.charred_remains -> effectN( 1 ).percent();
@@ -2949,6 +2971,8 @@ struct conflagrate_t: public warlock_spell_t
     fnb( 0 )
   {
     aoe = -1;
+    stats = p -> get_stats( "conflagrate_fnb", this );
+    gain = p -> get_gain( "conflagrate_fnb" );
   }
 
   void schedule_execute( action_state_t* state )
@@ -3014,14 +3038,17 @@ struct conflagrate_t: public warlock_spell_t
   virtual void impact( action_state_t* s )
   {
     warlock_spell_t::impact( s );
-    gain_t* gain;
+    // TODO: FIXME
+    //gain_t* gain;
 
     if ( result_is_hit( s -> result ) )
     {
+      /*
       if ( ! fnb && p() -> spec.fire_and_brimstone -> ok() )
         gain = p() -> gains.conflagrate_fnb;
       else
         gain = p() -> gains.conflagrate;
+        */
 
       if ( s -> result == RESULT_CRIT &&  p() -> sets.has_set_bonus( SET_CASTER, T16, B2 ) )
         p() -> buffs.tier16_2pc_destructive_influence -> trigger();
@@ -3043,7 +3070,7 @@ struct incinerate_t: public warlock_spell_t
   // Normal incinerate
   incinerate_t( warlock_t* p ):
     warlock_spell_t( p, "Incinerate" ),
-    fnb( new incinerate_t( "incinerate_fnb", p, p -> find_spell( 114654 ) ) )
+    fnb( new incinerate_t( "incinerate", p, p -> find_spell( 114654 ) ) )
   {
     if ( p -> talents.charred_remains -> ok() )
       base_multiplier *= 1.0 + p -> talents.charred_remains -> effectN( 1 ).percent();
@@ -3057,6 +3084,8 @@ struct incinerate_t: public warlock_spell_t
     fnb( 0 )
   {
     aoe = -1;
+    stats = p -> get_stats( "incinerate_fnb", this );
+    gain = p -> get_gain( "incinerate_fnb" );
   }
 
   void init()
@@ -3131,24 +3160,18 @@ struct incinerate_t: public warlock_spell_t
   void impact( action_state_t* s )
   {
     warlock_spell_t::impact( s );
+
+    // TODO: FIXME
+    /*
     gain_t* gain;
     if ( ! fnb && p() -> spec.fire_and_brimstone -> ok() )
       gain = p() -> gains.incinerate_fnb;
     else
       gain = p() -> gains.incinerate;
+      */
 
     if ( result_is_hit( s -> result ) )
       trigger_soul_leech( p(), s -> result_amount * p() -> talents.soul_leech -> effectN( 1 ).percent() );
-  }
-
-  virtual bool usable_moving() const
-  {
-    bool um = warlock_spell_t::usable_moving();
-
-    if ( p() -> talents.kiljaedens_cunning -> ok() )
-      um = true;
-
-    return um;
   }
 
   virtual bool ready()
@@ -3273,7 +3296,7 @@ struct chaos_bolt_t: public warlock_spell_t
   chaos_bolt_t* fnb;
   chaos_bolt_t( warlock_t* p ):
     warlock_spell_t( p, "Chaos Bolt" ),
-    fnb( new chaos_bolt_t( "chaos_bolt_fnb", p, p -> find_spell( 116858 ) ) )
+    fnb( new chaos_bolt_t( "chaos_bolt", p, p -> find_spell( 116858 ) ) )
   {
     if ( !p -> talents.charred_remains -> ok() )
       fnb = 0;
@@ -3290,6 +3313,9 @@ struct chaos_bolt_t: public warlock_spell_t
     aoe = -1;
     backdraft_consume = 3;
     base_execute_time += p -> perk.enhanced_chaos_bolt -> effectN( 1 ).time_value();
+
+    stats = p -> get_stats( "chaos_bolt_fnb", this );
+    gain = p -> get_gain( "chaos_bolt_fnb" );
   }
 
   void schedule_execute( action_state_t* state )
@@ -3556,7 +3582,6 @@ struct chaos_wave_t: public warlock_spell_t
 struct touch_of_chaos_t: public warlock_spell_t
 {
   chaos_wave_t* chaos_wave;
-
   touch_of_chaos_t( warlock_t* p ):
     warlock_spell_t( "touch_of_chaos", p, p -> find_spell( 103964 ) ), chaos_wave( new chaos_wave_t( p ) )
   {
@@ -3673,16 +3698,6 @@ struct drain_soul_t: public warlock_spell_t
     trigger_extra_tick( td( d -> state -> target ) -> dots_unstable_affliction, multiplier );
 
     consume_tick_resource( d );
-  }
-
-  virtual bool usable_moving() const
-  {
-    bool um = warlock_spell_t::usable_moving();
-
-    if ( p() -> talents.kiljaedens_cunning -> ok() )
-      um = true;
-
-    return um;
   }
 };
 
@@ -3901,7 +3916,7 @@ struct soulburn_seed_of_corruption_aoe_t: public warlock_spell_t
     warlock_spell_t::execute();
 
     p() -> resource_gain( RESOURCE_SOUL_SHARD, 1, p() -> gains.seed_of_corruption );
-    p() -> shard_react = p() -> sim -> current_time;
+    p() -> shard_react = p() -> sim -> current_time();
   }
 
   virtual void impact( action_state_t* s )
@@ -3930,7 +3945,7 @@ struct soulburn_seed_of_corruption_t: public warlock_spell_t
 
     if ( result_is_hit( s -> result ) )
     {
-      td( s -> target ) -> soulburn_soc_trigger = data().effectN( 3 ).average( p() ) + s -> composite_spell_power() * coefficient;
+      td( s -> target ) -> soulburn_soc_trigger = s -> composite_spell_power() * data().effectN( 1 ).sp_coeff() * 3;
       if (td( s -> target ) -> dots_seed_of_corruption -> is_ticking()) //cancel SoC
       {
           td( s -> target ) -> dots_seed_of_corruption -> cancel();
@@ -3961,7 +3976,7 @@ struct seed_of_corruption_t: public warlock_spell_t
 
     if ( result_is_hit( s -> result ) )
     {
-      td( s -> target ) -> soc_trigger = data().effectN( 3 ).average( p() ) + s -> composite_spell_power() * data().effectN( 3 ).sp_coeff();
+      td( s -> target ) -> soc_trigger = s -> composite_spell_power() * data().effectN( 1 ).sp_coeff() * 3;
         if (td( s -> target ) -> dots_soulburn_seed_of_corruption -> is_ticking()) //cancel SB:SoC
         {
             td( s -> target ) -> dots_soulburn_seed_of_corruption -> cancel();
@@ -4030,6 +4045,9 @@ struct rain_of_fire_t: public warlock_spell_t
 
     if ( channeled && d -> current_tick != 0 ) consume_tick_resource( d );
   }
+
+  timespan_t composite_dot_duration( const action_state_t* state ) const
+  { return tick_time( state -> haste ) * ( data().duration() / base_tick_time ); }
 
   // TODO: Bring Back dot duration haste scaling ?
 
@@ -4611,7 +4629,7 @@ struct summon_infernal_t: public summon_pet_t
       summoning_duration = timespan_t::from_seconds( -1 );
     else
     {
-      summoning_duration = data().duration();
+      summoning_duration = p -> find_spell( 111685 ) -> duration();
       infernal_awakening = new infernal_awakening_t( p, data().effectN( 1 ).trigger() );
       infernal_awakening -> stats = stats;
     }
@@ -4640,7 +4658,8 @@ struct summon_doomguard2_t: public summon_pet_t
     if ( p -> talents.demonic_servitude -> ok() ){
       summoning_duration = timespan_t::from_seconds( -1 );
     }
-    else summoning_duration = data().duration();
+    else 
+      summoning_duration = p -> find_spell( 60478 ) -> duration();
   }
 };
 
@@ -5046,6 +5065,7 @@ action_t* warlock_t::create_action( const std::string& action_name,
   else if ( action_name == "dark_soul"             ) a = new             dark_soul_t( this );
   else if ( action_name == "soulburn"              ) a = new              soulburn_t( this );
   else if ( action_name == "havoc"                 ) a = new                 havoc_t( this );
+  else if ( action_name == "kiljaedens_cunning"    ) a = new    kiljaedens_cunning_t( this );
   else if ( action_name == "seed_of_corruption"    ) a = new    seed_of_corruption_t( this );
   else if ( action_name == "cataclysm"             ) a = new             cataclysm_t( this );
   else if ( action_name == "rain_of_fire"          ) a = new          rain_of_fire_t( this );
@@ -5357,6 +5377,9 @@ void warlock_t::create_buffs()
   buffs.haunting_spirits = buff_creator_t( this, "haunting_spirits", find_spell( 157698 ) )
     .chance( 1.0 );
 
+  buffs.kiljaedens_cunning = buff_creator_t( this, "kiljaedens_cunning", talents.kiljaedens_cunning )
+    .cd( timespan_t::zero() );
+
   buffs.demonbolt = buff_creator_t( this, "demonbolt", talents.demonbolt );
 
   buffs.tier16_4pc_ember_fillup = buff_creator_t( this, "ember_master", find_spell( 145164 ) )
@@ -5525,7 +5548,7 @@ void warlock_t::apl_precombat()
   action_list_str += "/service_pet,if=talent.grimoire_of_service.enabled&!talent.demonbolt.enabled";
 
   add_action( "Summon Doomguard", "if=!talent.demonic_servitude.enabled&active_enemies<5" );
-  add_action( "Summon Infernal", ",if=!talent.demonic_servitude.enabled&active_enemies>=5" );
+  add_action( "Summon Infernal", "if=!talent.demonic_servitude.enabled&active_enemies>=5" );
 }
 
 void warlock_t::apl_global_filler()
@@ -5558,8 +5581,10 @@ void warlock_t::apl_demonology()
 
     action_list_str += "/call_action_list,name=db,if=talent.demonbolt.enabled";
 
+    add_action ("immolation_aura", "if=demonic_fury>450&active_enemies>=5&buff.immolation_aura.down", "db");
+  
     add_action( spec.doom, "if=buff.metamorphosis.up&target.time_to_die>=30*spell_haste&remains<=(duration*0.3)&(remains<cooldown.cataclysm.remains|!talent.cataclysm.enabled)&(buff.dark_soul.down|!glyph.dark_soul.enabled)&buff.demonbolt.remains&(buff.demonbolt.remains<(40*spell_haste-action.demonbolt.execute_time)|demonic_fury<80+80*buff.demonbolt.stack)", "db" );
-    add_action( "corruption", "if=target.time_to_die>=6&remains<=(0.3*duration)&buff.metamorphosis.down", "db" );
+    add_action( "corruption", "cycle_targets=1,if=target.time_to_die>=6&remains<=(0.3*duration)&buff.metamorphosis.down", "db" );
     get_action_priority_list( "db" ) -> action_list_str += "/cancel_metamorphosis,if=buff.metamorphosis.up&buff.demonbolt.stack>3&demonic_fury<=600&target.time_to_die>buff.demonbolt.remains&buff.dark_soul.down";
     get_action_priority_list( "db" ) -> action_list_str += "/demonbolt,if=buff.demonbolt.stack=0|(buff.demonbolt.stack<4&buff.demonbolt.remains>=(40*spell_haste-execute_time))";
     add_action( "Soul Fire", "if=buff.metamorphosis.up&buff.molten_core.react&((buff.dark_soul.remains>execute_time&demonic_fury>=175)|(target.time_to_die<buff.demonbolt.remains))", "db" );
@@ -5578,9 +5603,10 @@ void warlock_t::apl_demonology()
     add_action( "Shadow Bolt", "", "db" );
     add_action( "life tap", "", "db" );
 
+    action_list_str += "/immolation_aura,if=demonic_fury>450&active_enemies>=5&buff.immolation_aura.down";
     action_list_str += "/cataclysm,if=buff.metamorphosis.up";
     add_action( spec.doom, "if=buff.metamorphosis.up&target.time_to_die>=30*spell_haste&remains<=(duration*0.3)&(remains<cooldown.cataclysm.remains|!talent.cataclysm.enabled)&(buff.dark_soul.down|!glyph.dark_soul.enabled)" );
-    add_action( "corruption", "if=target.time_to_die>=6&remains<=(0.3*duration)&buff.metamorphosis.down" );
+    add_action( "corruption", "cycle_targets=1,if=target.time_to_die>=6&remains<=(0.3*duration)&buff.metamorphosis.down" );
     action_list_str += "/cancel_metamorphosis,if=buff.metamorphosis.up&((demonic_fury<650&!glyph.dark_soul.enabled)|demonic_fury<450)&buff.dark_soul.down&trinket.proc.any.down&target.time_to_die>cooldown.dark_soul.remains";
     action_list_str += "/cancel_metamorphosis,if=buff.metamorphosis.up&action.hand_of_guldan.charges>0&dot.shadowflame.ticking<action.hand_of_guldan.travel_time+action.shadow_bolt.cast_time&demonic_fury<100&buff.dark_soul.remains>10";
     action_list_str += "/cancel_metamorphosis,if=buff.metamorphosis.up&action.hand_of_guldan.charges=3&(!buff.dark_soul.remains>gcd|action.metamorphosis.cooldown<gcd)";
@@ -5602,21 +5628,65 @@ void warlock_t::apl_demonology()
 
 void warlock_t::apl_destruction()
 {
-  add_action( "Shadowburn", "if=talent.charred_remains.enabled&(burning_ember>=2.5|target.time_to_die<20|trinket.proc.intellect.react|(trinket.stacking_proc.intellect.remains<cast_time*4&trinket.stacking_proc.intellect.remains>cast_time))" );
-  add_action( "Immolate", "if=remains<=cast_time" );
-  add_action( "Conflagrate", "if=charges=2" );
-  action_list_str += "/cataclysm";
-  add_action( "Chaos Bolt", "if=set_bonus.tier17_4pc=1&buff.chaotic_infusion.react" );
-  add_action( "Chaos Bolt", "if=set_bonus.tier17_2pc=1&buff.backdraft.stack<3&(burning_ember>=2.5|(trinket.proc.intellect.react&trinket.proc.intellect.remains>cast_time)|buff.dark_soul.up)" );
-  add_action( "Chaos Bolt", "if=talent.charred_remains.enabled&buff.backdraft.stack<3&(burning_ember>=2.5|(trinket.proc.intellect.react&trinket.proc.intellect.remains>cast_time)|buff.dark_soul.up)" );
-  add_action( "Chaos Bolt", "if=buff.backdraft.stack<3&(burning_ember>=3.5|(trinket.proc.intellect.react&trinket.proc.intellect.remains>cast_time)|buff.dark_soul.up|(burning_ember>=3&buff.ember_master.react))" );
-  add_action( "Immolate", "if=remains<=(duration*0.3)" );
+  action_priority_list_t* single_target       = get_action_priority_list( "single_target" );    
+  action_priority_list_t* aoe                 = get_action_priority_list( "aoe" );
+    
+  action_list_str +="/run_action_list,name=single_target,if=active_enemies<4";
+  action_list_str +="/run_action_list,name=aoe,if=active_enemies>=4";
+   
+  single_target -> action_list_str += "/havoc,target=2";
+  single_target -> action_list_str += "/Shadowburn,if=talent.charred_remains.enabled&(burning_ember>=2.5|buff.dark_soul.up|target.time_to_die<10)";
+  single_target -> action_list_str += "/immolate,cycle_targets=1,if=remains<=cast_time&(cooldown.cataclysm.remains>cast_time|!talent.cataclysm.enabled)";
+
+  if (level == 100)
+  {
+    single_target -> action_list_str += "/rain_of_fire,if=!ticking";
+  }
+  single_target -> action_list_str += "/shadowburn,if=buff.havoc.remains";
+  single_target -> action_list_str += "/chaos_bolt,if=buff.havoc.remains>cast_time&buff.havoc.stack>=3";
+  single_target -> action_list_str += "/conflagrate,if=charges=2";
+  single_target -> action_list_str += "/cataclysm";
+  single_target -> action_list_str += "/chaos_bolt,if=talent.charred_remains.enabled&active_enemies>1&target.health.pct>20";
+  single_target -> action_list_str += "/chaos_bolt,if=talent.charred_remains.enabled&buff.backdraft.stack<3&burning_ember>=2.5";
+  single_target -> action_list_str += "/chaos_bolt,if=buff.backdraft.stack<3&(burning_ember>=3.5|buff.dark_soul.up|(burning_ember>=3&buff.ember_master.react)|target.time_to_die<20)";
+  single_target -> action_list_str += "/chaos_bolt,if=buff.backdraft.stack<3&set_bonus.tier17_2pc=1&burning_ember>=2.5";
+  single_target -> action_list_str += "/chaos_bolt,if=buff.backdraft.stack<3&buff.archmages_greater_incandescence_int.react&buff.archmages_greater_incandescence_int.remains>cast_time";
+  single_target -> action_list_str += "/chaos_bolt,if=buff.backdraft.stack<3&trinket.proc.intellect.react&trinket.proc.intellect.remains>cast_time";
+  single_target -> action_list_str += "/chaos_bolt,if=buff.backdraft.stack<3&trinket.stacking_proc.intellect.react>7&trinket.stacking_proc.intellect.remains>=cast_time";
+  single_target -> action_list_str += "/chaos_bolt,if=buff.backdraft.stack<3&trinket.proc.crit.react&trinket.proc.crit.remains>cast_time";
+  single_target -> action_list_str += "/chaos_bolt,if=buff.backdraft.stack<3&trinket.stacking_proc.multistrike.react>=8&trinket.stacking_proc.multistrike.remains>=cast_time";
+  single_target -> action_list_str += "/chaos_bolt,if=buff.backdraft.stack<3&trinket.proc.multistrike.react&trinket.proc.multistrike.remains>cast_time";
+  single_target -> action_list_str += "/chaos_bolt,if=buff.backdraft.stack<3&trinket.proc.versatility.react&trinket.proc.versatility.remains>cast_time";
+  single_target -> action_list_str += "/chaos_bolt,if=buff.backdraft.stack<3&trinket.proc.mastery.react&trinket.proc.mastery.remains>cast_time";
+  if ( level != 99 )
+  {
+    single_target -> action_list_str += "/rain_of_fire,if=!ticking";
+  }
+  single_target -> action_list_str += "/immolate,cycle_targets=1,if=remains<=(duration*0.3)";
+  single_target -> action_list_str += "/conflagrate";
   if ( level == 100 )
-    add_action( "Rain of Fire", "if=(!ticking|(talent.mannoroths_fury.enabled&buff.mannoroths_fury.up&buff.mannoroths_fury.remains<1))&(!buff.backdraft.down|(talent.mannoroths_fury.enabled&buff.mannoroths_fury.up))" );
-  else
-    add_action( "Rain of Fire", "if=(!ticking|(talent.mannoroths_fury.enabled&buff.mannoroths_fury.up&buff.mannoroths_fury.remains<1))" );
-  add_action( "Conflagrate" );
-  add_action( "Incinerate" );
+  {
+    single_target -> action_list_str += "/incinerate,if=talent.charred_remains.enabled";
+    single_target -> action_list_str += "/incinerate,if=buff.backdraft.up|mana>=48800";
+  }
+  else if ( level != 100 )
+  {
+    single_target -> action_list_str += "/incinerate";
+  }
+    
+  aoe -> action_list_str += "/rain_of_fire,if=remains<=tick_time";
+  aoe -> action_list_str += "/havoc,target=2";
+  aoe -> action_list_str += "/shadowburn,if=buff.havoc.remains";
+  aoe -> action_list_str += "/chaos_bolt,if=buff.havoc.remains>cast_time&buff.havoc.stack>=3";
+  aoe -> action_list_str += "/cataclysm";
+  aoe -> action_list_str += "/fire_and_brimstone,if=buff.fire_and_brimstone.down";
+  aoe -> action_list_str += "/immolate,if=buff.fire_and_brimstone.up&!dot.immolate.ticking";
+  aoe -> action_list_str += "/conflagrate,if=buff.fire_and_brimstone.up&charges=2";
+  aoe -> action_list_str += "/immolate,if=buff.fire_and_brimstone.up&dot.immolate.remains<=(dot.immolate.duration*0.3)";
+  aoe -> action_list_str += "/chaos_bolt,if=!talent.charred_remains.enabled&active_enemies=4";
+  aoe -> action_list_str += "/chaos_bolt,if=talent.charred_remains.enabled&buff.fire_and_brimstone.up&burning_ember>=2.5";
+  aoe -> action_list_str += "/incinerate";
+
 }
 
 void warlock_t::init_action_list()
@@ -5809,7 +5879,7 @@ expr_t* warlock_t::create_expression( action_t* a, const std::string& name_str )
       warlock_t& player;
       ember_react_expr_t( warlock_t& p ):
         expr_t( "ember_react" ), player( p ) { }
-      virtual double evaluate() { return player.resources.current[RESOURCE_BURNING_EMBER] >= 1 && player.sim -> current_time >= player.ember_react; }
+      virtual double evaluate() { return player.resources.current[RESOURCE_BURNING_EMBER] >= 1 && player.sim -> current_time() >= player.ember_react; }
     };
     return new ember_react_expr_t( *this );
   }
@@ -5820,7 +5890,7 @@ expr_t* warlock_t::create_expression( action_t* a, const std::string& name_str )
       warlock_t& player;
       shard_react_expr_t( warlock_t& p ):
         expr_t( "shard_react" ), player( p ) { }
-      virtual double evaluate() { return player.resources.current[RESOURCE_SOUL_SHARD] >= 1 && player.sim -> current_time >= player.shard_react; }
+      virtual double evaluate() { return player.resources.current[RESOURCE_SOUL_SHARD] >= 1 && player.sim -> current_time() >= player.shard_react; }
     };
     return new shard_react_expr_t( *this );
   }

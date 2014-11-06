@@ -9,6 +9,10 @@
  * as well as pre-C++11 macros
  */
 
+/* This header defines eleven macro constants with alternative spellings for those C++ operators
+ * not supported by the ISO646 standard character set.
+ * eg. and == &&, or == ||, etc.
+ */
 #include <ciso646>
 
 // ==========================================================================
@@ -50,6 +54,10 @@
 #  if SC_VS < 10
 #    error "Visual Studio 9 ( 2008 ) or lower not supported"
 #  endif
+#endif
+
+#if defined( SC_WINDOWS ) && !defined( SC_VS )
+#  define SC_MINGW
 #endif
 
 // Workaround for LLVM/Clang 3.2+ using glibc headers.
@@ -114,12 +122,44 @@ public:
 #endif
 
 #define SC_PACKED_STRUCT      __attribute__((packed))
-#define PRINTF_ATTRIBUTE(a,b) __attribute__((format(printf,a,b)))
+#if defined( SC_MINGW ) // printf wrongly points to vs_printf instead of gnu_printf on MinGW
+#  define PRINTF_ATTRIBUTE(a,b) __attribute__((format(gnu_printf,a,b)))
+#else
+#  define PRINTF_ATTRIBUTE(a,b) __attribute__((format(printf,a,b)))
+#endif
 
 #ifndef M_PI
 #define M_PI ( 3.14159265358979323846 )
 #endif
 
+// ==========================================================================
+// C99 fixed-width integral types & format specifiers
+// ==========================================================================
 
+#define __STDC_FORMAT_MACROS
+#include <stdint.h>
+#include <inttypes.h>
+
+#ifndef PRIu64
+#  if defined( SC_VS )
+#    define PRIu64 "I64"
+#    pragma message("C99 format specifiers not available")
+#  else
+#    define PRIu64 "zu"
+#    warning "C99 format specifiers not available"
+#  endif
+#endif
+
+#ifdef isfinite
+#undef finite
+#define finite isfinite
+#else
+#ifdef SC_VS
+#undef finite
+#define finite _finite
+#undef isnan
+#define isnan _isnan
+#endif
+#endif
 
 #endif // CONFIG_H

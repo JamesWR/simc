@@ -6,7 +6,7 @@
 #define SIMULATIONCRAFT_H
 
 #define SC_MAJOR_VERSION "603"
-#define SC_MINOR_VERSION "4"
+#define SC_MINOR_VERSION "6"
 #define SC_USE_PTR ( 0 )
 #define SC_BETA ( 0 )
 #define SC_BETA_STR "wod"
@@ -15,8 +15,6 @@
 
 // Platform, compiler and general configuration
 #include "config.hpp"
-
-#include <stdint.h>
 #include <algorithm>
 #include <cassert>
 #include <cctype>
@@ -87,8 +85,8 @@ inline std::ostream& operator<<(std::ostream &os, const timespan_t& x )
 // Random Number Generators
 #include "util/rng.hpp"
 
-// Hookup rng containers for easy use in SimulationCraft
-typedef rng::sc_distribution_t rng_t;
+// String Utilities
+#include "util/str.hpp"
 
 // Forward Declarations =====================================================
 
@@ -110,7 +108,6 @@ class  dbc_t;
 struct debuff_t;
 struct dot_t;
 struct core_event_t;
-struct core_sim_t;
 struct expr_t;
 struct gain_t;
 struct haste_buff_t;
@@ -1382,6 +1379,7 @@ option_t opt_string( const std::string& n, std::string& v );
 option_t opt_append( const std::string& n, std::string& v );
 option_t opt_bool( const std::string& n, int& v );
 option_t opt_bool( const std::string& n, bool& v );
+option_t opt_uint64( const std::string& n, uint64_t& v );
 option_t opt_int( const std::string& n, int& v );
 option_t opt_int( const std::string& n, int& v, int , int );
 option_t opt_uint( const std::string& n, unsigned& v );
@@ -2180,7 +2178,7 @@ struct expr_t
   template <typename T> static double coerce( T t ) { return static_cast<double>( t ); }
   static double coerce( timespan_t t ) { return t.total_seconds(); }
 
-  virtual expr_t* optimize( int spacing=0 ) { spacing=0; return this; }
+  virtual expr_t* optimize( int /* spacing */ = 0 ) { /* spacing = 0; */ return this; }
   virtual double evaluate() = 0;
 
   virtual bool is_constant( double* /*return_value*/ ) { return false; }
@@ -2211,8 +2209,8 @@ private:
 
 // Template to return a reference expression
 template <typename T>
-inline expr_t* make_ref_expr( const std::string& name, const T& t )
-{ return new ref_expr_t<T>( name, t ); }
+inline expr_t* make_ref_expr( const std::string& name, T& t )
+{ return new ref_expr_t<T>( name, const_cast<const T&>( t ) ); }
 
 // Function Expression - fn_expr_t
 // Class Template to create a function ( fn ) expression with arbitrary functor f, which gets evaluated
@@ -2457,12 +2455,12 @@ struct sim_ostream_t
 {
   struct no_close {};
 
-  explicit sim_ostream_t( core_sim_t& s, std::shared_ptr<std::ostream> os ) :
+  explicit sim_ostream_t( sim_t& s, std::shared_ptr<std::ostream> os ) :
       sim(s),
     _raw( os )
   {
   }
-  sim_ostream_t( core_sim_t& s, std::ostream* os, no_close ) :
+  sim_ostream_t( sim_t& s, std::ostream* os, no_close ) :
       sim(s),
     _raw( std::shared_ptr<std::ostream>( os, dont_close ) )
   {}
@@ -2479,47 +2477,59 @@ struct sim_ostream_t
   sim_ostream_t& printf( const char* format, ... );
 private:
   static void dont_close( std::ostream* ) {}
-  core_sim_t& sim;
+  sim_t& sim;
   sc_raw_ostream_t _raw;
 };
 
-/* Core Simulation Class.
- * Should not have anything to do with World of Warcraft
- */
-struct core_sim_t
+struct sim_report_information_t
 {
-public:
-  // Collection of most event-related functionality
-  struct event_management_t
-  {
-    int events_remaining;
+  bool charts_generated;
+  std::vector<std::string> dps_charts, hps_charts, dtps_charts, tmi_charts, gear_charts, dpet_charts;
+  std::string timeline_chart, downtime_chart;
+  sim_report_information_t() { charts_generated = false; }
+};
+
+// Event Manager ============================================================
+
+struct event_manager_t
+{
+  sim_t* sim;
+  timespan_t current_time;
+  uint64_t events_remaining;
     uint64_t events_processed;
+  uint64_t total_events_processed;
+  uint64_t max_events_remaining;
     unsigned timing_slice, global_event_id;
     std::vector<core_event_t*> timing_wheel;
     core_event_t* recycled_event_list;
     int    wheel_seconds, wheel_size, wheel_mask, wheel_shift;
     double wheel_granularity;
     timespan_t wheel_time;
-    std::vector<core_event_t*> all_events_ever_created;
+  std::vector<core_event_t*> allocated_events;
+  stopwatch_t event_stopwatch;
+  bool monitor_cpu;
+  bool canceled;
 
-  private:
-    friend struct core_sim_t;
-    event_management_t();
-    ~event_management_t();
-    void add_event( core_event_t*, timespan_t delta_time, timespan_t current_time );
-    void flush_events();
-    void preallocate_events( unsigned num );
+  event_manager_t( sim_t* );
+ ~event_manager_t();
+  void* allocate_event( std::size_t size );
+  void recycle_event( core_event_t* );
+  void add_event( core_event_t*, timespan_t delta_time );
+  void reschedule_event( core_event_t* );
+  core_event_t* next_event();
+  bool execute();
+  void cancel();
+  void flush();
     void init();
-    core_event_t* next_event();
     void reset();
-    std::vector<core_event_t*> get_events_to_flush() const;
-  };
+  void merge( event_manager_t& other );
+};
 
-  core_sim_t();
-  virtual ~core_sim_t();
+// Simulation Engine ========================================================
 
-  event_management_t em; // Timing Wheel Event Management
-  timespan_t current_time;
+struct sim_t : private sc_thread_t
+{
+  event_manager_t event_mgr;
 
   // Output
   sim_ostream_t out_std;
@@ -2527,54 +2537,18 @@ public:
   sim_ostream_t out_debug;
   bool debug;
 
+  // Iteration Controls
   timespan_t  max_time, expected_iteration_time;
+  double vary_combat_length;
   int current_iteration, iterations;
-
-
-  // Timing Wheel statistics
-  int64_t     max_events_remaining;
-  uint64_t total_events_processed;
-  stopwatch_t event_stopwatch;
-  bool monitor_cpu;
-
   bool canceled;
-  double      vary_combat_length;
+  double target_error;
+  double current_error;
+  int analyze_error_interval;
 
-// Public functions
-  void add_event( core_event_t*, timespan_t delta_time );
-  double iteration_time_adjust() const;
-  double expected_max_time() const;
-  bool is_canceled() const;
-  void cancel_iteration( bool cancel = true );
-
-protected:
-  virtual void combat( int iteration );
-  virtual void combat_begin();
-  virtual void combat_end();
-  virtual bool init();
-  virtual void reset();
-
-private:
-  bool iteration_canceled;
-  void begin_combat();
-  void end_combat();
-  void reschedule_event( core_event_t* );
-};
-
-struct sim_report_information_t
-{
-  bool charts_generated;
-  std::vector<std::string> gear_charts;
-  sim_report_information_t() { charts_generated = false; }
-};
-
-// Simulation Engine ========================================================
-
-struct sim_t : public core_sim_t, private sc_thread_t
-{
   sim_control_t* control;
   sim_t*      parent;
-  bool initialized, paused;
+  bool initialized;
   player_t*   target;
   player_t*   heal_target;
   vector_with_callback<player_t*> target_list;
@@ -2602,7 +2576,7 @@ struct sim_t : public core_sim_t, private sc_thread_t
   timespan_t  reaction_time, regen_periodicity;
   timespan_t  ignite_sampling_delta;
   bool        fixed_time, optimize_expressions;
-  int         seed, current_slot;
+  int         current_slot;
   int         optimal_raid, log, debug_each;
   int         save_profiles, default_actions;
   stat_e      normalized_stat;
@@ -2617,6 +2591,7 @@ struct sim_t : public core_sim_t, private sc_thread_t
   bool        show_etmi;
   double      tmi_window_global;
   double      tmi_bin_size;
+  bool        requires_regen_event;
 
   // Target options
   double      target_death_pct;
@@ -2648,15 +2623,14 @@ struct sim_t : public core_sim_t, private sc_thread_t
   std::vector<std::string> item_db_sources;
 
   // Random Number Generation
-private:
-  int deterministic_rng;
-  mutable rng_t _rng;
-public:
+  rng_t* _rng;
+  std::string rng_str;
+  uint64_t seed;
+  int deterministic;
   int average_range, average_gauss;
   int convergence_scale;
 
-  rng_t& rng() { return _rng; }
-  rng_t& rng() const { return _rng; }
+  rng_t& rng() const { return *_rng; }
   double    averaged_range( double min, double max );
 
   // Raid Events
@@ -2721,6 +2695,8 @@ public:
   double     iteration_dmg, iteration_heal, iteration_absorb;
   simple_sample_data_t raid_dps, total_dmg, raid_hps, total_heal, total_absorb, raid_aps;
   extended_sample_data_t simulation_length;
+  std::vector<uint64_t> iteration_seed;
+  std::vector<uint64_t> iteration_initial_health;
   int        report_progress;
   int        bloodlust_percent;
   timespan_t bloodlust_time;
@@ -2765,29 +2741,60 @@ public:
   sim_report_information_t report_information;
 
   // Multi-Threading
-  mutex_t mutex;
+  mutex_t merge_mutex;
   int threads;
   std::vector<sim_t*> children; // Manual delete!
   int thread_index;
   sc_thread_t::priority_e thread_priority;
-  struct work_queue_t {
-    mutex_t mutex;
-    int iterations_to_process;
-    work_queue_t() : mutex(), iterations_to_process( 0 ) {}
-  } work_queue;
-
+  struct work_queue_t
+  {
+    mutex_t m;
+    int total_work, projected_work, work;
+    work_queue_t() : total_work( 0 ), projected_work( 0 ), work( 0 ) {}
+    void init( int w )    { AUTO_LOCK(m); total_work = projected_work = w; }
+    void flush()          { AUTO_LOCK(m); total_work = projected_work = work; }
+    void project( int w ) { AUTO_LOCK(m); projected_work = w; assert(w>=work); }
+    int  size()           { AUTO_LOCK(m); return total_work; }
+    int  pop()         
+    { 
+      AUTO_LOCK(m); 
+      if( work >= total_work ) return 0; 
+      if( ++work == total_work ) projected_work = work;
+      return work;
+    }
+    double progress( int* current=0, int* last=0 )
+    {
+      AUTO_LOCK(m);
+      if( current ) *current = work;
+      if( last ) *last = projected_work;
+      return work / (double) projected_work;
+    }
+  };
+  std::shared_ptr<work_queue_t> work_queue;
   virtual void run();
+
+  // Related Simulations
+  mutex_t relatives_mutex;
+  std::vector<sim_t*> relatives;
 
   // Spell database access
   spell_data_expr_t* spell_query;
   unsigned           spell_query_level;
   std::string        spell_query_xml_output_file_str;
 
-  sim_t( sim_t* parent = 0, int thrdID = 0 );
+  sim_t( sim_t* parent = 0, int thread_index = 0 );
   virtual ~sim_t();
 
   int       main( const std::vector<std::string>& args );
+  void      add_event( core_event_t*, timespan_t delta_time );
+  double    iteration_time_adjust() const;
+  double    expected_max_time() const;
+  bool      is_canceled() const;
+  void      cancel_iteration();
   void      cancel();
+  void      interrupt();
+  void      add_relative( sim_t* cousin );
+  void      remove_relative( sim_t* cousin );
   double    progress( int* current = 0, int* final = 0, std::string* phase = 0 );
   double    progress( std::string& phase, std::string* detailed = 0 );
   void      detailed_progress( std::string*, int current_iterations, int total_iterations );
@@ -2811,12 +2818,11 @@ public:
   bool      iterate();
   void      partition();
   bool      execute();
-  int       calc_num_iterations();
+  void      analyze_error();
   void      print_options();
   void      add_option( const option_t& opt );
   void      create_options();
   bool      parse_option( const std::string& name, const std::string& value );
-  bool      parse_options( int argc, char** argv );
   void      setup( sim_control_t* );
   bool      time_to_think( timespan_t proc_time );
   timespan_t total_reaction_time ();
@@ -2827,46 +2833,19 @@ public:
   expr_t* create_expression( action_t*, const std::string& name );
   void       errorf( const char* format, ... ) PRINTF_ATTRIBUTE(2, 3);
 
-  bool is_paused()
-  {
-    if ( parent )
-      return parent -> is_paused();
-    else
-    {
-      pause_mutex.lock();
-      bool p = paused;
-      pause_mutex.unlock();
-      return p;
-    }
-  }
-
-  void toggle_pause();
+  timespan_t current_time() const { return event_mgr.current_time; }
 
   static double distribution_mean_error( const sim_t& s, const extended_sample_data_t& sd )
   { return s.confidence_estimator * sd.mean_std_dev; }
 
+  // External pause mutex, instantiated an external entity (in our case the
+  // GUI).
+  mutex_t* pause_mutex;
+  bool paused;
 private:
-  mutex_t pause_mutex;
-  condition_variable_t pause_cvar;
+  void do_pause();
 
-  bool use_load_balancing() const;
-
-  void do_pause()
-  {
-    if ( parent )
-      parent -> do_pause();
-    else
-    {
-      pause_mutex.lock();
-      while ( paused )
-        pause_cvar.wait();
-      pause_mutex.unlock();
-    }
-  }
   void print_spell_query();
-
-public:
-  bool requires_regen_event;
 
   std::string highcharts_str;
 };
@@ -2936,6 +2915,7 @@ struct module_t
 
 struct scaling_t
 {
+  mutex_t mutex;
   sim_t* sim;
   sim_t* baseline_sim;
   sim_t* ref_sim;
@@ -2985,6 +2965,7 @@ struct plot_t
   double dps_plot_step;
   int    dps_plot_points;
   int    dps_plot_iterations;
+  double dps_plot_target_error;
   int    dps_plot_debug;
   stat_e current_plot_stat;
   int    num_plot_stats, remaining_plot_stats, remaining_plot_points;
@@ -3009,6 +2990,7 @@ struct reforge_plot_t
   int    reforge_plot_step;
   int    reforge_plot_amount;
   int    reforge_plot_iterations;
+  double reforge_plot_target_error;
   int    reforge_plot_debug;
   int    current_stat_combo;
   int    num_stat_combos;
@@ -3043,20 +3025,21 @@ struct plot_data_t
 
 struct core_event_t
 {
-  core_sim_t& _sim;
+  sim_t& _sim;
   core_event_t*    next;
   timespan_t  time;
   timespan_t  reschedule_time;
   actor_t*    actor;
   uint32_t    id;
   bool        canceled;
+  bool        recycled;
   const char* name;
-  core_event_t( core_sim_t& s, const char* n = "unknown" );
-  core_event_t( core_sim_t& s, actor_t* p, const char* n = "unknown" );
+  core_event_t( sim_t& s, const char* n = "unknown" );
+  core_event_t( sim_t& s, actor_t* p, const char* n = "unknown" );
   core_event_t( actor_t& p, const char* n = "unknown" );
 
   timespan_t occurs()  { return ( reschedule_time != timespan_t::zero() ) ? reschedule_time : time; }
-  timespan_t remains() { return occurs() - _sim.current_time; }
+  timespan_t remains() { return occurs() - _sim.event_mgr.current_time; }
 
   void reschedule( timespan_t new_time );
   void add_event( timespan_t delta_time );
@@ -3066,19 +3049,12 @@ struct core_event_t
 
   static void cancel( core_event_t*& e );
 
-  static void* allocate( std::size_t size, core_sim_t::event_management_t& );
-  static void  recycle( core_event_t* );
-  static void  release( core_event_t*& );
+  static void* operator new( std::size_t size, sim_t& sim ) { return sim.event_mgr.allocate_event( size ); }
 
-  static void* operator new( std::size_t size, core_sim_t& sim ) { return allocate( size, sim.em ); }
-
-#if defined(__GXX_EXPERIMENTAL_CXX0X__) && ( defined(SC_GCC) && SC_GCC >= 40400 || defined(SC_CLANG) && SC_CLANG >= 30000 ) // Improved compile-time diagnostics.
-  static void* operator new( std::size_t ) throw() = delete; // DO NOT USE
-#else
-  static void* operator new( std::size_t ) throw() { std::terminate(); return nullptr; } // DO NOT USE
-#endif
-  static void  operator delete( void*, core_sim_t& ) { std::terminate(); } // DO NOT USE
-  static void  operator delete( void* ) { std::terminate(); } // DO NOT USE
+  // DO NOT USE ANY OF THE FOLLOWING!
+  static void* operator new( std::size_t ) throw() { std::terminate(); return nullptr; } // DO NOT USE!
+  static void  operator delete( void*, sim_t& ) { std::terminate(); }                    // DO NOT USE!
+  static void  operator delete( void* ) { std::terminate(); }                            // DO NOT USE!
 };
 
 // Gear Rating Conversions ==================================================
@@ -3597,9 +3573,9 @@ public:
   void occur()
   {
     iteration_count++;
-    if ( last_proc >= timespan_t::zero() && last_proc < sim.current_time )
+    if ( last_proc >= timespan_t::zero() && last_proc < sim.current_time() )
     {
-      interval_sum.add( ( sim.current_time - last_proc ).total_seconds() );
+      interval_sum.add( ( sim.current_time() - last_proc ).total_seconds() );
       reset();
     }
     if ( sim.debug )
@@ -3609,7 +3585,7 @@ public:
                   static_cast<unsigned>( count.sum() ),
                   last_proc.total_seconds() );
 
-    last_proc = sim.current_time;
+    last_proc = sim.current_time();
   }
 
   void reset()
@@ -3641,11 +3617,6 @@ struct set_bonus_t
   static const unsigned N_BONUSES = 2;       // Number of set bonuses in tier gear
   static const unsigned TIER_THRESHOLD = 17; // Tier when everything changes
   static const unsigned PVP_TIER = 0;        // PVP tier in internal data
-
-  // Constants used with translation from set_e to new set bonus system
-  static const unsigned tier_divisor = 12;
-  static const unsigned role_divisor = 3;
-  static const unsigned bonus_modulo = 3;
 
   struct set_bonus_data_t
   {
@@ -3761,15 +3732,15 @@ struct cooldown_t
   void reset_init();
 
   timespan_t remains() const
-  { return std::max( timespan_t::zero(), ready - sim.current_time ); }
+  { return std::max( timespan_t::zero(), ready - sim.current_time() ); }
 
   // return true if the cooldown is done (i.e., the associated ability is ready)
   bool up() const
-  { return ready <= sim.current_time; }
+  { return ready <= sim.current_time(); }
 
   // Return true if the cooldown is currently ticking down
   bool down() const
-  { return ready > sim.current_time; }
+  { return ready > sim.current_time(); }
 
   const char* name() const
   { return name_str.c_str(); }
@@ -4003,6 +3974,10 @@ struct player_collected_data_t
   extended_sample_data_t effective_theck_meloree_index;
   extended_sample_data_t max_spike_amount;
 
+  // Metric used to end simulations early
+  extended_sample_data_t target_metric;
+  mutex_t target_metric_mutex;
+
   std::array<simple_sample_data_t,RESOURCE_MAX> resource_lost, resource_gained;
   struct resource_timeline_t
   {
@@ -4174,12 +4149,6 @@ private:
 
 struct actor_t : public noncopyable
 {
-#ifndef NDEBUG
-  static const bool ACTOR_EVENT_BOOKKEEPING = true;
-#else
-  static const bool ACTOR_EVENT_BOOKKEEPING = false;
-#endif
-
   sim_t* sim; // owner
   std::string name_str;
   int event_counter; // safety counter. Shall never be less than zero
@@ -4282,6 +4251,7 @@ struct player_t : public actor_t
 
   // static values
   player_e type;
+  player_t* parent; // corresponding player in main thread
   int index;
   size_t actor_index;
   int actor_spawn_index; // a unique identifier for each arise() of the actor
@@ -4556,6 +4526,7 @@ struct player_t : public actor_t
 
   struct buffs_t
   {
+    buff_t* aspect_of_the_fox;
     buff_t* aspect_of_the_pack;
     buff_t* beacon_of_light;
     buff_t* blood_fury;
@@ -4990,7 +4961,7 @@ struct player_t : public actor_t
   pet_t* cast_pet() { return debug_cast<pet_t*>( this ); }
   bool is_my_pet( player_t* t ) const;
 
-  bool      in_gcd() const { return gcd_ready > sim -> current_time; }
+  bool      in_gcd() const { return gcd_ready > sim -> current_time(); }
   bool      recent_cast();
   bool      dual_wield() const { return main_hand_weapon.type != WEAPON_NONE && off_hand_weapon.type != WEAPON_NONE; }
   bool      has_shield_equipped() const
@@ -5649,6 +5620,7 @@ struct action_t : public noncopyable
   resource_e resource_current;
   int aoe; // Number of targets the action will impact. -1 = no target limit.
   int pre_combat, may_multistrike;
+  bool instant_multistrike; // true if multistrikes occur immediately
   bool dual; // true if this action should not be counted for executes.
   bool callbacks; // When set to false, action will not trigger trinkets, enchants, rppm.
   bool special, channeled, sequence;
@@ -6311,9 +6283,9 @@ struct sequence_t : public action_t
   virtual void schedule_execute( action_state_t* execute_state = 0 );
   virtual void reset();
   virtual bool ready();
-  void restart() { current_action = 0; restarted = true; last_restart = sim -> current_time; }
+  void restart() { current_action = 0; restarted = true; last_restart = sim -> current_time(); }
   bool can_restart()
-  { return ! restarted && last_restart < sim -> current_time; }
+  { return ! restarted && last_restart < sim -> current_time(); }
 };
 
 struct strict_sequence_t : public action_t
@@ -6483,12 +6455,18 @@ inline void dot_tick_event_t::execute()
     dot -> tick();
   }
 
+  // Some dots actually cancel themselves mid-tick. If this happens, we presume
+  // that the cancel has been "proper", and just stop event execution here, as
+  // the dot no longer exists.
+  if ( ! dot -> is_ticking() )
+    return;
+
   assert ( dot -> ticking );
   expr_t* expr = dot -> current_action -> interrupt_if_expr;
-  if ( ( dot -> current_action -> channeled
-          && dot -> current_action -> player -> gcd_ready <= sim().current_time
-          && ( dot -> current_action -> interrupt || ( expr && expr -> success() ) )
-          && dot -> is_higher_priority_action_available() ) )
+  if ( ( dot -> current_action -> channeled &&
+         dot -> current_action -> player -> gcd_ready <= sim().current_time() &&
+         ( dot -> current_action -> interrupt || ( expr && expr -> success() ) ) &&
+         dot -> is_higher_priority_action_available() ) )
   {
     // cancel dot
     dot -> last_tick();
@@ -6543,7 +6521,7 @@ public:
                              rppm_scale_e      scales_with )
   {
     double coeff = 1.0;
-    double seconds = std::min( ( player -> sim -> current_time - last_trigger ).total_seconds(), max_interval() );
+    double seconds = std::min( ( player -> sim -> current_time() - last_trigger ).total_seconds(), max_interval() );
 
     if ( scales_with == RPPM_HASTE )
       coeff *= 1.0 / std::min( player -> cache.spell_haste(), player -> cache.attack_haste() );
@@ -6557,7 +6535,7 @@ public:
 
     // RPPM Extension added on 12. March 2013: http://us.battle.net/wow/en/blog/8953693?page=44
     // Formula see http://us.battle.net/wow/en/forum/topic/8197741003#1
-    double last_success = std::min( ( player -> sim -> current_time - last_successful_proc ).total_seconds(), max_bad_luck_prot() );
+    double last_success = std::min( ( player -> sim -> current_time() - last_successful_proc ).total_seconds(), max_bad_luck_prot() );
     double expected_average_proc_interval = 60.0 / real_ppm;
 
     double rppm_chance = std::max( 1.0, 1 + ( ( last_success / expected_average_proc_interval - 1.5 ) * 3.0 ) )  * old_rppm_chance;
@@ -6612,15 +6590,15 @@ public:
   {
     assert( freq != 0 && "Real PPM Frequency not set!" );
 
-    if ( last_trigger_attempt == player -> sim -> current_time )
+    if ( last_trigger_attempt == player -> sim -> current_time() )
       return false;
 
     bool success = player -> rng().roll( proc_chance( player, rppm, last_trigger_attempt, last_successful_trigger, scales_with ) );
 
-    last_trigger_attempt = player -> sim -> current_time;
+    last_trigger_attempt = player -> sim -> current_time();
 
     if ( success )
-      last_successful_trigger = player -> sim -> current_time;
+      last_successful_trigger = player -> sim -> current_time();
     return success;
   }
 };
@@ -6868,7 +6846,7 @@ struct multistrike_execute_event_t : public event_t
 {
   action_state_t* state;
 
-  multistrike_execute_event_t( action_state_t* s ) :
+  multistrike_execute_event_t( action_state_t* s, int ms_count = 0 ) :
       event_t( *s -> action -> player, "Multistrike-Execute-Event" ), state( s )
   {
     if ( sim().debug )
@@ -6878,10 +6856,23 @@ struct multistrike_execute_event_t : public event_t
                   s -> target -> name() );
     }
 
+    timespan_t multistrike_offset = timespan_t::zero();
+
+    if ( !state -> action -> instant_multistrike )
+    {
+      // Values taken from Celestalon's second post about this -- Twintop 2014/10/30
+      // http://us.battle.net/wow/en/forum/topic/13087818929?page=22#429
+      if ( ms_count == 0 )
+        multistrike_offset = timespan_t::from_millis( 333 );
+      else
+        multistrike_offset = timespan_t::from_millis( 666 );
+    }
+
     // Hots/Dots will be scheduled immediately, direct damage multistrikes will
     // jump through hoops .. below
     if ( state -> result_type == DMG_OVER_TIME || state -> result_type == HEAL_OVER_TIME )
-      sim().add_event( this, timespan_t::zero() );
+      sim().add_event( this, timespan_t::zero() + multistrike_offset );
+
     // Direct damage/heal multistrikes need to take into account the travel
     // time of the "real" spell, and impact at the same time(?), so ..
     // TODO-WOD: Multistrike impacts in combatlog have delay of .. ?
@@ -6892,7 +6883,7 @@ struct multistrike_execute_event_t : public event_t
       // timestamp
       if ( state -> action -> travel_time() == timespan_t::zero() )
       {
-        sim().add_event( this, timespan_t::zero() );
+        sim().add_event( this, timespan_t::zero() + multistrike_offset );
       }
       // Travel time spell, schedule_travel() has inserted a new entry into the
       // action's travel events (at the end of the vector), so use it's
@@ -6902,7 +6893,7 @@ struct multistrike_execute_event_t : public event_t
       {
         assert( state -> action -> current_travel_events().size() > 0 );
         timespan_t time_to_travel = state -> action -> current_travel_events().back() -> remains();
-        sim().add_event( this, time_to_travel );
+        sim().add_event( this, time_to_travel + multistrike_offset );
       }
     }
     else
@@ -7385,11 +7376,11 @@ inline bool player_t::is_my_pet( player_t* t ) const
 
 inline void player_t::do_dynamic_regen()
 {
-  if ( sim -> current_time == last_regen )
+  if ( sim -> current_time() == last_regen )
     return;
 
-  regen( sim -> current_time - last_regen );
-  last_regen = sim -> current_time;
+  regen( sim -> current_time() - last_regen );
+  last_regen = sim -> current_time();
 
   if ( dynamic_regen_pets )
   {
@@ -7436,7 +7427,7 @@ T util::ability_rank( int player_level,
 template <class T>
 sim_ostream_t& sim_ostream_t::operator<< (T const& rhs)
 {
-  _raw << util::to_string( sim.current_time.total_seconds(), 3 ) << " " << rhs << "\n";
+  _raw << util::to_string( sim.current_time().total_seconds(), 3 ) << " " << rhs << "\n";
 
   return *this;
 }

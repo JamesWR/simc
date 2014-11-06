@@ -52,7 +52,7 @@ struct ready_trigger_event_t : public event_t
     event_t( p, "ready_trigger_event" ),
     cooldown( cd )
   {
-    sim().add_event( this, cd -> ready - sim().current_time );
+    sim().add_event( this, cd -> ready - sim().current_time() );
   }
 
   void execute()
@@ -104,7 +104,7 @@ void cooldown_t::adjust( timespan_t amount, bool require_reaction )
       return;
 
     // Cooldown resets
-    if ( ready + amount <= sim.current_time )
+    if ( ready + amount <= sim.current_time() )
       reset( require_reaction );
     // Still some time left, adjust ready
     else
@@ -176,7 +176,7 @@ void cooldown_t::reset( bool require_reaction )
 {
   bool was_down = down();
   ready = ready_init();
-  if ( last_start > sim.current_time )
+  if ( last_start > sim.current_time() )
     last_start = timespan_t::zero();
   if ( charges == 1 )
     current_charge = charges;
@@ -185,7 +185,7 @@ void cooldown_t::reset( bool require_reaction )
   if ( require_reaction && player )
   {
     if ( was_down )
-      reset_react = sim.current_time + player -> total_reaction_time();
+      reset_react = sim.current_time() + player -> total_reaction_time();
   }
   else
   {
@@ -225,8 +225,8 @@ void cooldown_t::start( action_t* action, timespan_t _override, timespan_t delay
   }
   else
   {
-    ready = sim.current_time + _override * recharge_multiplier + delay;
-    last_start = sim.current_time;
+    ready = sim.current_time() + _override * recharge_multiplier + delay;
+    last_start = sim.current_time();
   }
 
   assert( player );
@@ -263,7 +263,7 @@ expr_t* cooldown_t::create_expression( action_t*, const std::string& name_str )
   if ( name_str == "remains" )
     return make_mem_fn_expr( name_str, *this, &cooldown_t::remains );
   else if ( name_str == "duration" )
-    return make_ref_expr( name_str, duration );
+    return make_mem_fn_expr( name_str, *this, &cooldown_t::duration );
   else if ( name_str == "up" )
     return make_mem_fn_expr( name_str, *this, &cooldown_t::up );
 

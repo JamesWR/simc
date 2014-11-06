@@ -71,6 +71,7 @@ public:
   // Buffs
   struct buffs_t
   {
+    buff_t* aspect_of_the_fox;
     buff_t* aspect_of_the_pack;
     buff_t* beast_cleave;
     buff_t* bestial_wrath;
@@ -779,13 +780,8 @@ public:
 
     resources.infinite_resource[RESOURCE_FOCUS] = o() -> resources.infinite_resource[RESOURCE_FOCUS];
 
-    owner_coeff.ap_from_ap = 0.3333;
-    owner_coeff.sp_from_ap = 0.3333;
-    if ( o() -> wod_hotfix )
-    {
-      owner_coeff.ap_from_ap = 0.6;
-      owner_coeff.sp_from_ap = 0.6;
-    }
+    owner_coeff.ap_from_ap = 0.6;
+    owner_coeff.sp_from_ap = 0.6;
   }
 
   virtual void create_buffs()
@@ -852,15 +848,6 @@ public:
     base_t::init_action_list();
   }
 
-  virtual double composite_attack_power_multiplier() const
-  {
-    double mult = base_t::composite_attack_power_multiplier();
-
-    // TODO pet charge should show up here.
-
-    return mult;
-  }
-
   virtual double composite_melee_crit() const
   {
     double ac = base_t::composite_melee_crit();
@@ -905,6 +892,8 @@ public:
     base_t::summon( duration );
     // pet appears at the target
     current.distance = 0;
+    owner_coeff.ap_from_ap = 1.0 / 3.0;
+    owner_coeff.sp_from_ap = 1.0 / 3.0;
 
     buffs.tier17_4pc_bm -> trigger( 1, buff_t::DEFAULT_VALUE(), 1.0, duration );
 
@@ -927,6 +916,8 @@ public:
     base_t::summon( duration );
     // pet appears at the target
     current.distance = 0;
+    owner_coeff.ap_from_ap = 1.0 / 3.0;
+    owner_coeff.sp_from_ap = 1.0 / 3.0;
 
     buffs.stampede -> trigger( 1, buff_t::DEFAULT_VALUE(), 1.0, duration );
 
@@ -958,9 +949,20 @@ public:
 
     // Pet combat experience
     if ( o() -> talents.adaptation -> ok() )
-      m *= 1.0 + specs.adaptation_combat_experience -> effectN( 2 ).percent();
+    {
+      if ( o() -> wod_hotfix )
+      {
+        m *= 1.7;
+      }
+      else
+      {
+        m *= 1.0 + specs.adaptation_combat_experience -> effectN( 2 ).percent();
+      }
+    }
     else
+    {
       m *= 1.0 + specs.combat_experience -> effectN( 2 ).percent();
+    }
 
     return m;
   }
@@ -1134,6 +1136,7 @@ struct pet_melee_t: public hunter_main_pet_attack_t
     repeating = true;
     auto_attack = true;
     school = SCHOOL_PHYSICAL;
+
   }
 
   virtual void impact( action_state_t* s )
@@ -1182,7 +1185,7 @@ struct basic_attack_t: public hunter_main_pet_attack_t
     parse_options( options_str );
     school = SCHOOL_PHYSICAL;
 
-    attack_power_mod.direct = 1;
+    attack_power_mod.direct = 1.0 / 3.0;
     base_multiplier *= 1.0 + p -> specs.spiked_collar -> effectN( 1 ).percent();
     chance_invigoration = p -> find_spell( 53397 ) -> proc_chance();
     gain_invigoration = p -> find_spell( 53398 ) -> effectN( 1 ).resource( RESOURCE_FOCUS );
@@ -1197,6 +1200,12 @@ struct basic_attack_t: public hunter_main_pet_attack_t
 
     if ( o() -> specs.frenzy -> ok() )
       p() -> buffs.frenzy -> trigger( 1 );
+  }
+
+  // Override behavior so that Basic Attacks use hunter's attack power rather than the pet's
+  double composite_attack_power() const
+  {
+    return o() -> cache.attack_power() * o()->composite_attack_power_multiplier();
   }
 
   void impact( action_state_t* s )
@@ -1270,8 +1279,7 @@ struct basic_attack_t: public hunter_main_pet_attack_t
 
   void update_ready( timespan_t cd_duration )
   {
-    hunter_main_pet_attack_t::update_ready( cd_duration ); // Currently on beta enhanced basic attacks seems to proc 50% of the time, rather than 15%.
-    // Added in an option to tweak it for now, default set at 50%
+    hunter_main_pet_attack_t::update_ready( cd_duration );
     if ( o() -> rng().roll( o() -> perks.enhanced_basic_attacks -> effectN( 1 ).percent() ) )
     {
       cooldown -> reset( true );
@@ -1307,6 +1315,11 @@ struct kill_command_t: public hunter_main_pet_attack_t
     // The hardcoded parameter is taken from the $damage value in teh tooltip. e.g., 1.36 below
     // $damage = ${ 1.5*($83381m1 + ($RAP*  1.36   ))*$<bmMastery> }
     attack_power_mod.direct  = 1.36; // Hard-coded in tooltip.
+
+    if ( p -> wod_hotfix )
+    {
+      attack_power_mod.direct *= 1.2;
+    }
   }
 
   // Override behavior so that Kill Command uses hunter's attack power rather than the pet's
@@ -1805,10 +1818,8 @@ struct ranged_t: public hunter_ranged_attack_t
         if ( p() -> active.ammo == POISONED_AMMO )
         {
           const spell_data_t* poisoned_tick = p() -> find_spell( 170661 );
-          double damage = p() -> cache.attack_power() * ( poisoned_tick -> effectN( 1 ).ap_coeff() *
-                                                          ( poisoned_tick -> duration() / poisoned_tick -> effectN( 1 ).period() ) );
-          if ( p() -> wod_hotfix )
-            damage *= 1.15;
+          double damage = s -> attack_power * ( poisoned_tick -> effectN( 1 ).ap_coeff() *
+                                                ( poisoned_tick -> duration() / poisoned_tick -> effectN( 1 ).period() ) );
           residual_action::trigger(
             p() -> active.poisoned_ammo, // ignite spell
             s -> target, // target
@@ -1868,7 +1879,6 @@ struct exotic_munitions_poisoned_ammo_t: public residual_action::residual_period
   exotic_munitions_poisoned_ammo_t( hunter_t* p, const char* name, const spell_data_t* s ):
     base_t( name, p, s )
   {
-    may_multistrike = 1;
     may_crit = true;
     tick_may_crit = true;
   }
@@ -1877,7 +1887,7 @@ struct exotic_munitions_poisoned_ammo_t: public residual_action::residual_period
   {
     base_t::init();
 
-    snapshot_flags |= STATE_CRIT | STATE_TGT_CRIT | STATE_AP | STATE_MUL_TA;
+    snapshot_flags |= STATE_CRIT | STATE_TGT_CRIT;
   }
 };
 
@@ -1887,8 +1897,6 @@ struct exotic_munitions_incendiary_ammo_t: public hunter_ranged_attack_t
     hunter_ranged_attack_t( name, p, s )
   {
     aoe = -1;
-    if ( p -> wod_hotfix )
-      base_multiplier *= 1.15;
   }
 };
 
@@ -1897,8 +1905,6 @@ struct exotic_munitions_frozen_ammo_t: public hunter_ranged_attack_t
   exotic_munitions_frozen_ammo_t( hunter_t* p, const char* name, const spell_data_t* s ):
     hunter_ranged_attack_t( name, p, s )
   {
-    if ( p -> wod_hotfix )
-      base_multiplier *= 1.15;
   }
 };
 
@@ -2295,8 +2301,6 @@ struct chimaera_shot_impact_t: public hunter_ranged_attack_t
     hunter_ranged_attack_t( name, p, s )
   {
     dual = true;
-    if ( player -> wod_hotfix )
-      weapon_multiplier *= 1.15;
   }
 
   virtual double action_multiplier() const
@@ -2686,7 +2690,11 @@ struct focusing_shot_t: public hunter_ranged_attack_t
     parse_options( options_str );
     focus_gain = data().effectN( 2 ).base_value();
     if ( player -> wod_hotfix )
+    {
       base_multiplier *= 1.15;
+      base_multiplier *= 1.25;
+      base_execute_time *= ( 5.0 / 6.0 ); // 2.5 seconds
+    }
   }
 
   bool usable_moving() const
@@ -2812,6 +2820,30 @@ public:
   }
 };
 
+struct aspect_of_the_fox_t: public hunter_spell_t
+{
+  aspect_of_the_fox_t( hunter_t* player, const std::string& options_str ):
+    hunter_spell_t( "aspect_of_the_fox", player, player -> find_class_spell( "Aspect of the Fox" ) )
+  {
+    parse_options( options_str );
+    harmful = false;
+    trigger_gcd = timespan_t::zero();
+  }
+
+  virtual void execute()
+  {
+    hunter_spell_t::execute();
+    for ( size_t i = 0; i < sim -> player_non_sleeping_list.size(); ++i )
+    {
+      player_t* p = sim -> player_non_sleeping_list[i];
+      if ( p -> type == PLAYER_GUARDIAN )
+        continue;
+      p -> buffs.aspect_of_the_fox -> trigger();
+    }
+  }
+};
+
+
 struct aspect_of_the_pack_t: public hunter_spell_t
 {
   std::string toggle;
@@ -2837,22 +2869,25 @@ struct aspect_of_the_pack_t: public hunter_spell_t
   virtual void execute()
   {
     if ( tog == true )
+    {
       for ( size_t i = 0; i < sim -> player_non_sleeping_list.size(); ++i )
       {
-      player_t* p = sim -> player_non_sleeping_list[i];
-      if ( p -> is_enemy() || p -> type == PLAYER_GUARDIAN )
-        break;
-      p -> buffs.aspect_of_the_pack -> trigger();
+        player_t* p = sim -> player_non_sleeping_list[i];
+        if ( p -> type == PLAYER_GUARDIAN )
+          continue;
+        p -> buffs.aspect_of_the_pack -> trigger();
       }
-
-    if ( tog == false )
+    }
+    else if ( tog == false )
+    {
       for ( size_t i = 0; i < sim -> player_non_sleeping_list.size(); ++i )
       {
-      player_t* p = sim -> player_non_sleeping_list[i];
-      if ( p -> is_enemy() || p -> type == PLAYER_GUARDIAN )
-        break;
-      p -> buffs.aspect_of_the_pack -> expire();
+        player_t* p = sim -> player_non_sleeping_list[i];
+        if ( p -> type == PLAYER_GUARDIAN )
+          continue;
+        p -> buffs.aspect_of_the_pack -> expire();
       }
+    }
   }
 
   virtual bool ready()
@@ -3294,6 +3329,7 @@ action_t* hunter_t::create_action( const std::string& name,
   if ( name == "summon_pet"            ) return new             summon_pet_t( this, options_str );
   if ( name == "cobra_shot"            ) return new             cobra_shot_t( this, options_str );
   if ( name == "a_murder_of_crows"     ) return new                    moc_t( this, options_str );
+  if ( name == "aspect_of_the_fox"     ) return new      aspect_of_the_fox_t( this, options_str );
   if ( name == "aspect_of_the_pack"    ) return new     aspect_of_the_pack_t( this, options_str );
   if ( name == "powershot"             ) return new              powershot_t( this, options_str );
   if ( name == "stampede"              ) return new               stampede_t( this, options_str );
@@ -3966,7 +4002,7 @@ struct sniper_training_event_t : public event_t
   {
     if ( ! hunter -> is_moving() )
     {
-      if ( sim().current_time - hunter -> movement_ended >= hunter -> sniper_training_cd -> duration() )
+      if ( sim().current_time() - hunter -> movement_ended >= hunter -> sniper_training_cd -> duration() )
         hunter -> buffs.sniper_training -> trigger();
     }
 
@@ -4078,7 +4114,7 @@ double hunter_t::composite_player_critical_damage_multiplier() const
   if ( sets.has_set_bonus( HUNTER_MARKSMANSHIP, T17, B4 ) && buffs.rapid_fire -> check() )
   {
     // deadly_aim_driver
-    double seconds_buffed = floor( buffs.rapid_fire -> elapsed( sim -> current_time ).total_seconds() );
+    double seconds_buffed = floor( buffs.rapid_fire -> elapsed( sim -> current_time() ).total_seconds() );
     // from Nimox
     cdm += bugs ? std::min(15.0, seconds_buffed) * 0.03
                 : seconds_buffed * sets.set( HUNTER_MARKSMANSHIP, T17, B4 ) -> effectN( 1 ).percent();
@@ -4378,7 +4414,7 @@ void hunter_t::finish_moving()
 {
   player_t::finish_moving();
 
-  movement_ended = sim -> current_time;
+  movement_ended = sim -> current_time();
 }
 
 /* Report Extension Class
@@ -4429,6 +4465,8 @@ struct hunter_module_t: public module_t
       player_t* p = sim -> actor_list[i];
 
       p -> buffs.aspect_of_the_pack    = buff_creator_t( p, "aspect_of_the_pack", p -> find_class_spell( "Aspect of the Pack" ) );
+      p -> buffs.aspect_of_the_fox     = buff_creator_t( p, "aspect_of_the_fox", p -> find_spell( 172106 ) )
+        .cd( timespan_t::zero() );
     }
   }
   virtual void combat_begin( sim_t* ) const {}

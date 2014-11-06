@@ -222,6 +222,7 @@
       <SubSystem>Windows</SubSystem>
       <LinkTimeCodeGeneration>
       </LinkTimeCodeGeneration>
+      <LargeAddressAware>true</LargeAddressAware>
     </Link>
     <Bscmake>
       <PreserveSbr>true</PreserveSbr>
@@ -275,6 +276,7 @@
       <Profile>false</Profile>
       <ProfileGuidedDatabase>$(SolutionDir)\$(PlatformShortName)\$(Configuration)\</ProfileGuidedDatabase>
       <GenerateMapFile>true</GenerateMapFile>
+      <LargeAddressAware>true</LargeAddressAware>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='PGO|Win32'">
@@ -325,6 +327,7 @@
       <Profile>false</Profile>
       <ProfileGuidedDatabase>$(SolutionDir)\$(PlatformShortName)\$(Configuration)\</ProfileGuidedDatabase>
       <GenerateMapFile>true</GenerateMapFile>
+      <LargeAddressAware>true</LargeAddressAware>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -390,7 +393,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <TreatWChar_tAsBuiltInType>false</TreatWChar_tAsBuiltInType>
       <RuntimeTypeInfo>true</RuntimeTypeInfo>
-      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>simulationcraft.hpp</PrecompiledHeaderFile>
       <WarningLevel>Level3</WarningLevel>
       <SuppressStartupBanner>true</SuppressStartupBanner>

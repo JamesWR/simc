@@ -19,23 +19,36 @@ struct sim_signal_handler_t
 {
   static sim_t* global_sim;
 
-  static void sigint( int )
+  static void report( int signal )
+  {
+    const char* name = strsignal( signal );
+    fprintf( stderr, "sim_signal_handler: %s! Iteration=%d Seed=%lu TargetHealth=%lu\n",
+	     name, global_sim -> current_iteration, global_sim -> seed,
+	     (uint64_t) global_sim -> target -> resources.initial[ RESOURCE_HEALTH ] );
+    fflush( stderr );
+  }
+
+  static void sigint( int signal )
   {
     if ( global_sim )
     {
-      if ( global_sim -> canceled ) exit( 1 );
-      global_sim -> cancel();
+      report( signal );
+      if( global_sim -> scaling -> calculate_scale_factors )
+      {
+	global_sim -> cancel();
+      }
+      else
+      {
+	global_sim -> interrupt();
+      }
     }
   }
 
-  static void callback( int signal )
+  static void sigsegv( int signal )
   {
     if ( global_sim )
     {
-      const char* name = strsignal( signal );
-      fprintf( stderr, "sim_signal_handler: %s! Seed=%d Iteration=%d\n",
-               name, global_sim -> seed, global_sim -> current_iteration );
-      fflush( stderr );
+      report( signal );
     }
     exit( 1 );
   }
@@ -48,7 +61,7 @@ struct sim_signal_handler_t
     sigemptyset( &sa.sa_mask );
     sa.sa_flags = 0;
 
-    sa.sa_handler = callback;
+    sa.sa_handler = sigsegv;
     sigaction( SIGSEGV, &sa, 0 );
 
     sa.sa_handler = sigint;
@@ -195,12 +208,10 @@ int sim_t::main( const std::vector<std::string>& args )
   }
   else
   {
-    util::printf( "\nSimulating... ( iterations=%d, max_time=%.0f, vary_combat_length=%0.2f, optimal_raid=%d, fight_style=%s )\n",
-                   iterations, max_time.total_seconds(), vary_combat_length, optimal_raid, fight_style.c_str() );
+    util::printf( "\nSimulating... ( iterations=%d, target_error=%.3f,  max_time=%.0f, vary_combat_length=%0.2f, optimal_raid=%d, fight_style=%s )\n\n",
+		  iterations, target_error, max_time.total_seconds(), vary_combat_length, optimal_raid, fight_style.c_str() );
 
-    std::cout << "\nGenerating baseline... " << std::endl;
-
-    sim_phase_str = "Generating baseline:   ";
+    sim_phase_str = "Generating Baseline:   ";
     if ( execute() )
     {
       scaling      -> analyze();

@@ -30,7 +30,6 @@ namespace { // UNNAMED NAMESPACE
     = Restoration =
     Err'thing
 
-
     = To add to wiki = 
     New Options :
       target_self - bool - changes target of spell to caster
@@ -1021,9 +1020,9 @@ struct force_of_nature_feral_t : public pet_t
   struct melee_t : public melee_attack_t
   {
     druid_t* owner;
-
+    bool first_swing;
     melee_t( force_of_nature_feral_t* p )
-      : melee_attack_t( "melee", p, spell_data_t::nil() ), owner( 0 )
+      : melee_attack_t( "melee", p, spell_data_t::nil() ), owner( 0 ), first_swing( true )
     {
       school = SCHOOL_PHYSICAL;
       weapon = &( p -> main_hand_weapon );
@@ -1039,6 +1038,27 @@ struct force_of_nature_feral_t : public pet_t
 
     force_of_nature_feral_t* p()
     { return static_cast<force_of_nature_feral_t*>( player ); }
+
+    timespan_t execute_time() const
+    {
+      timespan_t t = melee_attack_t::execute_time();
+      if ( first_swing )
+        t = timespan_t::from_seconds( rng().range( 1.0, 1.5 ) );
+      return t;
+    }
+
+    void execute()
+    {
+      melee_attack_t::execute();
+      if ( first_swing )
+        first_swing = false;
+    }
+
+    void reset()
+    {
+      melee_attack_t::reset();
+      first_swing = true;
+    }
 
     void init()
     {
@@ -1105,7 +1125,6 @@ struct force_of_nature_feral_t : public pet_t
   };
   
   melee_t* melee;
-
   force_of_nature_feral_t( sim_t* sim, druid_t* p ) :
     pet_t( sim, p, "treant", true, true ), melee( 0 )
   {
@@ -1158,10 +1177,12 @@ struct force_of_nature_feral_t : public pet_t
 
   void schedule_ready( timespan_t delta_time = timespan_t::zero(), bool waiting = false )
   {
-    // FIXME: Currently first swing happens after swingtime # seconds, it should happen after 1-1.5 seconds (random).
-    if ( melee && ! melee -> execute_event )
+    if ( melee && !melee -> execute_event )
+    {
+      melee -> first_swing = true;
       melee -> schedule_execute();
-
+    }
+    
     pet_t::schedule_ready( delta_time, waiting );
   }
 };
@@ -1282,10 +1303,10 @@ struct astral_communion_t : public druid_buff_t < buff_t >
   {
     base_t::expire_override();
 
-    druid.last_check = sim -> current_time - druid.last_check;
+    druid.last_check = sim -> current_time() - druid.last_check;
     druid.last_check *= 1 + druid.buff.astral_communion -> data().effectN( 1 ).percent();
     druid.balance_time += druid.last_check;
-    druid.last_check = sim -> current_time;
+    druid.last_check = sim -> current_time();
   }
 };
 
@@ -1439,7 +1460,7 @@ struct celestial_alignment_t : public druid_buff_t < buff_t >
   {
     base_t::expire_override();
 
-    druid.last_check = sim -> current_time;
+    druid.last_check = sim -> current_time();
   }
 };
 
@@ -3928,8 +3949,6 @@ struct tranquility_t : public druid_heal_t
 
     // Healing is in spell effect 1
     parse_spell_data( ( *player -> dbc.spell( data().effectN( 1 ).trigger_spell_id() ) ) );
-
-    // FIXME: The hot should stack
   }
 };
 
@@ -5141,8 +5160,8 @@ struct stampeding_roar_t : public druid_spell_t
     for ( size_t i = 0; i < sim -> player_non_sleeping_list.size(); ++i )
     {
       player_t* p = sim -> player_non_sleeping_list[ i ];
-      if( p -> is_enemy() || p -> type == PLAYER_GUARDIAN )
-        break;
+      if( p -> type == PLAYER_GUARDIAN )
+        continue;
 
       p -> buffs.stampeding_roar -> trigger();
     }
@@ -5158,6 +5177,10 @@ struct starfire_t : public druid_spell_t
   {
     parse_options( options_str );
     base_execute_time *= 1 + player -> sets.set( DRUID_BALANCE, T17, B2 ) -> effectN( 1 ).percent();
+    if ( player -> wod_hotfix )
+    {
+      spell_power_mod.direct *= 1.25;
+    }
   }
 
   double action_multiplier() const
@@ -5212,6 +5235,10 @@ struct starfall_pulse_t : public druid_spell_t
   {
     direct_tick = true;
     aoe = -1;
+    if ( player -> wod_hotfix )
+    {
+      spell_power_mod.direct *= 1.75;
+    }
   }
 };
 
@@ -5268,6 +5295,11 @@ struct starsurge_t : public druid_spell_t
     base_crit += p() -> sets.set( SET_CASTER, T15, B2 ) -> effectN( 1 ).percent();
     cooldown = player -> cooldown.starfallsurge;
     base_execute_time *= 1.0 + player -> perk.enhanced_starsurge -> effectN( 1 ).percent();
+
+    if ( player -> wod_hotfix )
+    {
+      spell_power_mod.direct *= 1.25;
+    }
   }
 
   void execute()
@@ -5426,6 +5458,10 @@ struct wrath_t : public druid_spell_t
   {
     parse_options( options_str );
     base_execute_time *= 1 + player -> sets.set( DRUID_BALANCE, T17, B2 ) -> effectN( 1 ).percent();
+    if ( player -> wod_hotfix )
+    {
+      spell_power_mod.direct *= 1.25;
+    }
   }
 
   double action_multiplier() const
@@ -6209,7 +6245,10 @@ void druid_t::apl_default()
 
 void druid_t::apl_feral()
 {
-  action_priority_list_t* def      = get_action_priority_list( "default"  );
+  action_priority_list_t* def      = get_action_priority_list( "default"   );
+  action_priority_list_t* finish   = get_action_priority_list( "finisher"  );
+  action_priority_list_t* maintain = get_action_priority_list( "maintain"  );
+  action_priority_list_t* generate = get_action_priority_list( "generator" );
 
   std::vector<std::string> item_actions   = get_item_actions();
   std::vector<std::string> racial_actions = get_racial_actions();
@@ -6247,32 +6286,40 @@ void druid_t::apl_feral()
     def -> add_action( potion_action + ",sync=berserk,if=target.health.pct<25" );
   def -> add_action( this, "Berserk", "if=buff.tigers_fury.up" );
   if ( race == RACE_NIGHT_ELF )
-    def -> add_action( "shadowmeld,if=dot.rake.remains<=0.3*dot.rake.duration&energy>=35&dot.rake.pmultiplier<2&(buff.bloodtalons.up|!talent.bloodtalons.enabled)&(!talent.incarnation.enabled|cooldown.incarnation.remains>15)" );
-  def -> add_action( this, "Ferocious Bite", "cycle_targets=1,if=dot.rip.ticking&dot.rip.remains<=3&target.health.pct<25",
+    def -> add_action( "shadowmeld,if=dot.rake.remains<4.5&energy>=35&dot.rake.pmultiplier<2&(buff.bloodtalons.up|!talent.bloodtalons.enabled)&(!talent.incarnation.enabled|cooldown.incarnation.remains>15)" );
+  def -> add_action( this, "Ferocious Bite", "cycle_targets=1,if=dot.rip.ticking&dot.rip.remains<3&target.health.pct<25",
                      "Keep Rip from falling off during execute range." );
   def -> add_action( this, "Healing Touch", "if=talent.bloodtalons.enabled&buff.predatory_swiftness.up&(combo_points>=4|buff.predatory_swiftness.remains<1.5)" );
   def -> add_action( this, "Savage Roar", "if=buff.savage_roar.remains<3" );
-  def -> add_action( "thrash_cat,if=buff.omen_of_clarity.react&remains<=duration*0.3&active_enemies>1" );
-  def -> add_action( "thrash_cat,if=!talent.bloodtalons.enabled&combo_points=5&remains<=duration*0.3&buff.omen_of_clarity.react");
+  def -> add_action( "thrash_cat,if=buff.omen_of_clarity.react&remains<4.5&active_enemies>1" );
+  def -> add_action( "thrash_cat,if=!talent.bloodtalons.enabled&combo_points=5&remains<4.5&buff.omen_of_clarity.react");
 
   // Finishers
-  def -> add_action( this, "Ferocious Bite", "cycle_targets=1,if=combo_points=5&target.health.pct<25&dot.rip.ticking&energy>=max_fb_energy" );
-  def -> add_action( this, "Rip", "cycle_targets=1,if=combo_points=5&remains<=3" );
-  def -> add_action( this, "Rip", "cycle_targets=1,if=combo_points=5&remains<=duration*0.3&persistent_multiplier>dot.rip.pmultiplier" );
-  def -> add_action( this, "Savage Roar", "if=combo_points=5&(energy.time_to_max<=1|buff.berserk.up|cooldown.tigers_fury.remains<3)&buff.savage_roar.remains<42*0.3" );
-  def -> add_action( this, "Ferocious Bite", "if=combo_points=5&(energy.time_to_max<=1|buff.berserk.up|(cooldown.tigers_fury.remains<3&energy>=max_fb_energy))" );
+  finish -> add_action( this, "Ferocious Bite", "cycle_targets=1,if=target.health.pct<25&dot.rip.ticking&energy>=max_fb_energy" );
+  finish -> add_action( this, "Rip", "cycle_targets=1,if=remains<3" );
+  finish -> add_action( this, "Rip", "cycle_targets=1,if=remains<7.2&persistent_multiplier>dot.rip.pmultiplier" );
+  finish -> add_action( this, "Savage Roar", "if=(energy.time_to_max<=1|buff.berserk.up|cooldown.tigers_fury.remains<3)&buff.savage_roar.remains<12.6" );
+  finish -> add_action( this, "Ferocious Bite", "if=(energy.time_to_max<=1|buff.berserk.up|(cooldown.tigers_fury.remains<3&energy>=max_fb_energy))" );
 
-  def -> add_action( this, "Rake", "cycle_targets=1,if=remains<=3&combo_points<5" );
-  def -> add_action( this, "Rake", "cycle_targets=1,if=remains<=duration*0.3&combo_points<5&persistent_multiplier>dot.rake.pmultiplier" );
-  def -> add_action( "thrash_cat,if=talent.bloodtalons.enabled&combo_points=5&remains<=duration*0.3&buff.omen_of_clarity.react");
-  def -> add_action( "pool_resource,for_next=1" );
-  def -> add_action( "thrash_cat,if=remains<=duration*0.3&active_enemies>1" );
-  def -> add_action( "moonfire_cat,cycle_targets=1,if=combo_points<5&remains<=duration*0.3&active_enemies<=10" );
-  def -> add_action( this, "Rake", "cycle_targets=1,if=persistent_multiplier>dot.rake.pmultiplier&combo_points<5" );
+  def -> add_action( "call_action_list,name=finisher,if=combo_points=5" );
 
-  // Fillers
-  def -> add_action( this, "Swipe", "if=combo_points<5&active_enemies>=3" );
-  def -> add_action( this, "Shred", "if=combo_points<5&active_enemies<3" );
+  // DoT Maintenance
+  maintain -> add_action( this, "Rake", "cycle_targets=1,if=!talent.bloodtalons.enabled&remains<3&combo_points<5" );
+  maintain -> add_action( this, "Rake", "cycle_targets=1,if=!talent.bloodtalons.enabled&remains<4.5&combo_points<5&persistent_multiplier>dot.rake.pmultiplier" );
+  maintain -> add_action( this, "Rake", "cycle_targets=1,if=talent.bloodtalons.enabled&remains<4.5&combo_points<5&(!buff.predatory_swiftness.up|buff.bloodtalons.up|persistent_multiplier>dot.rake.pmultiplier)" );
+  maintain -> add_action( "thrash_cat,if=talent.bloodtalons.enabled&combo_points=5&remains<4.5&buff.omen_of_clarity.react");
+  maintain -> add_action( "pool_resource,for_next=1" );
+  maintain -> add_action( "thrash_cat,if=remains<4.5&active_enemies>1" );
+  maintain -> add_action( "moonfire_cat,cycle_targets=1,if=combo_points<5&remains<4.2&active_enemies<=10" );
+  maintain -> add_action( this, "Rake", "cycle_targets=1,if=persistent_multiplier>dot.rake.pmultiplier&combo_points<5" );
+
+  def -> add_action( "call_action_list,name=maintain" );
+
+  // Generators
+  generate -> add_action( this, "Swipe", "if=active_enemies>=3" );
+  generate -> add_action( this, "Shred", "if=active_enemies<3" );
+
+  def -> add_action( "call_action_list,name=generator,if=combo_points<5" );
 }
 
 // Balance Combat Action Priority List ==============================
@@ -6306,10 +6353,10 @@ void druid_t::apl_balance()
   default_list -> add_action( "call_action_list,name=aoe,if=active_enemies>1" );
 
   single_target -> add_action( this, "Starsurge", "if=buff.lunar_empowerment.down&eclipse_energy>20" );
-  single_target -> add_action( this, "Starsurge", "if=buff.solar_empowerment.down&eclipse_energy<-20" );
-  single_target -> add_action( this, "Starsurge", "if=(charges=2&recharge_time<15)|charges=3" );
-  single_target -> add_action( this, "Celestial Alignment", "if=lunar_max<8|target.time_to_die<20" );
-  single_target -> add_action( "incarnation,if=buff.celestial_alignment.up" );
+  single_target -> add_action( this, "Starsurge", "if=buff.solar_empowerment.down&eclipse_energy<-40" );
+  single_target -> add_action( this, "Starsurge", "if=(charges=2&recharge_time<6)|charges=3" );
+  single_target -> add_action( this, "Celestial Alignment", "if=eclipse_energy>40" );
+  single_target -> add_action( "incarnation,if=eclipse_energy>0" );
   single_target -> add_action( this, "Sunfire", "if=remains<7|buff.solar_peak.up" );
   single_target -> add_talent( this, "Stellar Flare", "if=remains<7" );
   single_target -> add_action( this, "Moonfire" , "if=buff.lunar_peak.up&remains<eclipse_change+20|remains<4|(buff.celestial_alignment.up&buff.celestial_alignment.remains<=2&remains<eclipse_change+20)" );
@@ -7276,7 +7323,7 @@ druid_td_t::druid_td_t( player_t& target, druid_t& source )
 
 void druid_t::balance_tracker()
 {
-  if ( last_check == sim -> current_time ) // No need to re-check balance if the time hasn't changed.
+  if ( last_check == sim -> current_time() ) // No need to re-check balance if the time hasn't changed.
     return;
 
   if ( buff.celestial_alignment -> up() ) // Balance power is locked while celestial alignment is active.
@@ -7293,7 +7340,7 @@ void druid_t::balance_tracker()
     return;
   }
 
-  last_check = sim -> current_time - last_check;
+  last_check = sim -> current_time() - last_check;
   // Subtract current time by the last time we checked to get the amount of time elapsed
 
   if ( talent.euphoria -> ok() ) // Euphoria speeds up the cycle to 20 seconds.
@@ -7305,7 +7352,7 @@ void druid_t::balance_tracker()
   // Similarly, when astral communion is running, we will just multiply elapsed time by 3.
 
   balance_time += last_check; // Add the amount of elapsed time to balance_time
-  last_check = sim -> current_time; // Set current time for last check.
+  last_check = sim -> current_time(); // Set current time for last check.
 
   eclipse_amount = 105 * sin( 2 * M_PI * balance_time / timespan_t::from_millis( 40000 ) ); // Re-calculate eclipse
 

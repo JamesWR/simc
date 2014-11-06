@@ -10,7 +10,6 @@ Add all buffs
 Change expel harm to heal later on.
 
 GENERAL:
-- Healing Elixers - something is wrong with it's implementation
 - Fortuitous Sphers - Finish implementing
 - Break up Healing Elixers and Fortuitous into two spells; one for proc and one for heal
 
@@ -56,7 +55,6 @@ Gift of the Serpent Proc Coefficients:
 115072 Expel Harm 1.00
 
 BREWMASTER:
-- Level 75 talents - dampen harm added - currently stacks are consumed on all attacks, not just above 15% max hp
 
 - Zen Meditation
 */
@@ -109,6 +107,8 @@ public:
     action_t* blackout_kick_dot;
     action_t* blackout_kick_heal;
     action_t* chi_explosion_dot;
+    action_t* healing_elixir;
+    action_t* healing_sphere;
     actions::spells::stagger_self_damage_t* stagger_self_damage;
   } active_actions;
 
@@ -130,7 +130,6 @@ public:
     buff_t* energizing_brew;
     buff_t* forceful_winds;
     buff_t* fortifying_brew;
-    buff_t* fortuitous_spheres;
     buff_t* mana_tea;
     buff_t* power_strikes;
     buff_t* rushing_jade_wind;
@@ -236,7 +235,7 @@ public:
   {
     // GENERAL
     const spell_data_t* critical_strikes;
-    const spell_data_t* fortuitous_spheres;
+    const spell_data_t* healing_sphere;
     const spell_data_t* leather_specialization;
     const spell_data_t* legacy_of_the_white_tiger;
     const spell_data_t* rising_sun_kick;
@@ -345,8 +344,8 @@ public:
   // Cooldowns
   struct cooldowns_t
   {
-    cooldowns_t* fists_of_fury;
-    cooldowns_t* rising_sun_kick;
+    cooldown_t* healing_elixirs;
+    cooldown_t* healing_sphere;
   } cooldown;
 
   struct passives_t
@@ -384,11 +383,14 @@ public:
     spec( specs_t() ),
     mastery( mastery_spells_t() ),
     glyph( glyphs_t() ),
+    cooldown( cooldowns_t() ),
     passives( passives_t() ),
     user_options( options_t() )
   {
     // actives
     _active_stance = FIERCE_TIGER;
+    cooldown.healing_elixirs = get_cooldown( "healing_elixirs" );
+    cooldown.healing_sphere = get_cooldown( "healing_sphere" );
 
     regen_type = REGEN_DYNAMIC;
     regen_caches[CACHE_HASTE] = true;
@@ -1537,6 +1539,19 @@ struct chi_explosion_t: public monk_melee_attack_t
 
     return false;
   }
+
+  void impact( action_state_t* s )
+  {
+    if ( s -> target == p() -> target )
+      monk_melee_attack_t::impact( s );
+    else
+    {
+      double damage = s -> result_amount;
+      damage /= execute_state -> n_targets;
+      s -> result_amount = damage;
+      monk_melee_attack_t::impact( s );
+    }
+  }
 };
 
 // ==========================================================================
@@ -1938,8 +1953,9 @@ struct melee_t: public monk_melee_attack_t
   {
     // Prevent the monk from melee'ing while channeling soothing_mist.
     // FIXME: This is super hacky and spams up the APL sample sequence a bit.
-    if ( p() -> buff.channeling_soothing_mist -> check() )
-      return;
+    // Disabled since mistweaver doesn't work atm.
+    // if ( p() -> buff.channeling_soothing_mist -> check() )
+    // return;
 
     if ( first )
       first = false;
@@ -2121,30 +2137,66 @@ struct touch_of_karma_dot_t: public residual_action::residual_periodic_action_t 
     base_t( "touch_of_karma", p, p -> find_spell( 124280 ) )
   {
     may_miss = may_crit = false;
+    dual = true;
   }
 };
 
 struct touch_of_karma_t: public monk_melee_attack_t
 {
+  double interval;
+  double interval_stddev;
+  double interval_stddev_opt;
+  double pct_health;
   touch_of_karma_dot_t* touch_of_karma_dot;
   touch_of_karma_t( monk_t* p, const std::string& options_str ):
     monk_melee_attack_t( "touch_of_karma", p, p -> spec.touch_of_karma ),
+    interval( 100 ), interval_stddev( 0.05 ), interval_stddev_opt( 0 ), pct_health( 0.4 ),
     touch_of_karma_dot( new touch_of_karma_dot_t( p ) )
   {
+    add_option( opt_float( "interval", interval ) );
+    add_option( opt_float( "interval_stddev", interval_stddev_opt ) );
+    add_option( opt_float( "pct_health", pct_health ) );
     parse_options( options_str );
     stancemask = FIERCE_TIGER;
     cooldown -> duration = data().cooldown();
+    base_dd_min = base_dd_max = 0;
+
+    double max_pct = data().effectN( 3 ).percent();
+    if ( pct_health > max_pct ) // Does a maximum of 50% of the monk's HP.
+      pct_health = max_pct;
+
+    if ( interval < cooldown -> duration.total_seconds() )
+    {
+      sim -> errorf( "%s minimum interval for Touch of Karma is 90 seconds.", player -> name() );
+      interval = cooldown -> duration.total_seconds();
+    }
+
+    if ( interval_stddev_opt < 1 )
+      interval_stddev = interval * interval_stddev_opt;
+    // >= 1 seconds is used as a standard deviation normally
+    else
+      interval_stddev = interval_stddev_opt;
 
     may_crit = may_miss = may_dodge = may_parry = false;
   }
 
   void execute()
   {
+    timespan_t new_cd = timespan_t::from_seconds( rng().gauss( interval, interval_stddev ) );
+    timespan_t data_cooldown = data().cooldown();
+    if ( new_cd < data_cooldown )
+      new_cd = data_cooldown;
+
+    cooldown -> duration = new_cd;
+
     monk_melee_attack_t::execute();
 
-    residual_action::trigger( // For now, just assume it does maximum damage.
-                              touch_of_karma_dot, execute_state -> target,
-                              data().effectN( 3 ).percent() * player -> resources.max[RESOURCE_HEALTH] );
+    if ( pct_health > 0 )
+    {
+      residual_action::trigger(
+        touch_of_karma_dot, execute_state -> target,
+        pct_health * player -> resources.max[RESOURCE_HEALTH] );
+    }
   }
 };
 
@@ -2333,6 +2385,12 @@ struct tigereye_brew_t: public monk_spell_t
   virtual void execute()
   {
     monk_spell_t::execute();
+
+    if ( p() -> talent.healing_elixirs -> ok() )
+    {
+      if ( p() -> cooldown.healing_elixirs -> up() )
+        p() -> active_actions.healing_elixir -> execute();
+    }
 
     int max_stacks_consumable = p() -> spec.brewing_tigereye_brew -> effectN( 2 ).base_value();
     double teb_stacks_used = std::min( p() -> buff.tigereye_brew -> stack(), max_stacks_consumable );
@@ -2778,6 +2836,12 @@ struct elusive_brew_t: public monk_spell_t
   {
     monk_spell_t::execute();
 
+    if ( p() -> talent.healing_elixirs -> ok() )
+    {
+      if ( p() -> cooldown.healing_elixirs -> up() )
+        p() -> active_actions.healing_elixir -> execute();
+    }
+
     p() -> buff.elusive_brew_activated -> trigger( 1,
                                                buff_t::DEFAULT_VALUE(),
                                                1.0, timespan_t::from_seconds( p() -> buff.elusive_brew_stacks -> stack() ) );
@@ -2825,6 +2889,12 @@ struct mana_tea_t: public monk_spell_t
   virtual void execute()
   {
     monk_spell_t::execute();
+
+    if ( p() -> talent.healing_elixirs -> ok() )
+    {
+      if ( p() -> cooldown.healing_elixirs -> up() )
+        p() -> active_actions.healing_elixir -> execute();
+    }
 
     int max_stacks_consumable = 2;
 
@@ -3446,72 +3516,31 @@ struct gift_of_the_ox_t: public monk_heal_t
 
 struct healing_elixirs_t: public monk_heal_t
 {
-  healing_elixirs_t( monk_t& p, const std::string& options_str ):
+  healing_elixirs_t( monk_t& p ):
     monk_heal_t( "healing_elixirs", p, p.talent.healing_elixirs )
   {
-    parse_options( options_str );
-    harmful = false;
+    harmful = may_crit = false;
     trigger_gcd = timespan_t::zero();
-    cooldown -> duration = p.talent.healing_elixirs -> effectN( 1 ).period();
-  }
-
-  virtual bool ready()
-  {
-    if ( p() -> buff.tigereye_brew_use -> check() )
-      return true;
-
-    if ( p() -> buff.elusive_brew_activated -> check() )
-      return true;
-
-    if ( p() -> buff.mana_tea -> check() )
-      return true;
-
-    return false;
-  }
-
-  virtual void execute()
-  {
-    monk_heal_t::execute();
-
-    double amount_healed = player -> resources.max[RESOURCE_HEALTH] * p() -> passives.healing_elixirs -> effectN( 1 ).percent();
-    player -> resource_gain( RESOURCE_HEALTH, amount_healed, p() -> gain.healing_elixirs, this );
+    pct_heal = p.passives.healing_elixirs -> effectN( 1 ).percent();
+    cooldown -> duration = data().effectN( 1 ).period();
   }
 };
 
+
 // ==========================================================================
-// Fortuitous Spheres
+// Healing Sphere
 // ==========================================================================
 
-struct fortuitous_spheres_t: public monk_heal_t
+struct healing_sphere_t: public monk_heal_t
 {
-  fortuitous_spheres_t( monk_t& p, const std::string& options_str ):
-    monk_heal_t( "fortuitous_spheres", p, p.spec.fortuitous_spheres )
+  healing_sphere_t( monk_t& p ):
+    monk_heal_t( "healing_sphere", p, p.spec.healing_sphere )
   {
-    parse_options( options_str );
     harmful = false;
     trigger_gcd = timespan_t::zero();
-    cooldown -> duration = p.glyph.fortuitous_spheres -> effectN( 2 ).time_value();
-  }
-
-  virtual bool ready()
-  {
-    if ( p() -> buff.fortuitous_spheres -> stack() > 0 )
-      return true;
-
-    return false;
-  }
-
-  virtual void execute()
-  {
-    if ( p() -> buff.fortuitous_spheres -> up() )
-    {
-      monk_heal_t::execute();
-
-      p() -> buff.fortuitous_spheres -> decrement();
-    }
+    cooldown -> duration = timespan_t::from_seconds( p.glyph.fortuitous_spheres -> effectN( 2 ).base_value() );
   }
 };
-
 
 } // end namespace heals
 
@@ -3641,7 +3670,6 @@ action_t* monk_t::create_action( const std::string& name,
   if ( name == "chi_burst" ) return new              chi_burst_t( this, options_str );
   if ( name == "chi_sphere" ) return new             chi_sphere_t( this, options_str ); // For Power Strikes
   if ( name == "chi_brew" ) return new               chi_brew_t( this, options_str );
-  if ( name == "healing_elixirs" ) return new        healing_elixirs_t( *this, options_str );
   if ( name == "dampen_harm" ) return new            dampen_harm_t( *this, options_str );
   if ( name == "diffuse_magic" ) return new          diffuse_magic_t( *this, options_str );
   if ( name == "rushing_jade_wind" ) return new      spinning_crane_kick_t( this, options_str );
@@ -3732,7 +3760,7 @@ void monk_t::init_spells()
 
   // General Passives
   spec.critical_strikes              = find_specialization_spell( "Critical Strikes" );
-  spec.fortuitous_spheres            = find_spell( 125355 );
+  spec.healing_sphere                = find_spell( 125355 );
   spec.leather_specialization        = find_specialization_spell( "Leather Specialization" );
   spec.legacy_of_the_white_tiger     = find_specialization_spell( "Legacy of the White Tiger" );
   spec.rising_sun_kick               = find_specialization_spell( "Rising Sun Kick" );
@@ -3801,18 +3829,10 @@ void monk_t::init_spells()
   stance_data.wise_serpent           = find_specialization_spell( "Stance of the Wise Serpent" );
   stance_data.spirited_crane         = find_specialization_spell( "Stance of the Spirited Crane" );
 
-  //SPELLS
-  active_actions.blackout_kick_dot   = new actions::dot_blackout_kick_t( this );
-  //active_actions.blackout_kick_heal = new actions::heal_blackout_kick_t( this );
-  active_actions.chi_explosion_dot   = new actions::dot_chi_explosion_t( this );
-
-  if ( specialization() == MONK_BREWMASTER )
-    active_actions.stagger_self_damage = new actions::stagger_self_damage_t( this );
-
   passives.tier15_2pc_melee          = find_spell( 138311 );
   passives.enveloping_mist           = find_class_spell( "Enveloping Mist" );
   passives.surging_mist              = find_class_spell( "Surging Mist" );
-  passives.healing_elixirs           = find_spell( 134563 );
+  passives.healing_elixirs           = find_spell( 122281 );
   passives.storm_earth_and_fire      = find_spell( 138228 );
   passives.hotfix_passive            = find_spell( 137022 );
 
@@ -3830,6 +3850,17 @@ void monk_t::init_spells()
   mastery.bottled_fury               = find_mastery_spell( MONK_WINDWALKER );
   mastery.elusive_brawler            = find_mastery_spell( MONK_BREWMASTER );
   mastery.gift_of_the_serpent        = find_mastery_spell( MONK_MISTWEAVER );
+
+  //SPELLS
+  active_actions.blackout_kick_dot    = new actions::dot_blackout_kick_t( this );
+  //active_actions.blackout_kick_heal   = new actions::heal_blackout_kick_t( this );
+  active_actions.chi_explosion_dot    = new actions::dot_chi_explosion_t( this );
+  if ( talent.healing_elixirs -> ok() )
+    active_actions.healing_elixir       = new actions::healing_elixirs_t( *this );
+  active_actions.healing_sphere       = new actions::healing_sphere_t( *this );
+
+  if (specialization() == MONK_BREWMASTER)
+    active_actions.stagger_self_damage = new actions::stagger_self_damage_t( this );
 }
 
 // monk_t::init_base ========================================================
@@ -3901,8 +3932,6 @@ void monk_t::create_buffs()
 
   // General
   buff.fortifying_brew = buff_creator_t( this, "fortifying_brew", find_spell( 120954 ) );
-
-  buff.fortuitous_spheres = buff_creator_t( this, "fortuitous_spheres", find_spell( 147494 ) );
 
   buff.power_strikes = buff_creator_t( this, "power_strikes", talent.power_strikes -> effectN( 1 ).trigger() );
 
@@ -4053,7 +4082,7 @@ void monk_t::interrupt()
   // This function triggers stuns, movement, and other types of halts.
 
   // End any active soothing_mist channels
-  if ( buff.channeling_soothing_mist -> check() )
+  /*if ( buff.channeling_soothing_mist -> check() )
   {
     for ( size_t i = 0, actors = sim -> player_non_sleeping_list.size(); i < actors; ++i )
     {
@@ -4065,7 +4094,7 @@ void monk_t::interrupt()
         break;
       }
     }
-  }
+  }*/
   player_t::interrupt();
 }
 
@@ -4467,8 +4496,8 @@ void monk_t::combat_begin()
     for ( size_t i = 0; i < sim -> player_non_sleeping_list.size(); ++i )
     {
       player_t* p = sim -> player_non_sleeping_list[i];
-      if ( p -> is_enemy() || p -> type == PLAYER_GUARDIAN )
-        break;
+      if ( p -> type == PLAYER_GUARDIAN )
+        continue;
 
       p -> buffs.fierce_tiger_movement_aura -> trigger();
     }
@@ -4538,6 +4567,12 @@ void monk_t::assess_damage( school_e school,
     buff.guard -> up();
   else if ( s -> result_total > 0 && school != SCHOOL_PHYSICAL && glyph.guard -> ok() )
     buff.guard -> up();
+
+  if ( health_percentage() < glyph.fortuitous_spheres -> effectN( 1 ).percent() && glyph.fortuitous_spheres -> ok() )
+  {
+    if ( cooldown.healing_sphere -> up() )
+      active_actions.healing_sphere -> execute();
+  }
 
   if ( s -> result == RESULT_DODGE && sets.set( MONK_BREWMASTER, T17, B2 ) )
     resource_gain( RESOURCE_ENERGY, sets.set( MONK_BREWMASTER, T17, B2 ) -> effectN( 1 ).base_value(), gain.energy_refund );
@@ -4716,9 +4751,10 @@ void monk_t::apl_combat_brewmaster()
   def -> add_action( this, "chi_sphere", "if=talent.power_strikes.enabled&buff.chi_sphere.react&chi<4" );
   def -> add_talent( this, "Chi Brew", "if=talent.chi_brew.enabled&chi.max-chi>=2&buff.elusive_brew_stacks.stack<=10" );
   def -> add_action( this, "Gift of the Ox", "if=buff.gift_of_the_ox.react&incoming_damage_1500ms" );
+  def -> add_talent( this, "Diffuse Magic", "if=incoming_damage_1500ms&buff.fortifying_brew.down" );
   def -> add_talent( this, "Dampen Harm", "if=incoming_damage_1500ms&buff.fortifying_brew.down&buff.elusive_brew_activated.down" );
-  def -> add_action( this, "Fortifying Brew", "if=incoming_damage_1500ms&buff.dampen_harm.down&buff.elusive_brew_activated.down" );
-  def -> add_action( this, "Elusive Brew", "if=buff.elusive_brew_stacks.react>=9&buff.dampen_harm.down&buff.elusive_brew_activated.down" );
+  def -> add_action( this, "Fortifying Brew", "if=incoming_damage_1500ms&(buff.dampen_harm.down|buff.diffuse_magic.down)&buff.elusive_brew_activated.down" );
+  def -> add_action( this, "Elusive Brew", "if=buff.elusive_brew_stacks.react>=9&(buff.dampen_harm.down|buff.diffuse_magic.down)&buff.elusive_brew_activated.down" );
   def -> add_action( "invoke_xuen,if=talent.invoke_xuen.enabled&time>5" );
   def -> add_talent( this, "Serenity", "if=talent.serenity.enabled&energy<=40" );
   def -> add_action( "call_action_list,name=st,if=active_enemies<3" );
@@ -4744,7 +4780,7 @@ void monk_t::apl_combat_brewmaster()
 
   aoe -> add_action( this, "Guard" );
   if ( level >= 100 )
-    aoe ->add_action( this, "Breath of Fire", "if=chi>=3&buff.shuffle.remains>=6&dot.breath_of_fire.remains<=gcd" );
+    aoe -> add_action( this, "Breath of Fire", "if=chi>=3&buff.shuffle.remains>=6&dot.breath_of_fire.remains<=gcd" );
   else
     aoe -> add_action( this, "Breath of Fire", "if=chi>=3&buff.shuffle.remains>=6&dot.breath_of_fire.remains<=1&target.debuff.dizzying_haze.up" );
   aoe -> add_talent( this, "Chi Explosion", "if=chi>=4" );
@@ -4964,8 +5000,6 @@ double monk_t::current_stagger_dmg()
     if ( dot && dot -> state )
     {
       dmg = dot -> state -> result_amount;
-      if ( dot -> state -> result == RESULT_HIT )
-        dmg *= 1.0 + active_actions.stagger_self_damage -> total_crit_bonus();
     }
   }
   return dmg;
@@ -4989,7 +5023,7 @@ expr_t* monk_t::create_expression( action_t* a, const std::string& name_str )
 
       virtual double evaluate()
       {
-        return player.current_stagger_dmg() / player.resources.max[RESOURCE_HEALTH] > stagger_health_pct;
+        return ( player.current_stagger_dmg() / player.resources.max[RESOURCE_HEALTH] ) > stagger_health_pct;
       }
     };
     struct stagger_amount_expr_t: public expr_t
@@ -5061,8 +5095,8 @@ bool monk_t::switch_to_stance( stance_e to )
     for ( size_t i = 0; i < sim -> player_non_sleeping_list.size(); ++i )
     {
       player_t* p = sim -> player_non_sleeping_list[i];
-      if ( p -> is_enemy() || p -> type == PLAYER_GUARDIAN )
-        break;
+      if ( p -> type == PLAYER_GUARDIAN )
+        continue;
 
       p -> buffs.fierce_tiger_movement_aura -> trigger();
     }
@@ -5072,8 +5106,8 @@ bool monk_t::switch_to_stance( stance_e to )
     for ( size_t i = 0; i < sim -> player_non_sleeping_list.size(); ++i )
     {
       player_t* p = sim -> player_non_sleeping_list[i];
-      if ( p -> is_enemy() || p -> type == PLAYER_GUARDIAN )
-        break;
+      if ( p -> type == PLAYER_GUARDIAN )
+        continue;
 
       p -> buffs.fierce_tiger_movement_aura -> expire();
     }

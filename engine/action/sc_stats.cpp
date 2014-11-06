@@ -42,10 +42,11 @@ stats_t::stats_t( const std::string& n, player_t* p ) :
   aps( 0 ), ape( 0 ), apet( 0 ), etpe( 0 ), ttpt( 0 ),
   total_time( timespan_t::zero() )
 {
-  actual_amount.reserve( sim.iterations );
-  total_amount.reserve( sim.iterations );
-  portion_aps.reserve( sim.iterations );
-  portion_apse.reserve( sim.iterations );
+  int size = std::min( sim.iterations, 10000 );
+  actual_amount.reserve( size );
+  total_amount.reserve( size );
+  portion_aps.reserve( size );
+  portion_apse.reserve( size );
 }
 
 // stats_t::add_child =======================================================
@@ -153,7 +154,7 @@ void stats_t::add_result( double act_amount,
     f -> actual_amount.add( act_amount );
     f -> total_amount.add( tot_amount );
   }
-  timeline_amount.add( sim.current_time, act_amount );
+  timeline_amount.add( sim.current_time(), act_amount );
 }
 
 // stats_t::add_execute =====================================================
@@ -165,11 +166,11 @@ void stats_t::add_execute( timespan_t time,
   iteration_total_execute_time += time;
 
   if ( last_execute > timespan_t::zero() &&
-               last_execute != sim.current_time )
+               last_execute != sim.current_time() )
   {
-    total_intervals.add( sim.current_time.total_seconds() - last_execute.total_seconds() );
+    total_intervals.add( sim.current_time().total_seconds() - last_execute.total_seconds() );
   }
-  last_execute = sim.current_time;
+  last_execute = sim.current_time();
 }
 
 // stats_t::add_tick ========================================================
@@ -256,7 +257,7 @@ void stats_t::datacollection_end()
     player -> iteration_absorb += iaa;
 
   portion_aps.add( player -> iteration_fight_length != timespan_t::zero() ? iaa / player -> iteration_fight_length.total_seconds() : 0 );
-  portion_apse.add( sim.current_time != timespan_t::zero() ? iaa / sim.current_time.total_seconds() : 0 );
+  portion_apse.add( sim.current_time() != timespan_t::zero() ? iaa / sim.current_time().total_seconds() : 0 );
 
 
   num_executes.add( iteration_num_executes );
@@ -265,7 +266,7 @@ void stats_t::datacollection_end()
   num_direct_results.add( idr );
   num_tick_results.add( itr );
 
-  timeline_amount.add( sim.current_time, 0.0 );
+  timeline_amount.add( sim.current_time(), 0.0 );
 }
 
 // stats_t::analyze =========================================================

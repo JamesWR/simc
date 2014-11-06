@@ -40,7 +40,7 @@ struct player_ready_event_t : public event_t
                       p() -> name(), x.total_seconds(),
                       p() -> resources.current[ p() -> primary_resource() ] );
       }
-      else p() -> started_waiting = sim().current_time;
+      else p() -> started_waiting = sim().current_time();
     }
   }
 };
@@ -498,6 +498,7 @@ player_t::player_t( sim_t*             s,
                     race_e             r ) :
   actor_t( s, n ),
   type( t ),
+  parent( 0 ),
 
   index( -1 ),
   actor_spawn_index( -1 ),
@@ -567,7 +568,7 @@ player_t::player_t( sim_t*             s,
   rps_gain( 0 ), rps_loss( 0 ),
 
   tmi_window( 6.0 ),
-  collected_data( player_collected_data_t( name_str, *sim ) ),
+  collected_data( name_str, *sim ),
   // Damage
   iteration_dmg( 0 ), iteration_dmg_taken( 0 ),
   dpr( 0 ),
@@ -682,6 +683,12 @@ player_t::player_t( sim_t*             s,
     "# while resulting in a meaningful and good simulation. It may not result in the absolutely highest possible dps.\n"
     "# Feel free to edit, adapt and improve it to your own needs.\n"
     "# SimulationCraft is always looking for updates and improvements to the default action lists.\n";
+
+  if( ! is_pet() &&
+      ! is_enemy() && 
+      sim -> parent &&
+      sim -> thread_index > 0 )
+    parent = sim -> parent -> find_player( name() );
 }
 
 player_t::base_initial_current_t::base_initial_current_t() :
@@ -1632,18 +1639,14 @@ void player_t::override_talent( std::string override_str )
             sim -> out_debug.printf( "talent_override: talent %s for player %s is already enabled\n",
                            override_str.c_str(), name() );
           }
-          else
-          {
-            sim -> out_debug.printf( "talent_override: talent %s for player %s replaced talent %d in tier %d\n",
-                           override_str.c_str(), name(), talent_points.choice( j ) + 1, j + 1 );
-          }
         }
+        sim -> errorf( "talent_override: talent %s for player %s replaced talent %s in tier %d\n",
+                               override_str.c_str(), name(), util::to_string( talent_points.choice( j ) + 1).c_str(), j + 1 );
         talent_points.select_row_col( j, i );
       }
     }
   }
 }
-
 // player_t::init_talents ===================================================
 
 void player_t::init_talents()
@@ -2193,8 +2196,6 @@ void player_t::create_buffs()
 
       buffs.nitro_boosts       = buff_creator_t( this, "nitro_boosts", find_spell( 54861 ) );
 
-      debuffs.dazed            = buff_creator_t( this, "dazed", find_spell( 15571 ) );
-
       buffs.cooldown_reduction = buff_creator_t( this, "readiness" ).chance( 0 )
         .default_value( 1 );
       buffs.amplification = buff_creator_t( this, "amplification", find_spell( 146051 ) )
@@ -2208,6 +2209,7 @@ void player_t::create_buffs()
                               .add_invalidate( CACHE_SPIRIT )
                               .chance( 0 );
     }
+    debuffs.dazed = buff_creator_t( this, "dazed", find_spell( 15571 ) );
 
   }
 
@@ -3158,7 +3160,7 @@ void player_t::combat_begin()
       {
         action_t* action = precombat_action_list[ i ];
         action -> execute();
-        sequence_add( action, action -> target, sim -> current_time );
+        sequence_add( action, action -> target, sim -> current_time() );
       }
     }
   }
@@ -3210,7 +3212,7 @@ void player_t::combat_end()
       }
 
   if ( sim -> debug )
-    sim -> out_debug.printf( "Combat ends for player %s at time %.4f fight_length=%.4f", name(), sim -> current_time.total_seconds(), iteration_fight_length.total_seconds() );
+    sim -> out_debug.printf( "Combat ends for player %s at time %.4f fight_length=%.4f", name(), sim -> current_time().total_seconds(), iteration_fight_length.total_seconds() );
 }
 
 // startpoint for statistical data collection
@@ -3272,7 +3274,7 @@ void player_t::datacollection_end()
     return;
 
   if ( sim -> debug )
-    sim -> out_debug.printf( "Data collection ends for player %s at time %.4f fight_length=%.4f", name(), sim -> current_time.total_seconds(), iteration_fight_length.total_seconds() );
+    sim -> out_debug.printf( "Data collection ends for player %s at time %.4f fight_length=%.4f", name(), sim -> current_time().total_seconds(), iteration_fight_length.total_seconds() );
 
   for ( size_t i = 0; i < pet_list.size(); ++i )
     pet_list[ i ] -> datacollection_end();
@@ -3280,9 +3282,9 @@ void player_t::datacollection_end()
   if ( arise_time >= timespan_t::zero() )
   {
     // If we collect data while the player is still alive, capture active time up to now
-    assert( sim -> current_time >= arise_time );
-    iteration_fight_length += sim -> current_time - arise_time;
-    arise_time = sim -> current_time;
+    assert( sim -> current_time() >= arise_time );
+    iteration_fight_length += sim -> current_time() - arise_time;
+    arise_time = sim -> current_time();
   }
 
   for ( size_t i = 0; i < stats_list.size(); ++i )
@@ -3298,12 +3300,12 @@ void player_t::datacollection_end()
   // make sure TMI-relevant timeline lengths all match for tanks
   if ( ! is_enemy() && ! is_pet() && primary_role() == ROLE_TANK )
   {
-    collected_data.timeline_healing_taken.add( sim -> current_time, 0.0 );
-    collected_data.timeline_dmg_taken.add( sim -> current_time, 0.0 );
-    collected_data.health_changes.timeline.add( sim -> current_time, 0.0 );
-    collected_data.health_changes.timeline_normalized.add( sim -> current_time, 0.0 );
-    collected_data.health_changes_tmi.timeline.add( sim -> current_time, 0.0 );
-    collected_data.health_changes_tmi.timeline_normalized.add( sim -> current_time, 0.0 );
+    collected_data.timeline_healing_taken.add( sim -> current_time(), 0.0 );
+    collected_data.timeline_dmg_taken.add( sim -> current_time(), 0.0 );
+    collected_data.health_changes.timeline.add( sim -> current_time(), 0.0 );
+    collected_data.health_changes.timeline_normalized.add( sim -> current_time(), 0.0 );
+    collected_data.health_changes_tmi.timeline.add( sim -> current_time(), 0.0 );
+    collected_data.health_changes_tmi.timeline_normalized.add( sim -> current_time(), 0.0 );
   }
   collected_data.collect_data( *this );
 
@@ -3536,8 +3538,24 @@ void player_t::merge( player_t& other )
   }
 
   // Action Map
-  for ( size_t i = 0; i < other.action_list.size(); ++i )
-    action_list[ i ] -> total_executions += other.action_list[ i ] -> total_executions;
+  size_t n_entries = std::min( action_list.size(), other.action_list.size() );
+  if ( action_list.size() != other.action_list.size() )
+  {
+    sim -> errorf( "%s player_t::merge action lists for actor differ!", name() );
+  }
+
+  for ( size_t i = 0; i < n_entries; ++i )
+  {
+    if ( action_list[ i ] -> internal_id == other.action_list[ i ] -> internal_id )
+    {
+      action_list[ i ] -> total_executions += other.action_list[ i ] -> total_executions;
+    }
+    else
+    {
+      sim -> errorf( "%s player_t::merge can't merge action %s with %s",
+          name(), action_list[ i ] -> name(), other.action_list[ i ] -> name() );
+    }
+  }
 }
 
 // player_t::reset ==========================================================
@@ -3647,10 +3665,10 @@ void player_t::trigger_ready()
 
   if ( buffs.stunned -> check() ) return;
 
-  if ( sim -> debug ) sim -> out_debug.printf( "%s is triggering ready, interval=%f", name(), ( sim -> current_time - started_waiting ).total_seconds() );
+  if ( sim -> debug ) sim -> out_debug.printf( "%s is triggering ready, interval=%f", name(), ( sim -> current_time() - started_waiting ).total_seconds() );
 
   assert( started_waiting >= timespan_t::zero() );
-  iteration_waiting_time += sim -> current_time - started_waiting;
+  iteration_waiting_time += sim -> current_time() - started_waiting;
   started_waiting = timespan_t::min();
 
   schedule_ready( available() );
@@ -3679,7 +3697,7 @@ void player_t::schedule_ready( timespan_t delta_time,
 
   started_waiting = timespan_t::min();
 
-  timespan_t gcd_adjust = gcd_ready - ( sim -> current_time + delta_time );
+  timespan_t gcd_adjust = gcd_ready - ( sim -> current_time() + delta_time );
   if ( gcd_adjust > timespan_t::zero() ) delta_time += gcd_adjust;
 
   if ( waiting )
@@ -3696,7 +3714,7 @@ void player_t::schedule_ready( timespan_t delta_time,
       {
         timespan_t ability_lag = rng().gauss( last_foreground_action -> ability_lag, last_foreground_action -> ability_lag_stddev );
         timespan_t gcd_lag     = rng().gauss( sim ->   gcd_lag, sim ->   gcd_lag_stddev );
-        timespan_t diff        = ( gcd_ready + gcd_lag ) - ( sim -> current_time + ability_lag );
+        timespan_t diff        = ( gcd_ready + gcd_lag ) - ( sim -> current_time() + ability_lag );
         if ( diff > timespan_t::zero() && sim -> strict_gcd_queue )
         {
           lag = gcd_lag;
@@ -3720,7 +3738,7 @@ void player_t::schedule_ready( timespan_t delta_time,
         timespan_t   gcd_lag = rng().gauss( sim ->   gcd_lag, sim ->   gcd_lag_stddev );
         timespan_t queue_lag = rng().gauss( sim -> queue_lag, sim -> queue_lag_stddev );
 
-        timespan_t diff = ( gcd_ready + gcd_lag ) - ( sim -> current_time + queue_lag );
+        timespan_t diff = ( gcd_ready + gcd_lag ) - ( sim -> current_time() + queue_lag );
 
         if ( diff > timespan_t::zero() && sim -> strict_gcd_queue )
         {
@@ -3792,8 +3810,8 @@ void player_t::arise()
   readying = 0;
   off_gcd = 0;
 
-  arise_time = sim -> current_time;
-  last_regen = sim -> current_time;
+  arise_time = sim -> current_time();
+  last_regen = sim -> current_time();
 
   if ( is_enemy() )
   {
@@ -3829,7 +3847,7 @@ void player_t::demise()
 
 
   assert( arise_time >= timespan_t::zero() );
-  iteration_fight_length += sim -> current_time - arise_time;
+  iteration_fight_length += sim -> current_time() - arise_time;
   arise_time = timespan_t::min();
   current.distance_to_move = 0;
 
@@ -3932,8 +3950,10 @@ void player_t::stun()
 
 void player_t::moving()
 {
-  // FIXME! In the future, some movement events may not cause auto-attack to stop.
-  halt();
+  if ( buffs.aspect_of_the_fox -> up() )
+    return;
+  else
+    halt();
 }
 
 // player_t::clear_debuffs===================================================
@@ -4001,7 +4021,7 @@ action_t* player_t::execute_action()
       else
         off_gcdactions.push_back( action );
 
-      sequence_add( action, action -> target, sim -> current_time );
+      sequence_add( action, action -> target, sim -> current_time() );
     }
   }
 
@@ -4052,7 +4072,7 @@ void player_t::collect_resource_timeline_information()
 {
   for ( size_t j = 0, size = collected_data.resource_timelines.size(); j < size; ++j )
   {
-    collected_data.resource_timelines[ j ].timeline.add( sim -> current_time,
+    collected_data.resource_timelines[ j ].timeline.add( sim -> current_time(),
         resources.current[ collected_data.resource_timelines[ j ].type ] );
   }
 
@@ -4061,22 +4081,22 @@ void player_t::collect_resource_timeline_information()
     switch ( collected_data.stat_timelines[ j ].type )
     {
       case STAT_STRENGTH:
-        collected_data.stat_timelines[ j ].timeline.add( sim -> current_time, cache.strength() );
+        collected_data.stat_timelines[ j ].timeline.add( sim -> current_time(), cache.strength() );
         break;
       case STAT_AGILITY:
-        collected_data.stat_timelines[ j ].timeline.add( sim -> current_time, cache.agility() );
+        collected_data.stat_timelines[ j ].timeline.add( sim -> current_time(), cache.agility() );
         break;
       case STAT_INTELLECT:
-        collected_data.stat_timelines[ j ].timeline.add( sim -> current_time, cache.intellect() );
+        collected_data.stat_timelines[ j ].timeline.add( sim -> current_time(), cache.intellect() );
         break;
       case STAT_SPELL_POWER:
-        collected_data.stat_timelines[ j ].timeline.add( sim -> current_time, cache.spell_power( SCHOOL_NONE ) );
+        collected_data.stat_timelines[ j ].timeline.add( sim -> current_time(), cache.spell_power( SCHOOL_NONE ) );
         break;
       case STAT_ATTACK_POWER:
-        collected_data.stat_timelines[ j ].timeline.add( sim -> current_time, cache.attack_power() );
+        collected_data.stat_timelines[ j ].timeline.add( sim -> current_time(), cache.attack_power() );
         break;
       default:
-        collected_data.stat_timelines[ j ].timeline.add( sim -> current_time, 0 );
+        collected_data.stat_timelines[ j ].timeline.add( sim -> current_time(), 0 );
         break;
     }
   }
@@ -4096,7 +4116,7 @@ double player_t::resource_loss( resource_e resource_type,
     return 0.0;
 
   if ( resource_type == primary_resource() )
-    uptimes.primary_resource_cap -> update( false, sim -> current_time );
+    uptimes.primary_resource_cap -> update( false, sim -> current_time() );
 
   double actual_amount;
 
@@ -4120,7 +4140,7 @@ double player_t::resource_loss( resource_e resource_type,
 
   if ( resource_type == RESOURCE_MANA )
   {
-    last_cast = sim -> current_time;
+    last_cast = sim -> current_time();
   }
 
   if ( sim -> debug )
@@ -4149,7 +4169,7 @@ double player_t::resource_gain( resource_e resource_type,
   }
 
   if ( resource_type == primary_resource() && resources.max[ resource_type ] <= resources.current[ resource_type ] )
-    uptimes.primary_resource_cap -> update( true, sim -> current_time );
+    uptimes.primary_resource_cap -> update( true, sim -> current_time() );
 
   if ( source )
   {
@@ -4235,7 +4255,7 @@ stat_e player_t::normalize_by() const
   role_e role = primary_role();
   if ( role == ROLE_SPELL || role == ROLE_HEAL )
     return STAT_INTELLECT;
-  else if ( role == ROLE_TANK && ( sm == SCALE_METRIC_TMI || sm == SCALE_METRIC_DEATHS ) )
+  else if ( role == ROLE_TANK && ( sm == SCALE_METRIC_TMI || sm == SCALE_METRIC_DEATHS ) && scaling[ sm ].get_stat( STAT_STAMINA) != 0.0 )
     return STAT_STAMINA;
   else if ( type == DRUID || type == HUNTER || type == SHAMAN || type == ROGUE || type == MONK )
     return STAT_AGILITY;
@@ -4266,10 +4286,10 @@ timespan_t player_t::time_to_percent( double percent ) const
   timespan_t time_to_percent;
   double ttp;
 
-  if ( iteration_dmg_taken > 0.0 && resources.base[RESOURCE_HEALTH] > 0 && sim -> current_time >= timespan_t::from_seconds( 1.0 ) )
-    ttp = ( resources.current[RESOURCE_HEALTH] - ( percent * resources.base[RESOURCE_HEALTH] ) ) / ( iteration_dmg_taken / sim -> current_time.total_seconds() );
+  if ( iteration_dmg_taken > 0.0 && resources.base[RESOURCE_HEALTH] > 0 && sim -> current_time() >= timespan_t::from_seconds( 1.0 ) )
+    ttp = ( resources.current[RESOURCE_HEALTH] - ( percent * 0.01 * resources.base[RESOURCE_HEALTH] ) ) / ( iteration_dmg_taken / sim -> current_time().total_seconds() );
   else
-    ttp = ( sim -> expected_iteration_time - sim -> current_time ).total_seconds() * ( 1 - percent );
+    ttp = ( sim -> expected_iteration_time - sim -> current_time() ).total_seconds() * ( 100 - percent );
 
   time_to_percent = timespan_t::from_seconds( ttp );
 
@@ -4648,14 +4668,14 @@ void account_parry_haste( player_t& p, action_state_t* s )
         // Thus, the result is that the current swing timer becomes max(current_swing_timer-0.4*base_swing_timer,0.2*base_swing_timer)
 
         // the reschedule_execute(x) function we call to perform this tries to reschedule the effect such that it occurs at
-        // (sim->current_time + x).  Thus we need to give it the difference between sim->current_time and the new target of execute_event->occurs().
+        // (sim->current_time() + x).  Thus we need to give it the difference between sim->current_time() and the new target of execute_event->occurs().
         // That value is simply the remaining time on the current swing timer.
 
         // first, we need the hasted base swing timer, swing_time
         timespan_t swing_time = p.main_hand_attack -> time_to_execute;
 
         // and we also need the time remaining on the current swing timer
-        timespan_t current_swing_timer = p.main_hand_attack -> execute_event -> occurs() - p.sim-> current_time;
+        timespan_t current_swing_timer = p.main_hand_attack -> execute_event -> occurs() - p.sim-> current_time();
 
         // next, check that the current swing timer is longer than 0.2*swing_time - if not we do nothing
         if ( current_swing_timer > 0.20 * swing_time )
@@ -4792,23 +4812,23 @@ void collect_dmg_taken_data( player_t& p, action_state_t* s, double result_ignor
   p.iteration_dmg_taken += s -> result_amount;
 
   // collect data for timelines
-  p.collected_data.timeline_dmg_taken.add( p.sim -> current_time, s -> result_amount );
+  p.collected_data.timeline_dmg_taken.add( p.sim -> current_time(), s -> result_amount );
 
   // tank-specific data storage
   if ( p.collected_data.health_changes.collect )
   {
     // health_changes covers everything, used for ETMI and other things
-    p.collected_data.health_changes.timeline.add( p.sim -> current_time, s -> result_amount );
-    p.collected_data.health_changes.timeline_normalized.add( p.sim -> current_time, s -> result_amount / p.resources.max[ RESOURCE_HEALTH ] );
+    p.collected_data.health_changes.timeline.add( p.sim -> current_time(), s -> result_amount );
+    p.collected_data.health_changes.timeline_normalized.add( p.sim -> current_time(), s -> result_amount / p.resources.max[ RESOURCE_HEALTH ] );
 
     // store value in incoming damage array for conditionals
-    p.incoming_damage.push_back( std::pair<timespan_t, double>( p.sim -> current_time, s -> result_amount ) );
+    p.incoming_damage.push_back( std::pair<timespan_t, double>( p.sim -> current_time(), s -> result_amount ) );
   }
   if ( p.collected_data.health_changes_tmi.collect )
   {
     // health_changes_tmi ignores external effects (e.g. external absorbs), used for raw TMI
-    p.collected_data.health_changes_tmi.timeline.add( p.sim -> current_time, result_ignoring_external_absorbs );
-    p.collected_data.health_changes_tmi.timeline_normalized.add( p.sim -> current_time, result_ignoring_external_absorbs / p.resources.max[ RESOURCE_HEALTH ] );
+    p.collected_data.health_changes_tmi.timeline.add( p.sim -> current_time(), result_ignoring_external_absorbs );
+    p.collected_data.health_changes_tmi.timeline_normalized.add( p.sim -> current_time(), result_ignoring_external_absorbs / p.resources.max[ RESOURCE_HEALTH ] );
   }
 }
 
@@ -4899,7 +4919,7 @@ void player_t::assess_damage( school_e school,
     { // Player was not saved by guardian spirit, kill him
       if ( ! current.sleeping )
       {
-        collected_data.deaths.add( sim -> current_time.total_seconds() );
+        collected_data.deaths.add( sim -> current_time().total_seconds() );
       }
       if ( sim -> log ) sim -> out_log.printf( "%s has died.", name() );
       new ( *sim ) demise_event_t( *this );
@@ -5003,15 +5023,15 @@ void player_t::assess_heal( school_e, dmg_e, action_state_t* s )
   if ( ! is_pet() && primary_role() == ROLE_TANK )
   {
     // health_changes and timeline_healing_taken record everything, accounting for overheal and so on
-    collected_data.timeline_healing_taken.add( sim -> current_time, - ( s -> result_amount ) );
-    collected_data.health_changes.timeline.add( sim -> current_time, - ( s -> result_amount ) );
-    collected_data.health_changes.timeline_normalized.add( sim -> current_time, - ( s -> result_amount ) / resources.max[ RESOURCE_HEALTH ] );
+    collected_data.timeline_healing_taken.add( sim -> current_time(), - ( s -> result_amount ) );
+    collected_data.health_changes.timeline.add( sim -> current_time(), - ( s -> result_amount ) );
+    collected_data.health_changes.timeline_normalized.add( sim -> current_time(), - ( s -> result_amount ) / resources.max[ RESOURCE_HEALTH ] );
 
     // health_changes_tmi ignores external healing - use result_total to count player overhealing as effective healing
     if (  s -> action -> player == this || is_my_pet( s -> action -> player ) )
     {
-      collected_data.health_changes_tmi.timeline.add( sim -> current_time, - ( s -> result_total ) );
-      collected_data.health_changes_tmi.timeline_normalized.add( sim -> current_time, - ( s -> result_total ) / resources.max[ RESOURCE_HEALTH ] );
+      collected_data.health_changes_tmi.timeline.add( sim -> current_time(), - ( s -> result_total ) );
+      collected_data.health_changes_tmi.timeline_normalized.add( sim -> current_time(), - ( s -> result_total ) / resources.max[ RESOURCE_HEALTH ] );
     }
   }
 
@@ -5043,7 +5063,7 @@ void player_t::dismiss_pet( const std::string& pet_name )
 
 bool player_t::recent_cast()
 {
-  return ( last_cast > timespan_t::zero() ) && ( ( last_cast + timespan_t::from_seconds( 5.0 ) ) > sim -> current_time );
+  return ( last_cast > timespan_t::zero() ) && ( ( last_cast + timespan_t::from_seconds( 5.0 ) ) > sim -> current_time() );
 }
 
 // player_t::find_dot =======================================================
@@ -5496,7 +5516,7 @@ struct variable_t : public action_t
       case OPERATION_PRINT:
         // Only spit out prints in main thread
         if ( sim -> parent == 0 )
-          std::cout << "actor=" << player -> name_str << " time=" << sim -> current_time.total_seconds() << " iteration=" << sim -> current_iteration << " variable=" << var -> name_.c_str() << " value=" << var -> current_value_ << std::endl;
+          std::cout << "actor=" << player -> name_str << " time=" << sim -> current_time().total_seconds() << " iteration=" << sim -> current_iteration << " variable=" << var -> name_.c_str() << " value=" << var -> current_value_ << std::endl;
         break;
       case OPERATION_RESET:
         var -> reset();
@@ -7252,6 +7272,9 @@ expr_t* player_t::create_expression( action_t* a,
   if ( expression_str == "multistrike" )
     return make_mem_fn_expr( expression_str, this-> cache, &player_stat_cache_t::multistrike );
 
+  if ( expression_str == "desired_targets" )
+    return make_ref_expr( expression_str, sim -> desired_targets );
+
   // time_to_pct expressions
   if ( util::str_in_str_ci( expression_str, "time_to_" ) )
   {
@@ -7261,7 +7284,7 @@ expr_t* player_t::create_expression( action_t* a,
     if ( util::str_in_str_ci( parts[2], "die" ) )
       percent = 0.0;
     else if ( util::str_in_str_ci( parts[2], "pct" ) )
-      percent = static_cast<double>( util::str_to_num<int>( parts[2] ) ) / 100;
+      percent = static_cast<double>( util::str_to_num<int>( parts[2] ) );
     else
       percent = -1;
     // skip construction if the percent is nonsensical
@@ -7913,7 +7936,7 @@ expr_t* player_t::create_resource_expression( const std::string& name_str )
           resource_expr_t( n, p, r ) {}
         virtual double evaluate()
         {
-          timespan_t now = player.sim -> current_time;
+          timespan_t now = player.sim -> current_time();
           if ( now != timespan_t::zero() )
             return ( player.iteration_resource_gained[ rt ] - player.iteration_resource_lost[ rt ] ) / now.total_seconds();
           else
@@ -8002,7 +8025,7 @@ double player_t::compute_incoming_damage( timespan_t interval )
     std::vector< std::pair< timespan_t, double > >::reverse_iterator i, end;
     for ( i = incoming_damage.rbegin(), end = incoming_damage.rend(); i != end; ++i )
     {
-      if ( sim -> current_time - ( *i ).first > interval )
+      if ( sim -> current_time() - ( *i ).first > interval )
         break;
 
       amount += ( *i ).second;
@@ -8022,10 +8045,10 @@ double player_t::calculate_time_to_bloodlust()
     timespan_t time_to_bl = timespan_t::from_seconds( -1 );
     timespan_t bl_pct_time = timespan_t::from_seconds( -1 );
 
-    // first, check bloodlust_time.  If it's >0, we just compare to current_time
+    // first, check bloodlust_time.  If it's >0, we just compare to current_time()
     // if it's <0, then use time_to_die estimate
     if ( sim -> bloodlust_time > timespan_t::zero() )
-      time_to_bl = sim -> bloodlust_time - sim -> current_time;
+      time_to_bl = sim -> bloodlust_time - sim -> current_time();
     else if ( sim -> bloodlust_time < timespan_t::zero() )
       time_to_bl = target -> time_to_percent( 0.0 ) + sim -> bloodlust_time;
 
@@ -9493,25 +9516,26 @@ player_collected_data_t::player_collected_data_t( const std::string& player_name
   dmg( player_name + " Damage", s.statistics_level < 2 ),
   compound_dmg( player_name + " Total Damage", s.statistics_level < 2 ),
   dps( player_name + " Damage Per Second", s.statistics_level < 1 ),
-  dpse( player_name + " Damage per Second (effective)", s.statistics_level < 2 ),
+  dpse( player_name + " Damage Per Second (Effective)", s.statistics_level < 2 ),
   dtps( player_name + " Damage Taken Per Second", s.statistics_level < 2 ),
   dmg_taken( player_name + " Damage Taken", s.statistics_level < 2 ),
   timeline_dmg(),
   heal( player_name + " Heal", s.statistics_level < 2 ),
   compound_heal( player_name + " Total Heal", s.statistics_level < 2 ),
   hps( player_name + " Healing Per Second", s.statistics_level < 1 ),
-  hpse( player_name + " Healing per Second (effective)", s.statistics_level < 2 ),
-  htps( player_name + " Healing taken Per Second", s.statistics_level < 2 ),
+  hpse( player_name + " Healing Per Second (Effective)", s.statistics_level < 2 ),
+  htps( player_name + " Healing Taken Per Second", s.statistics_level < 2 ),
   heal_taken( player_name + " Healing Taken", s.statistics_level < 2 ),
   absorb( player_name + " Absorb", s.statistics_level < 2 ),
   compound_absorb( player_name + " Total Absorb", s.statistics_level < 2 ),
   aps( player_name + " Absorb Per Second", s.statistics_level < 1 ),
-  atps( player_name + " Absorb taken Per Second", s.statistics_level < 2 ),
+  atps( player_name + " Absorb Taken Per Second", s.statistics_level < 2 ),
   absorb_taken( player_name + " Absorb Taken", s.statistics_level < 2 ),
   deaths( player_name + " Deaths", s.statistics_level < 2 ),
   theck_meloree_index( player_name + " Theck-Meloree Index", s.statistics_level < 1 ),
-  effective_theck_meloree_index( player_name + " Effective Theck-Meloree Index", s.statistics_level < 1 ),
+  effective_theck_meloree_index( player_name + "Theck-Meloree Index (Effective)", s.statistics_level < 1 ),
   max_spike_amount( player_name + " Max Spike Value", s.statistics_level < 1 ),
+  target_metric( player_name + " Target Metric", false ),
   resource_timelines(),
   combat_end_resource( RESOURCE_MAX ),
   stat_timelines(),
@@ -9522,26 +9546,28 @@ player_collected_data_t::player_collected_data_t( const std::string& player_name
 
 void player_collected_data_t::reserve_memory( const player_t& p )
 {
-  fight_length.reserve( p.sim -> iterations );
+  int size = std::min( p.sim -> iterations, 10000 );
+
+  fight_length.reserve( size );
   // DMG
-  dmg.reserve( p.sim -> iterations );
-  compound_dmg.reserve( p.sim -> iterations );
-  dps.reserve( p.sim -> iterations );
-  dpse.reserve( p.sim -> iterations );
-  dtps.reserve( p.sim -> iterations );
+  dmg.reserve( size );
+  compound_dmg.reserve( size );
+  dps.reserve( size );
+  dpse.reserve( size );
+  dtps.reserve( size );
   // HEAL
-  heal.reserve( p.sim -> iterations );
-  compound_heal.reserve( p.sim -> iterations );
-  hps.reserve( p.sim -> iterations );
-  hpse.reserve( p.sim -> iterations );
-  htps.reserve( p.sim -> iterations );
-  heal_taken.reserve( p.sim -> iterations );
-  deaths.reserve( p.sim -> iterations );
+  heal.reserve( size );
+  compound_heal.reserve( size );
+  hps.reserve( size );
+  hpse.reserve( size );
+  htps.reserve( size );
+  heal_taken.reserve( size );
+  deaths.reserve( size );
 
   if ( ! p.is_pet() && p.primary_role() == ROLE_TANK )
   {
-    theck_meloree_index.reserve( p.sim -> iterations );
-    effective_theck_meloree_index.reserve( p.sim -> iterations );
+    theck_meloree_index.reserve( size );
+    effective_theck_meloree_index.reserve( size );
   }
 }
 
@@ -9751,15 +9777,14 @@ void player_collected_data_t::collect_data( const player_t& p )
 {
 
   double f_length = p.iteration_fight_length.total_seconds();
-  double sim_length = p.sim -> current_time.total_seconds();
+  double sim_length = p.sim -> current_time().total_seconds();
   double w_time = p.iteration_waiting_time.total_seconds();
-  assert( p.iteration_fight_length <= p.sim -> current_time );
+  assert( p.iteration_fight_length <= p.sim -> current_time() );
 
   fight_length.add( f_length );
   waiting_time.add( w_time );
 
   executed_foreground_actions.add( p.iteration_executed_foreground_actions );
-
 
   // Player only dmg/heal
   dmg.add( p.iteration_dmg );
@@ -9785,16 +9810,17 @@ void player_collected_data_t::collect_data( const player_t& p )
   compound_dmg.add( total_iteration_dmg );
   dps.add( f_length ? total_iteration_dmg / f_length : 0 );
   dpse.add( sim_length ? total_iteration_dmg / sim_length : 0 );
+  double dps_metric = f_length ? ( total_iteration_dmg / f_length ) : 0;
 
   compound_heal.add( total_iteration_heal );
   hps.add( f_length ? total_iteration_heal / f_length : 0 );
   hpse.add( sim_length ? total_iteration_heal / sim_length : 0 );
+  compound_absorb.add( total_iteration_absorb );
+  aps.add( f_length ? total_iteration_absorb / f_length : 0.0 );
+  double heal_metric = f_length ? ( ( total_iteration_heal + total_iteration_absorb ) / f_length ) : 0;
 
   heal_taken.add( p.iteration_heal_taken );
   htps.add( f_length ? p.iteration_heal_taken / f_length : 0 );
-
-  compound_absorb.add( total_iteration_absorb );
-  aps.add( f_length ? total_iteration_absorb / f_length : 0.0 );
   absorb_taken.add( p.iteration_absorb_taken );
   atps.add( f_length ? p.iteration_absorb_taken / f_length : 0.0 );
 
@@ -9815,6 +9841,10 @@ void player_collected_data_t::collect_data( const player_t& p )
     resolve_timeline.merged_timeline.merge( resolve_timeline.iteration_timeline );
 
   // Health Change Calculations - only needed for tanks
+  double tmi = 0; // TMI result
+  double etmi = 0; // ETMI result
+  double max_spike = 0; // Maximum spike size
+  double tank_metric = 0;
   if ( ! p.is_pet() && p.primary_role() == ROLE_TANK )
   {
     health_changes.merged_timeline.merge( health_changes.timeline );
@@ -9823,9 +9853,6 @@ void player_collected_data_t::collect_data( const player_t& p )
     // Calculate Theck-Meloree Index (TMI), ETMI, and maximum spike damage
     if ( ! p.is_enemy() ) // Boss TMI is irrelevant, causes problems in iteration #1
     {
-      double tmi = 0; // TMI result
-      double etmi = 0; // ETMI result
-      double max_spike = 0; // Maximum spike size
       if ( f_length )
       {
         // define constants and variables
@@ -9839,18 +9866,44 @@ void player_collected_data_t::collect_data( const player_t& p )
 
         // Max spike uses health_changes_tmi as well, ignores external heals - use health_changes_tmi
         max_spike = calculate_max_spike_damage( health_changes_tmi, window );
+
+	tank_metric = tmi;
       }
-      // add to data arrays
-      theck_meloree_index.add( tmi );
-      effective_theck_meloree_index.add( etmi );
-      max_spike_amount.add( max_spike * 100.0 );
     }
-    else
+    theck_meloree_index.add( tmi );
+    effective_theck_meloree_index.add( etmi );
+    max_spike_amount.add( max_spike * 100.0 );
+  }
+
+  if ( p.sim -> target_error > 0 && ! p.is_pet() && ! p.is_enemy() )
+  {
+    double metric=0;
+
+    switch( p.primary_role() )
     {
-      theck_meloree_index.add( 0.0 );
-      effective_theck_meloree_index.add( 0.0 );
-      max_spike_amount.add( 0 );
+    case ROLE_ATTACK:
+    case ROLE_SPELL:
+    case ROLE_HYBRID:
+    case ROLE_DPS:
+      metric = dps_metric;
+      break;
+
+    case ROLE_TANK:
+      metric = tank_metric;
+      break;
+
+    case ROLE_HEAL:
+      metric = heal_metric;
+      break;
+
+    default:;
     }
+
+    player_collected_data_t& cd = p.parent ? p.parent -> collected_data : *this;
+
+    cd.target_metric_mutex.lock();
+    cd.target_metric.add( metric );
+    cd.target_metric_mutex.unlock();
   }
 }
 
@@ -10134,7 +10187,7 @@ void manager_t::update()
   for ( i = list.rbegin(), end = list.rend(); i != end; ++i )
   {
     // Only loop from the end until we are over the 10s mark, then break the loop
-    if ( ( _player.sim -> current_time - (*i).event_time ) > max_interval )
+    if ( ( _player.sim -> current_time() - (*i).event_time ) > max_interval )
       break;
 
     // temp variable for current event's contribution
@@ -10143,7 +10196,7 @@ void manager_t::update()
     double contribution = (*i).event_amount;
 
     // apply time-based decay
-    double delta_t = ( _player.sim -> current_time - (*i).event_time ).total_seconds();
+    double delta_t = ( _player.sim -> current_time() - (*i).event_time ).total_seconds();
     contribution *= 2.0 * ( 10.0 - delta_t ) / 10.0;
 
     // add to existing amount
@@ -10160,7 +10213,7 @@ void manager_t::update()
   _player.buffs.resolve -> trigger( 1, new_resolve, 1, timespan_t::zero() );
 
   // Add to the Resolve timeline
-  _player.collected_data.resolve_timeline.add_max( _player.sim -> current_time, _player.buffs.resolve -> value() );
+  _player.collected_data.resolve_timeline.add_max( _player.sim -> current_time(), _player.buffs.resolve -> value() );
 }
 
 void manager_t::add_diminishing_return_entry( const player_t* actor, double raw_dps, timespan_t current_time )
