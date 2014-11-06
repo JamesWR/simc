@@ -2025,17 +2025,6 @@ bool chart::generate_distribution( highchart::histogram_chart_t& hc,
       e.name = util::to_string( static_cast<unsigned>( min ) );
       e.color = "#" + color::darker_yellow;
     }
-  s += amp;
-  str::format( s, "chds=0,%u", as<unsigned>( count_max ) );
-  s += amp;
-  s += "chbh=5";
-  s += amp;
-  s += "chxt=x";
-  s += amp;
-  str::format( s, "chxl=0:|min=%.0f|avg=%.0f|max=%.0f", min, avg, max );
-  s += amp;
-  str::format( s, "chxp=0,1,%.0f,100", 100.0 * ( avg - min ) / ( max - min ) );
-  s += amp;
 
     data.push_back( e );
   }

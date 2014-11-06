@@ -34,6 +34,11 @@ size_t raid_gear( std::vector<std::string>& images, sim_t*, int print_styles = 0
 std::string scale_factors      ( player_t* );
 std::string scaling_dps        ( player_t* );
 std::string reforge_dps        ( player_t* );
+std::string timeline_dps_error       ( player_t* );
+std::string action_dpet (player_t* );
+std::string aps_portion ( player_t* );
+std::string time_spent( player_t* );
+std::string gains( player_t*, resource_e );
 std::string normal_distribution(  double mean, double std_dev, double confidence, double tolerance_interval = 0, int print_styles = 0  );
 
 #if LOOTRANK_ENABLED == 1

@@ -2842,12 +2842,11 @@ struct sim_t : private sc_thread_t
   // GUI).
   mutex_t* pause_mutex;
   bool paused;
+  std::string highcharts_str;
 private:
   void do_pause();
 
   void print_spell_query();
-
-  std::string highcharts_str;
 };
 
 // Module ===================================================================
