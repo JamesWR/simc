@@ -440,8 +440,8 @@ public:
     return td;
   }
 
-  void trigger_demonology_t17_4pc( const action_state_t* state ) const;
-  void trigger_demonology_t17_4pc_cast() const;
+  void trigger_demonology_t17_2pc( const action_state_t* state ) const;
+  void trigger_demonology_t17_2pc_cast() const;
 private:
   void apl_precombat();
   void apl_default();
@@ -968,12 +968,6 @@ struct wild_firebolt_t: public warlock_pet_spell_t
   wild_firebolt_t( warlock_pet_t* p ):
     warlock_pet_spell_t( "fel_firebolt", p, p -> find_spell( 104318 ) )
   {
-    // FIXME: Exact casting mechanics need testing - this is copied from the old doomguard lag
-    if ( p -> owner -> bugs )
-    {
-      ability_lag = timespan_t::from_seconds( 0.22 );
-      ability_lag_stddev = timespan_t::from_seconds( 0.01 );
-    }
   }
 
   virtual void impact( action_state_t* s )
@@ -1876,7 +1870,7 @@ public:
       }
     }
 
-    p() -> trigger_demonology_t17_4pc_cast();
+    p() -> trigger_demonology_t17_2pc_cast();
   }
 
   virtual timespan_t execute_time() const
@@ -2381,7 +2375,7 @@ struct hand_of_guldan_t: public warlock_spell_t
       base_multiplier *= 0.8;
 
     cooldown -> duration = timespan_t::from_seconds( 15 );
-    cooldown -> charges = 2 + p -> sets.set( WARLOCK_DEMONOLOGY, T17, B2 ) -> effectN( 1 ).base_value();
+    cooldown -> charges = 2 + p -> sets.set( WARLOCK_DEMONOLOGY, T17, B4 ) -> effectN( 1 ).base_value();
 
     shadowflame = new shadowflame_t( p );
     add_child( shadowflame );
@@ -2407,7 +2401,7 @@ struct hand_of_guldan_t: public warlock_spell_t
   {
     warlock_spell_t::execute();
 
-    p() -> trigger_demonology_t17_4pc( execute_state );
+    p() -> trigger_demonology_t17_2pc( execute_state );
   }
 
   virtual bool ready()
@@ -2621,8 +2615,8 @@ struct corruption_t: public warlock_spell_t
       }
     }
 
-    if ( p() -> sets.has_set_bonus( WARLOCK_DEMONOLOGY, T17, B2 )
-        && rng().roll( p() -> sets.set( WARLOCK_DEMONOLOGY, T17, B2 ) -> effectN( 2 ).percent() )
+    if ( p() -> sets.has_set_bonus( WARLOCK_DEMONOLOGY, T17, B4 )
+        && rng().roll( p() -> sets.set( WARLOCK_DEMONOLOGY, T17, B4 ) -> effectN( 2 ).percent() )
         && ( p() -> cooldowns.hand_of_guldan -> current_charge < p() -> cooldowns.hand_of_guldan -> charges ))
     {
         p() -> cooldowns.hand_of_guldan -> adjust( -p() -> cooldowns.hand_of_guldan -> duration); //decrease remaining time by the duration of one charge, i.e., add one charge
@@ -3316,6 +3310,8 @@ struct chaos_bolt_t: public warlock_spell_t
 
     stats = p -> get_stats( "chaos_bolt_fnb", this );
     gain = p -> get_gain( "chaos_bolt_fnb" );
+    // TODO: Fix with spell data generation and whitelisting the correct spell
+    base_costs[ RESOURCE_BURNING_EMBER ] = 2;
   }
 
   void schedule_execute( action_state_t* state )
@@ -3561,7 +3557,7 @@ struct chaos_wave_t: public warlock_spell_t
   {
     warlock_spell_t::execute();
 
-    p() -> trigger_demonology_t17_4pc( execute_state );
+    p() -> trigger_demonology_t17_2pc( execute_state );
   }
 
   virtual timespan_t travel_time() const
@@ -4783,7 +4779,6 @@ struct mannoroths_fury_t: public warlock_spell_t
     warlock_spell_t( "mannoroths_fury", p, p -> talents.mannoroths_fury )
   {
     harmful = false;
-    use_off_gcd = true;
   }
 
   virtual void execute()
@@ -5623,6 +5618,7 @@ void warlock_t::apl_demonology()
     add_action( "Soul Fire", "if=buff.molten_core.react&target.health.pct<=35&buff.dark_soul.remains>30" );
     add_action( "Life Tap", "if=mana.pct<40" );
     add_action( "Shadow Bolt" );
+    action_list_str += "/hellfire,moving=1,interrupt=1";
   }
 }
 
@@ -5829,9 +5825,9 @@ stat_e warlock_t::convert_hybrid_stat( stat_e s ) const
   }
 }
 
-void warlock_t::trigger_demonology_t17_4pc( const action_state_t* state ) const
+void warlock_t::trigger_demonology_t17_2pc( const action_state_t* state ) const
 {
-  if ( ! sets.has_set_bonus( WARLOCK_DEMONOLOGY, T17, B4 ) )
+  if ( ! sets.has_set_bonus( WARLOCK_DEMONOLOGY, T17, B2 ) )
     return;
 
   // Hand of Gul'Dan / Chaos Wave can be cast as a "free (and background) cast"
@@ -5850,16 +5846,16 @@ void warlock_t::trigger_demonology_t17_4pc( const action_state_t* state ) const
   if ( level < 100 )
     return;
 
-  if ( ! rng().roll( sets.set( WARLOCK_DEMONOLOGY, T17, B4 ) -> proc_chance() ) )
+  if ( ! rng().roll( sets.set( WARLOCK_DEMONOLOGY, T17, B2 ) -> proc_chance() ) )
       return;
 
-  pets.inner_demon -> summon( sets.set( WARLOCK_DEMONOLOGY, T17, B4 ) -> effectN( 1 ).trigger() -> duration() );
+  pets.inner_demon -> summon( sets.set( WARLOCK_DEMONOLOGY, T17, B2 ) -> effectN( 1 ).trigger() -> duration() );
 
   procs.t17_4pc_demo -> occur();
-  cooldowns.t17_4pc_demonology -> start( sets.set( WARLOCK_DEMONOLOGY, T17, B4 ) -> internal_cooldown() );
+  cooldowns.t17_4pc_demonology -> start( sets.set( WARLOCK_DEMONOLOGY, T17, B2 ) -> internal_cooldown() );
 }
 
-void warlock_t::trigger_demonology_t17_4pc_cast() const
+void warlock_t::trigger_demonology_t17_2pc_cast() const
 {
   if ( ! pets.inner_demon || pets.inner_demon -> is_sleeping() )
     return;

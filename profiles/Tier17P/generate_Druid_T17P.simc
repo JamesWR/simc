@@ -3,7 +3,7 @@
 # * Ilvl Cap: 630
 # * Standard Heroic 5 Man Loot Only.
 
-talent_format=armory
+# talent_format=numbers
 # Guardian Druid T17P
 druid="Druid_Guardian_T17P"
 level=100
@@ -36,7 +36,7 @@ race=night_elf
 spec=feral
 role=attack
 position=back
-talents=0002002
+talents=3002002
 glyphs=savage_roar
 head=bloodfeather_cowl,id=109976,bonus_id=524
 neck=fireblade_collar,id=109951,bonus_id=524,enchant=gift_of_critical_strike

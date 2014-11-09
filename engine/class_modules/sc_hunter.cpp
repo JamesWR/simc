@@ -56,7 +56,6 @@ public:
   } active;
 
   // Secondary pets
-  // need an extra beast for readiness
   std::array<pet_t*, 2>  pet_dire_beasts;
   // Tier 15 2-piece bonus: need 10 slots (just to be safe) because each
   // Steady Shot or Cobra Shot can trigger a Thunderhawk, which stays
@@ -527,7 +526,7 @@ public:
     if ( p() -> buffs.thrill_of_the_hunt -> up() )
     {
       double benefit = -( p() -> buffs.thrill_of_the_hunt -> data().effectN( 1 ).base_value() );
-      p() -> gains.thrill_of_the_hunt -> add( RESOURCE_FOCUS, benefit );
+      p() -> resource_gain( RESOURCE_FOCUS, benefit, p() -> gains.thrill_of_the_hunt );
       p() -> buffs.thrill_of_the_hunt -> decrement();
     }
   }
@@ -1954,9 +1953,11 @@ struct aimed_shot_t: public hunter_ranged_attack_t
 {
   // focus gained on every Aimed Shot crit
   double crit_gain;
+  benefit_t* aimed_in_ca;
 
   aimed_shot_t( hunter_t* p, const std::string& options_str ):
-    hunter_ranged_attack_t( "aimed_shot", p, p -> find_specialization_spell( "Aimed Shot" ) )
+    hunter_ranged_attack_t( "aimed_shot", p, p -> find_specialization_spell( "Aimed Shot" ) ),
+    aimed_in_ca( p -> get_benefit( "aimed_in_careful_aim" ) )
   {
     parse_options( options_str );
 
@@ -1992,6 +1993,7 @@ struct aimed_shot_t: public hunter_ranged_attack_t
   virtual void execute()
   {
     hunter_ranged_attack_t::execute();
+    aimed_in_ca -> update( p() -> buffs.careful_aim -> check() != 0 );
     consume_thrill_of_the_hunt();
   }
 };
@@ -2000,7 +2002,7 @@ struct aimed_shot_t: public hunter_ranged_attack_t
 
 struct glaive_toss_strike_t: public ranged_attack_t
 {
-  // use ranged_attack_to to avoid triggering other hunter behaviors (like thrill of the hunt
+  // use ranged_attack_to to avoid triggering other hunter behaviors (like thrill of the hunt)
   // TotH should be triggered by the glaive toss itself.
   glaive_toss_strike_t( hunter_t* player, const std::string& name, int id ):
     ranged_attack_t( name, player, player -> find_spell( id ) )
@@ -2966,6 +2968,7 @@ struct peck_t: public ranged_attack_t
     may_crit = true;
     may_parry = false;
     may_block = false;
+    may_dodge = false;
     travel_speed = 0.0;
 
     attack_power_mod.direct = data().effectN( 1 ).ap_coeff();
@@ -2997,6 +3000,9 @@ struct moc_t: public ranged_attack_t
     callbacks = false;
     may_crit = false;
     may_miss = false;
+    may_parry = false;
+    may_block = false;
+    may_dodge = false;
 
     starved_proc = player -> get_proc( "starved: a_murder_of_crows" );
   }
@@ -3486,9 +3492,9 @@ void hunter_t::init_spells()
   glyphs.the_cheetah         = find_glyph_spell( "Glyph of the Cheetah" );
 
   // Attunments
-  specs.lethal_shots       = find_specialization_spell( "Lethal Shots" );
-  specs.animal_handler    = find_specialization_spell( "Animal Handler" );
-  specs.lightning_reflexes = find_specialization_spell( "Lightning Reflexes" );
+  specs.lethal_shots         = find_specialization_spell( "Lethal Shots" );
+  specs.animal_handler       = find_specialization_spell( "Animal Handler" );
+  specs.lightning_reflexes   = find_specialization_spell( "Lightning Reflexes" );
 
   // Spec spells
   specs.critical_strikes     = find_spell( 157443 );
@@ -3549,8 +3555,8 @@ void hunter_t::init_base_stats()
   base.attack_power_per_agility  = 1.0;
 
   base_focus_regen_per_second = 4;
-  if ( sets.has_set_bonus( SET_MELEE, PVP, B4 ) )
-    base_focus_regen_per_second *= 1.25;
+//  if ( sets.has_set_bonus( SET_MELEE, PVP, B4 ) )
+//    base_focus_regen_per_second *= 1.25;
 
   resources.base[RESOURCE_FOCUS] = 100 + specs.kindred_spirits -> effectN( 1 ).resource( RESOURCE_FOCUS );
   resources.base[RESOURCE_FOCUS] = 100 + perks.improved_focus -> effectN( 1 ).resource( RESOURCE_FOCUS );
@@ -3840,6 +3846,7 @@ void hunter_t::apl_bm()
   default_list -> add_action( this, "Bestial Wrath", "if=focus>60&!buff.bestial_wrath.up");
   default_list -> add_talent( this, "Barrage", "if=active_enemies>2" );
   default_list -> add_action( this, "Multi-Shot", "if=active_enemies>5|(active_enemies>1&pet.cat.buff.beast_cleave.down)");
+  default_list -> add_action( this, "Focus Fire", "five_stacks=1");
   default_list -> add_talent( this, "Barrage", "if=active_enemies>1");
   default_list -> add_talent( this, "A Murder of Crows");
   default_list -> add_action( this, "Kill Shot","if=focus.time_to_max>gcd");
@@ -3851,7 +3858,6 @@ void hunter_t::apl_bm()
   default_list -> add_talent( this, "Powershot", "if=focus.time_to_max>cast_time");
   default_list -> add_action( this, "Cobra Shot", "if=active_enemies>5");
   default_list -> add_action( this, "Arcane Shot", "if=(buff.thrill_of_the_hunt.react&focus>35)|buff.bestial_wrath.up");
-  default_list -> add_action( "focus_fire,five_stacks=1");
   default_list -> add_action( this, "Arcane Shot", "if=focus>=64");
   if ( level >= 81 )
     default_list -> add_action( this, "Cobra Shot");

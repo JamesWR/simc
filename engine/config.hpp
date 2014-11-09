@@ -51,8 +51,8 @@
 #endif
 #if defined( _MSC_VER )
 #  define SC_VS ( _MSC_VER / 100 - 6 )
-#  if SC_VS < 10
-#    error "Visual Studio 9 ( 2008 ) or lower not supported"
+#  if SC_VS < 11
+#    error "Visual Studio 10 ( 2010 ) or lower not supported"
 #  endif
 #endif
 
@@ -122,10 +122,15 @@ public:
 #endif
 
 #define SC_PACKED_STRUCT      __attribute__((packed))
-#if defined( SC_MINGW ) // printf wrongly points to vs_printf instead of gnu_printf on MinGW
-#  define PRINTF_ATTRIBUTE(a,b) __attribute__((format(gnu_printf,a,b)))
+
+#ifndef SC_LINT // false negatives are irritating
+#  define PRINTF_ATTRIBUTE(a,b) 
 #else
-#  define PRINTF_ATTRIBUTE(a,b) __attribute__((format(printf,a,b)))
+#  if defined( SC_MINGW ) // printf wrongly points to vs_printf instead of gnu_printf on MinGW
+#    define PRINTF_ATTRIBUTE(a,b) __attribute__((format(gnu_printf,a,b)))
+#  else
+#    define PRINTF_ATTRIBUTE(a,b) __attribute__((format(printf,a,b)))
+#  endif
 #endif
 
 #ifndef M_PI
@@ -150,16 +155,29 @@ public:
 #  endif
 #endif
 
-#ifdef isfinite
-#undef finite
-#define finite isfinite
+// ==========================================================================
+// Floating Point finite and NaN checks
+// ==========================================================================
+
+#include <cmath>
+template<class T>
+inline bool sc_isfinite( T x )
+{
+#if defined ( SC_VS ) && SC_VS < 12 // std::isfinite was added in vs2013
+  return _finite( x ) != 0;
 #else
-#ifdef SC_VS
-#undef finite
-#define finite _finite
-#undef isnan
-#define isnan _isnan
+  return std::isfinite( x );
 #endif
+}
+
+template<class T>
+inline bool sc_isnan( T x )
+{
+#if defined ( SC_VS ) && SC_VS < 12 // std::isnan was added in vs2013
+  return _isnan( x ) != 0;
+#else
+  return std::isnan( x );
 #endif
+}
 
 #endif // CONFIG_H
