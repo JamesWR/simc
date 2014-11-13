@@ -2836,6 +2836,7 @@ struct elusive_brew_t: public monk_spell_t
 
     stancemask = STURDY_OX;
     harmful = false;
+    trigger_gcd = timespan_t::zero();
   }
 
   virtual void execute()
@@ -4768,7 +4769,7 @@ void monk_t::apl_combat_brewmaster()
 
   st -> add_action( this, "Blackout Kick", "if=buff.shuffle.down" );
   st -> add_action( this, "Purifying Brew", "if=!talent.chi_explosion.enabled&stagger.heavy" );
-  st -> add_action( this, "Purifying Brew", "if=!buff.serenity.up" );
+  st -> add_action( this, "Purifying Brew", "if=buff.serenity.up" );
   st -> add_action( this, "Guard" );
   st -> add_action( this, "Keg Smash", "if=chi.max-chi>=2&!buff.serenity.remains" );
   st -> add_talent( this, "Chi Burst", "if=talent.chi_burst.enabled&energy.time_to_max>3" );
@@ -4928,6 +4929,20 @@ void monk_t::apl_combat_mistweaver()
 
 void monk_t::init_action_list()
 {
+  if ( main_hand_weapon.type == WEAPON_NONE )
+  {
+    if ( !quiet )
+      sim -> errorf( "Player %s has no weapon equipped at the Main-Hand slot.", name() );
+    quiet = true;
+    return;
+  }
+  if (  main_hand_weapon.group() == WEAPON_2H && off_hand_weapon.group() == WEAPON_1H )
+  {
+    if ( !quiet )
+      sim -> errorf( "Player %s has a 1-Hand weapon equipped in the Off-Hand while a 2-Hand weapon is equipped in the Main-Hand.", name() );
+    quiet = true;
+    return;
+  }
   if ( !action_list_str.empty() )
   {
     player_t::init_action_list();

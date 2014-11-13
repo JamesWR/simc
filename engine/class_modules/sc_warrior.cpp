@@ -459,13 +459,13 @@ public:
   void              apl_glad();
   virtual void      init_action_list();
 
-  virtual action_t* create_action( const std::string& name, const std::string& options );
+  virtual action_t*  create_action( const std::string& name, const std::string& options );
   virtual resource_e primary_resource() const { return RESOURCE_RAGE; }
-  virtual role_e    primary_role() const;
-  virtual stat_e    convert_hybrid_stat( stat_e s ) const;
-  virtual void      assess_damage( school_e, dmg_e, action_state_t* s );
-  virtual void      copy_from( player_t* source );
-  virtual void      merge( player_t& other ) override
+  virtual role_e     primary_role() const;
+  virtual stat_e     convert_hybrid_stat( stat_e s ) const;
+  virtual void       assess_damage( school_e, dmg_e, action_state_t* s );
+  virtual void       copy_from( player_t* source );
+  virtual void       merge( player_t& other ) override
   {
     warrior_t& other_p = dynamic_cast<warrior_t&>( other );
 
@@ -863,19 +863,20 @@ struct warrior_attack_t: public warrior_action_t < melee_attack_t >
     else if ( w -> slot == SLOT_OFF_HAND )
       rage_gain /= 2.0;
 
-    rage_gain = floor( rage_gain * 10 ) / 10.0;
+    rage_gain = util::floor( rage_gain, 1 );
 
     if ( p() -> specialization() == WARRIOR_ARMS && s -> result == RESULT_CRIT )
     {
       p() -> resource_gain( RESOURCE_RAGE,
                             rage_gain,
                             p() -> gain.melee_crit );
-      return;
     }
-
-    p() -> resource_gain( RESOURCE_RAGE,
-                          rage_gain,
-                          w -> slot == SLOT_OFF_HAND ? p() -> gain.melee_off_hand : p() -> gain.melee_main_hand );
+    else
+    {
+      p() -> resource_gain( RESOURCE_RAGE,
+                            rage_gain,
+                            w -> slot == SLOT_OFF_HAND ? p() -> gain.melee_off_hand : p() -> gain.melee_main_hand );
+    }
   }
 };
 
@@ -1867,7 +1868,7 @@ struct heroic_throw_t: public warrior_attack_t
 
   bool ready()
   {
-    if ( p() -> current.distance_to_move > data().max_range() ||
+    if ( p() -> current.distance_to_move > range ||
          p() -> current.distance_to_move < data().min_range() ) // Cannot heroic throw unless target is in range.
          return false;
 
@@ -3978,7 +3979,8 @@ void warrior_t::apl_precombat( bool probablynotgladiator )
   {
     precombat -> add_action( "stance,choose=battle\n"
                              "talent_override=bladestorm,if=raid_event.adds.count>4|desired_targets>4|(raid_event.adds.duration<10&raid_event.adds.exists)\n"
-                             "talent_override=dragon_roar,if=raid_event.adds.count>1|desired_targets>1" );
+                             "talent_override=dragon_roar,if=raid_event.adds.count>1|desired_targets>1\n"
+                             "talent_override=ravager,if=raid_event.adds.count>1|desired_targets>1" );
     precombat -> add_action( "snapshot_stats", "Snapshot raid buffed stats before combat begins and pre-potting is done.\n"
                              "# Generic on-use trinket line if needed when swapping trinkets out. \n"
                              "#actions+=/use_item,slot=trinket1,if=active_enemies=1&(buff.bloodbath.up|(!talent.bloodbath.enabled&(buff.avatar.up|!talent.avatar.enabled)))|(active_enemies>=2&buff.ravager.up)" );
@@ -5208,23 +5210,20 @@ double warrior_t::temporary_movement_modifier() const
 {
   double temporary = player_t::temporary_movement_modifier();
 
-  if ( buff.heroic_leap_glyph -> up() )
-    temporary = std::max( buff.heroic_leap_glyph -> data().effectN( 1 ).percent(), temporary );
-
-  if ( buff.enraged_speed -> up() )
-    temporary = std::max( buff.enraged_speed -> data().effectN( 1 ).percent(), temporary );
-
-  if ( buff.charge_movement -> up() )
-    temporary = std::max( buff.charge_movement -> value(), temporary );
-
+  // These are ordered in the highest speed movement increase to the lowest, there's no reason to check the rest as they will just be overridden.
+  // Also gives correct benefit numbers.
   if ( buff.heroic_leap_movement -> up() )
     temporary = std::max( buff.heroic_leap_movement -> value(), temporary );
-
-  if ( buff.shield_charge_movement -> up() )
-    temporary = std::max( buff.shield_charge_movement -> value(), temporary );
-
-  if ( buff.intervene_movement -> up() )
+  else if ( buff.charge_movement -> up() )
+    temporary = std::max( buff.charge_movement -> value(), temporary );
+  else if ( buff.intervene_movement -> up() )
     temporary = std::max( buff.intervene_movement -> value(), temporary );
+  else if ( buff.shield_charge_movement -> up() )
+    temporary = std::max( buff.shield_charge_movement -> value(), temporary );
+  else if ( buff.heroic_leap_glyph -> up() )
+    temporary = std::max( buff.heroic_leap_glyph -> data().effectN( 1 ).percent(), temporary );
+  else if ( buff.enraged_speed -> up() )
+    temporary = std::max( buff.enraged_speed -> data().effectN( 1 ).percent(), temporary );
 
   return temporary;
 }
@@ -5336,16 +5335,15 @@ void warrior_t::assess_damage( school_e school,
     cooldown.revenge -> reset( true );
 
   if ( s -> result == RESULT_PARRY && buff.die_by_the_sword -> up() && glyphs.drawn_sword )
+  {
     player_t::resource_gain( RESOURCE_RAGE,
-    glyphs.drawn_sword -> effectN( 1 ).resource( RESOURCE_RAGE ),
-    gain.drawn_sword_glyph );
+                             glyphs.drawn_sword -> effectN( 1 ).resource( RESOURCE_RAGE ),
+                             gain.drawn_sword_glyph );
+  }
 
   player_t::assess_damage( school, dtype, s );
 
-  if ( ( s -> result == RESULT_HIT ||
-    s -> result == RESULT_CRIT ||
-    s -> result == RESULT_GLANCE ) &&
-    buff.tier16_reckless_defense -> up() )
+  if ( ( s -> result == RESULT_HIT || s -> result == RESULT_CRIT || s -> result == RESULT_GLANCE ) && buff.tier16_reckless_defense -> up() )
   {
     player_t::resource_gain( RESOURCE_RAGE,
                              floor( s -> result_amount / resources.max[RESOURCE_HEALTH] * 100 ),
@@ -5466,9 +5464,7 @@ void warrior_t::stance_swap()
     swap = STANCE_GLADIATOR;
     break;
   }
-  default:
-    swap = active_stance;
-    break;
+  default: swap = active_stance; break;
   }
 
   switch ( swap )
@@ -5480,11 +5476,7 @@ void warrior_t::stance_swap()
     recalculate_resource_max( RESOURCE_HEALTH );
     break;
   }
-  case STANCE_GLADIATOR:
-  {
-    buff.gladiator_stance -> trigger();
-    break;
-  }
+  case STANCE_GLADIATOR: buff.gladiator_stance -> trigger(); break;
   }
   cooldown.stance_swap -> start();
 }

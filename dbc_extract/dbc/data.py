@@ -626,6 +626,31 @@ class DBCRecord(object):
             s += ']'
         return s
 
+    def field_names(self, delim = ','):
+        s = ''
+        for i in self._fields:
+            if 'ofs_' not in i:
+                s += i + delim
+            else:
+                s += i[4:] + delim
+
+        if len(s) > 0:
+            s = s[0:-1]
+
+        return s
+
+    def csv(self, delim = ',', header = False):
+        s = ''
+        for i in self._fields:
+            if 'ofs_' not in i:
+                s += '%s%c' % (self._field_fmt[self._fields.index(i)] % getattr(self, i), delim)
+            else:
+                s += '%s%c' % (getattr(self, i[4:]), delim)
+
+        if len(s) > 0:
+            s = s[0:-1]
+        return s
+
 class SpellEffect(DBCRecord):
     def __init__(self, dbc_parser, record):
         DBCRecord.__init__(self, dbc_parser, record)

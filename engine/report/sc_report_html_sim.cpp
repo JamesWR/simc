@@ -594,7 +594,7 @@ void print_html_raid_summary( report::sc_html_stream& os, sim_t* sim, const sim_
       "<li><b>Raid HPS+APS:</b> %.0f</li>\n",
       sim -> raid_hps.mean() + sim -> raid_aps.mean() );
   }
-  os << "</ul><p>&nbsp;</p>\n";
+  os << "</ul><p>&#160;</p>\n";
 
   // Left side charts: dps, raid events
   os << "<div class=\"charts charts-left\">\n";
