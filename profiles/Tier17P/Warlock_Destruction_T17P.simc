@@ -34,7 +34,7 @@ actions+=/blood_fury
 actions+=/arcane_torrent
 actions+=/mannoroths_fury
 actions+=/dark_soul,if=!talent.archimondes_darkness.enabled|(talent.archimondes_darkness.enabled&(charges=2|trinket.proc.intellect.react|trinket.stacking_proc.intellect.react>6|target.health.pct<=10))
-actions+=/service_pet,if=talent.grimoire_of_service.enabled&!talent.demonbolt.enabled
+actions+=/service_pet,if=talent.grimoire_of_service.enabled
 actions+=/summon_doomguard,if=!talent.demonic_servitude.enabled&active_enemies<5
 actions+=/summon_infernal,if=!talent.demonic_servitude.enabled&active_enemies>=5
 actions+=/run_action_list,name=single_target,if=active_enemies<4
@@ -60,7 +60,6 @@ actions.single_target+=/chaos_bolt,if=buff.backdraft.stack<3&trinket.stacking_pr
 actions.single_target+=/chaos_bolt,if=buff.backdraft.stack<3&trinket.proc.multistrike.react&trinket.proc.multistrike.remains>cast_time
 actions.single_target+=/chaos_bolt,if=buff.backdraft.stack<3&trinket.proc.versatility.react&trinket.proc.versatility.remains>cast_time
 actions.single_target+=/chaos_bolt,if=buff.backdraft.stack<3&trinket.proc.mastery.react&trinket.proc.mastery.remains>cast_time
-actions.single_target+=/rain_of_fire,if=!ticking
 actions.single_target+=/immolate,cycle_targets=1,if=remains<=(duration*0.3)
 actions.single_target+=/conflagrate
 actions.single_target+=/incinerate,if=talent.charred_remains.enabled

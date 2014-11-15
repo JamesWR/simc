@@ -2837,6 +2837,7 @@ struct elusive_brew_t: public monk_spell_t
     stancemask = STURDY_OX;
     harmful = false;
     trigger_gcd = timespan_t::zero();
+    use_off_gcd = true;
   }
 
   virtual void execute()
@@ -4342,6 +4343,8 @@ double monk_t::composite_armor_multiplier() const
   double a = player_t::composite_armor_multiplier();
 
   a += active_stance_data( STURDY_OX ).effectN( 13 ).percent();
+  if ( wod_hotfix )
+    a *= 1.5; // Nov 12, 2014 Hotfix to 75% up from 50%
 
   return a;
 }
@@ -4536,7 +4539,7 @@ void monk_t::target_mitigation( school_e school,
 
   // Passive sources (Sturdy Ox)
   if ( school != SCHOOL_PHYSICAL )
-    s -> result_amount *= 1.0 + active_stance_data( STURDY_OX ).effectN( 4 ).percent();
+    s -> result_amount *= 1.0 + ( active_stance_data( STURDY_OX ).effectN( 4 ).percent() * ( wod_hotfix ? 1.5 : 1 ) ); // Hotfix Nov 12, 2014 buff from 10% to 15%
 
   // Damage Reduction Cooldowns
 
