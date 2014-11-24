@@ -3,7 +3,7 @@ level=100
 race=troll
 role=spell
 position=back
-talents=0000113
+talents=0000133
 spec=destruction
 
 # This default action priority list is automatically created based on your character.
@@ -96,7 +96,7 @@ main_hand=spire_of_the_furious_construct,id=110031,bonus_id=524,enchant=mark_of_
 
 # Gear Summary
 # gear_stamina=2465
-# gear_intellect=1960
+# gear_intellect=1889
 # gear_spell_power=958
 # gear_crit_rating=1475
 # gear_mastery_rating=789

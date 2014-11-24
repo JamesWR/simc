@@ -94,7 +94,7 @@ actions.single_target+=/ice_lance,if=talent.frost_bomb.enabled&buff.fingers_of_f
 actions.single_target+=/frostbolt,if=set_bonus.tier17_2pc&buff.ice_shard.up&!(talent.thermal_void.enabled&buff.icy_veins.up&buff.icy_veins.remains<10)
 actions.single_target+=/ice_lance,if=!talent.frost_bomb.enabled&buff.fingers_of_frost.react&(!talent.thermal_void.enabled|cooldown.icy_veins.remains>8)
 # Thermal Void IV extension
-actions.single_target+=/ice_lance,if=talent.thermal_void.enabled&talent.mirror_image.enabled&buff.icy_veins.up&buff.icy_veins.remains<6&buff.icy_veins.remains<cooldown.icy_veins.remains
+actions.single_target+=/ice_lance,if=talent.thermal_void.enabled&!glyph.icy_veins.enabled&talent.mirror_image.enabled&buff.icy_veins.up&buff.icy_veins.remains<6&buff.icy_veins.remains<cooldown.icy_veins.remains
 actions.single_target+=/water_jet,if=buff.fingers_of_frost.react=0&!dot.frozen_orb.ticking
 actions.single_target+=/frostbolt
 actions.single_target+=/ice_lance,moving=1
@@ -117,7 +117,7 @@ main_hand=infernoflame_staff,id=113869,enchant=mark_of_the_frostwolf
 
 # Gear Summary
 # gear_stamina=3437
-# gear_intellect=2692
+# gear_intellect=2625
 # gear_spell_power=1325
 # gear_crit_rating=711
 # gear_haste_rating=742

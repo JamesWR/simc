@@ -542,12 +542,14 @@ void enchant::mark_of_the_shattered_hand( special_effect_t& effect,
   // link driver to the procced spell, so we do it here.
   effect.rppm_scale = RPPM_HASTE;
   effect.trigger_spell_id = 159238;
+  effect.name_str = item.player -> find_spell( 159238 ) -> name_cstr();
 
   struct bleed_attack_t : public attack_t
   {
     bleed_attack_t( player_t* p, const special_effect_t& effect ) :
       attack_t( effect.name(), p, p -> find_spell( effect.trigger_spell_id ) )
     {
+      dot_behavior = DOT_REFRESH;
       hasted_ticks = false; background = true; callbacks = false; special = true;
       may_miss = may_block = may_dodge = may_parry = false; may_crit = true;
       tick_may_crit = true;
@@ -555,9 +557,22 @@ void enchant::mark_of_the_shattered_hand( special_effect_t& effect,
 
     double target_armor( player_t* ) const
     { return 0.0; }
+
+    timespan_t calculate_dot_refresh_duration( const dot_t* dot, timespan_t triggered_duration ) const
+    {
+      timespan_t new_duration = std::min( triggered_duration * 0.3, dot -> remains() ) + triggered_duration;
+      timespan_t period_mod = new_duration % base_tick_time;
+      new_duration += ( base_tick_time - period_mod );
+
+      return new_duration;
+    }
   };
 
-  effect.execute_action = new bleed_attack_t( item.player, effect );
+  action_t* bleed = item.player -> find_action( effect.name() );
+  if ( ! bleed )
+    bleed = new bleed_attack_t( item.player, effect );
+
+  effect.execute_action = bleed;
 
   new dbc_proc_callback_t( item, effect );
 }
@@ -917,6 +932,8 @@ void gem::sinister_primal( special_effect_t& effect,
 {
   if ( item.sim -> challenge_mode )
     return;
+  if ( item.player -> level == 100 )
+    return;
 
   effect.custom_buff = item.player->buffs.tempus_repit;
 
@@ -928,6 +945,8 @@ void gem::indomitable_primal( special_effect_t& effect,
 {
   if ( item.sim -> challenge_mode )
     return;
+  if ( item.player -> level == 100 )
+    return;
 
   effect.custom_buff = item.player -> buffs.fortitude;
 
@@ -938,6 +957,8 @@ void gem::capacitive_primal( special_effect_t& effect,
                              const item_t& item )
 {
   if ( item.sim -> challenge_mode )
+    return;
+  if ( item.player -> level == 100 )
     return;
 
   struct lightning_strike_t : public attack_t
@@ -1003,6 +1024,9 @@ void gem::courageous_primal( special_effect_t& effect,
                              const item_t& item )
 {
   if ( item.sim -> challenge_mode )
+    return;
+
+  if ( item.player -> level == 100 )
     return;
 
   struct courageous_primal_proc_t : public dbc_proc_callback_t
@@ -1564,6 +1588,9 @@ void item::flurry_of_xuen( special_effect_t& effect,
   if ( item.sim -> challenge_mode )
     return;
 
+  if ( item.player -> level == 100 )
+    return;
+
   player_t* p = item.player;
   const spell_data_t* driver = p -> find_spell( effect.spell_id );
 
@@ -1625,6 +1652,9 @@ void item::essence_of_yulon( special_effect_t& effect,
   if ( item.sim -> challenge_mode )
     return;
 
+  if ( item.player -> level == 100 )
+    return;
+
   player_t* p = item.player;
   const spell_data_t* driver = p -> find_spell( effect.spell_id );
 
@@ -1642,6 +1672,8 @@ void item::endurance_of_niuzao( special_effect_t& /* effect */,
   maintenance_check( 600 );
 
   if ( item.sim -> challenge_mode )
+    return;
+  if ( item.player -> level == 100 )
     return;
 
   const spell_data_t* cd = item.player -> find_spell( 148010 );
