@@ -2142,7 +2142,7 @@ struct agony_t: public warlock_spell_t
   {
     may_crit = false;
     if ( p -> wod_hotfix )
-      spell_power_mod.tick *= 0.9;
+		spell_power_mod.tick *= 1.08;
   }
 
   virtual void last_tick( dot_t* d )
@@ -2237,7 +2237,7 @@ struct demonbolt_t: public warlock_spell_t
     warlock_spell_t( "demonbolt", p, p -> talents.demonbolt )
   {
     if ( p -> wod_hotfix )
-      base_multiplier *= 0.7;
+		base_multiplier *= 0.77;
   }
 
   virtual double cost() const
@@ -2404,9 +2404,6 @@ struct shadow_bolt_t: public warlock_spell_t
     warlock_spell_t( p, "Shadow Bolt" ), hand_of_guldan( new hand_of_guldan_t( p ) )
   {
     base_multiplier *= 1.0 + p -> sets.set( SET_CASTER, T14, B2 ) -> effectN( 3 ).percent();
-    if ( p -> wod_hotfix )
-      base_multiplier *= 0.8;
-
     hand_of_guldan               -> background = true;
     hand_of_guldan               -> base_costs[RESOURCE_MANA] = 0;
     hand_of_guldan               -> cooldown = p -> get_cooldown( "t16_4pc_demo" );
@@ -2487,6 +2484,8 @@ struct shadowburn_t: public warlock_spell_t
     havoc_consume = 1;
     mana_delay = data().effectN( 1 ).trigger() -> duration();
     mana_amount = p -> find_spell( data().effectN( 1 ).trigger() -> effectN( 1 ).base_value() ) -> effectN( 1 ).percent();
+	if ( p -> wod_hotfix )
+		base_multiplier *= 1.08;
   }
 
   virtual void impact( action_state_t* s )
@@ -2703,7 +2702,7 @@ struct unstable_affliction_t: public warlock_spell_t
   {
     may_crit = false;
     if ( p -> wod_hotfix )
-      spell_power_mod.tick *= 0.9;
+      spell_power_mod.tick *= 1.08;
     if ( p -> glyphs.unstable_affliction -> ok() )
       base_execute_time *= 1.0 + p -> glyphs.unstable_affliction -> effectN( 1 ).percent();
   }
@@ -2807,6 +2806,11 @@ struct immolate_t: public warlock_spell_t
     base_tick_time = p -> find_spell( 157736 ) -> effectN( 1 ).period();
     dot_duration = p -> find_spell( 157736 ) -> duration();
     spell_power_mod.tick = p -> spec.immolate -> effectN( 1 ).sp_coeff();
+    if ( p -> wod_hotfix )
+    {
+      spell_power_mod.tick *= 1.08;
+      spell_power_mod.direct *= 1.08;
+    }
     hasted_ticks = true;
     tick_may_crit = true;
   }
@@ -2820,6 +2824,11 @@ struct immolate_t: public warlock_spell_t
     hasted_ticks = true;
     tick_may_crit = true;
     spell_power_mod.tick = data().effectN( 1 ).sp_coeff();
+    if ( p -> wod_hotfix )
+    {
+      spell_power_mod.tick *= 1.08;
+      spell_power_mod.direct *= 1.08;
+    }
     aoe = -1;
     stats = p -> get_stats( "immolate_fnb", this );
     gain = p -> get_gain( "immolate_fnb" );
@@ -2939,6 +2948,8 @@ struct conflagrate_t: public warlock_spell_t
     if ( p -> talents.charred_remains -> ok() ){
       base_multiplier *= 1.0 + p -> talents.charred_remains -> effectN( 1 ).percent();
     }
+	if ( p -> wod_hotfix )
+		base_multiplier *= 1.08;
     havoc_consume = 1;
     base_costs[RESOURCE_MANA] *= 1.0 + p -> spec.chaotic_energy -> effectN( 2 ).percent();
   }
@@ -3051,6 +3062,8 @@ struct incinerate_t: public warlock_spell_t
   {
     if ( p -> talents.charred_remains -> ok() )
       base_multiplier *= 1.0 + p -> talents.charred_remains -> effectN( 1 ).percent();
+	if ( p -> wod_hotfix )
+		base_multiplier *= 1.08;
     havoc_consume = 1;
     base_costs[RESOURCE_MANA] *= 1.0 + p -> spec.chaotic_energy -> effectN( 2 ).percent();
   }
@@ -3166,8 +3179,6 @@ struct soul_fire_t: public warlock_spell_t
   soul_fire_t( warlock_t* p, bool meta = false ):
     warlock_spell_t( meta ? "soul_fire_meta" : "soul_fire", p, meta ? p -> find_spell( 104027 ) : p -> find_spell( 6353 ) ), meta_spell( 0 )
   {
-    if ( p -> wod_hotfix )
-      base_multiplier *= 0.8;
     if ( ! meta )
     {
       generate_fury = data().effectN( 2 ).base_value();
@@ -3277,6 +3288,8 @@ struct chaos_bolt_t: public warlock_spell_t
   {
     if ( !p -> talents.charred_remains -> ok() )
       fnb = 0;
+	if ( p -> wod_hotfix )
+		base_multiplier *= 1.08;
 
     havoc_consume = 3;
     backdraft_consume = 3;
@@ -3565,8 +3578,6 @@ struct touch_of_chaos_t: public warlock_spell_t
     warlock_spell_t( "touch_of_chaos", p, p -> find_spell( 103964 ) ), chaos_wave( new chaos_wave_t( p ) )
   {
     base_multiplier *= 1.0 + p -> sets.set( SET_CASTER, T14, B2 ) -> effectN( 3 ).percent();
-    if ( p -> wod_hotfix )
-      base_multiplier *= 0.8;
 
     chaos_wave               -> background = true;
     chaos_wave               -> base_costs[RESOURCE_DEMONIC_FURY] = 0;
@@ -3988,12 +3999,17 @@ struct rain_of_fire_tick_t: public warlock_spell_t
   {
     aoe = -1;
     background = true;
+    if ( p -> wod_hotfix )
+      spell_power_mod.direct *= 0.4;
   }
 
   void schedule_travel( action_state_t* s )
   {
-    if ( result_is_hit( s -> result ) )
-      trigger_ember_gain( p(), 0.2, p() -> gains.rain_of_fire, 0.125 );
+    if ( ! p() -> wod_hotfix )
+    {
+      if ( result_is_hit( s -> result ) )
+        trigger_ember_gain( p(), 0.2, p() -> gains.rain_of_fire, 0.125 );
+    }
     warlock_spell_t::schedule_travel( s );
   }
 
@@ -5627,15 +5643,15 @@ void warlock_t::apl_destruction()
 {
   action_priority_list_t* single_target       = get_action_priority_list( "single_target" );    
   action_priority_list_t* aoe                 = get_action_priority_list( "aoe" );
-    
+
   action_list_str +="/run_action_list,name=single_target,if=active_enemies<4";
   action_list_str +="/run_action_list,name=aoe,if=active_enemies>=4";
-   
+
   single_target -> action_list_str += "/havoc,target=2";
-  single_target -> action_list_str += "/Shadowburn,if=talent.charred_remains.enabled&(burning_ember>=2.5|buff.dark_soul.up|target.time_to_die<10)";
+  single_target -> action_list_str += "/shadowburn,if=talent.charred_remains.enabled&(burning_ember>=2.5|buff.dark_soul.up|target.time_to_die<10)";
   single_target -> action_list_str += "/immolate,cycle_targets=1,if=remains<=cast_time&(cooldown.cataclysm.remains>cast_time|!talent.cataclysm.enabled)";
 
-  if (level == 100)
+  if ( level == 100 && ! wod_hotfix )
   {
     single_target -> action_list_str += "/rain_of_fire,if=!ticking";
   }
@@ -5655,11 +5671,11 @@ void warlock_t::apl_destruction()
   single_target -> action_list_str += "/chaos_bolt,if=buff.backdraft.stack<3&trinket.proc.multistrike.react&trinket.proc.multistrike.remains>cast_time";
   single_target -> action_list_str += "/chaos_bolt,if=buff.backdraft.stack<3&trinket.proc.versatility.react&trinket.proc.versatility.remains>cast_time";
   single_target -> action_list_str += "/chaos_bolt,if=buff.backdraft.stack<3&trinket.proc.mastery.react&trinket.proc.mastery.remains>cast_time";
-  if (find_item("draenic_philosophers_stone"))
+  if ( find_item( "draenic_philosophers_stone" ) )
   {
-	single_target -> action_list_str += "/chaos_bolt,if=buff.backdraft.stack<3&buff.draenor_philosophers_stone_int.react&buff.draenor_philosophers_stone_int.remains>cast_time";
+    single_target -> action_list_str += "/chaos_bolt,if=buff.backdraft.stack<3&buff.draenor_philosophers_stone_int.react&buff.draenor_philosophers_stone_int.remains>cast_time";
   }
-  if ( level != 100 )
+  if ( level != 100 && ! wod_hotfix )
   {
     single_target -> action_list_str += "/rain_of_fire,if=!ticking";
   }
@@ -5674,7 +5690,7 @@ void warlock_t::apl_destruction()
   {
     single_target -> action_list_str += "/incinerate";
   }
-    
+
   aoe -> action_list_str += "/rain_of_fire,if=remains<=tick_time";
   aoe -> action_list_str += "/havoc,target=2";
   aoe -> action_list_str += "/shadowburn,if=buff.havoc.remains";

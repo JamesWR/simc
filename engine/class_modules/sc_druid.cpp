@@ -676,6 +676,7 @@ public:
   virtual void      assess_damage( school_e school, dmg_e, action_state_t* );
   virtual void      assess_heal( school_e, dmg_e, action_state_t* );
   virtual void      create_options();
+  virtual action_t* create_proc_action( const std::string& name );
   virtual bool      create_profile( std::string& profile_str, save_e type = SAVE_ALL, bool save_html = false );
   virtual void      recalculate_resource_max( resource_e r );
 
@@ -1817,7 +1818,8 @@ public:
 
   druid_attack_t( const std::string& n, druid_t* player,
                   const spell_data_t* s = spell_data_t::nil() ) :
-    ab( n, player, s ), consume_bloodtalons( false ), bt_counter( 0 ), tf_counter( 0 )
+    ab( n, player, s ), consume_bloodtalons( false ), bt_counter( 0 ),
+    tf_counter( 0 )
   {
     ab::may_glance    = false;
     ab::special       = true;
@@ -1827,11 +1829,13 @@ public:
   {
     ab::init();
     
-    consume_bloodtalons = ab::harmful && ab::special;
+    consume_bloodtalons = ab::harmful && ab::special && ab::trigger_gcd > timespan_t::zero();
+
     if ( consume_bloodtalons )
+    {
       bt_counter = new snapshot_counter_t( ab::p() , ab::p() -> buff.bloodtalons );
-    if ( consume_bloodtalons )
       tf_counter = new snapshot_counter_t( ab::p() , ab::p() -> buff.tigers_fury );
+    }
   }
 
   virtual void execute()
@@ -1873,11 +1877,6 @@ public:
       bt_counter -> count_tick();
       tf_counter -> count_tick();
     }
-
-    if ( ab::p() -> sets.has_set_bonus( DRUID_FERAL, T17, B2 ) && dbc::is_school( ab::school, SCHOOL_PHYSICAL ) )
-      ab::p() -> resource_gain( RESOURCE_ENERGY,
-                                ab::p() -> sets.set( DRUID_FERAL, T17, B2 ) -> effectN( 1 ).base_value(),
-                                ab::p() -> gain.tier17_2pc_melee );
   }
 
   virtual double composite_persistent_multiplier( const action_state_t* s ) const
@@ -2002,13 +2001,15 @@ struct cat_attack_t : public druid_attack_t < melee_attack_t >
   double base_dd_bonus;
   double base_td_bonus;
   bool   consume_ooc;
+  bool   trigger_t17_2p;
 
   cat_attack_t( const std::string& token, druid_t* p,
                 const spell_data_t* s = spell_data_t::nil(),
                 const std::string& options = std::string() ) :
     base_t( token, p, s ),
     requires_stealth( false ), combo_point_gain( 0 ),
-    base_dd_bonus( 0.0 ), base_td_bonus( 0.0 ), consume_ooc( true )
+    base_dd_bonus( 0.0 ), base_td_bonus( 0.0 ), consume_ooc( true ),
+    trigger_t17_2p( false )
   {
     parse_options( options );
 
@@ -2221,6 +2222,16 @@ public:
     double energy_restored = resource_consumed * 0.80;
 
     player -> resource_gain( RESOURCE_ENERGY, energy_restored, p() -> gain.energy_refund );
+  }
+
+  void tick( dot_t* d )
+  {
+    base_t::tick( d );
+
+    if ( trigger_t17_2p )
+      p() -> resource_gain( RESOURCE_ENERGY,
+                            p() -> sets.set( DRUID_FERAL, T17, B2 ) -> effectN( 1 ).base_value(),
+                            p() -> gain.tier17_2pc_melee );
   }
 }; // end druid_cat_attack_t
 
@@ -2484,6 +2495,8 @@ struct rake_t : public cat_attack_t
     ir_counter = new snapshot_counter_t( p, p -> buff.prowl );
     ir_counter -> add_buff( p -> buff.king_of_the_jungle );
     ir_counter -> add_buff( p -> buffs.shadowmeld );
+
+    trigger_t17_2p = p -> sets.has_set_bonus( DRUID_FERAL, T17, B2 );
   }
 
   virtual double composite_persistent_multiplier( const action_state_t* s ) const
@@ -2596,6 +2609,8 @@ struct rip_t : public cat_attack_t
     dot_duration += player -> sets.set( SET_MELEE, T14, B4 ) -> effectN( 1 ).time_value();
     if ( p -> wod_hotfix )
       base_multiplier *= 1.12;
+
+    trigger_t17_2p = p -> sets.has_set_bonus( DRUID_FERAL, T17, B2 );
   }
 
   action_state_t* new_state()
@@ -2625,6 +2640,8 @@ struct savage_roar_t : public cat_attack_t
     consume_ooc = false;
   }
 
+  /* We need a custom implementation of Pandemic refresh mechanics since our ready()
+     method relies on having the correct final value. */
   timespan_t duration( int combo_points = -1 )
   {
     if ( combo_points == -1 )
@@ -2632,10 +2649,7 @@ struct savage_roar_t : public cat_attack_t
   
     timespan_t d = data().duration() + timespan_t::from_seconds( 6.0 ) * combo_points;
 
-     /* Savage Roar behaves like a DoT with DOT_REFRESH and has a maximum duration equal
-        to 130% of the base duration.
-      * Per Alpha testing (6/16/2014), the maximum duration is 130% of the raw duration
-        of the NEW Savage Roar. */
+    // Maximum duration is 130% of the raw duration of the new Savage Roar.
     if ( p() -> buff.savage_roar -> check() )
       d += std::min( p() -> buff.savage_roar -> remains(), d * 0.3 );
 
@@ -2653,6 +2667,7 @@ struct savage_roar_t : public cat_attack_t
   {
     if ( p() -> glyph.savagery -> ok() )
       return false;
+    // Savage Roar may not be cast if the new duration is less than that of the current
     else if ( duration() < p() -> buff.savage_roar -> remains() )
       return false;
     
@@ -2816,6 +2831,8 @@ struct thrash_cat_t : public cat_attack_t
     spell_power_mod.direct = 0;
     if ( p -> wod_hotfix )
       base_multiplier *= 1.12;
+
+    trigger_t17_2p = p -> sets.has_set_bonus( DRUID_FERAL, T17, B2 );
   }
 
   // Treat direct damage as "bleed"
@@ -2840,6 +2857,58 @@ struct thrash_cat_t : public cat_attack_t
   // Treat direct damage as "bleed"
   virtual double target_armor( player_t* ) const
   { return 0.0; }
+};
+
+// Mark of the Shattered Hand ===============================================
+
+struct shattered_bleed_t : public cat_attack_t
+{
+  shattered_bleed_t( druid_t* p ):
+    cat_attack_t( "shattered_bleed", p, p -> find_spell( 159238 ) )
+    {
+      dot_behavior = DOT_REFRESH;
+      hasted_ticks = false; background = true; callbacks = false; special = true;
+      may_miss = may_block = may_dodge = may_parry = false; may_crit = true;
+      tick_may_crit = false;
+    }
+
+    void init()
+    {
+      cat_attack_t::init();
+
+      snapshot_flags |= STATE_MUL_TA;
+    }
+
+    double target_armor( player_t* ) const
+    { return 0.0; }
+
+    timespan_t calculate_dot_refresh_duration( const dot_t* dot, timespan_t triggered_duration ) const
+    {
+      timespan_t new_duration = std::min( triggered_duration * 0.3, dot -> remains() ) + triggered_duration;
+      timespan_t period_mod = new_duration % base_tick_time;
+      new_duration += ( base_tick_time - period_mod );
+
+      return new_duration;
+    }
+
+    double action_multiplier() const
+    {
+      double am = cat_attack_t::action_multiplier();
+
+      // Benefits dynamically from Savage Roar and Tiger's Fury.
+      am *= 1.0 + p() -> buff.savage_roar -> value();
+      am *= 1.0 + p() -> buff.tigers_fury -> value();
+
+      return am;
+    }
+    
+    // Override to prevent benefitting from mastery.
+    double composite_ta_multiplier( const action_state_t* s ) const
+    { return action_multiplier(); }
+    
+    // Benefit from Savage Roar and Tiger's Fury is not persistent.
+    double composite_persistent_multiplier( const action_state_t* s ) const
+    { return 1.0; }
 };
 
 } // end namespace cat_attacks
@@ -3204,7 +3273,8 @@ struct pulverize_t : public bear_attack_t
     {
       // consumes 3 stacks of Lacerate on the target
       target -> get_dot( "lacerate", p() ) -> cancel();
-      // and reduce damage taken by 20% for 10 sec
+
+      // and reduce damage taken by x% for y sec (pandemics)
       p() -> buff.pulverize -> trigger();
     }
   }
@@ -3588,9 +3658,6 @@ struct healing_touch_t : public druid_heal_t
       else if ( p() -> specialization() == DRUID_GUARDIAN )
         adm *= 1.0 + p() -> talent.dream_of_cenarius -> effectN( 2 ).percent();
     }
-
-    if ( p() -> buff.predatory_swiftness -> check() )
-      adm *= 1.0 + p() -> buff.predatory_swiftness -> data().effectN( 4 ).percent();
 
     if ( p() -> spell.moonkin_form -> ok() && target == p() )
       adm *= 1.0 + 0.50; // Not in spell data
@@ -6137,7 +6204,7 @@ void druid_t::create_buffs()
                                .gain( get_gain( "primal_tenacity" ) );
   buff.pulverize             = buff_creator_t( this, "pulverize", find_spell( 158792 ) )
                                .default_value( find_spell( 158792 ) -> effectN( 1 ).percent() )
-                               .duration( timespan_t::from_seconds( 12.0 ) );
+                               .refresh_behavior( BUFF_REFRESH_PANDEMIC );
   buff.savage_defense        = buff_creator_t( this, "savage_defense", find_class_spell( "Savage Defense" ) -> ok() ? find_spell( 132402 ) : spell_data_t::not_found() )
                                .add_invalidate( CACHE_DODGE )
                                .duration( find_spell( 132402 ) -> duration() + talent.guardian_of_elune -> effectN( 2 ).time_value() )
@@ -6485,30 +6552,31 @@ void druid_t::apl_guardian()
 
   default_list -> add_action( "auto_attack" );
   default_list -> add_action( this, "Skull Bash" );
-  default_list -> add_action( this, "Savage Defense" );
+  default_list -> add_action( this, "Savage Defense", "if=buff.barkskin.down" );
 
   for ( size_t i = 0; i < racial_actions.size(); i++ )
     default_list -> add_action( racial_actions[i] );
   for ( size_t i = 0; i < item_actions.size(); i++ )
     default_list -> add_action( item_actions[i] );
 
-  default_list -> add_action( this, "Barkskin" );
+  default_list -> add_action( this, "Barkskin", "if=buff.bristling_fur.down" );
+  default_list -> add_talent( this, "Bristling Fur", "if=buff.barkskin.down&buff.savage_defense.down" );
   default_list -> add_action( this, "Maul", "if=buff.tooth_and_claw.react&incoming_damage_1s" );
   default_list -> add_action( this, "Berserk", "if=buff.pulverize.remains>10" );
   default_list -> add_action( this, "Frenzied Regeneration", "if=rage>=80" );
   default_list -> add_talent( this, "Cenarion Ward" );
   default_list -> add_talent( this, "Renewal", "if=health.pct<30" );
   default_list -> add_talent( this, "Heart of the Wild" );
-  default_list -> add_action( this, "Rejuvenation", "if=buff.heart_of_the_wild.up&remains<=0.3*duration" );
+  default_list -> add_action( this, "Rejuvenation", "if=buff.heart_of_the_wild.up&remains<=3.6" );
   default_list -> add_talent( this, "Nature's Vigil" );
   default_list -> add_action( this, "Healing Touch", "if=buff.dream_of_cenarius.react&health.pct<30" );
-  default_list -> add_talent( this, "Pulverize", "if=buff.pulverize.remains<0.5" );
+  default_list -> add_talent( this, "Pulverize", "if=buff.pulverize.remains<=3.6" );
   default_list -> add_action( this, "Lacerate", "if=talent.pulverize.enabled&buff.pulverize.remains<=(3-dot.lacerate.stack)*gcd&buff.berserk.down" );
   default_list -> add_action( "incarnation" );
   default_list -> add_action( this, "Lacerate", "if=!ticking" );
   default_list -> add_action( "thrash_bear,if=!ticking" );
   default_list -> add_action( this, "Mangle" );
-  default_list -> add_action( "thrash_bear,if=remains<=0.3*duration" );
+  default_list -> add_action( "thrash_bear,if=remains<=4.8" );
   default_list -> add_action( this, "Lacerate" );
 }
 
@@ -6842,7 +6910,7 @@ double druid_t::composite_player_multiplier( school_e school ) const
   if ( specialization() == DRUID_BALANCE )
   {
     if ( buff.celestial_alignment -> check() )
-      m *= 1.0 + buff.celestial_alignment -> data().effectN(2).percent();
+      m *= 1.0 + buff.celestial_alignment -> data().effectN( 2 ).percent();
     if ( dbc::is_school( school, SCHOOL_ARCANE ) || dbc::is_school( school, SCHOOL_NATURE ) )
     {
       if ( buff.moonkin_form -> check() )
@@ -7202,6 +7270,16 @@ void druid_t::create_options()
 {
   player_t::create_options();
 
+}
+
+// druid_t::create_proc_action =============================================
+
+action_t* druid_t::create_proc_action( const std::string& name )
+{
+  if ( name == "shattered_bleed" && specialization() == DRUID_FERAL )
+    return new cat_attacks::shattered_bleed_t( this );
+
+  return 0;
 }
 
 // druid_t::create_profile ==================================================
