@@ -1338,7 +1338,7 @@ struct bladestorm_t: public warrior_attack_t
     bladestorm_mh -> weapon = &( player -> main_hand_weapon );
     add_child( bladestorm_mh );
 
-    if ( player -> off_hand_weapon.type != WEAPON_NONE )
+    if ( player -> off_hand_weapon.type != WEAPON_NONE && player -> specialization() == WARRIOR_FURY )
     {
       bladestorm_oh = new bladestorm_tick_t( p, "bladestorm_oh" );
       bladestorm_oh -> weapon = &( player -> off_hand_weapon );
@@ -1717,6 +1717,8 @@ struct execute_t: public warrior_attack_t
            p -> off_hand_weapon.group() == WEAPON_1H )
            weapon_multiplier *= 1.0 + p -> spec.singleminded_fury -> effectN( 3 ).percent();
     }
+    else if ( p -> specialization() == WARRIOR_ARMS ) // There is no hotfix or blue post about this, but execute is definitely hitting for 150% weapon damage instead of 160% for arms.
+      weapon_multiplier = 1.5;
     weapon_multiplier *= 1.0 + p -> perk.empowered_execute -> effectN( 1 ).percent();
   }
 

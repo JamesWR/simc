@@ -6,7 +6,7 @@
 #define SIMULATIONCRAFT_H
 
 #define SC_MAJOR_VERSION "603"
-#define SC_MINOR_VERSION "13"
+#define SC_MINOR_VERSION "15"
 #define SC_USE_PTR ( 0 )
 #define SC_BETA ( 0 )
 #define SC_BETA_STR "wod"
@@ -442,6 +442,7 @@ enum special_effect_action_e
   SPECIAL_EFFECT_ACTION_SPELL,
   SPECIAL_EFFECT_ACTION_HEAL,
   SPECIAL_EFFECT_ACTION_ATTACK,
+  SPECIAL_EFFECT_ACTION_RESOURCE,
 };
 
 enum action_e {
@@ -714,6 +715,8 @@ enum scale_metric_e
   SCALE_METRIC_DPSE,
   SCALE_METRIC_HPS,
   SCALE_METRIC_HPSE,
+  SCALE_METRIC_APS,
+  SCALE_METRIC_HAPS,
   SCALE_METRIC_DTPS,
   SCALE_METRIC_DMG_TAKEN,
   SCALE_METRIC_HTPS,
@@ -1271,6 +1274,7 @@ std::string& urlencode( std::string& str );
 std::string& urldecode( std::string& str );
 std::string uchar_to_hex( unsigned char );
 std::string google_image_chart_encode( const std::string& str );
+std::string create_blizzard_talent_url( const player_t* p );
 
 bool str_compare_ci( const std::string& l, const std::string& r );
 std::string& glyph_name( std::string& n );
@@ -3354,6 +3358,8 @@ struct special_effect_t
   heal_t* initialize_heal_action() const;
   bool is_attack_action() const;
   attack_t* initialize_attack_action() const;
+  bool is_resource_action() const;
+  spell_t* initialize_resource_action() const;
 
   /* Accessors for driver specific features of the proc; some are also used for on-use effects */
   unsigned proc_flags() const;
@@ -6241,6 +6247,11 @@ struct absorb_t : public spell_base_t
     if ( s -> target != player )
       stats_obj_name += "_" + player -> name_str;
     stats_t* stats_obj = player -> get_stats( stats_obj_name, this );
+    if ( stats != stats_obj )
+    {
+      // Add absorb target stats as a child to the main stats object for reporting
+      stats -> add_child( stats_obj );
+    }
     creator_.source( stats_obj );
     creator_.actors( s -> target );
 
@@ -6903,7 +6914,7 @@ struct multistrike_execute_event_t : public event_t
     // Direct damage/heal multistrikes need to take into account the travel
     // time of the "real" spell, and impact at the same time(?), so ..
     // TODO-WOD: Multistrike impacts in combatlog have delay of .. ?
-    else if ( state -> result_type == DMG_DIRECT || state -> result_type == HEAL_DIRECT )
+    else if ( state -> result_type == DMG_DIRECT || state -> result_type == HEAL_DIRECT || state -> result_type == ABSORB )
     {
       // No travel time -> impact immediately. Event ordering is guaranteed, as
       // schedule_travel() in action_t::execute() has already impacted on this
@@ -6924,7 +6935,9 @@ struct multistrike_execute_event_t : public event_t
       }
     }
     else
+    {
       assert( 0 && "Multistrike Execute event, where state has no result_type" );
+    }
   }
 
   // Ensure we properly release the carried execute_state even if this event
@@ -7134,6 +7147,13 @@ bool download_guild( sim_t* sim,
                      int player_e = PLAYER_NONE,
                      int max_rank = 0,
                      cache::behavior_e b = cache::players() );
+
+player_t* download_player_html( sim_t*,
+                           const std::string& region,
+                           const std::string& server,
+                           const std::string& name,
+                           const std::string& talents = std::string( "active" ),
+                           cache::behavior_e b = cache::players() );
 
 player_t* download_player( sim_t*,
                            const std::string& region,

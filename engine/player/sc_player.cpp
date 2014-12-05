@@ -1795,8 +1795,18 @@ void player_t::init_scaling()
     scales_with[ STAT_MULTISTRIKE_RATING        ] = true;
     scales_with[ STAT_READINESS_RATING          ] = false; // No longer a stat in game.
     scales_with[ STAT_VERSATILITY_RATING        ] = true;
-    scales_with[ STAT_SPEED_RATING              ] = true;
-    scales_with[ STAT_AVOIDANCE_RATING          ] = true;
+
+    bool has_movement = false;
+    for ( size_t i = 0; i < sim -> raid_events.size(); i++ )
+    {
+      //std::string curr_event = sim -> raid_events[ i ] -> name();
+      if ( util::str_in_str_ci( sim -> raid_events[ i ] -> name(), "movement" ) )
+        has_movement = true;
+    }
+
+    scales_with[ STAT_SPEED_RATING              ] = has_movement;
+    scales_with[ STAT_AVOIDANCE_RATING          ] = tank; // todo: check for damage sources present?
+    scales_with[ STAT_LEECH_RATING              ] = tank;
     scales_with[ STAT_DODGE_RATING              ] = tank;
     scales_with[ STAT_PARRY_RATING              ] = tank;
 
@@ -1864,6 +1874,10 @@ void player_t::init_scaling()
 
         case STAT_AVOIDANCE_RATING:
           initial.stats.avoidance_rating += v;
+          break;
+
+        case STAT_LEECH_RATING:
+          initial.stats.leech_rating += v;
           break;
 
         case STAT_WEAPON_DPS:
@@ -8749,6 +8763,12 @@ player_t::scales_over_t player_t::scales_over()
   if ( util::str_compare_ci( so, "dpse" ) )
     return q -> collected_data.dpse;
 
+  if ( util::str_compare_ci( so, "hps" ) )
+    return q -> collected_data.hps;
+
+  if ( util::str_compare_ci( so, "aps" ) )
+    return q -> collected_data.aps;
+
   if ( util::str_compare_ci( so, "hpse" ) )
     return q -> collected_data.hpse;
 
@@ -8764,8 +8784,8 @@ player_t::scales_over_t player_t::scales_over()
   if ( util::str_compare_ci( so, "etmi" ) )
     return q -> collected_data.effective_theck_meloree_index;
 
-  if ( q -> primary_role() == ROLE_HEAL || util::str_compare_ci( so, "hps" ) )
-    return q -> collected_data.hps;
+  if ( q -> primary_role() == ROLE_HEAL || util::str_compare_ci( so, "haps" ) )
+    return scaling_for_metric( SCALE_METRIC_HAPS );
 
   if ( q -> primary_role() == ROLE_TANK || util::str_compare_ci( so, "dtps" ) )
     return q -> collected_data.dtps;
@@ -8787,6 +8807,13 @@ player_t::scales_over_t player_t::scaling_for_metric( scale_metric_e metric )
     case SCALE_METRIC_DPSE:       return q -> collected_data.dpse;
     case SCALE_METRIC_HPS:        return q -> collected_data.hps;
     case SCALE_METRIC_HPSE:       return q -> collected_data.hpse;
+    case SCALE_METRIC_APS:        return q -> collected_data.aps;
+    case SCALE_METRIC_HAPS:
+      {
+        double mean = q -> collected_data.hps.mean() + q -> collected_data.aps.mean();
+        double stddev = sqrt( q -> collected_data.hps.mean_variance + q -> collected_data.aps.mean_variance );
+        return scales_over_t( "Healing + Absorb per second", mean, stddev );
+      }
     case SCALE_METRIC_DTPS:       return q -> collected_data.dtps;
     case SCALE_METRIC_DMG_TAKEN:  return q -> collected_data.dmg_taken;
     case SCALE_METRIC_HTPS:       return q -> collected_data.htps;
@@ -8797,7 +8824,7 @@ player_t::scales_over_t player_t::scaling_for_metric( scale_metric_e metric )
       if ( q -> primary_role() == ROLE_TANK )
         return q -> collected_data.dtps;
       else if ( q -> primary_role() == ROLE_HEAL )
-        return q -> collected_data.hps;
+        return scaling_for_metric( SCALE_METRIC_HAPS );
       else
        return q -> collected_data.dps;
   }

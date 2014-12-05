@@ -313,6 +313,7 @@ public:
     const spell_data_t* focused_wrath;
     const spell_data_t* hand_of_sacrifice;
     const spell_data_t* harsh_words;
+    const spell_data_t* holy_shock;
     const spell_data_t* immediate_truth;
     const spell_data_t* illumination;
     const spell_data_t* judgment;
@@ -1610,6 +1611,7 @@ struct denounce_t : public paladin_spell_t
     : paladin_spell_t( "denounce", p, p -> find_specialization_spell( "Denounce" ) )
   {
     parse_options( options_str );
+    may_crit = true;
   }
 
   timespan_t execute_time() const
@@ -2478,12 +2480,12 @@ struct holy_shock_damage_t : public paladin_spell_t
     : paladin_spell_t( "holy_shock_damage", p, p -> find_spell( 25912 ) ),
       crit_increase( 0.0 )
   {
-
-    background = true;
+    background = may_crit = true;
     trigger_gcd = timespan_t::zero();
 
     // this grabs the 100% base crit bonus from 20473
     crit_chance_multiplier = p -> find_class_spell( "Holy Shock" ) -> effectN( 1 ).base_value() / 10.0;
+    spell_power_mod.direct *= 1.0 + p -> glyphs.holy_shock -> effectN( 2 ).percent();
   }
 
   virtual double composite_crit() const
@@ -2545,6 +2547,7 @@ struct holy_shock_heal_t : public paladin_heal_t
     // Daybreak gives this a 75% splash heal
     daybreak = new daybreak_t( p );
     //add_child( daybreak );
+    spell_power_mod.direct *= 1.0 + p -> glyphs.holy_shock -> effectN( 1 ).percent();
   }
 
   virtual double composite_crit() const
@@ -2599,7 +2602,6 @@ struct holy_shock_heal_t : public paladin_heal_t
       p() -> buffs.daybreak -> decrement();
     }
   }
-
 };
 
 struct holy_shock_t : public paladin_heal_t
@@ -2608,11 +2610,13 @@ struct holy_shock_t : public paladin_heal_t
   holy_shock_heal_t* heal;
   timespan_t cd_duration;
   double cooldown_mult;
+  bool dmg;
 
   holy_shock_t( paladin_t* p, const std::string& options_str )
     : paladin_heal_t( "holy_shock", p, p -> find_specialization_spell( "Holy Shock" ) ),
-    cooldown_mult( 1.0 )
+    cooldown_mult( 1.0 ), dmg( false )
   {
+    add_option( opt_bool( "damage", dmg ) );
     check_spec( PALADIN_HOLY );
     parse_options( options_str );
 
@@ -2635,12 +2639,11 @@ struct holy_shock_t : public paladin_heal_t
     heal = new holy_shock_heal_t( p );
     heal ->crit_increase = crit_increase;
     add_child( heal );
-
   }
 
   virtual void execute()
   {
-    if ( target -> is_enemy() )
+    if ( dmg )
     {
       // damage enemy
       damage -> target = target;
@@ -5063,7 +5066,7 @@ void paladin_t::generate_action_prio_list_prot()
   
   def -> add_talent( this, "Holy Avenger", "", "Standard survival priority list starts here\n# This section covers off-GCD spells." );
   def -> add_talent( this, "Seraphim" );
-  def -> add_action( this, "Divine Protection", "if=time<5|!talent.seraphim.enabled|(buff.seraphim.down&cooldown.seraphim.remains>5)" );
+  def -> add_action( this, "Divine Protection", "if=time<5|!talent.seraphim.enabled|(buff.seraphim.down&cooldown.seraphim.remains>5&cooldown.seraphim.remains<9)" );
   def -> add_action( this, "Guardian of Ancient Kings", "if=time<5|(buff.holy_avenger.down&buff.shield_of_the_righteous.down&buff.divine_protection.down)" ); 
   def -> add_action( this, "Ardent Defender", "if=time<5|(buff.holy_avenger.down&buff.shield_of_the_righteous.down&buff.divine_protection.down&buff.guardian_of_ancient_kings.down)");
   def -> add_talent( this, "Eternal Flame", "if=buff.eternal_flame.remains<2&buff.bastion_of_glory.react>2&(holy_power>=3|buff.divine_purpose.react|buff.bastion_of_power.react)" );
@@ -5108,7 +5111,7 @@ void paladin_t::generate_action_prio_list_prot()
   dps -> add_action( "potion,name=" + potion_type + ",if=buff.holy_avenger.react|buff.bloodlust.react|target.time_to_die<=60" );
   dps -> add_talent( this, "Holy Avenger", "", "Max-DPS priority list starts here.\n# This section covers off-GCD spells." );
   dps -> add_talent( this, "Seraphim" );
-  dps -> add_talent( this, "Divine Protection", "if=time<5|!talent.seraphim.enabled|(buff.seraphim.down&cooldown.seraphim.remains>5)" );
+  dps -> add_talent( this, "Divine Protection", "if=time<5|!talent.seraphim.enabled|(buff.seraphim.down&cooldown.seraphim.remains>5&cooldown.seraphim.remains<9)" );
   dps -> add_talent( this, "Guardian of Ancient Kings", "if=time<5|(buff.holy_avenger.down&buff.shield_of_the_righteous.down&buff.divine_protection.down)" );
   dps -> add_action( this, "Shield of the Righteous", "if=buff.divine_purpose.react" );
   dps -> add_action( this, "Shield of the Righteous", "if=(holy_power>=5|talent.holy_avenger.enabled)&(!talent.seraphim.enabled|cooldown.seraphim.remains>5)" );
@@ -5147,7 +5150,7 @@ void paladin_t::generate_action_prio_list_prot()
   // Max Survival priority queue
   surv -> add_action( "potion,name=" + potion_type + ",if=buff.shield_of_the_righteous.down&buff.seraphim.down&buff.divine_protection.down&buff.guardian_of_ancient_kings.down&buff.ardent_defender.down" );
   surv -> add_talent( this, "Holy Avenger", "", "Max survival priority list starts here\n# This section covers off-GCD spells." );
-  surv -> add_action( this, "Divine Protection", "if=buff.seraphim.down" );
+  surv -> add_action( this, "Divine Protection", "if=time<5|!talent.seraphim.enabled|(buff.seraphim.down&cooldown.seraphim.remains>5&cooldown.seraphim.remains<9)" );
   surv -> add_talent( this, "Seraphim", "if=buff.divine_protection.down&cooldown.divine_protection.remains>0" );
   surv -> add_action( this, "Guardian of Ancient Kings", "if=buff.holy_avenger.down&buff.shield_of_the_righteous.down&buff.divine_protection.down" ); 
   surv -> add_action( this, "Ardent Defender", "if=buff.holy_avenger.down&buff.shield_of_the_righteous.down&buff.divine_protection.down&buff.guardian_of_ancient_kings.down");
@@ -5606,8 +5609,9 @@ void paladin_t::init_spells()
   glyphs.focused_shield           = find_glyph_spell( "Glyph of Focused Shield" );
   glyphs.hand_of_sacrifice        = find_glyph_spell( "Glyph of Hand of Sacrifice" );
   glyphs.harsh_words              = find_glyph_spell( "Glyph of Harsh Words" );
+  glyphs.holy_shock               = find_glyph_spell( "Glyph of Holy Shock" );
   glyphs.immediate_truth          = find_glyph_spell( "Glyph of Immediate Truth" );
-  glyphs.illumination                 = find_glyph_spell( "Glyph of Illumination" );
+  glyphs.illumination             = find_glyph_spell( "Glyph of Illumination" );
   glyphs.judgment                 = find_glyph_spell( "Glyph of Judgment" );
   glyphs.mass_exorcism            = find_glyph_spell( "Glyph of Mass Exorcism" );
   glyphs.merciful_wrath           = find_glyph_spell( "Glyph of Merciful Wrath" );

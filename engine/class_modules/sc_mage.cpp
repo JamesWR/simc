@@ -1162,7 +1162,8 @@ public:
   size_t available_targets( std::vector< player_t* >& tl ) const
   {
     tl.clear();
-    tl.push_back( target );
+    if ( ! target -> is_sleeping() )
+      tl.push_back( target );
 
     for ( size_t i = 0, actors = sim -> target_non_sleeping_list.size(); i < actors; i++ )
     {
@@ -5156,15 +5157,11 @@ void mage_t::apl_frost()
                      "if=talent.frost_bomb.enabled&buff.fingers_of_frost.react&debuff.frost_bomb.up" );
   aoe -> add_talent( this, "Comet Storm" );
   aoe -> add_talent( this, "Ice Nova" );
-  aoe -> add_talent( this, "Cold Snap",
-                     "if=glyph.cone_of_cold.enabled&!cooldown.cone_of_cold.up" );
-  aoe -> add_action( this, "Cone of Cold",
-                     "if=glyph.cone_of_cold.enabled" );
   aoe -> add_action( this, "Blizzard",
                      "interrupt_if=cooldown.frozen_orb.up|(talent.frost_bomb.enabled&buff.fingers_of_frost.react=2)" );
 
 
-  single_target -> add_action( "call_action_list,name=cooldowns,if=!talent.prismatic_crystal.enabled|cooldown.prismatic_crystal.remains>45",
+  single_target -> add_action( "call_action_list,name=cooldowns,if=!talent.prismatic_crystal.enabled|cooldown.prismatic_crystal.remains>15",
                                "Single target sequence" );
   single_target -> add_action( this, "Ice Lance",
                                "if=buff.fingers_of_frost.react&buff.fingers_of_frost.remains<action.frostbolt.execute_time",
@@ -5197,9 +5194,6 @@ void mage_t::apl_frost()
                                "Camp procs and spam Frostbolt while 4T17 buff is up" );
   single_target -> add_action( this, "Ice Lance",
                                "if=!talent.frost_bomb.enabled&buff.fingers_of_frost.react&(!talent.thermal_void.enabled|cooldown.icy_veins.remains>8)" );
-  single_target -> add_action( this, "Ice Lance",
-                               "if=talent.thermal_void.enabled&!glyph.icy_veins.enabled&talent.mirror_image.enabled&buff.icy_veins.up&buff.icy_veins.remains<6&buff.icy_veins.remains<cooldown.icy_veins.remains",
-                               "Thermal Void IV extension" );
   single_target -> add_action( "water_jet,if=buff.fingers_of_frost.react=0&!dot.frozen_orb.ticking" );
   single_target -> add_action( this, "Frostbolt" );
   single_target -> add_action( this, "Ice Lance", "moving=1" );

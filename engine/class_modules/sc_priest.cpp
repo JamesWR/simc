@@ -31,7 +31,6 @@ public:
   struct buffs_t
   {
     absorb_buff_t* divine_aegis;
-    absorb_buff_t* power_word_shield;
     absorb_buff_t* spirit_shell;
     buff_t* holy_word_serenity;
   } buffs;
@@ -611,11 +610,8 @@ struct base_fiend_pet_t : public priest_pet_t
 
 struct shadowfiend_pet_t final : public base_fiend_pet_t
 {
-  const spell_data_t* mana_leech;
-
   shadowfiend_pet_t( sim_t* sim, priest_t& owner, const std::string& name = "shadowfiend" ) :
-    base_fiend_pet_t( sim, owner, PET_SHADOWFIEND, name ),
-    mana_leech( find_spell( 34650, "mana_leech" ) )
+    base_fiend_pet_t( sim, owner, PET_SHADOWFIEND, name )
   {
     direct_power_mod = 0.75;
 
@@ -626,7 +622,7 @@ struct shadowfiend_pet_t final : public base_fiend_pet_t
   }
 
   virtual double mana_return_percent() const override
-  { return mana_leech -> effectN( 1 ).percent(); }
+  { return 0.0; }
 };
 
 // ==========================================================================
@@ -650,8 +646,7 @@ struct mindbender_pet_t final : public base_fiend_pet_t
 
   virtual double mana_return_percent() const override
   {
-    double m  = mindbender_spell -> effectN( 2 ).base_value();
-           m /= mindbender_spell -> effectN( 3 ).base_value();
+    double m  = mindbender_spell -> effectN( 2 ).percent();
     return m / 100;
   }
 };
@@ -818,9 +813,13 @@ struct fiend_melee_t final : public priest_pet_melee_t
 
     if ( result_is_hit( s -> result ) )
     {
-      p().o().resource_gain( RESOURCE_MANA,
-                             p().o().resources.max[ RESOURCE_MANA ] * p().mana_return_percent(),
-                             p().gains.fiend );
+      double mana_reg_pct = p().mana_return_percent();
+      if ( mana_reg_pct > 0.0 )
+      {
+        p().o().resource_gain( RESOURCE_MANA,
+                               p().o().resources.max[ RESOURCE_MANA ] * p().mana_return_percent(),
+                               p().gains.fiend );
+      }
     }
   }
 };
@@ -1096,8 +1095,9 @@ public:
                    const spell_data_t* s = spell_data_t::nil() ) :
     base_t( n, player, s )
   {
-    may_crit          = false;
-    tick_may_crit     = false;
+    may_crit = true;
+    tick_may_crit = false;
+    may_multistrike = 1;
     may_miss          = false;
   }
 
@@ -1106,7 +1106,7 @@ public:
     double am = base_t::action_multiplier();
 
     if ( priest.mastery_spells.shield_discipline -> ok() )
-      am += 1.0 + priest.cache.mastery_value();
+      am *= 1.0 + priest.cache.mastery_value();
 
     return am;
   }
@@ -1120,13 +1120,26 @@ struct priest_heal_t : public priest_action_t<heal_t>
 {
   struct divine_aegis_t : public priest_absorb_t
   {
+    // Multistrike test results 14/12/05 by philoptik:
+    // triggers from hit -> critting multistrike
+    // does NOT trigger from crit -> normal multistrike
+    // contrary to general tooltip interpretation.
+
     divine_aegis_t( const std::string& n, priest_t& p ) :
       priest_absorb_t( n + "_divine_aegis", p, p.find_spell( 47753 ) )
     {
       check_spell( p.specs.divine_aegis );
       proc             = true;
       background       = true;
+      may_multistrike = 0;
+      may_crit = false;
       spell_power_mod.direct = 0.0;
+    }
+
+    void init() override
+    {
+      action_t::init();
+      snapshot_flags |= STATE_MUL_DA;
     }
 
     virtual void impact( action_state_t* s ) override
@@ -1138,9 +1151,10 @@ struct priest_heal_t : public priest_action_t<heal_t>
       // when healing a tank that's below 0 life in the sim, Divine Aegis causes an exception because it tries to
       // clamp s -. result_amount between 0 and a negative number. This is a workaround that treats a tank with
       // negative life as being at maximum health for the purposes of Divine Aegis.
-      double upper_limit = s -> target -> resources.current[ RESOURCE_HEALTH ] * 0.4 - old_amount;
+      double limiting_factor = 0.6; // WoD 14/12/05
+      double upper_limit = s -> target -> resources.current[ RESOURCE_HEALTH ] * limiting_factor - old_amount;
       if ( upper_limit <= 0 )
-        upper_limit = s -> target -> resources.max[ RESOURCE_HEALTH ] * 0.4 - old_amount;
+        upper_limit = s -> target -> resources.max[ RESOURCE_HEALTH ] * limiting_factor - old_amount;
 
       double new_amount = clamp( s -> result_amount, 0.0, upper_limit );
       buff.trigger( 1, old_amount + new_amount );
@@ -1148,10 +1162,14 @@ struct priest_heal_t : public priest_action_t<heal_t>
       buff.absorb_source -> add_result( 0.0, new_amount, ABSORB, s -> result, s -> block_result, s -> target );
     }
 
-    void trigger( const action_state_t* s )
+    void trigger( const action_state_t* s, double crit_amount )
     {
-      base_dd_min = base_dd_max = s -> result_amount * priest.specs.divine_aegis -> effectN( 1 ).percent();
+      base_dd_min = base_dd_max = crit_amount * priest.specs.divine_aegis -> effectN( 1 ).percent();
       target = s -> target;
+      if ( sim -> debug )
+      {
+        sim -> out_debug.printf( "%s %s triggers Divine Aegis with base_amount=%.2f.", player -> name(), name(), base_dd_min );
+      }
       execute();
     }
   };
@@ -1230,7 +1248,7 @@ struct priest_heal_t : public priest_action_t<heal_t>
                  const spell_data_t* s = spell_data_t::nil() ) :
     base_t( n, player, s ),
     da( nullptr ), ss( nullptr ),
-    divine_aegis_trigger_mask( RESULT_CRIT_MASK ),
+    divine_aegis_trigger_mask( RESULT_CRIT_MASK | (1<<RESULT_MULTISTRIKE_CRIT)),
     can_trigger_EoL( true ), can_trigger_spirit_shell( false )
   {}
 
@@ -1294,12 +1312,11 @@ struct priest_heal_t : public priest_action_t<heal_t>
 
       if ( s -> result_amount > 0 )
       {
-        trigger_divine_aegis( s );
         trigger_echo_of_light( this, s );
 
-        if ( priest.buffs.chakra_serenity -> up() && get_td( target ).dots.renew -> is_ticking() )
+        if ( priest.buffs.chakra_serenity -> up() && get_td( s -> target ).dots.renew -> is_ticking() )
         {
-          get_td( target ).dots.renew -> refresh_duration();
+          get_td( s -> target ).dots.renew -> refresh_duration();
         }
 
         if ( priest.specialization() != PRIEST_SHADOW && priest.talents.twist_of_fate -> ok() && ( save_health_percentage < priest.talents.twist_of_fate -> effectN( 1 ).base_value() ) )
@@ -1309,17 +1326,46 @@ struct priest_heal_t : public priest_action_t<heal_t>
       }
     }
   }
-
-  virtual void tick( dot_t* d ) override
+  virtual void assess_damage( dmg_e    type,
+                                action_state_t* s ) override
   {
-    base_t::tick( d );
-    trigger_divine_aegis( d -> state );
+    remove_crit_amount_divine_aegis( s );
+    base_t::assess_damage( type, s );
+    trigger_divine_aegis( s );
+  }
+
+  /* Helper function to check if divine aegis trigger can be applied.
+   */
+  bool can_trigger_divine_aegis( const action_state_t* s ) const
+  {
+    if ( s -> result_total > 0 )
+    {
+      if ( da && ( ( 1 << s -> result ) & divine_aegis_trigger_mask ) != 0 )
+      {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  void remove_crit_amount_divine_aegis( action_state_t* s )
+  {
+    if ( can_trigger_divine_aegis( s ) )
+    {
+      double crit_bonus = total_crit_bonus();
+      double non_crit_portion = s -> result_total / ( 1.0 + crit_bonus );
+      s -> result_total = non_crit_portion; // remove crit portion from source spell
+    }
   }
 
   void trigger_divine_aegis( action_state_t* s )
   {
-    if ( da && ( ( 1 << s -> result ) & divine_aegis_trigger_mask ) != 0 )
-      da -> trigger( s );
+    if ( can_trigger_divine_aegis( s ) )
+    {
+      double crit_bonus = total_crit_bonus();
+      double crit_amount = s -> result_total * crit_bonus;
+      da -> trigger( s, crit_amount );
+    }
   }
 
   // Priest Echo of Light, Ignite-Mechanic specialization
@@ -4465,7 +4511,7 @@ struct penance_heal_t final : public priest_heal_t
   struct penance_heal_tick_t final : public priest_heal_t
   {
     penance_heal_tick_t( priest_t& player ) :
-      priest_heal_t( "penance_heal_tick", player, player.find_spell( 47666 ) )
+      priest_heal_t( "penance_heal_tick", player, player.find_spell( 47750 ) )
     {
       background  = true;
       may_crit    = true;
@@ -4530,6 +4576,7 @@ struct power_word_shield_t final : public priest_absorb_t
 
       snapshot_flags |= STATE_MUL_DA | STATE_TGT_MUL_DA;
 
+
       castable_in_shadowform = true;
     }
 
@@ -4556,6 +4603,9 @@ struct power_word_shield_t final : public priest_absorb_t
     // Tooltip is wrong.
     // direct_power_mod = 0.87; // hardcoded into tooltip
     // spell_power_mod.direct = 1.8709; // matches in-game actual value
+
+    spell_power_mod.direct = 5.0; // hardcoded into tooltip 14/12/03
+
     if ( p.wod_hotfix )
       base_multiplier *= 1.2;
 
@@ -4570,6 +4620,8 @@ struct power_word_shield_t final : public priest_absorb_t
 
   virtual void impact( action_state_t* s ) override
   {
+    priest_absorb_t::impact( s );
+
     buffs::weakened_soul_t* weakened_soul = debug_cast<buffs::weakened_soul_t*>( s -> target -> buffs.weakened_soul );
     weakened_soul -> trigger_weakened_souls( priest );
     priest.buffs.borrowed_time -> trigger();
@@ -4577,9 +4629,6 @@ struct power_word_shield_t final : public priest_absorb_t
     // Glyph
     if ( glyph_pws )
       glyph_pws -> trigger( s );
-
-    get_td( s -> target ).buffs.power_word_shield -> trigger( 1, s -> result_amount );
-    stats -> add_result( 0, s -> result_amount, ABSORB, s -> result, s -> block_result, s -> target );
   }
 
   virtual bool ready() override
@@ -4601,7 +4650,6 @@ struct prayer_of_healing_t final : public priest_heal_t
     parse_options( options_str );
     aoe = 5;
     group_only = true;
-    divine_aegis_trigger_mask = RESULT_HIT_MASK;
     can_trigger_spirit_shell = true;
   }
 
@@ -4671,10 +4719,8 @@ struct prayer_of_mending_t final : public priest_heal_t
     add_option( opt_bool( "single", single ) );
     parse_options( options_str );
 
-    spell_power_mod.direct = data().effectN( 1 ).sp_coeff();
+    spell_power_mod.direct = 0.442787; // hardcoded into tooltip 14/12/03
     base_dd_min = base_dd_max = data().effectN( 1 ).min( &p );
-
-    divine_aegis_trigger_mask = 0;
 
     aoe = 5;
 
@@ -4798,13 +4844,20 @@ struct renew_t final : public priest_heal_t
   }
 };
 
-struct clarity_of_will_t final : public priest_heal_t
+struct clarity_of_will_t final : public priest_absorb_t
 {
   clarity_of_will_t( priest_t& p, const std::string& options_str ) :
-    priest_heal_t( "clarity_of_will", p, p.find_spell( 0 /*p.talents.divine_clarity*/  ) )
+    priest_absorb_t( "clarity_of_will", p, p.talents.clarity_of_will )
   {
     parse_options( options_str );
+
     // TODO: implement mechanic
+    spell_power_mod.direct = 6.0; // hardcoded into tooltip 14/12/03
+
+    if ( p.wod_hotfix )
+      base_multiplier *= 1.1; // Seems to match relative to PW:S. 14/12/03
+
+    // TODO: implement buff value overflow at 50% of either target or priest health. 14/12/03
   }
 };
 
@@ -5007,10 +5060,6 @@ priest_td_t::priest_td_t( player_t* target, priest_t& p ) :
 
   buffs.divine_aegis = absorb_buff_creator_t( *this, "divine_aegis", p.find_spell( 47753 ) )
                        .source( p.get_stats( "divine_aegis" ) );
-
-  buffs.power_word_shield = absorb_buff_creator_t( *this, "power_word_shield", p.find_spell( 17 ) )
-                            .source( p.get_stats( "power_word_shield" ) )
-                            .cd( timespan_t::zero() );
 
   buffs.spirit_shell = absorb_buff_creator_t( *this, "spirit_shell_absorb" )
                        .spell( p.find_spell( 114908 ) )
@@ -5388,6 +5437,10 @@ double priest_t::composite_player_heal_multiplier( const action_state_t* s ) con
     m *= 1.0 + buffs.twist_of_fate -> current_value;
   }
 
+  if ( mastery_spells.shield_discipline -> ok() )
+  {
+    m *= 1.0 + cache.mastery() * mastery_spells.shield_discipline-> effectN( 3 ).mastery_value();
+  }
   if ( specs.grace -> ok () )
     m *= 1.0 + specs.grace -> effectN( 1 ).percent();
 
@@ -6194,8 +6247,8 @@ void priest_t::apl_shadow()
   cop_mfi -> add_action( "halo,if=talent.halo.enabled&target.distance<=30&target.distance>=17" );
   cop_mfi -> add_action( "cascade,if=talent.cascade.enabled&((active_enemies>1|target.distance>=28)&target.distance<=40&target.distance>=11)" );
   cop_mfi -> add_action( "divine_star,if=talent.divine_star.enabled&(active_enemies>1|target.distance<=24)" );
-  cop_mfi -> add_action( "shadow_word_pain,if=remains<(15*0.3)&miss_react&active_enemies<=5&primary_target=0,cycle_targets=1,max_cycle_targets=5" );
-  cop_mfi -> add_action( "vampiric_touch,if=remains<(18*0.3+cast_time)&miss_react&active_enemies<=5&primary_target=0,cycle_targets=1,max_cycle_targets=5" );
+  cop_mfi -> add_action( "shadow_word_pain,if=remains<(18*0.3)&miss_react&active_enemies<=5&primary_target=0,cycle_targets=1,max_cycle_targets=5" );
+  cop_mfi -> add_action( "vampiric_touch,if=remains<(15*0.3+cast_time)&miss_react&active_enemies<=5&primary_target=0,cycle_targets=1,max_cycle_targets=5" );
   cop_mfi -> add_action( "mind_sear,if=active_enemies>=6,chain=1,interrupt=1" );
   cop_mfi -> add_action( "mind_spike" );
   cop_mfi -> add_action( "shadow_word_death,moving=1" );

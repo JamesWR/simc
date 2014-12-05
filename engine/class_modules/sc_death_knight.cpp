@@ -3020,7 +3020,7 @@ struct necrosis_t : public death_knight_spell_t
   {
     background = true;
     if ( player -> wod_hotfix )
-    {
+    { 
       base_multiplier *= 1.67;
     }
   }
@@ -3130,7 +3130,7 @@ struct soul_reaper_t : public death_knight_melee_attack_t
     if ( target -> health_percentage() > 40 )
       return 0;
     else
-      return death_knight_melee_attack_t::false_negative_pct();
+      return death_knight_melee_attack_t::false_positive_pct();
   }
 
   virtual double composite_crit() const
@@ -3614,9 +3614,9 @@ struct defile_t : public death_knight_spell_t
     double m = death_knight_spell_t::composite_ta_multiplier( state );
 
     dot_t* dot = find_dot( state -> target );
-    // TODO-WOD: Tooltip is wrong, defile increases by 5% per tick
+
     if ( dot )
-      m *= std::pow( 1.0 + /* data().effectN( 2 ).percent()*/ 0.05, dot -> current_tick );
+      m *= std::pow( 1.0 + data().effectN( 2 ).percent() / 100, dot -> current_tick );
 
     return m;
   }
@@ -3963,12 +3963,12 @@ struct empower_rune_weapon_t : public death_knight_spell_t
 struct festering_strike_t : public death_knight_melee_attack_t
 {
   festering_strike_t( death_knight_t* p, const std::string& options_str ) :
-    death_knight_melee_attack_t( "festering_strike", p, p -> find_class_spell( "Festering Strike" ) )
+    death_knight_melee_attack_t( "festering_strike", p, p -> find_specialization_spell( "Festering Strike" ) )
   {
     parse_options( options_str );
 
     if ( p -> wod_hotfix )
-      weapon_multiplier *= 0.95;
+      weapon_multiplier *= 0.90;
 
     if ( p -> spec.reaping -> ok() )
       convert_runes = 1.0;
@@ -4224,6 +4224,14 @@ struct chains_of_ice_t : public death_knight_spell_t
       sim -> errorf( "Disabling Chains of Ice because multiple exclusive glyphs are affecting it." );
       background = true;
     }
+  }
+
+  void impact( action_state_t* state )
+  {
+    death_knight_spell_t::impact( state );
+
+    if ( result_is_hit( state -> result ) )
+      p() -> apply_diseases( state, DISEASE_FROST_FEVER );
   }
 };
 
@@ -4965,6 +4973,7 @@ struct scourge_strike_t : public death_knight_melee_attack_t
       {
         weapon_multiplier *= 0.95;
         weapon_multiplier *= 1.5;
+        weapon_multiplier *= 0.96;
       }
     }
 
@@ -4991,6 +5000,7 @@ struct scourge_strike_t : public death_knight_melee_attack_t
     {
       weapon_multiplier *= 0.95;
       weapon_multiplier *= 1.5;
+      weapon_multiplier *= 0.98;
     }
 
     // TODO-WOD: Do we need to inherit damage or is it a separate roll in WoD?
@@ -5192,11 +5202,15 @@ struct breath_of_sindragosa_t : public death_knight_spell_t
 
     may_miss = may_crit = hasted_ticks = callbacks = false;
     tick_zero = true;
-    dot_duration = timespan_t::from_seconds( 100 );
 
     tick_action = new breath_of_sindragosa_tick_t( p, this );
     tick_action -> base_costs[ RESOURCE_RUNIC_POWER ] = base_costs[ RESOURCE_RUNIC_POWER ];
     school = tick_action -> school;
+  }
+
+  timespan_t composite_dot_duration( const action_state_t* ) const
+  {
+    return player -> sim -> expected_iteration_time * 2;
   }
 
   void execute()
@@ -6627,6 +6641,7 @@ void death_knight_t::init_action_list()
     st -> add_action( this, "Death Coil" );
 
     // Less waiting
+    st -> add_talent( this , "Plague Leech" );
     st -> add_action( this, "Empower Rune Weapon" );
 
     //AoE

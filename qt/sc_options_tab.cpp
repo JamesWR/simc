@@ -74,6 +74,9 @@ const OptionEntry scalingOptions[] =
   { "Off-hand Weapon DPS",      "wohdps",   "Calculate scale factors for Off-hand Weapon DPS"      },
   { "Armor",                    "armor",    "Calculate scale factors for Armor"                    },
   { "Bonus Armor",              "bonusarmor",   "Calculate scale factors for Bonus Armor"          },
+  { "Avoidance (tertiary)",     "avoidance", "Calculate scale factors for Avoidance (tertiary stat)" },
+  { "Leech (tertiary)",         "leech",    "Calculate scale factors for Leech (tertiary stat)" },
+  { "Movement Speed (tertiary)", "speed",   "Calculate scale factors for Movement Speed (tertiary stat)" },
   { "Latency",                  "",         "Calculate scale factors for Latency"                  },
   { NULL, NULL, NULL }
 };
@@ -246,7 +249,7 @@ void SC_OptionsTab::createGlobalsTab()
 
   globalsLayout_middle -> addRow( tr( "Target Type" ),       choice.boss_type = createChoice( 4, "Custom", "Fluffy Pillow", "Tank Dummy", "TMI Standard Boss" ) );
   globalsLayout_middle -> addRow( tr( "Tank Dummy" ),       choice.tank_dummy = createChoice( 5, "None", "Weak", "Dungeon", "Raid", "Mythic" ) );
-  globalsLayout_middle -> addRow( tr( "TMI Standard Boss" ),  choice.tmi_boss = createChoice( 9, "None", "T17M", "T17H", "T17N", "T17L", "T16M", "T16H", "T16N", "T16L" ) );
+  globalsLayout_middle -> addRow( tr( "TMI Standard Boss" ),  choice.tmi_boss = createChoice( 5, "None", "T17M", "T17H", "T17N", "T17L" ) );
   globalsLayout_middle -> addRow( tr( "TMI Window (sec)" ), choice.tmi_window = createChoice( 10, "0", "2", "3", "4", "5", "6", "7", "8", "9", "10" ) );
   globalsLayout_middle -> addRow( tr( "Show ETMI" ),         choice.show_etmi = createChoice( 2, "Only when in group", "Always" ) );
 
@@ -861,7 +864,7 @@ void SC_OptionsTab::createToolTips()
 
   choice.threads -> setToolTip( tr( "Match the number of CPUs for optimal performance.\n"
                                     "Most modern desktops have at least two CPU cores." ) );
-
+   
   choice.thread_priority -> setToolTip( tr( "This can allow for a more responsive computer while simulations are running.\n"
                                             "When set to 'Lowest', it will be possible to use your computer as normal while SimC runs in the background." ) );
 

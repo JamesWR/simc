@@ -155,8 +155,8 @@ actions.cop_mfi+=/insanity,if=active_enemies<=2,interrupt=1,chain=1
 actions.cop_mfi+=/halo,if=talent.halo.enabled&target.distance<=30&target.distance>=17
 actions.cop_mfi+=/cascade,if=talent.cascade.enabled&((active_enemies>1|target.distance>=28)&target.distance<=40&target.distance>=11)
 actions.cop_mfi+=/divine_star,if=talent.divine_star.enabled&(active_enemies>1|target.distance<=24)
-actions.cop_mfi+=/shadow_word_pain,if=remains<(15*0.3)&miss_react&active_enemies<=5&primary_target=0,cycle_targets=1,max_cycle_targets=5
-actions.cop_mfi+=/vampiric_touch,if=remains<(18*0.3+cast_time)&miss_react&active_enemies<=5&primary_target=0,cycle_targets=1,max_cycle_targets=5
+actions.cop_mfi+=/shadow_word_pain,if=remains<(18*0.3)&miss_react&active_enemies<=5&primary_target=0,cycle_targets=1,max_cycle_targets=5
+actions.cop_mfi+=/vampiric_touch,if=remains<(15*0.3+cast_time)&miss_react&active_enemies<=5&primary_target=0,cycle_targets=1,max_cycle_targets=5
 actions.cop_mfi+=/mind_sear,if=active_enemies>=6,chain=1,interrupt=1
 actions.cop_mfi+=/mind_spike
 actions.cop_mfi+=/shadow_word_death,moving=1
@@ -208,7 +208,7 @@ main_hand=infernoflame_staff,id=113869,bonus_id=566,enchant=mark_of_bleeding_hol
 
 # Gear Summary
 # gear_stamina=3942
-# gear_intellect=2906
+# gear_intellect=3248
 # gear_spell_power=1524
 # gear_crit_rating=429
 # gear_haste_rating=1084

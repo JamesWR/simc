@@ -557,15 +557,6 @@ void enchant::mark_of_the_shattered_hand( special_effect_t& effect,
 
     double target_armor( player_t* ) const
     { return 0.0; }
-
-    timespan_t calculate_dot_refresh_duration( const dot_t* dot, timespan_t triggered_duration ) const
-    {
-      timespan_t new_duration = std::min( triggered_duration * 0.3, dot -> remains() ) + triggered_duration;
-      timespan_t period_mod = new_duration % base_tick_time;
-      new_duration += ( base_tick_time - period_mod );
-
-      return new_duration;
-    }
   };
 
   action_t* bleed = item.player -> create_proc_action( "shattered_bleed" );
@@ -2002,8 +1993,9 @@ bool unique_gear::initialize_special_effect( special_effect_t& effect,
   // otherwise there's no point in trying to proc anything
   if ( effect.type == SPECIAL_EFFECT_EQUIP && ! proc::usable_proc( effect ) )
     effect.type = SPECIAL_EFFECT_NONE;
-  // For now only allow on-use stat buffs.
-  else if ( effect.type == SPECIAL_EFFECT_USE && effect.buff_type() != SPECIAL_EFFECT_BUFF_STAT )
+  else if ( effect.type == SPECIAL_EFFECT_USE &&
+            effect.buff_type() == SPECIAL_EFFECT_BUFF_NONE &&
+            effect.action_type() == SPECIAL_EFFECT_ACTION_NONE )
     effect.type = SPECIAL_EFFECT_NONE;
 
   return ret;
