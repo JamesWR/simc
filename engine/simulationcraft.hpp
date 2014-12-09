@@ -6,7 +6,7 @@
 #define SIMULATIONCRAFT_H
 
 #define SC_MAJOR_VERSION "603"
-#define SC_MINOR_VERSION "15"
+#define SC_MINOR_VERSION "16"
 #define SC_USE_PTR ( 0 )
 #define SC_BETA ( 0 )
 #define SC_BETA_STR "wod"
@@ -41,6 +41,9 @@
 #include <string>
 #include <typeinfo>
 #include <vector>
+#if defined( SC_OSX )
+#include <Availability.h>
+#endif
 
 #if USE_TR1_NAMESPACE
 // Use TR1

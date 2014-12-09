@@ -1440,7 +1440,7 @@ struct arcane_barrage_t : public mage_spell_t
 
     if ( p() -> wod_hotfix )
     {
-      am *= 1.0 - 0.05;
+      am *= (1.0 - 0.05) * (1.0 + 0.16);
     }
 
     return am;
@@ -1511,7 +1511,7 @@ struct arcane_blast_t : public mage_spell_t
 
     if ( p() -> wod_hotfix )
     {
-      am *= (1.0 - 0.05) * (1.0 + 0.1);
+      am *= (1.0 - 0.05) * (1.0 + 0.1) * (1.0 + 0.16);
     }
 
     return am;
@@ -1607,6 +1607,19 @@ struct arcane_explosion_t : public mage_spell_t
       }
     }
   }
+
+  virtual double action_multiplier() const
+  {
+    double am = mage_spell_t::action_multiplier();
+
+    if ( p() -> wod_hotfix )
+    {
+      am *= 1.0 + 0.1;
+    }
+
+    return am;
+
+  }
 };
 
 // Arcane Missiles Spell ====================================================
@@ -1657,7 +1670,7 @@ struct arcane_missiles_t : public mage_spell_t
 
     if ( p() -> wod_hotfix )
     {
-      am *= 1.0 - 0.05;
+      am *= (1.0 - 0.05) * (1.0 + 0.16);
     }
 
     return am;
@@ -1741,6 +1754,18 @@ struct arcane_orb_bolt_t : public mage_spell_t
 
     mage_spell_t::impact( s );
     p() -> buffs.arcane_charge -> trigger();
+  }
+
+  virtual double action_multiplier() const
+  {
+    double am = mage_spell_t::action_multiplier();
+
+    if ( p() -> wod_hotfix )
+    {
+      am *= 1.0 + 0.1;
+    }
+
+    return am;
   }
 };
 
@@ -2091,6 +2116,18 @@ struct comet_storm_projectile_t : public mage_spell_t
     t = timespan_t::from_seconds( 1.0 );
     return t;
   }
+
+  virtual double action_multiplier() const
+  {
+    double am = mage_spell_t::action_multiplier();
+
+    if ( p() -> wod_hotfix )
+    {
+      am *= 1.0 + 0.25;
+    }
+
+    return am;
+  }
 };
 
 struct comet_storm_t : public mage_spell_t
@@ -2119,6 +2156,7 @@ struct comet_storm_t : public mage_spell_t
     mage_spell_t::execute();
     projectile -> execute();
   }
+
   void tick( dot_t* d )
   {
     mage_spell_t::tick( d );
@@ -2375,9 +2413,16 @@ struct fireball_t : public mage_spell_t
   {
     double c = mage_spell_t::composite_crit();
 
-    c += p() -> buffs.enhanced_pyrotechnics -> stack() *
-         p() -> perks.enhanced_pyrotechnics -> effectN( 1 ).trigger()
-                                            -> effectN( 1 ).percent();
+    if ( p() -> wod_hotfix )
+    {
+      c += p() -> buffs.enhanced_pyrotechnics -> stack() * 0.1;
+    }
+    else
+    {
+      c += p() -> buffs.enhanced_pyrotechnics -> stack() *
+           p() -> perks.enhanced_pyrotechnics -> effectN( 1 ).trigger()
+                                              -> effectN( 1 ).percent();
+    }
 
     return c;
   }
@@ -2625,6 +2670,11 @@ struct frostbolt_t : public mage_spell_t
     if ( p() -> buffs.ice_shard -> up() )
     {
       am *= 1.0 + ( p() -> buffs.ice_shard -> stack() * p() -> buffs.ice_shard -> data().effectN( 2 ).percent() );
+    }
+
+    if ( p() -> wod_hotfix )
+    {
+      am *= 1.25;
     }
 
     return am;
@@ -3364,7 +3414,13 @@ struct meteor_impact_t : public mage_spell_t
   {
     // Sp_Coeff is stored in 153564 for the impact
     parse_spell_data( *p -> dbc.spell( 155158 ) );
+
     spell_power_mod.direct = p -> find_spell( 153564 ) -> effectN( 1 ).sp_coeff();
+    if ( p -> wod_hotfix )
+    {
+      spell_power_mod.tick *= 1.0 + 0.25;
+    }
+
     dot_duration = timespan_t::from_seconds( 7.0 );
     hasted_ticks = may_miss = false;
     targets_hit = targets;
@@ -3480,6 +3536,17 @@ struct nether_tempest_aoe_t: public mage_spell_t
     return timespan_t::from_seconds( 1.3 );
   }
 
+  virtual double action_multiplier() const
+  {
+    double am = mage_spell_t::action_multiplier();
+
+    if ( p() -> wod_hotfix )
+    {
+      am *= 1.0 + 0.1;
+    }
+
+    return am;
+  }
 };
 
 // Nether Tempest Spell ===========================================================
@@ -3533,6 +3600,18 @@ struct nether_tempest_t : public mage_spell_t
                 p() -> spec.arcane_charge -> effectN( 1 ).percent();
 
     return m;
+  }
+
+  virtual double action_multiplier() const
+  {
+    double am = mage_spell_t::action_multiplier();
+
+    if ( p() -> wod_hotfix )
+    {
+      am *= 1.0 + 0.1;
+    }
+
+    return am;
   }
 };
 
@@ -3837,7 +3916,7 @@ struct supernova_t : public mage_spell_t
 
     if ( p() -> wod_hotfix )
     {
-      am *= 1.0 - 0.15;
+      am *= (1.0 - 0.15) * (1.0 + 0.12);
     }
 
     return am;
@@ -4829,7 +4908,7 @@ void mage_t::apl_arcane()
                               "if=buff.presence_of_mind.down&cooldown.presence_of_mind.remains>75" );
   default_list -> add_action( "call_action_list,name=init_crystal,if=talent.prismatic_crystal.enabled&cooldown.prismatic_crystal.up" );
   default_list -> add_action( "call_action_list,name=crystal_sequence,if=talent.prismatic_crystal.enabled&pet.prismatic_crystal.active" );
-  default_list -> add_action( "call_action_list,name=aoe,if=active_enemies>=5" );
+  default_list -> add_action( "call_action_list,name=aoe,if=active_enemies>=4" );
   default_list -> add_action( "call_action_list,name=burn,if=time_to_die<mana.pct*0.35*spell_haste|cooldown.evocation.remains<=(mana.pct-30)*0.3*spell_haste|(buff.arcane_power.up&cooldown.evocation.remains<=(mana.pct-30)*0.4*spell_haste)" );
   default_list -> add_action( "call_action_list,name=conserve" );
 
@@ -4975,7 +5054,7 @@ void mage_t::apl_fire()
                               "Utilize level 90 active talents while avoiding pyro munching" );
   default_list -> add_talent( this, "Mirror Image",
                               "if=!(buff.heating_up.up&action.fireball.in_flight)" );
-  default_list -> add_action( "call_action_list,name=aoe,if=active_enemies>=5" );
+  default_list -> add_action( "call_action_list,name=aoe,if=active_enemies>=4" );
   default_list -> add_action( "call_action_list,name=single_target");
 
 
@@ -5109,7 +5188,7 @@ void mage_t::apl_frost()
   default_list -> add_talent( this, "Rune of Power", "if=(cooldown.icy_veins.remains<gcd.max&buff.rune_of_power.remains<20)|(cooldown.prismatic_crystal.remains<gcd.max&buff.rune_of_power.remains<10)" );
   default_list -> add_action( "call_action_list,name=cooldowns,if=time_to_die<24" );
   default_list -> add_action( "call_action_list,name=crystal_sequence,if=talent.prismatic_crystal.enabled&(cooldown.prismatic_crystal.remains<=gcd.max|pet.prismatic_crystal.active)" );
-  default_list -> add_action( "call_action_list,name=aoe,if=active_enemies>=5" );
+  default_list -> add_action( "call_action_list,name=aoe,if=active_enemies>=4" );
   default_list -> add_action( "call_action_list,name=single_target" );
 
 
@@ -5242,7 +5321,7 @@ double mage_t::composite_rating_multiplier( rating_e rating) const
 }
 
 
-// mage_t::composite_player_multipler =======================================
+// mage_t::composite_player_multiplier =======================================
 
 double mage_t::composite_player_multiplier( school_e school ) const
 {
@@ -5309,7 +5388,14 @@ double mage_t::composite_spell_crit() const
 
   if ( buffs.molten_armor -> up() )
   {
-    c += buffs.molten_armor -> data().effectN( 1 ).percent();
+    if ( wod_hotfix )
+    {
+      c += 0.15;
+    }
+    else
+    {
+      c += buffs.molten_armor -> data().effectN( 1 ).percent();
+    }
   }
 
   return c;

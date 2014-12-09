@@ -2926,11 +2926,11 @@ struct shattered_bleed_t : public cat_attack_t
     }
     
     // Override to prevent benefitting from mastery.
-    double composite_ta_multiplier( const action_state_t* s ) const
+    double composite_ta_multiplier( const action_state_t* /*s*/ ) const
     { return action_multiplier(); }
     
     // Benefit from Savage Roar and Tiger's Fury is not persistent.
-    double composite_persistent_multiplier( const action_state_t* s ) const
+    double composite_persistent_multiplier( const action_state_t* /*s*/ ) const
     { return 1.0; }
 };
 
@@ -5674,6 +5674,17 @@ struct wrath_t : public druid_spell_t
   {
     druid_spell_t::schedule_execute( state );
 
+    if ( sim -> log || sim -> debug )
+    {
+      sim -> out_debug.printf( "Eclipse Position: %f Eclipse Direction: %f Time till next Eclipse Change: %f Time to next lunar %f Time to next Solar %f Time Till Maximum Eclipse: %f",
+        p() -> eclipse_amount,
+        p() -> eclipse_direction,
+        p() -> eclipse_change,
+        p() -> time_to_next_lunar,
+        p() -> time_to_next_solar,
+        p() -> eclipse_max );
+    }
+
     p() -> buff.cat_form  -> expire();
     p() -> buff.bear_form -> expire();
   }
@@ -7623,17 +7634,24 @@ void druid_t::balance_expressions()
 
   // omega is the frequency of our cycle, used to determine phi. We go through 2*pi phase every 40 seconds
   double omega = 2 * M_PI /  40000;
-  // Euphoria doubles the frequency of the cycle (reduces the period to 20 seconds)
-  if ( talent.euphoria -> ok() )
-    omega *= 2;
-  
-  // phi is the phase, which describes our position in the eclipse cycle, determined by the accumulator balance_time and frequency omega
+
+  // phi is the phase, which describes our position in the eclipse cycle, determined by the accumulator balance_time 
+  // and frequency omega. Note that Euphoria and other effects are already baked into balance_time, so we don't need
+  // to account for them (yet)
   double phi;
   phi = omega * balance_time.total_millis();
+
+  // However.... Euphoria doubles the frequency of the cycle (reduces the period to 20 seconds). Since we're estimating 
+  // how much time is left based on the phase difference between phi and our new target phase value, we need to account
+  // for that in omega for our estimages. Note that this has to come AFTER the phi definition above!
+  if ( talent.euphoria -> ok() )
+    omega *= 2;
 
   // since sin is periodic modulo 2*pi (in other words, sin(x+2*pi)=sin(x) ), we can remove any multiple of 2*pi from phi.
   // This puts phi between 0 and 2*pi, which is convenient
   phi = fmod( phi, 2 * M_PI );
+  if ( sim -> debug || sim -> log )
+    sim -> out_debug.printf( "Phi: %f", phi );
 
   // if we're already in the lunar max, just return zero
   if ( eclipse_amount > 100 )

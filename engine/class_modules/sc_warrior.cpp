@@ -9,6 +9,7 @@ namespace
 { // UNNAMED NAMESPACE
 // ==========================================================================
 // Warrior
+//
 // ==========================================================================
 
 struct warrior_t;
@@ -66,6 +67,7 @@ public:
     // All Warriors
     buff_t* battle_stance;
     buff_t* berserker_rage;
+    buff_t* bladestorm;
     buff_t* charge_movement;
     buff_t* defensive_stance;
     buff_t* heroic_leap_movement;
@@ -1333,8 +1335,7 @@ struct bladestorm_t: public warrior_attack_t
 
     channeled = tick_zero = true;
     callbacks = interrupt_auto_attack = false;
-    base_execute_time = dot_duration;
-
+    
     bladestorm_mh -> weapon = &( player -> main_hand_weapon );
     add_child( bladestorm_mh );
 
@@ -1346,12 +1347,25 @@ struct bladestorm_t: public warrior_attack_t
     }
   }
 
-  void tick( dot_t* )
+  void execute()
   {
+    warrior_attack_t::execute();
+    p() -> buff.bladestorm -> trigger();
+  }
+
+  void tick( dot_t* d )
+  {
+    warrior_attack_t::tick( d );
     bladestorm_mh -> execute();
 
     if ( bladestorm_mh -> result_is_hit( execute_state -> result ) && bladestorm_oh )
       bladestorm_oh -> execute();
+  }
+
+  void last_tick( dot_t*d )
+  {
+    warrior_attack_t::last_tick( d );
+    p() -> buff.bladestorm -> expire();
   }
   // Bladestorm is not modified by haste effects
   double composite_haste() const { return 1.0; }
@@ -1393,12 +1407,17 @@ struct bloodthirst_heal_t: public warrior_heal_t
 struct bloodthirst_t: public warrior_attack_t
 {
   bloodthirst_heal_t* bloodthirst_heal;
+  double crit_chance;
   bloodthirst_t( warrior_t* p, const std::string& options_str ):
     warrior_attack_t( "bloodthirst", p, p -> spec.bloodthirst ),
     bloodthirst_heal( NULL )
   {
     parse_options( options_str );
     stancemask = STANCE_BATTLE | STANCE_DEFENSE;
+
+    crit_chance = data().effectN( 4 ).percent();
+    if ( p -> wod_hotfix )
+      crit_chance += 0.1;
 
     if ( p -> talents.unquenchable_thirst -> ok() )
       cooldown -> duration = timespan_t::zero();
@@ -1407,15 +1426,13 @@ struct bloodthirst_t: public warrior_attack_t
     bloodthirst_heal = new bloodthirst_heal_t( p );
     weapon_multiplier *= 1.0 +  p -> sets.set( SET_MELEE, T14, B2 ) -> effectN( 2 ).percent();
     weapon_multiplier *= 1.0 +  p -> sets.set( SET_MELEE, T16, B2 ) -> effectN( 1 ).percent();
-    if ( p -> wod_hotfix )
-      weapon_multiplier *= 0.83;
   }
 
   double composite_crit() const
   {
     double c = warrior_attack_t::composite_crit();
 
-    c += data().effectN( 4 ).percent();
+    c += crit_chance;
 
     if ( p() -> buff.pvp_2pc_fury -> up() )
     {
@@ -1695,6 +1712,9 @@ struct execute_off_hand_t: public warrior_attack_t
          p -> off_hand_weapon.group() == WEAPON_1H )
          weapon_multiplier *= 1.0 + p -> spec.singleminded_fury -> effectN( 3 ).percent();
 
+    if ( p -> wod_hotfix )
+      weapon_multiplier *= 1.1;
+
     weapon_multiplier *= 1.0 + p -> perk.empowered_execute -> effectN( 1 ).percent();
   }
 };
@@ -1711,6 +1731,8 @@ struct execute_t: public warrior_attack_t
 
     if ( p -> spec.crazed_berserker -> ok() )
     {
+      if ( p -> wod_hotfix ) 
+        weapon_multiplier *= 1.1;
       oh_attack = new execute_off_hand_t( p, "execute_oh", p -> find_spell( 163558 ) );
       add_child( oh_attack );
       if ( p -> main_hand_weapon.group() == WEAPON_1H &&
@@ -2148,8 +2170,6 @@ struct raging_blow_attack_t: public warrior_attack_t
   {
     may_miss = may_dodge = may_parry = may_block = false;
     dual = true;
-    if ( p -> wod_hotfix )
-      weapon_multiplier *= 0.75;
   }
 
   void impact( action_state_t* s )
@@ -2985,8 +3005,6 @@ struct wild_strike_t: public warrior_attack_t
     base_costs[RESOURCE_RAGE] += p -> talents.furious_strikes -> effectN( 1 ).resource( RESOURCE_RAGE );
     weapon = &( player -> off_hand_weapon );
     min_gcd = data().gcd();
-    if ( p -> wod_hotfix )
-      weapon_multiplier *= 0.76;
   }
 
   timespan_t gcd() const
@@ -3995,17 +4013,19 @@ void warrior_t::apl_precombat()
 
   if ( specialization() == WARRIOR_ARMS )
   {
-    precombat -> add_action( "stance,choose=battle\n"
-                             "talent_override=bladestorm,if=raid_event.adds.count>6|desired_targets>6|(raid_event.adds.duration<10&raid_event.adds.exists)\n"
-                             "talent_override=dragon_roar,if=raid_event.adds.count>1|desired_targets>1");
+    precombat -> add_action( "stance,choose=battle", "\n"
+                             "talent_override=bladestorm,if=raid_event.adds.count>1|desired_targets>1|(raid_event.adds.duration<10&raid_event.adds.exists)\n"
+                             "talent_override=dragon_roar,if=raid_event.adds.count>1|desired_targets>1\n"
+                             "talent_override=taste_for_blood,if=raid_event.adds.count>1|desired_targets>1\n"
+                             "talent_override=ravager,if=raid_event.adds.count>1|desired_targets>1" );
     precombat -> add_action( "snapshot_stats", "Snapshot raid buffed stats before combat begins and pre-potting is done.\n"
                              "# Generic on-use trinket line if needed when swapping trinkets out. \n"
                              "#actions+=/use_item,slot=trinket1,if=active_enemies=1&(buff.bloodbath.up|(!talent.bloodbath.enabled&debuff.colossus_smash.up))|(active_enemies>=2&buff.ravager.up)" );
   }
   else if ( specialization() == WARRIOR_FURY )
   {
-    precombat -> add_action( "stance,choose=battle\n"
-                             "talent_override=bladestorm,if=raid_event.adds.count>4|desired_targets>4|(raid_event.adds.duration<10&raid_event.adds.exists)\n"
+    precombat -> add_action( "stance,choose=battle", "\n"
+                             "talent_override=bladestorm,if=raid_event.adds.count>1|desired_targets>1|(raid_event.adds.duration<10&raid_event.adds.exists)\n"
                              "talent_override=dragon_roar,if=raid_event.adds.count>1|desired_targets>1\n"
                              "talent_override=ravager,if=raid_event.adds.count>1|desired_targets>1" );
     precombat -> add_action( "snapshot_stats", "Snapshot raid buffed stats before combat begins and pre-potting is done.\n"
@@ -4014,8 +4034,8 @@ void warrior_t::apl_precombat()
   }
   else if ( gladiator )
   {
-    precombat -> add_action( "stance,choose=gladiator\n"
-                             "talent_override=bladestorm,if=raid_event.adds.count>5|desired_targets>5|(raid_event.adds.duration<10&raid_event.adds.exists)\n"
+    precombat -> add_action( "stance,choose=gladiator", "\n"
+                             "talent_override=bladestorm,if=raid_event.adds.count>2|desired_targets>2|(raid_event.adds.duration<10&raid_event.adds.exists)\n"
                              "talent_override=dragon_roar,if=raid_event.adds.count>1|desired_targets>1" );
     precombat -> add_action( "snapshot_stats", "Snapshot raid buffed stats before combat begins and pre-potting is done.\n"
                              "# Generic on-use trinket line if needed when swapping trinkets out. \n"
@@ -4114,6 +4134,7 @@ void warrior_t::apl_fury()
   single_target -> add_talent( this, "Dragon Roar", "if=buff.bloodbath.up|!talent.bloodbath.enabled" );
   single_target -> add_action( this, "Raging Blow" );
   single_target -> add_action( this, "Wild Strike", "if=buff.enrage.up&target.health.pct>20" );
+  single_target -> add_action( this, "Bladestorm", "if=!raid_events.adds.exists" );
   single_target -> add_talent( this, "Shockwave", "if=!talent.unquenchable_thirst.enabled" );
   single_target -> add_talent( this, "Impending Victory", "if=!talent.unquenchable_thirst.enabled&target.health.pct>20" );
   single_target -> add_action( this, "Bloodthirst" );
@@ -4205,6 +4226,7 @@ void warrior_t::apl_arms()
   single_target -> add_action( this, "Rend", "if=!ticking&target.time_to_die>4" );
   single_target -> add_talent( this, "Ravager", "if=cooldown.colossus_smash.remains<4" );
   single_target -> add_action( this, "Colossus Smash" );
+  single_target -> add_action( this, "Bladestorm", "if=!raid_events.adds.exists&debuff.colossus_smash.up&rage<70" );
   single_target -> add_action( this, "Mortal Strike", "if=target.health.pct>20&cooldown.colossus_smash.remains>1" );
   single_target -> add_talent( this, "Storm Bolt", "if=(cooldown.colossus_smash.remains>4|debuff.colossus_smash.up)&rage<90" );
   single_target -> add_talent( this, "Siegebreaker" );
@@ -4636,6 +4658,10 @@ void warrior_t::create_buffs()
   buff.battle_stance = new buffs::battle_stance_t( *this, "battle_stance", find_class_spell( "Battle Stance" ) );
 
   buff.berserker_rage = buff_creator_t( this, "berserker_rage", find_class_spell( "Berserker Rage" ) );
+
+  buff.bladestorm = buff_creator_t( this, "bladestorm", talents.bladestorm )
+    .period( timespan_t::zero() )
+    .cd( timespan_t::zero() );
 
   buff.bloodbath = buff_creator_t( this, "bloodbath", talents.bloodbath )
     .cd( timespan_t::zero() );

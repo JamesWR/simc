@@ -1347,7 +1347,7 @@ inline bool rogue_attack_t::ready()
     if ( ! p -> buffs.shadow_dance -> check() &&
          ! p -> buffs.stealth -> check() &&
          ! player -> buffs.shadowmeld -> check() &&
-         ! p -> buffs.vanish -> check() && 
+         ! p -> buffs.vanish -> check() &&
          ! p -> buffs.subterfuge -> check() )
     {
       return false;
@@ -4710,9 +4710,7 @@ void rogue_t::init_action_list()
     ks -> add_action( this, "Killing Spree", "if=time_to_die<=buff.killing_spree.duration*1.5" );
 
     ar -> add_action( this, "Adrenaline Rush", "if=time_to_die>=44" );
-    ar -> add_action( this, "Adrenaline Rush", "if=time_to_die<44&buff.archmages_greater_incandescence_agi.react&buff.archmages_greater_incandescence_agi.remains>=buff.adrenaline_rush.duration" );
-    ar -> add_action( this, "Adrenaline Rush", "if=time_to_die<44&trinket.proc.any.react&trinket.proc.any.remains>=buff.adrenaline_rush.duration" );
-    ar -> add_action( this, "Adrenaline Rush", "if=time_to_die<44&trinket.stacking_proc.any.react&trinket.stacking_proc.any.remains>buff.adrenaline_rush.duration" );
+    ar -> add_action( this, "Adrenaline Rush", "if=time_to_die<44&(buff.archmages_greater_incandescence_agi.react|trinket.proc.any.react|trinket.stacking_proc.any.react)" );
     ar -> add_action( this, "Adrenaline Rush", "if=time_to_die<=buff.adrenaline_rush.duration*1.5" );
 
     def -> add_talent( this, "Marked for Death", "if=combo_points<=1&dot.revealing_strike.ticking&(!talent.shadow_reflection.enabled|buff.shadow_reflection.up|cooldown.shadow_reflection.remains>30)" );
@@ -4730,8 +4728,8 @@ void rogue_t::init_action_list()
     // Combo point finishers
     action_priority_list_t* finisher = get_action_priority_list( "finisher", "Combo point finishers" );
     finisher -> add_talent( this, "Death from Above" );
-    finisher -> add_action( this, "Crimson Tempest", "if=active_enemies>6&remains<2" );
-    finisher -> add_action( this, "Crimson Tempest", "if=active_enemies>8" );
+    //finisher -> add_action( this, "Crimson Tempest", "if=active_enemies>6&remains<2" );
+    //finisher -> add_action( this, "Crimson Tempest", "if=active_enemies>8" );
     finisher -> add_action( this, "Eviscerate" );
   }
   else if ( specialization() == ROGUE_SUBTLETY )

@@ -233,6 +233,7 @@ public:
     proc_t* windfury;
 
     proc_t* fulmination[20];
+    proc_t* fulmination_generate;
 
     proc_t* uf_flame_shock;
     proc_t* uf_fire_nova;
@@ -1813,7 +1814,7 @@ struct stormstrike_attack_t : public shaman_attack_t
     base_multiplier *= 1.0 + p() -> perk.improved_stormstrike -> effectN( 1 ).percent();
     if ( player -> wod_hotfix )
     {
-      base_multiplier *= 1.20;
+      base_multiplier *= 1.44;
     }
   }
 };
@@ -2196,7 +2197,7 @@ struct lava_lash_t : public shaman_attack_t
     base_multiplier *= 1.0 + player -> perk.improved_lava_lash_2 -> effectN( 1 ).percent();
     if ( player -> wod_hotfix )
     {
-      base_multiplier *= 1.20;
+      base_multiplier *= 1.44;
     }
 
     parse_options( options_str );
@@ -2607,7 +2608,7 @@ struct chain_lightning_t : public shaman_spell_t
     base_multiplier      *= 1.0 + player -> glyph.chain_lightning -> effectN( 2 ).percent();
     if ( player -> wod_hotfix )
     {
-      base_multiplier *= 1.20;
+      base_multiplier *= 1.32;
     }
     aoe                   = player -> glyph.chain_lightning -> effectN( 1 ).base_value() + 3;
     base_add_multiplier   = data().effectN( 1 ).chain_multiplier();
@@ -2717,7 +2718,7 @@ struct lava_beam_t : public shaman_spell_t
     base_multiplier      *= 1.0 + p() -> spec.shamanism -> effectN( 2 ).percent();
     if ( player -> wod_hotfix )
     {
-      base_multiplier *= 1.20;
+      base_multiplier *= 1.32;
     }
     aoe                   = 5;
     base_add_multiplier   = data().effectN( 1 ).chain_multiplier();
@@ -2908,7 +2909,7 @@ struct lava_burst_t : public shaman_spell_t
     base_multiplier     *= 1.0 + player -> perk.improved_lava_burst -> effectN( 1 ).percent();
     if ( player -> wod_hotfix )
     {
-      base_multiplier *= 1.35;
+      base_multiplier *= 1.485;
     }
     uses_eoe = player -> specialization() == SHAMAN_ELEMENTAL;
   }
@@ -3032,7 +3033,11 @@ struct lightning_bolt_t : public shaman_spell_t
     may_fulmination    = player -> spec.fulmination -> ok();
     if ( player -> wod_hotfix && player -> spec.shamanism -> ok() )
     {
-      base_multiplier *= 1.7;
+      base_multiplier *= 1.87;
+    }
+    else if ( player -> wod_hotfix )
+    {
+      base_multiplier *= 1.1;
     }
     else
     {
@@ -3096,7 +3101,7 @@ struct elemental_blast_t : public shaman_spell_t
     base_multiplier *= 1.0 + player -> spec.mental_quickness -> effectN( 5 ).percent();
     if ( player -> wod_hotfix )
     {
-      base_multiplier *= 1.2069;
+      base_multiplier *= 1.32759;
     }
   }
 
@@ -4860,6 +4865,8 @@ void shaman_t::trigger_fulmination_stack( const action_state_t* state )
     int stacks = ( sets.has_set_bonus( SET_CASTER, T14, B4 ) ) ? 2 : 1;
     int wasted_stacks = ( buff.lightning_shield -> check() + stacks ) - buff.lightning_shield -> max_stack();
 
+    proc.fulmination_generate -> occur();
+
     for ( int i = 0; i < wasted_stacks; i++ )
     {
       if ( sim -> current_time() - ls_reset >= cooldown.shock -> duration )
@@ -5220,6 +5227,8 @@ void shaman_t::init_procs()
 
   for ( size_t i = 0, end = sizeof_array( proc.fulmination ); i < end; i++ )
     proc.fulmination[ i ] = get_proc( "Fulmination: " + util::to_string( i ) + " stacks" );
+
+  proc.fulmination_generate = get_proc( "Fulmination: Generate" );
 }
 
 // shaman_t::init_actions ===================================================
@@ -5465,12 +5474,13 @@ void shaman_t::init_action_list()
     def -> add_action( "call_action_list,name=single,if=active_enemies=1", "If only one enemy, priority follows the 'single' action list." );
     def -> add_action( "call_action_list,name=aoe,if=active_enemies>1", "On multiple enemies, the priority follows the 'aoe' action list." );
 
-    single -> add_action( this, "Unleash Flame", "if=talent.unleashed_fury.enabled&!buff.ascendance.up" );
+    single -> add_action( this, "Unleash Flame", "moving=1" );
     single -> add_action( this, "Spiritwalker's Grace", "moving=1,if=buff.ascendance.up" );
     if ( find_item( "unerring_vision_of_lei_shen" ) )
       single -> add_action( this, "Flame Shock", "if=buff.perfect_aim.react&crit_pct<100" );
     single -> add_action( this, spec.fulmination, "earth_shock", "if=buff.lightning_shield.react=buff.lightning_shield.max_stack" );
     single -> add_action( this, "Lava Burst", "if=dot.flame_shock.remains>cast_time&(buff.ascendance.up|cooldown_react)" );
+    single -> add_action( this, "Unleash Flame", "if=talent.unleashed_fury.enabled&!buff.ascendance.up" );
     single -> add_action( this, "Flame Shock", "if=dot.flame_shock.remains<=9" );
     single -> add_action( this, spec.fulmination, "earth_shock", "if=(set_bonus.tier17_4pc&buff.lightning_shield.react>=15&!buff.lava_surge.up)|(!set_bonus.tier17_4pc&buff.lightning_shield.react>15)" );
     single -> add_action( this, "Earthquake", "if=!talent.unleashed_fury.enabled&((1+stat.spell_haste)*(1+(mastery_value*2%4.5))>=(1.875+(1.25*0.226305)+1.25*(2*0.226305*stat.multistrike_pct%100)))&target.time_to_die>10&buff.elemental_mastery.down&buff.bloodlust.down" );
