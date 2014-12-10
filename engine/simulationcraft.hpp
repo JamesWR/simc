@@ -6,7 +6,7 @@
 #define SIMULATIONCRAFT_H
 
 #define SC_MAJOR_VERSION "603"
-#define SC_MINOR_VERSION "16"
+#define SC_MINOR_VERSION "17"
 #define SC_USE_PTR ( 0 )
 #define SC_BETA ( 0 )
 #define SC_BETA_STR "wod"
@@ -4097,6 +4097,7 @@ struct player_collected_data_t
     timespan_t wait_time;
     std::vector<std::pair<buff_t*, int> > buff_list;
     std::array<double, RESOURCE_MAX> resource_snapshot;
+    std::array<double, RESOURCE_MAX> resource_max_snapshot;
 
     action_sequence_data_t( const timespan_t& ts, const timespan_t& wait, const player_t* p );
     action_sequence_data_t( const action_t* a, const player_t* t, const timespan_t& ts, const player_t* p );
