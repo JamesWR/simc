@@ -572,15 +572,15 @@ pie_chart_t::pie_chart_t( const std::string& id_str, const sim_t* sim ) :
 
   set( "chart.type", "pie" );
 
-  add( "chart.spacing", 5 ).add( "chart.spacing", 5 ).add( "chart.spacing", 5 ).add( "chart.spacing", 5 );
+  add( "chart.spacing", 2 ).add( "chart.spacing", 2 ).add( "chart.spacing", 2 ).add( "chart.spacing", 2 );
 
   set( "plotOptions.series.shadow", true );
   //set( "plotOptions.bar.states.hover.lineWidth", 1 );
   set( "plotOptions.pie.fillOpacity", 0.2 );
-
+  set( "plotOptions.pie.dataLabels.style.color", TEXT_COLOR );
+  set( "plotOptions.pie.dataLabels.style.textShadow", TEXT_OUTLINE );
 
   set( "plotOptions.pie.dataLabels.enabled", true );
-
 }
 
 histogram_chart_t::histogram_chart_t( const std::string& id_str, const sim_t* sim ) :
