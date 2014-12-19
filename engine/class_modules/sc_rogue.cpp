@@ -27,6 +27,7 @@ struct melee_t;
 namespace buffs
 {
 struct insight_buff_t;
+struct marked_for_death_debuff_t;
 }
 
 enum ability_type_e {
@@ -88,6 +89,7 @@ struct rogue_td_t : public actor_pair_t
     buff_t* crippling_poison;
     buff_t* leeching_poison;
     buff_t* instant_poison; // Proxy instant poison buff for proper Venom Rush modeling
+    buffs::marked_for_death_debuff_t* marked_for_death;
   } debuffs;
 
   rogue_td_t( player_t* target, rogue_t* source );
@@ -475,6 +477,24 @@ inline bool rogue_td_t::sanguinary_veins()
 namespace actions { // namespace actions
 
 // ==========================================================================
+// Static Functions
+// ==========================================================================
+
+// break_stealth ============================================================
+
+static void break_stealth( rogue_t* p )
+{
+  if ( p -> buffs.stealth -> check() )
+    p -> buffs.stealth -> expire();
+
+  if ( p -> buffs.vanish -> check() )
+    p -> buffs.vanish -> expire();
+
+  if ( p -> player_t::buffs.shadowmeld -> check() )
+    p -> player_t::buffs.shadowmeld -> expire();
+}
+
+// ==========================================================================
 // Rogue Attack
 // ==========================================================================
 
@@ -819,6 +839,8 @@ struct venomous_wound_t : public rogue_poison_t
   {
     background       = true;
     proc             = true;
+    if ( p -> wod_hotfix )
+      base_multiplier *= 1.2;
   }
 
   double composite_da_multiplier( const action_state_t* state ) const
@@ -1134,6 +1156,13 @@ struct apply_poison_t : public action_t
     }
   }
 
+  void reset()
+  {
+    action_t::reset();
+
+    executed = false;
+  }
+
   virtual void execute()
   {
     executed = true;
@@ -1147,24 +1176,6 @@ struct apply_poison_t : public action_t
     return ! executed;
   }
 };
-
-// ==========================================================================
-// Static Functions
-// ==========================================================================
-
-// break_stealth ============================================================
-
-static void break_stealth( rogue_t* p )
-{
-  if ( p -> buffs.stealth -> check() )
-    p -> buffs.stealth -> expire();
-
-  if ( p -> buffs.vanish -> check() )
-    p -> buffs.vanish -> expire();
-
-  if ( p -> player_t::buffs.shadowmeld -> check() )
-    p -> player_t::buffs.shadowmeld -> expire();
-}
 
 // ==========================================================================
 // Attacks
@@ -1288,14 +1299,7 @@ void rogue_attack_t::execute()
   // cast.
   p() -> trigger_ruthlessness_energy_cdr( execute_state );
 
-  // Ruthlessness CP gain has to be done in a special way. We need to do it
-  // after combo points have been consumed (in consume_resource()), but it also
-  // has to be per target. Thus, we look at the execute_state->n_targets, and
-  // loop that many times, generating combo point for each.
-  for ( size_t i = 0, end = execute_state -> n_targets; i < end; i++ )
-  {
-    p() -> trigger_ruthlessness_cp( execute_state );
-  }
+  p() -> trigger_ruthlessness_cp( execute_state );
 
   p() -> trigger_combo_point_gain( execute_state );
 
@@ -1320,7 +1324,7 @@ void rogue_attack_t::execute()
       player -> resource_gain( RESOURCE_COMBO_POINT, cp, p() -> gains.t17_4pc_subtlety );
   }
 
-  if ( ! background && harmful && stealthed() )
+  if ( harmful && stealthed() )
   {
     if ( ! p() -> talent.subterfuge -> ok() )
       break_stealth( p() );
@@ -1592,7 +1596,10 @@ struct backstab_t : public rogue_attack_t
     requires_weapon   = WEAPON_DAGGER;
     requires_position = POSITION_BACK;
     if ( p -> wod_hotfix )
+    {
       weapon_multiplier *= 1.13;
+      weapon_multiplier *= 1.2;
+    }
   }
 
   virtual double cost() const
@@ -2034,12 +2041,12 @@ struct hemorrhage_t : public rogue_attack_t
   {
     ability_type = HEMORRHAGE;
     weapon = &( p -> main_hand_weapon );
-    tick_may_crit = false;
+    tick_may_crit = true;
     may_multistrike = true;
     if ( p -> wod_hotfix )
     {
-      weapon_multiplier *= 1.2;
-      attack_power_mod.tick *= 1.2;
+      weapon_multiplier *= 1.2 * 1.3;
+      attack_power_mod.tick *= 1.2 * 1.3;
     }
   }
 
@@ -2168,9 +2175,12 @@ struct marked_for_death_t : public rogue_attack_t
   marked_for_death_t( rogue_t* p, const std::string& options_str ) :
     rogue_attack_t( "marked_for_death", p, p -> find_talent_spell( "Marked for Death" ), options_str )
   {
-    may_miss = may_crit = harmful = false;
+    may_miss = may_crit = harmful = callbacks = false;
     adds_combo_points = data().effectN( 1 ).base_value();
   }
+
+  // Defined after marked_for_death_debuff_t. Sigh.
+  void impact( action_state_t* state );
 };
 
 
@@ -2847,6 +2857,8 @@ struct death_from_above_t : public rogue_attack_t
     weapon_multiplier = 0;
     attack_power_mod.direct /= 5;
     base_costs[ RESOURCE_COMBO_POINT ] = 1;
+    // DFA no longer grants any extra CP through Ruthlessness
+    proc_ruthlessness_cp_ = false;
 
     base_tick_time = timespan_t::zero();
     dot_duration = timespan_t::zero();
@@ -2874,13 +2886,6 @@ struct death_from_above_t : public rogue_attack_t
       if ( player -> off_hand_attack -> execute_event -> remains() < timespan_t::from_seconds( 0.8 ) )
         player -> off_hand_attack -> execute_event -> reschedule( timespan_t::from_seconds( 0.8 ) );
     }
-
-    // DFA also procs another combo point from one of its various
-    // behind-the-scenes driver spells, so perform an extra ruthlessness CP
-    // grant here, separate from everything else. Note that this is not a
-    // per-target one (or rather, the combo point is generated by some
-    // single-targeted ability).
-    p() -> trigger_ruthlessness_cp( execute_state );
 
     action_state_t* driver_state = driver -> get_state( execute_state );
     driver_state -> target = target;
@@ -3061,7 +3066,14 @@ struct blade_flurry_attack_t : public rogue_attack_t
   { return false; }
 
   double composite_da_multiplier( const action_state_t* ) const
-  { return p() -> spec.blade_flurry -> effectN( 3 ).percent(); }
+  {
+    double cleave_damage = p() -> spec.blade_flurry -> effectN( 3 ).percent();
+
+    if ( p() -> wod_hotfix )
+      cleave_damage += 0.05;
+
+    return cleave_damage;
+  }
 
   size_t available_targets( std::vector< player_t* >& tl ) const
   {
@@ -3590,9 +3602,9 @@ struct shadow_dance_t : public buff_t
                        p -> perk.enhanced_shadow_dance -> effectN( 1 ).time_value() ) )
   { }
 
-  void expire_override()
+  void expire_override( int expiration_stacks, timespan_t remaining_duration )
   {
-    buff_t::expire_override();
+    buff_t::expire_override( expiration_stacks, remaining_duration );
 
     rogue_t* rogue = debug_cast<rogue_t*>( player );
     rogue -> buffs.shadow_strikes -> trigger();
@@ -3621,9 +3633,9 @@ struct fof_fod_t : public buff_t
     buff_t( buff_creator_t( p, "legendary_daggers" ).duration( timespan_t::from_seconds( 6.0 ) ).cd( timespan_t::zero() ) )
   { }
 
-  virtual void expire_override()
+  virtual void expire_override( int expiration_stacks, timespan_t remaining_duration )
   {
-    buff_t::expire_override();
+    buff_t::expire_override( expiration_stacks, remaining_duration );
 
     rogue_t* p = debug_cast< rogue_t* >( player );
     p -> buffs.fof_p3 -> expire();
@@ -3642,9 +3654,9 @@ struct insight_buff_t : public buff_t
     buff_t( creator ), p( player ), insight_elevate( false )
   { }
 
-  void expire_override()
+  void expire_override( int expiration_stacks, timespan_t remaining_duration )
   {
-    buff_t::expire_override();
+    buff_t::expire_override( expiration_stacks, remaining_duration );
 
     if ( ! insight_elevate )
       p -> buffs.bandits_guile -> expire();
@@ -3701,11 +3713,11 @@ struct bandits_guile_t : public buff_t
     }
   }
 
-  void expire_override()
+  void expire_override( int expiration_stacks, timespan_t remaining_duration )
   {
     rogue_t* p = debug_cast< rogue_t* >( player );
 
-    buff_t::expire_override();
+    buff_t::expire_override( expiration_stacks, remaining_duration );
 
     p -> buffs.shallow_insight -> expire();
     p -> buffs.moderate_insight -> expire();
@@ -3722,10 +3734,19 @@ struct subterfuge_t : public buff_t
     rogue( r )
   { }
 
-  void expire_override()
+  void expire_override( int expiration_stacks, timespan_t remaining_duration )
   {
-    buff_t::expire_override();
-    actions::break_stealth( rogue );
+    buff_t::expire_override( expiration_stacks, remaining_duration );
+    // The Glyph of Vanish bug is back, so if Vanish is still up when
+    // Subterfuge fades, don't cancel stealth. Instead, the next offensive
+    // action in the sim will trigger a new (3 seconds) of Suberfuge.
+    if ( ( rogue -> bugs && (
+            rogue -> buffs.vanish -> remains() == timespan_t::zero() ||
+            rogue -> buffs.vanish -> check() == 0 ) ) ||
+        ! rogue -> bugs )
+    {
+      actions::break_stealth( rogue );
+    }
   }
 };
 
@@ -3744,16 +3765,7 @@ struct vanish_t : public buff_t
   {
     buff_t::execute( stacks, value, duration );
 
-    rogue -> buffs.master_of_subtlety -> expire();
-    rogue -> buffs.master_of_subtlety_passive -> trigger();
-  }
-
-  void expire_override()
-  {
-    buff_t::expire_override();
-
-    rogue -> buffs.master_of_subtlety_passive -> expire();
-    rogue -> buffs.master_of_subtlety -> trigger();
+    rogue -> buffs.stealth -> trigger();
   }
 };
 
@@ -3774,9 +3786,9 @@ struct stealth_t : public buff_t
     rogue -> buffs.master_of_subtlety_passive -> trigger();
   }
 
-  void expire_override()
+  void expire_override( int expiration_stacks, timespan_t remaining_duration )
   {
-    buff_t::expire_override();
+    buff_t::expire_override( expiration_stacks, remaining_duration );
 
     rogue -> buffs.master_of_subtlety_passive -> expire();
     rogue -> buffs.master_of_subtlety -> trigger();
@@ -3798,9 +3810,9 @@ struct rogue_poison_buff_t : public buff_t
     buff_t::execute( stacks, value, duration );
   }
 
-  void expire_override()
+  void expire_override( int expiration_stacks, timespan_t remaining_duration )
   {
-    buff_t::expire_override();
+    buff_t::expire_override( expiration_stacks, remaining_duration );
 
     rogue_t* rogue = debug_cast< rogue_t* >( source );
     if ( ! rogue -> poisoned_enemy( player ) )
@@ -3841,7 +3853,39 @@ struct instant_poison_t : public rogue_poison_buff_t
   }
 };
 
+struct marked_for_death_debuff_t : public debuff_t
+{
+  cooldown_t* mod_cd;
+
+  marked_for_death_debuff_t( rogue_td_t& r ) :
+    debuff_t( buff_creator_t( r, "marked_for_death", r.source -> find_talent_spell( "Marked for Death" ) ).cd( timespan_t::zero() ) ),
+    mod_cd( r.source -> get_cooldown( "marked_for_death" ) )
+  { }
+
+  void expire_override( int expiration_stacks, timespan_t remaining_duration )
+  {
+    if ( remaining_duration > timespan_t::zero() )
+    {
+      if ( sim -> debug )
+      {
+        sim -> out_debug.printf("%s marked_for_death cooldown reset", player -> name() );
+      }
+
+      mod_cd -> reset( false );
+    }
+
+    debuff_t::expire_override( expiration_stacks, remaining_duration );
+  }
+};
+
 } // end namespace buffs
+
+inline void actions::marked_for_death_t::impact( action_state_t* state )
+{
+  rogue_attack_t::impact( state );
+
+  td( state -> target ) -> debuffs.marked_for_death -> trigger();
+}
 
 // ==========================================================================
 // Rogue Targetdata Definitions
@@ -3879,6 +3923,7 @@ rogue_td_t::rogue_td_t( player_t* target, rogue_t* source ) :
   debuffs.crippling_poison = new buffs::crippling_poison_t( *this );
   debuffs.leeching_poison = new buffs::leeching_poison_t( *this );
   debuffs.instant_poison = new buffs::instant_poison_t( *this );
+  debuffs.marked_for_death = new buffs::marked_for_death_debuff_t( *this );
 }
 
 // ==========================================================================
@@ -3978,7 +4023,7 @@ struct shadow_reflection_pet_t : public pet_t
       if ( flags & STATE_AP )
         state -> attack_power = composite_attack_power() * player -> composite_attack_power_multiplier();
 
-      // Finally, the Shadow Relfection mimic abilities _do not_ get the
+      // Finally, the Shadow Reflection mimic abilities _do not_ get the
       // source's target specific abilities (find weakness, sanguinary vein),
       // so we need to re-snapshot target specific multipliers using the Shadow
       // Reflection's own action.
@@ -4094,9 +4139,17 @@ struct shadow_reflection_pet_t : public pet_t
 
   struct sr_hemorrhage_t : public shadow_reflection_attack_t
   {
-    sr_hemorrhage_t( shadow_reflection_pet_t* p ) :
+    sr_hemorrhage_t( shadow_reflection_pet_t* p ):
       shadow_reflection_attack_t( "hemorrhage", p, p -> find_spell( 16511 ) )
-    { tick_may_crit = false; may_multistrike = true; }
+    {
+      tick_may_crit = true;
+      may_multistrike = true;
+      if ( p -> wod_hotfix )
+      {
+        weapon_multiplier *= 1.2 * 1.3;
+        attack_power_mod.tick *= 1.2 * 1.3;
+      }
+    }
   };
 
   struct sr_backstab_t : public shadow_reflection_attack_t
@@ -4106,7 +4159,10 @@ struct shadow_reflection_pet_t : public pet_t
     {
       requires_position = POSITION_BACK;
       if ( p -> wod_hotfix )
+      {
         weapon_multiplier *= 1.13;
+        weapon_multiplier *= 1.2;
+      }
     }
   };
 
@@ -4734,7 +4790,6 @@ void rogue_t::init_action_list()
   }
   else if ( specialization() == ROGUE_SUBTLETY )
   {
-    precombat -> add_action( this, "Premeditation" );
     precombat -> add_action( this, "Slice and Dice" );
     precombat -> add_action( "honor_among_thieves,cooldown=2.2,cooldown_stddev=0.1",
                              "Proxy Honor Among Thieves action. Generates Combo Points at a mean rate of 2.2 seconds. Comment out to disable (and use the real Honor Among Thieves)." );
@@ -5120,6 +5175,8 @@ void rogue_t::init_resources( bool force )
   player_t::init_resources( force );
 
   resources.current[ RESOURCE_COMBO_POINT ] = 0;
+  if ( specialization() == ROGUE_SUBTLETY ) // Sub rogues can start with 5 combo points, they just need a healer to cast a few heals before combat.
+    resources.current[ RESOURCE_COMBO_POINT ] = 5;
 }
 
 // rogue_t::init_buffs ======================================================

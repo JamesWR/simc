@@ -42,7 +42,7 @@ actions+=/bloodbath,if=(dot.rend.ticking&cooldown.colossus_smash.remains<5)|targ
 actions+=/avatar,if=buff.recklessness.up|target.time_to_die<25
 actions+=/blood_fury,if=buff.bloodbath.up|(!talent.bloodbath.enabled&debuff.colossus_smash.up)|buff.recklessness.up
 actions+=/berserking,if=buff.bloodbath.up|(!talent.bloodbath.enabled&debuff.colossus_smash.up)|buff.recklessness.up
-actions+=/arcane_torrent,if=buff.bloodbath.up|(!talent.bloodbath.enabled&debuff.colossus_smash.up)|buff.recklessness.up
+actions+=/arcane_torrent,if=rage<rage.max-40
 actions+=/heroic_leap,if=(raid_event.movement.distance>25&raid_event.movement.in>45)|!raid_event.movement.exists
 actions+=/call_action_list,name=single,if=active_enemies=1
 actions+=/call_action_list,name=aoe,if=active_enemies>1
@@ -55,6 +55,7 @@ actions.movement+=/heroic_throw
 actions.single=rend,if=!ticking&target.time_to_die>4
 actions.single+=/ravager,if=cooldown.colossus_smash.remains<4
 actions.single+=/colossus_smash
+actions.single+=/bladestorm,if=!raid_event.adds.exists&debuff.colossus_smash.up&rage<70
 actions.single+=/mortal_strike,if=target.health.pct>20&cooldown.colossus_smash.remains>1
 actions.single+=/storm_bolt,if=(cooldown.colossus_smash.remains>4|debuff.colossus_smash.up)&rage<90
 actions.single+=/siegebreaker

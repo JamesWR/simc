@@ -186,7 +186,7 @@ std::vector< std::vector< const spell_data_t* > > ptr_class_family_index;
 
 int dbc::build_level( bool ptr )
 {
-  return maybe_ptr( ptr ) ? 19243 : 19243;
+  return maybe_ptr( ptr ) ? 19342 : 19342;
 }
 
 const char* dbc::wow_version( bool ptr )
@@ -381,6 +381,17 @@ void dbc::apply_hotfixes()
   }
 
   // Death Knight
+
+  // Enchants
+
+  // https://twitter.com/WarcraftDevs/status/543261642599845889
+  s = spell_data_t::find( 159239, false ); // Shattered bleed
+  assert( s -> _rppm == 3.5 && "Shattered Hand enchant RPPM fixed" );
+  s -> _rppm = 2.5;
+
+  s = spell_data_t::find( 159685, false ); // Mark of Blackrock
+  assert( s -> _proc_chance == 30 && "Mark of Blackrock proc chance fixed" );
+  s -> _proc_chance = 100;
 
   // Item hotfixes
 

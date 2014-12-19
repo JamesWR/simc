@@ -2184,9 +2184,9 @@ void player_t::create_buffs()
       buff_t( buff_creator_t( p, "raid_movement" ).max_stack( 1 ) )
     { }
 
-    void expire_override()
+    void expire_override( int expiration_stacks, timespan_t remaining_duration )
     {
-      buff_t::expire_override();
+      buff_t::expire_override( expiration_stacks, remaining_duration );
       player -> finish_moving();
     }
   };
@@ -3190,7 +3190,7 @@ void player_t::combat_end()
     if ( ! is_pet() && ! is_enemy() )
       if ( f_length > 0 && ( w_time / f_length ) > 0.25 )
       {
-	; // ready_type = READY_TRIGGER
+  ; // ready_type = READY_TRIGGER
       }
 
   if ( sim -> debug )
@@ -5593,6 +5593,7 @@ struct arcane_torrent_t : public racial_spell_t
       case RESOURCE_RAGE:
       case RESOURCE_RUNIC_POWER:
       case RESOURCE_HOLY_POWER:
+      case RESOURCE_CHI:
         gain = data().effectN( 2 ).resource( resource );
         break;
       default:
@@ -6119,6 +6120,11 @@ struct use_item_t : public action_t
     if ( ! item ) return false;
 
     if ( player -> item_cooldown.remains() > timespan_t::zero() ) return false;
+
+    if ( action && ! action -> ready() )
+    {
+      return false;
+    }
 
     return action_t::ready();
   }
@@ -8680,7 +8686,11 @@ void player_t::analyze( sim_t& s )
       else if ( stats -> type == STATS_HEAL || stats -> type == STATS_ABSORB )
       {
         stats -> portion_amount =  collected_data.compound_heal.mean() ? stats -> actual_amount.mean() : collected_data.compound_absorb.mean() ? stats -> actual_amount.mean() : 0.0;
-        stats -> portion_amount /= collected_data.compound_heal.mean() + collected_data.compound_absorb.mean();
+        double total_heal_and_absorb = collected_data.compound_heal.mean() + collected_data.compound_absorb.mean();
+        if ( total_heal_and_absorb )
+        {
+          stats -> portion_amount /= total_heal_and_absorb;
+        }
       }
     }
   }
@@ -9893,7 +9903,7 @@ void player_collected_data_t::collect_data( const player_t& p )
         // Max spike uses health_changes_tmi as well, ignores external heals - use health_changes_tmi
         max_spike = calculate_max_spike_damage( health_changes_tmi, window );
 
-	tank_metric = tmi;
+  tank_metric = tmi;
       }
     }
     theck_meloree_index.add( tmi );

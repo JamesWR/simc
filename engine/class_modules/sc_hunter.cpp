@@ -686,6 +686,7 @@ public:
   {
     gain_t* focus_fire;
     gain_t* go_for_the_throat;
+    gain_t* steady_focus;
   } gains;
 
   // Benefits
@@ -819,6 +820,7 @@ public:
 
     gains.focus_fire        = get_gain( "focus_fire" );
     gains.go_for_the_throat = get_gain( "go_for_the_throat" );
+    gains.steady_focus      = get_gain( "steady_focus" );
   }
 
   virtual void init_benefits()
@@ -854,6 +856,16 @@ public:
     double ac = base_t::composite_melee_crit();
     ac += specs.spiked_collar -> effectN( 3 ).percent();
     return ac;
+  }
+
+  void regen( timespan_t periodicity )
+  {
+    player_t::regen( periodicity );
+    if ( o() -> buffs.steady_focus -> up() )
+    {
+      double base = focus_regen_per_second() * o() -> buffs.steady_focus -> current_value;
+      resource_gain( RESOURCE_FOCUS, base * periodicity.total_seconds(), gains.steady_focus );
+    }
   }
 
   double focus_regen_per_second() const
@@ -917,8 +929,8 @@ public:
     base_t::summon( duration );
     // pet appears at the target
     current.distance = 0;
-    owner_coeff.ap_from_ap = 1.0 / 3.0;
-    owner_coeff.sp_from_ap = 1.0 / 3.0;
+    owner_coeff.ap_from_ap = 0.6;
+    owner_coeff.sp_from_ap = 0.6;
 
     buffs.stampede -> trigger( 1, buff_t::DEFAULT_VALUE(), 1.0, duration );
 
@@ -2576,8 +2588,8 @@ struct serpent_sting_t: public hunter_ranged_attack_t
     // Last minute Celestalon fixes before WoD release
     if ( p() -> wod_hotfix ) 
     {
-      attack_power_mod.tick *= 1.12 * 1.15;
-      attack_power_mod.direct *= 1.12 * 1.15;
+      attack_power_mod.tick *= 1.12 * 1.15 * 1.6;
+      attack_power_mod.direct *= 1.12 * 1.15 * 1.6;
   }
   }
 };
@@ -3258,7 +3270,7 @@ struct summon_pet_t: public hunter_spell_t
     ignore_false_positive = true;
     std::string pet_name = options_str.empty() ? p() -> summon_pet_str : options_str;
     pet = p() -> find_pet( pet_name );
-    if ( !pet )
+    if ( !pet && !player -> talents.lone_wolf -> ok() )
     {
       sim -> errorf( "Player %s unable to find pet %s for summons.\n", p() -> name(), pet_name.c_str() );
       sim -> cancel();
@@ -4089,7 +4101,7 @@ double hunter_t::composite_attack_power_multiplier() const
   if ( perks.improved_focus_fire -> ok() && buffs.focus_fire -> check() )
   {
     double stacks = buffs.focus_fire -> current_value / specs.focus_fire -> effectN( 1 ).percent();
-    mult += stacks * perks.improved_focus_fire -> effectN( 1 ).percent();
+    mult += stacks * ( perks.improved_focus_fire -> effectN( 1 ).percent() + ( wod_hotfix ? 0.03 : 0 ) );
   }
   return mult;
 }

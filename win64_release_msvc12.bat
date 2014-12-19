@@ -5,13 +5,10 @@
 :: It can be found at: http://qt-project.org/downloads
 :: If you build SimC with MSVC 2013, then you need to use dlls from Qt-Framework
 :: As of this writing, the default locations from which to gather the dlls are:
-:: Qt-Framework: C:\Qt\Qt5.3.2\
-
-For /f "tokens=2-4 delims=/ " %%a in ('date /t') do (set mydate=%%a-%%b)
+:: Qt-Framework: C:\Qt\Qt5.4.0\
 
 :: Update the qt_dir as necessary
 set qt_dir=C:\Qt\Qt5.4.0\5.4\msvc2013_64
-set install=simc-603-17-win64
 set redist="C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\redist\x64\Microsoft.VC120.CRT"
 
 :: IMPORTANT NOTE FOR DEBUGGING
@@ -26,50 +23,26 @@ rd %install% /s /q
 
 for /f "skip=2 tokens=2,*" %%A in ('reg.exe query "HKLM\SOFTWARE\Microsoft\MSBuild\ToolsVersions\12.0" /v MSBuildToolsPath') do SET MSBUILDDIR=%%B
 
+"%MSBUILDDIR%msbuild.exe" E:\simulationcraft\simc_vs2013.sln /p:configuration=pgo /p:platform=x64 /nr:true
 
 del /s simc_cache.dat
 forfiles -s -m generate_????.simc -c "cmd /c echo Running @path && %~dp0simc64.exe @file"
 
 :: Copying new dlls
-
-xcopy %qt_dir%\plugins\imageformats %install%\imageformats\
-xcopy %redist%\msvcp120.dll %install%\
-xcopy %redist%\msvcr120.dll %install%\
-xcopy %redist%\vccorlib120.dll %install%\
-xcopy %qt_dir%\bin\Qt5Core.dll %install%\
-xcopy %qt_dir%\bin\Qt5OpenGL.dll %install%\
-xcopy %qt_dir%\bin\Qt5Quick.dll %install%\
-xcopy %qt_dir%\bin\Qt5PrintSupport.dll %install%\
-xcopy %qt_dir%\bin\Qt5Qml.dll %install%\
-xcopy %qt_dir%\bin\Qt5Sql.dll %install%\
-xcopy %qt_dir%\bin\Qt5Positioning.dll %install%\
-xcopy %qt_dir%\bin\Qt5Gui.dll %install%\
-xcopy %qt_dir%\bin\Qt5Widgets.dll %install%\
-xcopy %qt_dir%\bin\Qt5Network.dll %install%\
-xcopy %qt_dir%\bin\Qt5WebKit.dll %install%\
-xcopy %qt_dir%\bin\Qt5WebKitWidgets.dll %install%\
-xcopy %qt_dir%\bin\Qt5Multimedia.dll %install%\
-xcopy %qt_dir%\bin\Qt5MultimediaWidgets.dll %install%\
-xcopy %qt_dir%\bin\Qt5Sensors.dll %install%\
-
-xcopy %qt_dir%\bin\libGLESv2.dll %install%\
-xcopy %qt_dir%\bin\icudt52.dll %install%\
-xcopy %qt_dir%\bin\icuin52.dll %install%\
-xcopy %qt_dir%\bin\icuuc52.dll %install%\
-xcopy %qt_dir%\bin\libEGL.dll %install%\
-xcopy %qt_dir%\bin\D3DCompiler_47.dll %install%\
-
-xcopy %qt_dir%\plugins\platforms\qminimal.dll %install%\platforms\
-xcopy %qt_dir%\plugins\platforms\qwindows.dll %install%\platforms\
-
-:: Copy other relevant files for windows release
-xcopy Welcome.html %install%\
-xcopy Welcome.png %install%\
-xcopy Simulationcraft64.exe %install%\
-xcopy simc64.exe %install%\
-xcopy readme.txt %install%\
-xcopy Error.html %install%\
-xcopy COPYING %install%\
-xcopy Profiles %install%\profiles\ /s /e
-xcopy C:\OpenSSL-Win64\bin\libeay32.dll %install%\
-xcopy C:\OpenSSL-Win64\bin\ssleay32.dll %install%\
+robocopy %redist%\ %install%\ msvcp120.dll msvcr120.dll vccorlib120.dll
+robocopy %qt_dir%\bin\ %install%\ Qt5Core.dll Qt5OpenGL.dll Qt5Quick.dll Qt5PrintSupport.dll Qt5Qml.dll Qt5Sql.dll Qt5Svg.dll Qt5Positioning.dll Qt5Gui.dll Qt5Widgets.dll Qt5Network.dll Qt5Webkit.dll Qt5WebkitWidgets.dll Qt5Multimedia.dll Qt5MultimediaWidgets.dll Qt5Sensors.dll Qt5WebChannel.dll libGLESv2.dll icudt53.dll icuin53.dll icuuc53.dll libEGL.dll D3DCompiler_47.dll opengl32sw.dll 
+robocopy %qt_dir%\plugins\platforms %install%\plugins\platforms\ qwindows.dll
+robocopy %qt_dir%\plugins\audio %install%\plugins\audio qtaudio_windows.dll
+robocopy %qt_dir%\plugins\bearer %install%\plugins\bearer qgenericbearer.dll qnativewifibearer.dll
+robocopy %qt_dir%\plugins\iconengines %install%\plugins\iconengines qsvgicon.dll
+robocopy %qt_dir%\plugins\imageformats %install%\plugins\imageformats qdds.dll qgif.dll qicns.dll qico.dll qjp2.dll qjpeg.dll qmng.dll qsvg.dll qtga.dll qtiff.dll qwbmp.dll qwebp.dll
+robocopy %qt_dir%\plugins\mediaserver %install%\plugins\mediaserver dsengine.dll qtmedia_audioengine.dll wmfengine.dll 
+robocopy %qt_dir%\plugins\playlistformats %install%\plugins\playlistformats qtmultimedia_m3u.dll
+robocopy %qt_dir%\plugins\position %install%\plugins\position qtposition_positionpoll.dll
+robocopy %qt_dir%\plugins\printsupport %install%\plugins\printsupport windowsprintersupport.dll
+robocopy %qt_dir%\plugins\sensorgestures %install%\plugins\sensorgestures qtsensorgestures_plugin.dll qtsensorgestures_shakeplugin.dll
+robocopy %qt_dir%\plugins\sensors %install%\plugins\sensors qtsensors_dummy.dll qtsensors_generic.dll
+robocopy %qt_dir%\plugins\sqldrivers %isntall%\plugins\sqldrivers qsqlite.dll qsqlmysql.dll qsqlodbc.dll qsqlpsql.dll
+robocopy . %install%\ Welcome.html Welcome.png Simulationcraft64.exe simc64.exe readme.txt Error.html COPYING
+robocopy C:\OpenSSL-Win64\bin %install%\ libeay32.dll ssleay32.dll 
+robocopy Profiles\ %install%\profiles\ *.* /S

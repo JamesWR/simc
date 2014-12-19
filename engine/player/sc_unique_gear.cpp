@@ -430,7 +430,7 @@ void enchant::mark_of_blackrock( special_effect_t& effect,
 
     void trigger( action_t* a, void* call_data )
     {
-      if ( listener -> resources.pct( RESOURCE_HEALTH ) > 0.5 )
+      if ( listener -> resources.pct( RESOURCE_HEALTH ) >= 0.6 )
         return;
 
       dbc_proc_callback_t::trigger( a, call_data );
@@ -482,8 +482,8 @@ void enchant::mark_of_the_thunderlord( special_effect_t& effect,
     void reset()
     { stat_buff_t::reset(); extensions = 0; }
 
-    void expire_override()
-    { stat_buff_t::expire_override(); extensions = 0; }
+    void expire_override( int expiration_stacks, timespan_t remaining_duration )
+    { stat_buff_t::expire_override( expiration_stacks, remaining_duration ); extensions = 0; }
   };
 
   // Max extensions is hardcoded, no spell data to fetch it
@@ -781,7 +781,7 @@ void enchant::executioner( special_effect_t& effect,
 struct nitro_boosts_action_t : public action_t
 {
   buff_t* buff;
-  
+
   nitro_boosts_action_t( player_t* p ) : action_t( ACTION_USE, "nitro_boosts", p )
   { background = true; }
 
@@ -792,9 +792,16 @@ struct nitro_boosts_action_t : public action_t
     player -> buffs.nitro_boosts-> trigger();
   }
 
+  bool ready()
+  {
+    if ( ! player -> buffs.raid_movement -> check() )
+      return false;
+
+    return action_t::ready();
+  }
 };
 
-void profession::nitro_boosts( special_effect_t& effect, 
+void profession::nitro_boosts( special_effect_t& effect,
                                const item_t& item )
 {
   // TODO-WOD: This is stupid, need to find a better way to implement custom on-use items
@@ -1213,9 +1220,9 @@ void item::unerring_vision_of_leishen( special_effect_t& effect,
       buff_t::execute( stacks, value, duration );
     }
 
-    void expire_override()
+    void expire_override( int expiration_stacks, timespan_t remaining_duration )
     {
-      buff_t::expire_override();
+      buff_t::expire_override( expiration_stacks, remaining_duration );
 
       player -> current.spell_crit  -= data().effectN( 1 ).percent();
       player -> current.attack_crit -= data().effectN( 1 ).percent();

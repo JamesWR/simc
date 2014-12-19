@@ -46,7 +46,7 @@ actions+=/recklessness,if=((target.time_to_die>190|target.health.pct<20)&(buff.b
 actions+=/avatar,if=(buff.recklessness.up|target.time_to_die<=30)
 actions+=/blood_fury,if=buff.bloodbath.up|!talent.bloodbath.enabled|buff.recklessness.up
 actions+=/berserking,if=buff.bloodbath.up|!talent.bloodbath.enabled|buff.recklessness.up
-actions+=/arcane_torrent,if=buff.bloodbath.up|!talent.bloodbath.enabled|buff.recklessness.up
+actions+=/arcane_torrent,if=rage<rage.max-40
 actions+=/call_action_list,name=single_target,if=active_enemies=1
 actions+=/call_action_list,name=two_targets,if=active_enemies=2
 actions+=/call_action_list,name=three_targets,if=active_enemies=3
@@ -70,6 +70,7 @@ actions.single_target+=/execute,if=buff.enrage.up|target.time_to_die<12
 actions.single_target+=/dragon_roar,if=buff.bloodbath.up|!talent.bloodbath.enabled
 actions.single_target+=/raging_blow
 actions.single_target+=/wild_strike,if=buff.enrage.up&target.health.pct>20
+actions.single_target+=/bladestorm,if=!raid_event.adds.exists
 actions.single_target+=/shockwave,if=!talent.unquenchable_thirst.enabled
 actions.single_target+=/impending_victory,if=!talent.unquenchable_thirst.enabled&target.health.pct>20
 actions.single_target+=/bloodthirst

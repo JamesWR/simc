@@ -7,6 +7,29 @@
 
 namespace { // UNNAMED NAMESPACE ============================================
 
+// Comparator for iteration data entry sorting (see analyze_iteration_data)
+bool iteration_data_cmp( const iteration_data_entry_t& a,
+                         const iteration_data_entry_t& b )
+{
+  if ( a.metric > b.metric )
+  {
+    return true;
+  }
+
+  return false;
+}
+
+bool iteration_data_cmp_r( const iteration_data_entry_t& a,
+                          const iteration_data_entry_t& b )
+{
+  if ( a.metric > b.metric )
+  {
+    return false;
+  }
+
+  return true;
+}
+
 // parse_ptr ================================================================
 
 bool parse_ptr( sim_t*             sim,
@@ -500,7 +523,7 @@ bool parse_fight_style( sim_t*             sim,
       sim -> overrides.target_health = 20000000;
     else
       sim -> overrides.target_health = 300000000;
-    sim -> target_death_pct = 0;
+    sim -> enemy_death_pct = 0;
     sim -> allow_potions = false;
     sim -> vary_combat_length = 0;
     sim -> max_time = timespan_t::from_seconds( 1800 );
@@ -942,7 +965,7 @@ sim_t::sim_t( sim_t* p, int index ) :
   save_talent_str( 0 ),
   talent_format( TALENT_FORMAT_UNCHANGED ),
   auto_ready_trigger( 0 ), stat_cache( 1 ), max_aoe_enemies( 20 ), show_etmi( 0 ), tmi_window_global( 0 ), tmi_bin_size( 0.5 ),
-  requires_regen_event( false ), target_death_pct( 0 ), rel_target_level( -1 ), target_level( -1 ), target_adds( 0 ), desired_targets( 0 ), enable_taunts( false ),
+  requires_regen_event( false ), enemy_death_pct( 0 ), rel_target_level( -1 ), target_level( -1 ), target_adds( 0 ), desired_targets( 0 ), enable_taunts( false ),
   challenge_mode( false ), scale_to_itemlevel( -1 ), disable_set_bonuses( false ), pvp_crit( false ), equalize_plot_weights( false ),
   active_enemies( 0 ), active_allies( 0 ),
   _rng( 0 ), seed( 0 ), deterministic( false ),
@@ -960,6 +983,7 @@ sim_t::sim_t( sim_t* p, int index ) :
   iteration_dmg( 0 ), iteration_heal( 0 ), iteration_absorb( 0 ),
   raid_dps(), total_dmg(), raid_hps(), total_heal(), total_absorb(), raid_aps(),
   simulation_length( "Simulation Length", false ),
+  report_iteration_data( 0.025 ), min_report_iteration_data( -1 ),
   report_progress( 1 ),
   bloodlust_percent( 25 ), bloodlust_time( timespan_t::from_seconds( 0.5 ) ),
   // Report
@@ -1145,11 +1169,9 @@ void sim_t::cancel_iteration()
 
 // sim_t::combat ============================================================
 
-void sim_t::combat( int iteration )
+void sim_t::combat()
 {
   if ( debug ) out_debug << "Starting Simulator";
-
-  current_iteration = iteration;
 
   // The sequencing of event manager seed and flush is very tricky.
   // DO NOT MESS WITH THIS UNLESS YOU ARE EXTREMELY CONFIDENT.
@@ -1317,11 +1339,11 @@ void sim_t::combat_begin()
   if ( fixed_time || ( target -> resources.base[ RESOURCE_HEALTH ] == 0 ) )
   {
     new ( *this ) sim_end_event_t( *this, "sim_end_expected_time", expected_iteration_time );
-    target -> death_pct = target_death_pct;
+    target -> death_pct = enemy_death_pct;
   }
   else
   {
-    target -> death_pct = target_death_pct;
+    target -> death_pct = enemy_death_pct;
   }
   new ( *this ) sim_safeguard_end_event_t( *this, "sim_end_twice_expected_time", expected_iteration_time + expected_iteration_time );
 }
@@ -1436,8 +1458,13 @@ void sim_t::datacollection_end()
   total_absorb.add( iteration_absorb );
   raid_aps.add( current_time() != timespan_t::zero() ? iteration_absorb / current_time().total_seconds() : 0 );
 
-  iteration_seed.push_back( seed );
-  iteration_initial_health.push_back( (uint64_t) target -> resources.initial[ RESOURCE_HEALTH ] );
+  if ( deterministic && report_iteration_data > 0 && current_iteration > 0 && current_time() > timespan_t::zero() )
+  {
+    // TODO: Metric should be selectable
+    iteration_data.push_back( iteration_data_entry_t( iteration_dmg / current_time().total_seconds(),
+                                                      seed,
+                                                      static_cast< uint64_t >( target -> resources.initial[ RESOURCE_HEALTH ] ) ) );
+  }
 }
 
 // sim_t::analyze_error =====================================================
@@ -1992,6 +2019,39 @@ void sim_t::analyze()
   range::sort( players_by_tmi,  compare_tmi() );
   range::sort( players_by_name, compare_name() );
   range::sort( targets_by_name, compare_name() );
+
+  analyze_iteration_data();
+}
+
+// sim_t::analyze_iteration_data ============================================
+
+// Build a N-highest/lowest iteration table for deterministic so they can be
+// replayed
+void sim_t::analyze_iteration_data()
+{
+  // Only enabled for deterministic simulations for now
+  if ( ! deterministic || report_iteration_data == 0 )
+  {
+    return;
+  }
+
+  std::sort( iteration_data.begin(), iteration_data.end(), iteration_data_cmp_r );
+
+  size_t min_entries = ( min_report_iteration_data == -1 ) ? 5 : static_cast<size_t>( min_report_iteration_data );
+  double n_pct = report_iteration_data / ( report_iteration_data > 1 ? 100.0 : 1.0 );
+  size_t n_entries = std::max( min_entries, static_cast<size_t>( std::ceil( iteration_data.size() * n_pct ) ) );
+
+  // If low + high entries is more than we have data for, we will just print
+  // all data out
+  if ( n_entries * 2 > iteration_data.size() )
+  {
+    return;
+  }
+
+  std::copy( iteration_data.begin(), iteration_data.begin() + n_entries, std::back_inserter( low_iteration_data ) );
+  std::sort( low_iteration_data.begin(), low_iteration_data.end(), iteration_data_cmp_r );
+  std::copy( iteration_data.end() - n_entries, iteration_data.end(), std::back_inserter( high_iteration_data ) );
+  std::sort( high_iteration_data.begin(), high_iteration_data.end(), iteration_data_cmp );
 }
 
 // progress_bar_t ===========================================================
@@ -2068,9 +2128,11 @@ bool sim_t::iterate()
 
   progress_bar.init();
 
-  for( int i = 0; work_queue -> pop(); ++i )
+  do
   {
-    combat( i );
+    ++current_iteration;
+
+    combat();
 
     if ( progress_bar.update() )
     {
@@ -2079,7 +2141,8 @@ bool sim_t::iterate()
     }
 
     do_pause();
-  }
+
+  } while( work_queue -> pop() );
 
   if ( ! canceled && progress_bar.update( true ) )
   {
@@ -2147,8 +2210,7 @@ void sim_t::merge( sim_t& other_sim )
     p -> merge( *other_p );
   }
 
-  range::append( iteration_seed,           other_sim.iteration_seed           );
-  range::append( iteration_initial_health, other_sim.iteration_initial_health );
+  range::append( iteration_data, other_sim.iteration_data );
 }
 
 // sim_t::merge =============================================================
@@ -2530,6 +2592,8 @@ void sim_t::create_options()
   add_option( opt_string( "rng", rng_str ) );
   add_option( opt_bool( "deterministic", deterministic ) );
   add_option( opt_bool( "deterministic_rng", deterministic ) ); // OBSOLETE!  FIX GUI FIRST!
+  add_option( opt_float( "report_iteration_data", report_iteration_data ) );
+  add_option( opt_int( "min_report_iteration_data", min_report_iteration_data ) );
   add_option( opt_bool( "average_range", average_range ) );
   add_option( opt_bool( "average_gauss", average_gauss ) );
   add_option( opt_int( "convergence_scale", convergence_scale ) );
@@ -2545,7 +2609,7 @@ void sim_t::create_options()
   add_option( opt_append( "raid_events+", raid_events_str ) );
   add_option( opt_func( "fight_style", parse_fight_style ) );
   add_option( opt_string( "main_target", main_target_str ) );
-  add_option( opt_float( "target_death_pct", target_death_pct ) );
+  add_option( opt_float( "enemy_death_pct", enemy_death_pct ) );
   add_option( opt_int( "target_level", target_level ) );
   add_option( opt_int( "target_level+", rel_target_level ) );
   add_option( opt_string( "target_race", target_race ) );

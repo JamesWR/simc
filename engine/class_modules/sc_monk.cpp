@@ -93,6 +93,7 @@ public:
     debuff_t* rising_sun_kick;
   } debuff;
 
+  monk_t& monk;
   monk_td_t( player_t* target, monk_t* p );
 };
 
@@ -246,7 +247,7 @@ public:
     const spell_data_t* way_of_the_monk_aa_damage;
     const spell_data_t* way_of_the_monk_aa_speed;
     const spell_data_t* zen_meditaiton;
-
+    const spell_data_t* fortifying_brew;
     // Brewmaster
     const spell_data_t* bladed_armor;
     const spell_data_t* breath_of_fire;
@@ -1038,9 +1039,7 @@ struct monk_spell_t: public monk_action_t < spell_t >
     double m = base_t::composite_target_multiplier( t );
 
     if ( td( t ) -> debuff.rising_sun_kick -> check() )
-    {
       m *= 1.0 + ( td( t ) -> debuff.rising_sun_kick -> data().effectN( 1 ).percent() * 0.50 ); // Hotfix nerf to 10% (down from 20%) on 2014/12/08;
-    }
 
     return m;
   }
@@ -1136,7 +1135,7 @@ struct monk_melee_attack_t: public monk_action_t < melee_attack_t >
     double m = base_t::composite_target_multiplier( t );
 
     if ( td( t ) -> debuff.rising_sun_kick -> check() && special )
-      m *= 1.0 + ( td( t ) -> debuff.rising_sun_kick -> data().effectN( 1 ).percent() * 0.75 ); // Hotfix nerf to 15% (down from 20%) on 2014/11/25
+      m *= 1.0 + ( td( t ) -> debuff.rising_sun_kick -> data().effectN( 1 ).percent() * 0.50 ); // Hotfix nerf to 10% (down from 20%) on 2014/12/08
 
     return m;
   }
@@ -2121,9 +2120,11 @@ struct touch_of_death_t: public monk_melee_attack_t
     may_crit = may_miss = may_dodge = may_parry = false;
   }
 
+  virtual double target_armor( player_t* ) const { return 0; }
+
   virtual void impact( action_state_t* s )
   {
-    s -> result_amount = player -> resources.max[RESOURCE_HEALTH];
+    s -> result_amount = p() -> resources.max[RESOURCE_HEALTH];
     monk_melee_attack_t::impact( s );
   }
 
@@ -2809,7 +2810,7 @@ struct dizzying_haze_t: public monk_spell_t
 struct fortifying_brew_t: public monk_spell_t
 {
   fortifying_brew_t( monk_t& p, const std::string& options_str ):
-    monk_spell_t( "fortifying_brew", &p, p.find_class_spell( "Fortifying Brew" ) )
+    monk_spell_t( "fortifying_brew", &p, p.spec.fortifying_brew )
   {
     parse_options( options_str );
 
@@ -2823,11 +2824,6 @@ struct fortifying_brew_t: public monk_spell_t
     monk_spell_t::execute();
 
     p() -> buff.fortifying_brew -> trigger();
-
-    // Extra Health is set by current max_health, doesn't change when max_health changes.
-    double health_gain = player->resources.max[RESOURCE_HEALTH];
-    health_gain *= ( p( )-> glyph.fortifying_brew -> ok() ? p() -> find_spell( 124997 ) -> effectN( 2 ).percent() : p() -> find_class_spell( "Fortifying Brew" ) -> effectN( 1 ).percent() );
-    player -> stat_gain( STAT_MAX_HEALTH, health_gain, nullptr, this );
   }
 };
 
@@ -3628,13 +3624,69 @@ struct power_strikes_event_t: public event_t
 };
 
 // ==========================================================================
+// Monk Buffs
+// ==========================================================================
+
+namespace buffs
+{
+  template <typename Base>
+  struct monk_buff_t: public Base
+  {
+    public:
+    typedef monk_buff_t base_t;
+
+    monk_buff_t( monk_td_t& p, const buff_creator_basics_t& params ):
+      Base( params ), monk( p.monk )
+    {}
+
+    monk_buff_t( monk_t& p, const buff_creator_basics_t& params ):
+      Base( params ), monk( p )
+    {}
+
+    monk_td_t& get_td( player_t* t ) const
+    {
+      return *(monk.get_target_data( t ));
+    }
+
+    protected:
+    monk_t& monk;
+  };
+
+  struct fortifying_brew_t: public monk_buff_t < buff_t >
+{
+  int health_gain;
+  fortifying_brew_t( monk_t& p, const std::string&n, const spell_data_t*s ):
+    base_t( p, buff_creator_t( &p, n, s ).cd( timespan_t::zero() ) ), health_gain( 0 )
+  {}
+
+  bool trigger( int stacks, double value, double chance, timespan_t duration )
+  {
+    // Extra Health is set by current max_health, doesn't change when max_health changes.
+    health_gain = static_cast<int>( monk.resources.max[RESOURCE_HEALTH] * ( monk.glyph.fortifying_brew -> ok() ? monk.find_spell( 124997 ) -> effectN( 2 ).percent() :
+      monk.spec.fortifying_brew -> effectN( 1 ).percent() ) );
+    monk.stat_gain( STAT_MAX_HEALTH, health_gain, (gain_t*)0, (action_t*)0, true );
+    monk.stat_gain( STAT_HEALTH, health_gain, (gain_t*)0, (action_t*)0, true );
+    return base_t::trigger( stacks, value, chance, duration );
+  }
+
+  void expire_override( int expiration_stacks, timespan_t remaining_duration )
+  {
+    base_t::expire_override( expiration_stacks, remaining_duration );
+    monk.stat_loss( STAT_MAX_HEALTH, health_gain, (gain_t*)0, (action_t*)0, true );
+    monk.stat_loss( STAT_HEALTH, health_gain, (gain_t*)0, (action_t*)0, true );
+  }
+};
+}
+
+// ==========================================================================
 // Monk Character Definition
 // ==========================================================================
 
 monk_td_t::monk_td_t( player_t* target, monk_t* p ):
 actor_pair_t( target, p ),
 dots( dots_t() ),
-debuff( buffs_t() )
+debuff( buffs_t() ),
+monk( *p )
 {
   debuff.rising_sun_kick = buff_creator_t( *this, "rising_sun_kick" ).spell( p -> find_spell( 130320 ) );
   debuff.dizzying_haze = buff_creator_t( *this, "dizzying_haze" ).spell( p -> find_spell( 123727 ) );
@@ -3787,6 +3839,7 @@ void monk_t::init_spells()
   spec.touch_of_death                = find_specialization_spell( "Touch of Death" );
   spec.way_of_the_monk_aa_damage     = find_spell( 108977 );
   spec.way_of_the_monk_aa_speed      = find_spell( 140737 );
+  spec.fortifying_brew               = find_class_spell( "Fortifying Brew" );
 
   // Windwalker Passives
   spec.brewing_tigereye_brew         = find_specialization_spell( "Brewing: Tigereye Brew" );
@@ -3855,14 +3908,14 @@ void monk_t::init_spells()
   passives.hotfix_passive            = find_spell( 137022 );
 
   // GLYPHS
-  glyph.blackout_kick                = find_glyph( "Glyph of Blackout Kick" );
-  glyph.expel_harm                   = find_glyph( "Glyph of Expel Harm" );
-  glyph.fortifying_brew              = find_glyph( "Glyph of Fortifying Brew" );
-  glyph.fortuitous_spheres           = find_glyph( "Glyph of Fortuitous Spheres" );
-  glyph.guard                        = find_glyph( "Glyph of Guard" );
-  glyph.mana_tea                     = find_glyph( "Glyph of Mana Tea" );
-  glyph.targeted_expulsion           = find_glyph( "Glyph of Targeted Expulsion" );
-  glyph.touch_of_death               = find_glyph( "Glyph of Touch of Death" );
+  glyph.blackout_kick                = find_glyph_spell( "Glyph of Blackout Kick" );
+  glyph.expel_harm                   = find_glyph_spell( "Glyph of Expel Harm" );
+  glyph.fortifying_brew              = find_glyph_spell( "Glyph of Fortifying Brew" );
+  glyph.fortuitous_spheres           = find_glyph_spell( "Glyph of Fortuitous Spheres" );
+  glyph.guard                        = find_glyph_spell( "Glyph of Guard" );
+  glyph.mana_tea                     = find_glyph_spell( "Glyph of Mana Tea" );
+  glyph.targeted_expulsion           = find_glyph_spell( "Glyph of Targeted Expulsion" );
+  glyph.touch_of_death               = find_glyph_spell( "Glyph of Touch of Death" );
 
   //MASTERY
   mastery.bottled_fury               = find_mastery_spell( MONK_WINDWALKER );
@@ -3949,7 +4002,7 @@ void monk_t::create_buffs()
   base_t::create_buffs();
 
   // General
-  buff.fortifying_brew = buff_creator_t( this, "fortifying_brew", find_spell( 120954 ) );
+  buff.fortifying_brew = new buffs::fortifying_brew_t( *this, "fortifying_brew", find_spell( 120954 ) );
 
   buff.power_strikes = buff_creator_t( this, "power_strikes", talent.power_strikes -> effectN( 1 ).trigger() );
 
@@ -4193,7 +4246,7 @@ double monk_t::composite_player_multiplier( school_e school ) const
 {
   double m = base_t::composite_player_multiplier( school );
 
-  m *= 1.0 + active_stance_data( FIERCE_TIGER ).effectN( 3 ).percent();
+  m *= 1.0 + ( active_stance_data( FIERCE_TIGER ).effectN( 3 ).percent() * 0.50 ); // Hotfix nerf to 5% (down from 10%) on 2014/12/15;
 
   m *= 1.0 + buff.tigereye_brew_use -> value();
 
@@ -4855,7 +4908,12 @@ void monk_t::apl_combat_windwalker()
       def -> add_action( "use_item,name=" + items[i].name_str + ",if=buff.tigereye_brew_use.up|target.time_to_die<18" );
   }
   for ( size_t i = 0; i < racial_actions.size(); i++ )
-    def -> add_action( racial_actions[i] + ",if=buff.tigereye_brew_use.up|target.time_to_die<18" );
+  {
+    if ( racial_actions[i] == "arcane_torrent" )
+      def -> add_action( racial_actions[i] + ",if=chi.max-chi>=1&(buff.tigereye_brew_use.up|target.time_to_die<18)" );
+    else
+      def -> add_action( racial_actions[i] + ",if=buff.tigereye_brew_use.up|target.time_to_die<18" );
+  }
 
   def -> add_talent( this, "Chi Brew", "if=chi.max-chi>=2&((charges=1&recharge_time<=10)|charges=2|target.time_to_die<charges*10)&buff.tigereye_brew.stack<=16" );
   def -> add_action( this, "Tiger Palm", "if=buff.tiger_power.remains<=3" );

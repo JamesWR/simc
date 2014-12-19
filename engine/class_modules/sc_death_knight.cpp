@@ -316,6 +316,7 @@ public:
     const spell_data_t* will_of_the_necropolis;
     const spell_data_t* resolve;
     const spell_data_t* riposte;
+    const spell_data_t* runic_strikes;
 
     // Frost
     const spell_data_t* blood_of_the_north;
@@ -439,6 +440,9 @@ public:
     proc_t* ready_blood;
     proc_t* ready_frost;
     proc_t* ready_unholy;
+
+    proc_t* reaping_bug_blood;
+    proc_t* reaping_bug_frost;
   } procs;
 
   real_ppm_t t15_2pc_melee;
@@ -1939,6 +1943,13 @@ struct ghoul_pet_t : public death_knight_pet_t
       if ( p -> o() -> buffs.dark_transformation -> up() )
         am *= 1.0 + p -> o() -> buffs.dark_transformation -> data().effectN( 1 ).percent();
 
+      // Apparently at some point in time, the ghoul damage was reduced by
+      // roughly 20%.
+      if ( p -> o() -> wod_hotfix )
+      {
+        am *= 0.8;
+      }
+
       return am;
     }
   };
@@ -2220,9 +2231,9 @@ struct shadow_of_death_t : public buff_t
     current_value = new_multiplier;
   }
 
-  virtual void expire_override()
+  virtual void expire_override( int expiration_stacks, timespan_t remaining_duration )
   {
-    buff_t::expire_override();
+    buff_t::expire_override( expiration_stacks, remaining_duration );
 
     player -> stat_loss( STAT_MAX_HEALTH, current_health_gain, 0, 0, true );
     current_health_gain = 0;
@@ -2385,26 +2396,77 @@ struct death_knight_action_t : public Base
 
     for ( int i = 0; i < RUNE_SLOT_MAX; ++i )
     {
-      if ( use[ i ] )
+      if ( ! use[ i ] )
       {
-        const rune_t& rune = p() -> _runes.slot[ i ];
-        if ( rune.is_death() )
-          rune_consumed[ RUNE_TYPE_DEATH - 1 ] -> occur();
-        else if ( rune.is_blood() )
-          rune_consumed[ RUNE_TYPE_BLOOD - 1 ] -> occur();
-        else if ( rune.is_unholy() )
-          rune_consumed[ RUNE_TYPE_UNHOLY - 1 ] -> occur();
-        else if ( rune.is_frost() )
-          rune_consumed[ RUNE_TYPE_FROST - 1 ] -> occur();
-
-        // Show the consumed type of the rune
-        // Not the type it is after consumption
-        int consumed_type = p() -> _runes.slot[ i ].type;
-        p() -> _runes.slot[ i ].consume( convert_runes );
-
-        if ( p() -> sim -> log )
-          p() -> sim -> out_log.printf( "%s consumes rune #%d, type %d", p() -> name(), i, consumed_type );
+        continue;
       }
+
+      const rune_t& rune = p() -> _runes.slot[ i ];
+      if ( rune.is_death() )
+        rune_consumed[ RUNE_TYPE_DEATH - 1 ] -> occur();
+      else if ( rune.is_blood() )
+        rune_consumed[ RUNE_TYPE_BLOOD - 1 ] -> occur();
+      else if ( rune.is_unholy() )
+        rune_consumed[ RUNE_TYPE_UNHOLY - 1 ] -> occur();
+      else if ( rune.is_frost() )
+        rune_consumed[ RUNE_TYPE_FROST - 1 ] -> occur();
+
+      // Show the consumed type of the rune
+      // Not the type it is after consumption
+      int consumed_type = p() -> _runes.slot[ i ].type;
+
+      // Reaping bug.
+      if ( p() -> bugs )
+      {
+        // If you use a Reaping ability, consuming an Unholy (Death) rune.
+        // The reaping bug will convert a Blood or a Frost rune to Death.
+        if ( p() -> spec.reaping -> ok() && rune.is_unholy() && rune.is_death() && convert_runes != 0 )
+        {
+          p() -> _runes.slot[ i ].consume( 0 );
+
+          // Loop through Blood and Frost runes, converting the first
+          // regenerating non-death rune to death.
+          for ( size_t reap_rune_idx = 0; reap_rune_idx < 4; reap_rune_idx++ )
+          {
+            rune_t& convert_rune = p() -> _runes.slot[ reap_rune_idx ];
+            // You'll only end up in this situation if you dont have a ready F
+            // or B rune, meaning you will be regenerating one of the rune
+            // types.
+            if ( convert_rune.is_death() || convert_rune.is_ready() || convert_rune.is_depleted() )
+            {
+              continue;
+            }
+
+            convert_rune.type |= RUNE_TYPE_DEATH;
+            if ( convert_rune.is_blood() )
+            {
+              p() -> procs.reaping_bug_blood -> occur();
+            }
+            else if ( convert_rune.is_frost() )
+            {
+              p() -> procs.reaping_bug_frost -> occur();
+            }
+
+            if ( p() -> sim -> debug )
+            {
+              p() -> sim -> out_debug.printf( "%s reaping bug, used rune %d (death), changed rune %d to death",
+                  p() -> name(), i, reap_rune_idx );
+            }
+            break;
+          }
+        }
+        else
+        {
+          p() -> _runes.slot[ i ].consume( convert_runes );
+        }
+      }
+      else
+      {
+        p() -> _runes.slot[ i ].consume( convert_runes );
+      }
+
+      if ( p() -> sim -> log )
+        p() -> sim -> out_log.printf( "%s consumes rune #%d, type %d", p() -> name(), i, consumed_type );
     }
 
     if ( p() -> sim -> log )
@@ -2481,7 +2543,10 @@ struct death_knight_melee_attack_t : public death_knight_action_t<melee_attack_t
     double m = base_t::composite_da_multiplier( state );
 
     if ( player -> main_hand_weapon.group() == WEAPON_2H )
-      m *= 1.0 + p() -> spec.might_of_the_frozen_wastes -> effectN( 2 ).percent();
+    {
+      // Autoattacks use a separate effect for the +damage%
+      m *= 1.0 + p() -> spec.might_of_the_frozen_wastes -> effectN( special ? 2 : 3 ).percent();
+    }
 
     return m;
   }
@@ -2718,13 +2783,13 @@ struct melee_t : public death_knight_melee_attack_t
   {
     death_knight_melee_attack_t::impact( s );
 
-    if ( result_is_multistrike( s -> result ) && p() -> spec.blood_rites -> ok() )
+    if ( result_is_multistrike( s -> result ) &&
+         p() -> spec.blood_rites -> ok() &&
+         weapon -> group() == WEAPON_2H )
     {
-      double chance = 1.0; // TODO: Blood Rites proc chance?
-      if ( rng().roll( chance ) )
-        p() -> resource_gain( RESOURCE_RUNIC_POWER,
-                              p() -> spell.blood_rites -> effectN( 1 ).resource( RESOURCE_RUNIC_POWER ),
-                              p() -> gains.blood_rites );
+      p() -> resource_gain( RESOURCE_RUNIC_POWER,
+                            p() -> spell.blood_rites -> effectN( 1 ).resource( RESOURCE_RUNIC_POWER ),
+                            p() -> gains.blood_rites );
     }
 
     if ( result_is_hit( s -> result ) )
@@ -2753,13 +2818,6 @@ struct melee_t : public death_knight_melee_attack_t
           p() -> buffs.death_shroud -> trigger( 1, buff_t::DEFAULT_VALUE(), -1.0, timespan_t::from_seconds( 15 ) );
         }
 
-        if ( p() -> spec.scent_of_blood -> ok() && 
-             p() -> buffs.scent_of_blood -> trigger( 1, buff_t::DEFAULT_VALUE(), weapon -> swing_time.total_seconds() / 3.6 ) )
-        {
-          p() -> resource_gain( RESOURCE_RUNIC_POWER,
-                                p() -> buffs.scent_of_blood -> data().effectN( 2 ).resource( RESOURCE_RUNIC_POWER ),
-                                p() -> gains.scent_of_blood );
-        }
       }
 
       // Killing Machine is 6 PPM
@@ -3106,15 +3164,19 @@ struct soul_reaper_dot_t : public death_knight_melee_attack_t
          p() -> sets.has_set_bonus( DEATH_KNIGHT_UNHOLY, T17, B2 )  )
       p() -> buffs.shadow_infusion -> trigger( p() -> sets.set( DEATH_KNIGHT_UNHOLY, T17, B2 ) -> effectN( 1 ).base_value() );
   }
+
+  void multistrike_direct( const action_state_t* source_state, action_state_t* ms_state )
+  {
+    death_knight_melee_attack_t::multistrike_direct( source_state, ms_state );
+
+    p() -> trigger_necrosis( ms_state );
+  }
 };
 
 struct soul_reaper_t : public death_knight_melee_attack_t
 {
-  soul_reaper_dot_t* soul_reaper_dot;
-
   soul_reaper_t( death_knight_t* p, const std::string& options_str ) :
-    death_knight_melee_attack_t( "soul_reaper", p, p -> specialization() != DEATH_KNIGHT_UNHOLY ? p -> find_specialization_spell( "Soul Reaper" ) : p -> find_spell( 130736 ) ),
-    soul_reaper_dot( 0 )
+    death_knight_melee_attack_t( "soul_reaper", p, p -> specialization() != DEATH_KNIGHT_UNHOLY ? p -> find_specialization_spell( "Soul Reaper" ) : p -> find_spell( 130736 ) )
   {
     parse_options( options_str );
     special   = true;
@@ -3168,7 +3230,10 @@ struct soul_reaper_t : public death_knight_melee_attack_t
       p() -> pets.dancing_rune_weapon -> drw_soul_reaper -> execute();
 
     if ( result_is_hit( execute_state -> result ) )
+    {
       trigger_t16_2pc_tank();
+      p() -> buffs.scent_of_blood -> trigger();
+    }
   }
 
   void tick( dot_t* dot )
@@ -3582,8 +3647,11 @@ struct death_and_decay_t : public death_knight_spell_t
 
 struct defile_t : public death_knight_spell_t
 {
+  cooldown_t* dnd_cd;
+
   defile_t( death_knight_t* p, const std::string& options_str ) :
-    death_knight_spell_t( "defile", p, p -> find_talent_spell( "Defile" ) )
+    death_knight_spell_t( "defile", p, p -> find_talent_spell( "Defile" ) ),
+    dnd_cd( p -> get_cooldown( "death_and_decay" ) )
   {
     parse_options( options_str );
 
@@ -3606,7 +3674,9 @@ struct defile_t : public death_knight_spell_t
     dot_t* dot = find_dot( state -> target );
 
     if ( dot )
-      m *= std::pow( 1.0 + data().effectN( 2 ).percent() / 100, dot -> current_tick );
+    {
+      m *= std::pow( 1.0 + data().effectN( 2 ).percent() / 100, std::max( dot -> current_tick - 1, 0 ) );
+    }
 
     return m;
   }
@@ -3632,6 +3702,13 @@ struct defile_t : public death_knight_spell_t
 
     if ( p() -> buffs.crimson_scourge -> up() )
       p() -> buffs.crimson_scourge -> expire();
+  }
+
+  virtual void update_ready( timespan_t cd_duration )
+  {
+    death_knight_spell_t::update_ready( cd_duration );
+
+    dnd_cd -> start( data().cooldown() );
   }
 
   virtual void impact( action_state_t* s )
@@ -3999,7 +4076,7 @@ struct frost_strike_offhand_t : public death_knight_melee_attack_t
     base_multiplier *= 1.0 + p -> sets.set( SET_MELEE, T14, B2 ) -> effectN( 1 ).percent();
     if ( p -> wod_hotfix )
     {
-      weapon_multiplier *= 1.07;
+      weapon_multiplier += 0.05;
     }
 
     rp_gain = 0; // Incorrectly set to 10 in the DBC
@@ -4027,7 +4104,7 @@ struct frost_strike_t : public death_knight_melee_attack_t
     base_multiplier *= 1.0 + p -> sets.set( SET_MELEE, T14, B2 ) -> effectN( 1 ).percent();
     if ( p -> wod_hotfix )
     {
-      weapon_multiplier *= 1.07;
+      weapon_multiplier += 0.05;
     }
 
     parse_options( options_str );
@@ -4352,8 +4429,7 @@ struct obliterate_offhand_t : public death_knight_melee_attack_t
 
     if ( p -> wod_hotfix )
     {
-      weapon_multiplier *= 1.08;
-      weapon_multiplier *= 1.07;
+      weapon_multiplier += 0.3;
     }
   }
 
@@ -4381,8 +4457,7 @@ struct obliterate_t : public death_knight_melee_attack_t
 
     if ( p -> wod_hotfix )
     {
-      weapon_multiplier *= 1.08;
-      weapon_multiplier *= 1.07;
+      weapon_multiplier += 0.3;
     }
 
     weapon = &( p -> main_hand_weapon );
@@ -4680,6 +4755,8 @@ struct blood_boil_t : public death_knight_spell_t
       // implemented in blood_boil_spread_t
       spread -> target = target;
       spread -> schedule_execute();
+
+      p() -> buffs.scent_of_blood -> trigger();
     }
   }
 
@@ -5561,9 +5638,9 @@ struct runic_corruption_buff_t : public buff_t
     buff_t::execute( stacks, value, duration );
   }
 
-  void expire_override()
+  void expire_override( int expiration_stacks, timespan_t remaining_duration )
   {
-    buff_t::expire_override();
+    buff_t::expire_override( expiration_stacks, remaining_duration );
   }
 };
 
@@ -5589,9 +5666,9 @@ struct vampiric_blood_buff_t : public buff_t
     }
   }
 
-  void expire_override()
+  void expire_override( int expiration_stacks, timespan_t remaining_duration )
   {
-    buff_t::expire_override();
+    buff_t::expire_override( expiration_stacks, remaining_duration );
 
     if ( health_gain > 0 )
     {
@@ -5618,7 +5695,7 @@ struct frozen_runeblade_buff_t : public buff_t
     stack_count = current_stack;
   }
 
-  void expire_override()
+  void expire_override( int expiration_stacks, timespan_t remaining_duration )
   {
     // Stack_count - 1 is used, because Simulationcraft uses the initial stack
     // to "enable" the bonus when Pillar of Frost is used.
@@ -5629,7 +5706,7 @@ struct frozen_runeblade_buff_t : public buff_t
       p -> active_spells.frozen_runeblade -> schedule_execute();
     }
 
-    buff_t::expire_override();
+    buff_t::expire_override( expiration_stacks, remaining_duration );
 
     stack_count = 0;
   }
@@ -5815,7 +5892,7 @@ expr_t* death_knight_t::create_expression( action_t* a, const std::string& name_
     };
     return new rune_inspection_expr_t( this, rt, include_death, position, act );
   }
-  else if ( splits.size() == 2 && ! util::str_compare_ci( splits[ 1 ], "frac" ) )
+  else if ( splits.size() == 2 && ! util::str_compare_ci( splits[ 1 ], "frac" ) && ! util::str_compare_ci( splits[ 1 ], "death" ) )
   {
     rune_type rt = RUNE_TYPE_NONE;
     bool include_death = false;
@@ -6028,6 +6105,7 @@ void death_knight_t::init_spells()
   spec.will_of_the_necropolis     = find_specialization_spell( "Will of the Necropolis" );
   spec.resolve                    = find_specialization_spell( "Resolve" );
   spec.riposte                    = find_specialization_spell( "Riposte" );
+  spec.runic_strikes              = find_specialization_spell( "Runic Strikes" );
 
   // Frost
   spec.blood_of_the_north         = find_specialization_spell( "Blood of the North" );
@@ -7075,6 +7153,9 @@ void death_knight_t::init_procs()
   procs.ready_blood              = get_proc( "Blood runes ready" );
   procs.ready_frost              = get_proc( "Frost runes ready" );
   procs.ready_unholy             = get_proc( "Unholy runes ready" );
+
+  procs.reaping_bug_blood        = get_proc( "Reaping bug: Blood" );
+  procs.reaping_bug_frost        = get_proc( "Reaping bug: Frost" );
 }
 
 // death_knight_t::init_resources ===========================================
@@ -7340,6 +7421,11 @@ double death_knight_t::composite_multistrike() const
   double multistrike = player_t::composite_multistrike();
 
   multistrike += spec.veteran_of_the_third_war -> effectN( 5 ).percent();
+
+  if ( spec.runic_strikes -> ok() )
+  {
+    multistrike *= 1.0 + spec.runic_strikes -> effectN( 1 ).percent();
+  }
 
   return multistrike;
 }

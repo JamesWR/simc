@@ -6,7 +6,7 @@
 #define SIMULATIONCRAFT_H
 
 #define SC_MAJOR_VERSION "603"
-#define SC_MINOR_VERSION "17"
+#define SC_MINOR_VERSION "20"
 #define SC_USE_PTR ( 0 )
 #define SC_BETA ( 0 )
 #define SC_BETA_STR "wod"
@@ -1999,7 +1999,7 @@ public:
   void expire( timespan_t delay = timespan_t::zero() );
 
   // Called only if previously active buff expires
-  virtual void expire_override() {}
+  virtual void expire_override( int /* expiration_stacks */, timespan_t /* remaining_duration */ ) {}
   virtual void predict();
   virtual void reset();
   virtual void aura_gain();
@@ -2057,7 +2057,7 @@ struct stat_buff_t : public buff_t
 
   virtual void bump     ( int stacks = 1, double value = -1.0 );
   virtual void decrement( int stacks = 1, double value = -1.0 );
-  virtual void expire_override();
+  virtual void expire_override( int expiration_stacks, timespan_t remaining_duration );
   virtual double value() { if ( current_stack > 0 ) { up_count++; } else { down_count++; } return stats[ 0 ].current_value; }
 
 protected:
@@ -2081,7 +2081,7 @@ protected:
 
 public:
   virtual void start( int stacks = 1, double value = DEFAULT_VALUE(), timespan_t duration = timespan_t::min() );
-  virtual void expire_override();
+  virtual void expire_override( int expiration_stacks, timespan_t remaining_duration );
 
   void consume( double amount );
 };
@@ -2097,7 +2097,7 @@ protected:
 public:
   virtual void bump     ( int stacks = 1, double value = -1.0 );
   virtual void decrement( int stacks = 1, double value = -1.0 );
-  virtual void expire_override();
+  virtual void expire_override( int expiration_stacks, timespan_t remaining_duration );
 };
 
 struct haste_buff_t : public buff_t
@@ -2107,7 +2107,7 @@ protected:
   friend struct buff_creation::haste_buff_creator_t;
 public:
   virtual void execute( int stacks = 1, double value = -1.0, timespan_t duration = timespan_t::min() );
-  virtual void expire_override();
+  virtual void expire_override( int expiration_stacks, timespan_t remaining_duration );
 };
 
 struct debuff_t : public buff_t
@@ -2311,6 +2311,18 @@ struct spell_data_expr_t
 
 // mutex, thread
 #include "util/concurrency.hpp"
+
+// Iteration data entry for replayability
+struct iteration_data_entry_t
+{
+  double   metric;
+  uint64_t seed;
+  uint64_t target_health;
+
+  iteration_data_entry_t( double m, uint64_t s, uint64_t h ) :
+    metric( m ), seed( s ), target_health( h )
+  { }
+};
 
 // Simulation Setup =========================================================
 
@@ -2606,7 +2618,7 @@ struct sim_t : private sc_thread_t
   bool        requires_regen_event;
 
   // Target options
-  double      target_death_pct;
+  double      enemy_death_pct;
   int         rel_target_level, target_level;
   std::string target_race;
   int         target_adds;
@@ -2708,8 +2720,13 @@ struct sim_t : private sc_thread_t
   double     iteration_dmg, iteration_heal, iteration_absorb;
   simple_sample_data_t raid_dps, total_dmg, raid_hps, total_heal, total_absorb, raid_aps;
   extended_sample_data_t simulation_length;
-  std::vector<uint64_t> iteration_seed;
-  std::vector<uint64_t> iteration_initial_health;
+  // Deterministic simulation iteration data collectors for specific iteration
+  // replayability
+  std::vector<iteration_data_entry_t> iteration_data, low_iteration_data, high_iteration_data;
+  // Report percent (how many% of lowest/highest iterations reported, default 2.5%)
+  double     report_iteration_data;
+  // Minimum number of low/high iterations reported (default 5 of each)
+  int        min_report_iteration_data;
   int        report_progress;
   int        bloodlust_percent;
   timespan_t bloodlust_time;
@@ -2813,7 +2830,7 @@ struct sim_t : private sc_thread_t
   double    progress( int* current = 0, int* final = 0, std::string* phase = 0 );
   double    progress( std::string& phase, std::string* detailed = 0 );
   void      detailed_progress( std::string*, int current_iterations, int total_iterations );
-  virtual void combat( int iteration );
+  virtual void combat();
   virtual void combat_begin();
   virtual void combat_end();
   void      datacollection_begin();
@@ -2834,6 +2851,7 @@ struct sim_t : private sc_thread_t
   void      partition();
   bool      execute();
   void      analyze_error();
+  void      analyze_iteration_data();
   void      print_options();
   void      add_option( const option_t& opt );
   void      create_options();
@@ -4947,7 +4965,6 @@ struct player_t : public actor_t
   void create_talents_numbers();
   void create_talents_armory();
   void create_talents_wowhead();
-
 
   const spell_data_t* find_glyph( const std::string& name ) const;
   const spell_data_t* find_racial_spell( const std::string& name, const std::string& token = std::string(), race_e s = RACE_NONE ) const;
@@ -7339,7 +7356,7 @@ public:
     if ( ab::sim -> debug )
       ab::sim -> out_debug.printf( "%s %s residual_action impact amount=%f old_total=%f old_ticks=%d old_tick=%f current_total=%f current_ticks=%d current_tick=%f",
                   ab::player -> name(), ab::name(), s -> result_amount,
-                  old_amount, ticks_left, ticks_left > 0 ? old_amount / ticks_left : 0,
+                  old_amount * ticks_left, ticks_left, ticks_left > 0 ? old_amount : 0,
                   current_amount, dot -> ticks_left(), dot_state -> tick_amount );
   }
 
