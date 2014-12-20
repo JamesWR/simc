@@ -205,8 +205,8 @@ std::string class_color( player_e type )
     case ENEMY:        return color::grey;
     case ENEMY_ADD:    return color::grey;
     case HEALING_ENEMY:    return color::grey;
-    case PLAYER_PET: return color::grey;
-    case PLAYER_GUARDIAN: return color::grey;
+    case TMI_BOSS:     return color::grey;
+    case TANK_DUMMY:   return color::grey;
     default: assert( 0 ); return std::string();
   }
 }

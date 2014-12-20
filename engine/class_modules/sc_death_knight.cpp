@@ -158,6 +158,7 @@ struct death_knight_td_t : public actor_pair_t
   debuff_t* debuffs_razorice;
   debuff_t* debuffs_mark_of_sindragosa;
   debuff_t* debuffs_necrotic_plague;
+  debuff_t* debuffs_biting_cold; // Frost WoD PVP 4 piece set bonus
 
   int diseases() const
   {
@@ -222,6 +223,7 @@ public:
     buff_t* conversion;
     buff_t* frozen_runeblade;
     buff_t* lichborne;
+    buff_t* death_dealer; // WoD PVP Unholy 4 piece set bonus
   } buffs;
 
   struct runeforge_t
@@ -580,6 +582,8 @@ inline death_knight_td_t::death_knight_td_t( player_t* target, death_knight_t* d
                      .period( timespan_t::zero() );
   debuffs_mark_of_sindragosa = buff_creator_t( *this, "mark_of_sindragosa", death_knight -> find_spell( 155166 ) );
   debuffs_necrotic_plague = buff_creator_t( *this, "necrotic_plague", death_knight -> find_spell( 155159 ) ).period( timespan_t::zero() );
+  debuffs_biting_cold = buff_creator_t( *this, "biting_cold", death_knight -> find_spell( 166057 ) )
+                        .chance( death_knight -> sets.has_set_bonus( DEATH_KNIGHT_FROST, PVP, B4 ) );
 }
 
 inline void rune_t::fill_rune()
@@ -2375,9 +2379,15 @@ struct death_knight_action_t : public Base
 
     if ( dbc::is_school( action_base_t::school, SCHOOL_FROST ) )
     {
-      double debuff = td( t ) -> debuffs_razorice -> data().effectN( 1 ).percent();
+      death_knight_td_t* tdata = td( t );
+      double debuff = tdata -> debuffs_razorice -> data().effectN( 1 ).percent();
 
-      m *= 1.0 + td( t ) -> debuffs_razorice -> check() * debuff;
+      m *= 1.0 + tdata -> debuffs_razorice -> check() * debuff;
+
+      if ( tdata -> debuffs_biting_cold -> up() )
+      {
+        m *= 1.0 + tdata -> debuffs_biting_cold -> data().effectN( 1 ).percent();
+      }
     }
 
     return m;
@@ -3562,6 +3572,7 @@ struct dark_transformation_t : public death_knight_spell_t
     p() -> buffs.dark_transformation -> trigger();
     p() -> buffs.shadow_infusion -> expire();
     p() -> trigger_t17_4pc_unholy( execute_state );
+    p() -> buffs.death_dealer -> trigger();
   }
 
   virtual bool ready()
@@ -4243,6 +4254,11 @@ struct howling_blast_t : public death_knight_spell_t
 
     if ( result_is_hit( s -> result ) )
       p() -> apply_diseases( s, DISEASE_FROST_FEVER );
+
+    // Howling blast has no travel time, so rime is still up at this point, as
+    // impact() will be called in execute().
+    if ( p() -> buffs.rime -> check() )
+      td( s -> target ) -> debuffs_biting_cold -> trigger();
   }
 
   virtual bool ready()
@@ -7088,6 +7104,10 @@ void death_knight_t::create_buffs()
   buffs.lichborne = buff_creator_t( this, "lichborne", talent.lichborne )
                     .cd( timespan_t::zero() )
                     .add_invalidate( CACHE_LEECH );
+
+  buffs.death_dealer = buff_creator_t( this, "death_dealer", find_spell( 166062 ) )
+                       .add_invalidate( CACHE_PLAYER_DAMAGE_MULTIPLIER )
+                       .chance( sets.has_set_bonus( DEATH_KNIGHT_UNHOLY, PVP, B4 ) );
 }
 
 // death_knight_t::init_gains ===============================================
@@ -7495,8 +7515,18 @@ double death_knight_t::composite_player_multiplier( school_e school ) const
 {
   double m = player_t::composite_player_multiplier( school );
 
-  if ( mastery.dreadblade -> ok() && dbc::is_school( school, SCHOOL_SHADOW )  )
-    m *= 1.0 + cache.mastery_value();
+  if ( dbc::is_school( school, SCHOOL_SHADOW )  )
+  {
+    if ( mastery.dreadblade -> ok() )
+    {
+      m *= 1.0 + cache.mastery_value();
+    }
+
+    if ( buffs.death_dealer -> up() )
+    {
+      m *= 1.0 + buffs.death_dealer -> data().effectN( 1 ).percent();
+    }
+  }
 
   if ( mastery.frozen_heart -> ok() && dbc::is_school( school, SCHOOL_FROST )  )
     m *= 1.0 + cache.mastery_value();

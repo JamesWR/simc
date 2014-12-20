@@ -223,7 +223,7 @@ enum player_e
   PLAYER_NONE = 0,
   DEATH_KNIGHT, DRUID, HUNTER, MAGE, MONK, PALADIN, PRIEST, ROGUE, SHAMAN, WARLOCK, WARRIOR,
   PLAYER_PET, PLAYER_GUARDIAN,
-  HEALING_ENEMY, ENEMY, ENEMY_ADD,
+  HEALING_ENEMY, ENEMY, ENEMY_ADD, TMI_BOSS, TANK_DUMMY,
   PLAYER_MAX
 };
 
@@ -2787,12 +2787,12 @@ struct sim_t : private sc_thread_t
     void flush()          { AUTO_LOCK(m); total_work = projected_work = work; }
     void project( int w ) { AUTO_LOCK(m); projected_work = w; assert(w>=work); }
     int  size()           { AUTO_LOCK(m); return total_work; }
-    int  pop()         
+    bool pop()         
     { 
       AUTO_LOCK(m); 
-      if( work >= total_work ) return 0; 
+      if( work >= total_work ) return false; 
       if( ++work == total_work ) projected_work = work;
-      return work;
+      return work < total_work;
     }
     double progress( int* current=0, int* last=0 )
     {
@@ -2910,6 +2910,8 @@ struct module_t
   static const module_t* warlock();
   static const module_t* warrior();
   static const module_t* enemy();
+  static const module_t* tmi_enemy();
+  static const module_t* tank_dummy_enemy();
   static const module_t* heal_enemy();
 
   static const module_t* get( player_e t )
@@ -2928,6 +2930,8 @@ struct module_t
       case WARLOCK:      return warlock();
       case WARRIOR:      return warrior();
       case ENEMY:        return enemy();
+      case TMI_BOSS:     return tmi_enemy();
+      case TANK_DUMMY:   return tank_dummy_enemy();
       default: break;
     }
     return NULL;
@@ -5005,7 +5009,7 @@ struct player_t : public actor_t
 
   bool is_pet() const { return type == PLAYER_PET || type == PLAYER_GUARDIAN || type == ENEMY_ADD; }
   bool is_enemy() const { return _is_enemy( type ); }
-  static bool _is_enemy( player_e t ) { return t == ENEMY || t == ENEMY_ADD; }
+  static bool _is_enemy( player_e t ) { return t == ENEMY || t == ENEMY_ADD || t == TMI_BOSS || t == TANK_DUMMY; }
   bool is_add() const { return type == ENEMY_ADD; }
   static bool _is_sleeping( const player_t* t ) { return t -> current.sleeping; }
   bool is_sleeping() const { return _is_sleeping( this ); }
