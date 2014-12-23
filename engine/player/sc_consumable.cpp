@@ -268,7 +268,7 @@ struct flask_t : public action_t
       {
         std::string buff_name = spell -> name_cstr();
         util::tokenize( buff_name );
-        p -> buffs.flask = stat_buff_creator_t( p, buff_name, spell );
+        p -> consumables.flask = stat_buff_creator_t( p, buff_name, spell );
       }
     }
     // Alch flask, special handle
@@ -282,7 +282,7 @@ struct flask_t : public action_t
       else
       {
         alchemist = true;
-        p -> buffs.flask = stat_buff_creator_t( p, "alchemists_flask", p -> find_spell( 105617 ) )
+        p -> consumables.flask = stat_buff_creator_t( p, "alchemists_flask", p -> find_spell( 105617 ) )
                           .add_stat( STAT_AGILITY, 0 )
                           .add_stat( STAT_STRENGTH, 0 )
                           .add_stat( STAT_INTELLECT, 0 );
@@ -293,11 +293,11 @@ struct flask_t : public action_t
   virtual void execute()
   {
     if ( sim -> log )
-      sim -> out_log.printf( "%s performs %s", player -> name(), player -> buffs.flask -> name() );
+      sim -> out_log.printf( "%s performs %s", player -> name(), player -> consumables.flask -> name() );
 
     if ( alchemist )
     {
-      double v = player -> buffs.flask -> data().effectN( 1 ).average( player );
+      double v = player -> consumables.flask -> data().effectN( 1 ).average( player );
       stat_e stat = STAT_NONE;
       if ( player -> cache.agility() >= player -> cache.strength() )
       {
@@ -315,24 +315,34 @@ struct flask_t : public action_t
       }
 
       if ( stat == STAT_AGILITY )
-        player -> buffs.flask -> stats[ 0 ].amount = v;
+        player -> consumables.flask -> stats[ 0 ].amount = v;
       else if ( stat == STAT_STRENGTH )
-        player -> buffs.flask -> stats[ 1 ].amount = v;
+        player -> consumables.flask -> stats[ 1 ].amount = v;
       else if ( stat == STAT_INTELLECT )
-        player -> buffs.flask -> stats[ 2 ].amount = v;
+        player -> consumables.flask -> stats[ 2 ].amount = v;
     }
 
-    player -> buffs.flask -> trigger();
+    player -> consumables.flask -> trigger();
   }
 
   virtual bool ready()
   {
-    if ( ! player -> buffs.flask )
+    if ( ! player -> sim -> allow_flasks )
       return false;
 
-    return ( player -> sim -> allow_flasks      &&
-             ! player -> active_elixir.guardian &&
-             ! player -> active_elixir.battle );
+    if ( ! player -> consumables.flask )
+      return false;
+
+    if ( player -> consumables.flask &&  player -> consumables.flask -> check() )
+      return false;
+
+    if ( player -> consumables.battle_elixir && player -> consumables.battle_elixir -> check() )
+      return false;
+
+    if( player -> consumables.guardian_elixir && player -> consumables.guardian_elixir -> check() )
+      return false;
+
+    return action_t::ready();
   }
 };
 
@@ -377,6 +387,14 @@ struct elixir_t : public action_t
       buff = stat_buff_creator_t( player, data -> name + "_elixir" )
              .duration( timespan_t::from_seconds( 60 * 60 ) ) // 1hr
              .add_stat( data -> st, amount );
+      if ( data -> type == ELIXIR_BATTLE )
+      {
+        player -> consumables.battle_elixir = buff;
+      }
+      else if ( data -> type == ELIXIR_GUARDIAN )
+      {
+        player -> consumables.guardian_elixir = buff;
+      }
     }
   }
 
@@ -398,11 +416,6 @@ struct elixir_t : public action_t
       }
     }
 
-    if ( data -> type == ELIXIR_BATTLE )
-      p.active_elixir.battle = true;
-    else
-      p.active_elixir.guardian = true;
-
     if ( sim -> log ) sim -> out_log.printf( "%s uses elixir %s", p.name(), data -> name.c_str() );
 
   }
@@ -410,18 +423,19 @@ struct elixir_t : public action_t
   {
     if ( ! player -> sim -> allow_flasks )
       return false;
-    if ( player -> flask !=  FLASK_NONE )
+
+    if ( player -> consumables.flask &&  player -> consumables.flask -> check() )
       return false;
 
     assert( data );
 
-    if ( data -> type == ELIXIR_BATTLE && player -> active_elixir.battle )
+    if ( data -> type == ELIXIR_BATTLE && player -> consumables.battle_elixir && player -> consumables.battle_elixir -> check() )
       return false;
 
-    if ( data -> type == ELIXIR_GUARDIAN && player -> active_elixir.guardian )
+    if ( data -> type == ELIXIR_GUARDIAN && player -> consumables.guardian_elixir && player -> consumables.guardian_elixir -> check() )
       return false;
 
-    return true;
+    return action_t::ready();
   }
 };
 
@@ -431,15 +445,13 @@ struct elixir_t : public action_t
 
 struct food_t : public action_t
 {
-  gain_t* gain;
   food_e type;
+  std::string type_str;
 
   food_t( player_t* p, const std::string& options_str ) :
     action_t( ACTION_USE, "food", p ),
-    gain( p -> get_gain( "food" ) ),
     type( FOOD_NONE )
   {
-    std::string type_str;
 
     add_option( opt_string( "type", type_str ) );
     parse_options( options_str );
@@ -451,10 +463,31 @@ struct food_t : public action_t
     if ( type == FOOD_NONE )
     {
       sim -> errorf( "Player %s: invalid food type '%s'\n", p -> name(), type_str.c_str() );
-      sim -> cancel();
+      background = true;
     }
+    std::string food_name = util::food_type_string( type );
+    food_name += "_food";
+
+    player -> consumables.food = stat_buff_creator_t( player, food_name )
+      .duration( timespan_t::from_seconds( 60 * 60 ) ); // 1hr
   }
 
+  /**
+   * Find food data in manual food database
+   */
+  const food_data_t* find_food( food_e type )
+  {
+    for( size_t i = 0; i < sizeof_array( food_data ); ++i )
+    {
+      const food_data_t& food = food_data[ i ];
+      if ( type == food.ft )
+      {
+        return &food;
+      }
+    }
+
+    return nullptr;
+  }
   stat_e get_highest_secondary()
   {
     player_t* p = player;
@@ -478,92 +511,76 @@ struct food_t : public action_t
     return highest_secondary;
   }
 
-  virtual void execute()
+  /**
+   * New WoD feasts
+   */
+  stat_e get_wod_feast_stat()
+  {
+    if ( player -> current.stats.dodge_rating > 0 )
+    {
+      return STAT_DODGE_RATING;
+    }
+    return get_highest_secondary();
+  }
+
+  /**
+   * For old feasts ( MoP )
+   */
+  stat_e get_mop_feast_stat()
   {
     player_t* p = player;
-    if ( sim -> log ) sim -> out_log.printf( "%s uses Food %s", p -> name(), util::food_type_string( type ) );
-    p -> food = type;
-
-    double food_stat_multiplier = 1.0;
-    if ( is_pandaren( p -> race ) )
-      food_stat_multiplier = 2.00;
-
-    for ( size_t i = 0; i < sizeof_array( food_data ); ++i )
+    stat_e stat = STAT_NONE;
+    if ( p -> current.stats.dodge_rating > 0 )
     {
-      const food_data_t& d = food_data[ i ];
-      if ( type == d.ft )
+      stat = STAT_DODGE_RATING;
+    }
+    else if ( p -> current.stats.attribute[ ATTR_STRENGTH ] >= p -> current.stats.attribute[ ATTR_INTELLECT ] )
+    {
+      if ( p -> current.stats.attribute[ ATTR_STRENGTH ] >= p -> current.stats.attribute[ ATTR_AGILITY ] )
       {
-        p -> stat_gain( d.st, d.stat_amount * food_stat_multiplier, gain, this );
-
-        if ( d.st == STAT_STAMINA )
-        {
-          // Cap Health for stamina flasks if they are used outside of combat
-          if ( ! player -> in_combat )
-          {
-            if ( d.stat_amount > 0 )
-              player -> resource_gain( RESOURCE_HEALTH, player -> resources.max[ RESOURCE_HEALTH ] - player -> resources.current[ RESOURCE_HEALTH ] );
-          }
-        }
+        stat = STAT_STRENGTH;
+      }
+      else
+      {
+        stat = STAT_AGILITY;
       }
     }
+    else if ( p -> current.stats.attribute[ ATTR_INTELLECT ] >= p -> current.stats.attribute[ ATTR_AGILITY ] )
+    {
+      stat = STAT_INTELLECT;
+    }
+    else
+    {
+      stat = STAT_AGILITY;
+    }
 
-    double stamina = 0;
-    double gain_amount = 0;
+    return stat;
+  }
+
+  virtual void execute()
+  {
+    if ( sim -> log )
+      sim -> out_log.printf( "%s uses Food %s", player -> name(), util::food_type_string( type ) );
+
+    player -> consumables.food->stats.clear(); // Clear old stat pairs
+    std::vector<stat_buff_t::buff_stat_t> stats; // vector of new stat pairs to be added
+
+    double gain_amount = 0.0; // tmp value for stat gain amount
+
+    double food_stat_multiplier = 1.0;
+    if ( is_pandaren( player -> race ) )
+      food_stat_multiplier = 2.00;
 
     switch ( type )
     {
+    // *************************
+    // MoP Feasts
+    // *************************
       case FOOD_FORTUNE_COOKIE:
-        if ( p -> current.stats.dodge_rating > 0 )
-        {
-          p -> stat_gain( STAT_DODGE_RATING, 36 * food_stat_multiplier );
-        }
-        else if ( p -> current.stats.attribute[ ATTR_STRENGTH ] >= p -> current.stats.attribute[ ATTR_INTELLECT ] )
-        {
-          if ( p -> current.stats.attribute[ ATTR_STRENGTH ] >= p -> current.stats.attribute[ ATTR_AGILITY ] )
-          {
-            p -> stat_gain( STAT_STRENGTH, 36 * food_stat_multiplier );
-          }
-          else
-          {
-            p -> stat_gain( STAT_AGILITY, 36 * food_stat_multiplier );
-          }
-        }
-        else if ( p -> current.stats.attribute[ ATTR_INTELLECT ] >= p -> current.stats.attribute[ ATTR_AGILITY ] )
-        {
-          p -> stat_gain( STAT_INTELLECT, 36 * food_stat_multiplier, gain, this );
-        }
-        else
-        {
-          p -> stat_gain( STAT_AGILITY, 36 * food_stat_multiplier );
-        }
-        stamina = 36 * food_stat_multiplier; p -> stat_gain( STAT_STAMINA, stamina );
-        break;
       case FOOD_SEAFOOD_MAGNIFIQUE_FEAST:
-        if ( p -> current.stats.dodge_rating > 0 )
-        {
-          p -> stat_gain( STAT_DODGE_RATING, 36 * food_stat_multiplier );
-        }
-        else if ( p -> current.stats.attribute[ ATTR_STRENGTH ] >= p -> current.stats.attribute[ ATTR_INTELLECT ] )
-        {
-          if ( p -> current.stats.attribute[ ATTR_STRENGTH ] >= p -> current.stats.attribute[ ATTR_AGILITY ] )
-          {
-            p -> stat_gain( STAT_STRENGTH, 36 * food_stat_multiplier );
-          }
-          else
-          {
-            p -> stat_gain( STAT_AGILITY, 36 * food_stat_multiplier );
-          }
-        }
-        else if ( p -> current.stats.attribute[ ATTR_INTELLECT ] >= p -> current.stats.attribute[ ATTR_AGILITY ] )
-        {
-          p -> stat_gain( STAT_INTELLECT, 36 * food_stat_multiplier, gain, this );
-        }
-        else
-        {
-          p -> stat_gain( STAT_AGILITY, 36 * food_stat_multiplier );
-        }
-        stamina = 36 * food_stat_multiplier; p -> stat_gain( STAT_STAMINA, stamina );
-        break;
+        if ( gain_amount <= 0.0 )
+          gain_amount = 36;
+        stats.push_back( stat_buff_t::buff_stat_t( STAT_STAMINA, gain_amount * food_stat_multiplier ) ); // Stamina buff is extra on top of the normal stats
       case FOOD_BANQUET_OF_THE_BREW:
       case FOOD_BANQUET_OF_THE_GRILL:
       case FOOD_BANQUET_OF_THE_OVEN:
@@ -585,60 +602,59 @@ struct food_t : public action_t
       case FOOD_PANDAREN_TREASURE_NOODLE_SOUP:
         if ( gain_amount <= 0.0 ) gain_amount = 34;
 
-        if ( p -> current.stats.dodge_rating > 0 )
-        {
-          p -> stat_gain( STAT_DODGE_RATING, gain_amount * food_stat_multiplier );
-        }
-        else if ( p -> current.stats.attribute[ ATTR_STRENGTH ] >= p -> current.stats.attribute[ ATTR_INTELLECT ] )
-        {
-          if ( p -> current.stats.attribute[ ATTR_STRENGTH ] >= p -> current.stats.attribute[ ATTR_AGILITY ] )
-          {
-            p -> stat_gain( STAT_STRENGTH, gain_amount * food_stat_multiplier );
-          }
-          else
-          {
-            p -> stat_gain( STAT_AGILITY, gain_amount * food_stat_multiplier );
-          }
-        }
-        else if ( p -> current.stats.attribute[ ATTR_INTELLECT ] >= p -> current.stats.attribute[ ATTR_AGILITY ] )
-        {
-          p -> stat_gain( STAT_INTELLECT, gain_amount * food_stat_multiplier, gain, this );
-        }
-        else
-        {
-          p -> stat_gain( STAT_AGILITY, gain_amount * food_stat_multiplier );
-        }
+        // Now we add the actual stats
+        gain_amount *= food_stat_multiplier;
+        stats.push_back( stat_buff_t::buff_stat_t( get_mop_feast_stat(), gain_amount ) );
         break;
+
+      // *************************
+      // WoD Feasts
+      // *************************
       case FOOD_FEAST_OF_BLOOD:
       case FOOD_FEAST_OF_THE_WATERS:
         if ( gain_amount <= 0.0 ) gain_amount = 50;
       case FOOD_SAVAGE_FEAST:
         if ( gain_amount <= 0.0 ) gain_amount = 100;
 
-        if ( p -> current.stats.dodge_rating > 0 )
+        gain_amount *= food_stat_multiplier;
+        stats.push_back( stat_buff_t::buff_stat_t( get_wod_feast_stat(), gain_amount ) );
+        break;
+
+      default:
+        // *************************
+        // Manual Food Database
+        // *************************
+        const food_data_t* fooddata = find_food( type );
+        if ( fooddata )
         {
-          p -> stat_gain( STAT_DODGE_RATING, gain_amount * food_stat_multiplier );
+          stats.push_back( stat_buff_t::buff_stat_t( fooddata -> st, fooddata -> stat_amount * food_stat_multiplier ) );
+          if ( sim -> log )
+            sim -> out_log.printf( "Player %s found food data for '%s': stat_type=%s amount=%i",
+                                   player -> name(), type_str.c_str(),
+                                   util::stat_type_string( fooddata -> st), fooddata -> stat_amount);
         }
         else
         {
-          p -> stat_gain( get_highest_secondary(), gain_amount * food_stat_multiplier );
+          sim -> errorf( "Player %s attempting to use unsupported food '%s'.\n",
+                         player -> name(), type_str.c_str() );
         }
         break;
+    }
 
-      default: break;
-    }
-    // Cap Health for food if used outside of combat
-    if ( ! player -> in_combat )
-    {
-      if ( stamina > 0 )
-        player -> resource_gain( RESOURCE_HEALTH, player -> resources.max[ RESOURCE_HEALTH ] - player -> resources.current[ RESOURCE_HEALTH ] );
-    }
+    player -> consumables.food -> stats = stats;
+
+    player -> consumables.food -> trigger();
   }
 
   virtual bool ready()
   {
-    return( player -> sim -> allow_food  &&
-            player -> food == FOOD_NONE );
+    if ( ! player -> sim -> allow_food )
+      return false;
+
+    if ( ! player -> consumables.food )
+      return false;
+
+    return action_t::ready();
   }
 };
 
@@ -867,6 +883,64 @@ struct dbc_potion_t : public action_t
   }
 };
 
+
+struct augmentation_t : public action_t
+{
+  augmentation_t( player_t* p, const std::string& options_str ) :
+    action_t( ACTION_USE, "augmentation", p )
+  {
+    std::string type_str;
+
+    add_option( opt_string( "type", type_str ) );
+    parse_options( options_str );
+    if ( util::str_compare_ci( type_str, "focus" ) )
+    {
+      player -> consumables.augmentation = stat_buff_creator_t( player, "focus_augmentation" )
+          .spell( player -> find_spell( 175457 ) );
+    }
+    else if  ( util::str_compare_ci( type_str, "hyper" ) )
+    {
+      player -> consumables.augmentation = stat_buff_creator_t( player, "hyper_augmentation" )
+          .spell( player -> find_spell( 175456 ) );
+    }
+    else if  ( util::str_compare_ci( type_str, "stout" ) )
+    {
+      player -> consumables.augmentation = stat_buff_creator_t( player, "stout_augmentation" )
+          .spell( player -> find_spell( 175439 ) );
+    }
+    else
+    {
+      sim -> errorf( "%s unknown augmentation type: '%s'", player -> name(), type_str.c_str() );
+      background = true;
+    }
+
+    trigger_gcd = timespan_t::zero();
+    harmful = false;
+
+  }
+
+  virtual void execute()
+  {
+    assert( player -> consumables.augmentation );
+
+    player -> consumables.augmentation -> trigger();
+
+    if ( sim -> log )
+      sim -> out_log.printf( "%s uses augmentation.", player -> name() );
+
+  }
+  virtual bool ready()
+  {
+    if ( ! player -> consumables.augmentation )
+      return false;
+
+    if ( player -> consumables.augmentation && player -> consumables.augmentation -> check() )
+      return false;
+
+    return action_t::ready();
+  }
+};
+
 } // END UNNAMED NAMESPACE
 
 // ==========================================================================
@@ -883,6 +957,7 @@ action_t* consumable::create_action( player_t*          p,
   if ( name == "food"                 ) return new         food_t( p, options_str );
   if ( name == "health_stone"         ) return new health_stone_t( p, options_str );
   if ( name == "mana_potion"          ) return new  mana_potion_t( p, options_str );
+  if ( name == "augmentation"         ) return new augmentation_t( p, options_str );
 
   return 0;
 }

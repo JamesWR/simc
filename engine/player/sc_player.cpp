@@ -489,9 +489,7 @@ player_t::player_t( sim_t*             s,
   // Resources
   resources( resources_t() ),
   // Consumables
-  active_elixir(),
-  flask( FLASK_NONE ),
-  food( FOOD_NONE ),
+  consumables(),
   // Events
   executing( 0 ), channeling( 0 ), strict_sequence( 0 ), readying( 0 ), off_gcd( 0 ), in_combat( false ), action_queued( false ), first_cast( true ),
   last_foreground_action( 0 ), last_gcd_action( 0 ),
@@ -3589,10 +3587,6 @@ void player_t::reset()
   off_hand_weapon.buff_type  = 0;
   off_hand_weapon.buff_value = 0;
   off_hand_weapon.bonus_dmg  = 0;
-
-  active_elixir.battle = active_elixir.guardian = false;
-  flask = FLASK_NONE;
-  food  = FOOD_NONE;
 
   callbacks.reset();
 
@@ -8539,9 +8533,6 @@ void player_t::create_options()
     // Misc
     add_option( opt_string( "skip_actions", action_list_skip ) );
     add_option( opt_string( "modify_action", modify_action ) );
-    add_option( opt_string( "elixirs", elixirs_str ) );
-    add_option( opt_string( "flask", flask_str ) );
-    add_option( opt_string( "food", food_str ) );
     add_option( opt_timespan( "reaction_time_mean", reaction_mean ) );
     add_option( opt_timespan( "reaction_time_stddev", reaction_stddev ) );
     add_option( opt_timespan( "reaction_time_nu", reaction_nu ) );
@@ -10135,7 +10126,7 @@ struct manager_t::damage_event_list_t
 };
 
 // periodic update event for resolve
-struct manager_t::update_event_t final : public event_t
+struct manager_t::update_event_t : public event_t
 {
   update_event_t( player_t& p ) :
     event_t( p, "resolve_update_event_t" )

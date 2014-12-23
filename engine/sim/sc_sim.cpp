@@ -4,6 +4,9 @@
 // ==========================================================================
 
 #include "simulationcraft.hpp"
+#ifdef SC_WINDOWS
+#include <direct.h>
+#endif
 
 namespace { // UNNAMED NAMESPACE ============================================
 
@@ -997,6 +1000,7 @@ sim_t::sim_t( sim_t* p, int index ) :
   solo_raid( false ),
   global_item_upgrade_level( 0 ),
   maximize_reporting( false ),
+  apikey( "" ),
   report_information(),
   // Multi-Threading
   threads( 0 ), thread_index( index ), thread_priority( sc_thread_t::NORMAL ),
@@ -1014,6 +1018,9 @@ sim_t::sim_t( sim_t* p, int index ) :
   use_optimal_buffs_and_debuffs( 1 );
 
   create_options();
+
+  if ( apikey.size() < 32 )
+    find_api_key();
 
   work_queue = std::shared_ptr<work_queue_t>( new work_queue_t() );
 
@@ -2692,8 +2699,40 @@ void sim_t::create_options()
   add_option( opt_string( "csv_output_file_str", csv_output_file_str ) );
   add_option( opt_bool( "monitor_cpu", event_mgr.monitor_cpu ) );
   add_option( opt_func( "maximize_reporting", parse_maximize_reporting ) );
+  add_option( opt_string( "apikey", apikey ) );
   add_option( opt_int( "global_item_upgrade_level", global_item_upgrade_level ) );
   add_option( opt_int( "wowhead_tooltips", wowhead_tooltips ) );
+}
+
+// sim_t::find_api_key ======================================================
+
+int sim_t::find_api_key()
+{  
+  std::string line;
+#ifdef SC_WINDOWS
+  std::ifstream myfile (".\\apikey.txt");
+#else
+  std::ifstream myfile ("./apikey.txt");
+#endif
+
+  if ( myfile.is_open() )
+  {
+    getline( myfile,line );
+    myfile.close();
+    if ( line.size() == 32 ) // api keys are 32 characters long.
+      apikey = line;
+    else
+    {
+      std::cout << line;
+      errorf( "Blizzard API Key was not properly entered." );
+    }
+  }
+  else if ( debug )
+  {
+    errorf( "Unable to open apikey.txt, please make sure the file is located in the same directory as the simc executable." );
+  }
+
+  return 0;
 }
 
 // sim_t::parse_option ======================================================

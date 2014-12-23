@@ -1022,7 +1022,8 @@ enum rppm_scale_e
   RPPM_NONE = 0,
   RPPM_HASTE,
   RPPM_SPELL_CRIT,
-  RPPM_ATTACK_CRIT
+  RPPM_ATTACK_CRIT,
+  RPPM_HASTE_SPEED
 };
 
 /* SimulationCraft timeline:
@@ -1347,8 +1348,6 @@ inline std::string from_string( const std::string& v )
 } // namespace util
 
 // Options ==================================================================
-
-
 
 namespace opts {
 
@@ -2054,6 +2053,7 @@ struct stat_buff_t : public buff_t
       stat( s ), amount( a ), current_value( 0 ), check_func( c ) {}
   };
   std::vector<buff_stat_t> stats;
+  gain_t* stat_gain;
 
   virtual void bump     ( int stacks = 1, double value = -1.0 );
   virtual void decrement( int stacks = 1, double value = -1.0 );
@@ -2767,6 +2767,7 @@ struct sim_t : private sc_thread_t
   int solo_raid;
   int global_item_upgrade_level;
   bool maximize_reporting;
+  std::string apikey;
 
   sim_report_information_t report_information;
 
@@ -2855,6 +2856,7 @@ struct sim_t : private sc_thread_t
   void      print_options();
   void      add_option( const option_t& opt );
   void      create_options();
+  int       find_api_key();
   bool      parse_option( const std::string& name, const std::string& value );
   void      setup( sim_control_t* );
   bool      time_to_think( timespan_t proc_time );
@@ -4464,13 +4466,13 @@ struct player_t : public actor_t
     { return infinite_resource[ rt ] != 0; }
   } resources;
 
-  // Consumables
-  std::string flask_str, elixirs_str, food_str;
-  struct {
-    bool guardian, battle;
-  } active_elixir;
-  int flask;
-  int food;
+  struct consumables_t {
+    stat_buff_t* flask;
+    stat_buff_t* guardian_elixir;
+    stat_buff_t* battle_elixir;
+    stat_buff_t* food;
+    stat_buff_t* augmentation;
+  } consumables;
 
   // Events
   action_t* executing;
@@ -4626,8 +4628,6 @@ struct player_t : public actor_t
     buff_t* archmages_incandescence_str;
     buff_t* archmages_incandescence_agi;
     buff_t* archmages_incandescence_int;
-
-    stat_buff_t* flask;
   } buffs;
 
   struct debuffs_t
@@ -6401,7 +6401,7 @@ inline proc_types2 action_state_t::execute_proc_type2() const
 
 // DoT Tick Event ===========================================================
 
-struct dot_tick_event_t final : public event_t
+struct dot_tick_event_t : public event_t
 {
 public:
   dot_tick_event_t( dot_t* d, timespan_t time_to_tick );
@@ -6413,7 +6413,7 @@ private:
 
 // DoT End Event ===========================================================
 
-struct dot_end_event_t final : public event_t
+struct dot_end_event_t : public event_t
 {
 public:
   dot_end_event_t( dot_t* d, timespan_t time_to_end );
@@ -6555,8 +6555,10 @@ inline dot_end_event_t::dot_end_event_t( dot_t* d, timespan_t time_to_end ) :
 inline void dot_end_event_t::execute()
 {
   dot -> end_event = nullptr;
+  assert( dot -> current_tick == dot -> num_ticks - 1 );
   dot -> current_tick++;
   dot -> tick();
+  assert( dot -> current_tick == dot -> num_ticks );
   dot -> last_tick();
 }
 
@@ -6592,6 +6594,11 @@ public:
       coeff *= 1.0 + player -> cache.attack_crit();
     else if ( scales_with == RPPM_SPELL_CRIT )
       coeff *= 1.0 + player -> cache.spell_crit();
+    // TODO: Recheck 6.1, most likely remove
+    else if ( scales_with == RPPM_HASTE_SPEED )
+    {
+      coeff *= 1.0 / std::min( player -> cache.spell_speed(), player -> cache.attack_speed() );
+    }
 
     double real_ppm = PPM * coeff;
     double old_rppm_chance = real_ppm * ( seconds / 60.0 );
