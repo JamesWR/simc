@@ -1755,8 +1755,12 @@ struct arcane_orb_bolt_t : public mage_spell_t
     }
 
     mage_spell_t::impact( s );
-    p() -> buffs.arcane_charge -> trigger();
-    p() -> buffs.arcane_missiles -> trigger();
+
+    if ( result_is_hit( s -> result ) )
+    {
+      p() -> buffs.arcane_charge -> trigger();
+      p() -> buffs.arcane_missiles -> trigger();
+    }
   }
 
   virtual double action_multiplier() const
@@ -1789,14 +1793,20 @@ struct arcane_orb_t : public mage_spell_t
 
   virtual void execute()
   {
+
+    
+
     for ( unsigned i = 0; i < sizeof_array( p() -> benefits.arcane_charge ); i++)
     {
       p() -> benefits.arcane_charge[ i ] -> update( as<int>( i ) == p() -> buffs.arcane_charge -> check() );
     }
+
     mage_spell_t::execute();
+    p() -> buffs.arcane_charge -> trigger();
 
     if( p() -> sets.has_set_bonus( MAGE_ARCANE, T17, B4 ) && p() -> rppm_arcane_instability.trigger() )
       p() -> buffs.arcane_instability -> trigger();
+
   }
 
 

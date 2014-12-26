@@ -3141,8 +3141,15 @@ void rogue_t::trigger_auto_attack( const action_state_t* state )
 
 inline void actions::rogue_attack_t::trigger_sinister_calling( dot_t* dot )
 {
+  int may_multistrike_ = may_multistrike;
+  may_multistrike = 0;
+  bool tick_may_crit_ = tick_may_crit;
+  tick_may_crit = false;
   dot -> current_tick++;
   dot -> tick();
+  tick_may_crit = tick_may_crit_;
+  may_multistrike = may_multistrike_;
+
   // Advances the time, so calculate new time to tick, num ticks, last tick factor
   if ( dot -> remains() > dot -> time_to_tick )
   {
@@ -4813,7 +4820,7 @@ void rogue_t::init_action_list()
     def -> add_action( this, "Premeditation", "if=combo_points<=4&!(buff.shadow_dance.up&energy>100&combo_points>1)&!buff.subterfuge.up|(buff.subterfuge.up&debuff.find_weakness.up)" );
     def -> add_action( this, find_class_spell( "Garrote" ), "pool_resource", "for_next=1" );
     def -> add_action( this, "Garrote", "if=!ticking&time<1" );
-    def -> add_action( "wait,sec=1,if=buff.subterfuge.remains>1.1&buff.subterfuge.remains<1.3&time>6" );
+    def -> add_action( "wait,sec=buff.subterfuge.remains-0.1,if=buff.subterfuge.remains>0.5&buff.subterfuge.remains<1.6&time>6" );
     def -> add_action( this, find_class_spell( "Ambush" ), "pool_resource", "for_next=1" );
     def -> add_action( this, "Ambush", "if=combo_points<5|(talent.anticipation.enabled&anticipation_charges<3)&(time<1.2|buff.shadow_dance.up|time>5)" );
     def -> add_action( this, find_class_spell( "Shadow Dance" ), "pool_resource", "for_next=1,extra_amount=50" );

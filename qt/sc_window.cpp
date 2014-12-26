@@ -88,7 +88,6 @@ void SC_MainWindow::loadHistory()
   {
     savedApplicationGeometry.moveTopLeft( pos.toPoint() );
   }
-  applyAdequateApplicationGeometry( savedApplicationGeometry );
   QVariant maximized = settings.value( "gui/maximized" );
   if ( maximized.isValid() )
   {
@@ -99,7 +98,6 @@ void SC_MainWindow::loadHistory()
   }
   else
     showMaximized();
-
 
   QString cache_file = TmpDir + "/simc_cache.dat";
   std::string cache_file_str = cache_file.toStdString();
@@ -149,123 +147,6 @@ void SC_MainWindow::loadHistory()
   }
 }
 
-QPoint SC_MainWindow::getMiddleOfScreen( int screen )
-{
-  QRect currentScreenGeometry = desktopWidget.availableGeometry( screen );
-  int currentScreenGeometryMiddleX = currentScreenGeometry.x() + ( currentScreenGeometry.width() / 2 );
-  int currentScreenGeometryMiddleY = currentScreenGeometry.y() + ( currentScreenGeometry.height() / 2 );
-
-  return QPoint( currentScreenGeometryMiddleX, currentScreenGeometryMiddleY );
-}
-
-QRect SC_MainWindow::adjustGeometryToIncludeFrame( QRect geo )
-{
-  QRect frameGeo = frameGeometry();
-  QRect normalGeo = normalGeometry();
-  int widthOffset = qAbs<int>( frameGeo.width() - normalGeo.width() );
-  int heightOffset = qAbs<int>( frameGeo.height() - normalGeo.height() );
-  int xOffset = normalGeo.x() - frameGeo.x();
-  int yOffset = normalGeo.y() - frameGeo.y();
-  geo.translate( xOffset, yOffset );
-  geo.setSize( QSize( geo.width() + widthOffset, geo.height() + heightOffset ) );
-
-  return geo;
-}
-
-int SC_MainWindow::getScreenThatGeometryBelongsTo( QRect geo )
-{
-  for ( int i = 0; i < desktopWidget.screenCount(); i++ )
-  {
-    if ( desktopWidget.screenGeometry( i ).contains( geo ) )
-    {
-      return i;
-    }
-  }
-  return desktopWidget.primaryScreen();
-}
-
-void SC_MainWindow::applyAdequateApplicationGeometry()
-{
-  applyAdequateApplicationGeometry( geometry() );
-}
-
-void SC_MainWindow::applyAdequateApplicationGeometry( QRect preferredGeometry )
-{
-  // Resize window if needed
-  int screen = getScreenThatGeometryBelongsTo( preferredGeometry );
-  QRect currentScreenGeometry = desktopWidget.availableGeometry( screen );
-  QPoint currentScreenGlobalTopLeftPoint = currentScreenGeometry.topLeft();
-  // get the smallest available geometry that would fit on any screen
-  QRect smallestScreenGeometry = getSmallestScreenGeometry();
-  // Does the preferred geometry fit on screen?
-  if ( smallestScreenGeometry.width() < preferredGeometry.width() ||
-       smallestScreenGeometry.height() < preferredGeometry.height() )
-  {
-    // preferred geometry is too big to fit on screen
-    // start by making the minimum size of the application smaller to something that will work for sure
-    int absoluteMinimumApplicationWidth = 100;
-    int absoluteMinimumApplicationHeight = 100;
-    int widthOffset = 100;
-    int heightOffset = 100;
-    int newMinimumWidth = qMax< int >( smallestScreenGeometry.width() - widthOffset,
-                                       absoluteMinimumApplicationWidth );
-    int newMinimumHeight = qMax< int >( smallestScreenGeometry.height() - heightOffset,
-                                        absoluteMinimumApplicationHeight );
-    setMinimumSize( newMinimumWidth, newMinimumHeight );
-    // make a rectangle at the top left of the screen with the new minimum size
-    QRect geometryThatWorks( currentScreenGlobalTopLeftPoint.x(), currentScreenGlobalTopLeftPoint.y(),
-                             minimumSize().width(), minimumSize().height() );
-    // make sure that the new geometry fits on the current screen, if not, move it
-    if ( !currentScreenGeometry.contains( geometryThatWorks ) )
-    {
-      QPoint middleOfCurrentScreen = getMiddleOfScreen( screen );
-      // adjust the point so it points to new top left of the minimum size
-      middleOfCurrentScreen.rx() -= ( geometryThatWorks.width() / 2 );
-      middleOfCurrentScreen.ry() -= ( geometryThatWorks.height() / 2 );
-      geometryThatWorks.moveTopLeft( middleOfCurrentScreen );
-    }
-    setGeometry( adjustGeometryToIncludeFrame( geometryThatWorks ) );
-  }
-  else
-  {
-    // Screen size is big enough for the current dimensions
-    // make the minimumSize smaller anyway, the default is too large
-    int absoluteMinimumApplicationWidth = qMin< int >( minimumWidth(), 600 );
-    int absoluteMinimumApplicationHeight = qMin< int >( minimumHeight(), 550 );
-    int widthOffset = 100;
-    int heightOffset = 100;
-    int newMinimumWidth = qMin< int >( smallestScreenGeometry.width() - widthOffset,
-                                       absoluteMinimumApplicationWidth );
-    int newMinimumHeight = qMin< int >( smallestScreenGeometry.height() - heightOffset,
-                                        absoluteMinimumApplicationHeight );
-    setMinimumSize( newMinimumWidth, newMinimumHeight );
-    if ( !currentScreenGeometry.contains( preferredGeometry ) )
-    {
-      // the preferred geometry is not on the screen, fix that
-      QPoint middleOfCurrentScreen = getMiddleOfScreen( screen );
-      // adjust the point so it points to new top left of the minimum size
-      middleOfCurrentScreen.rx() -= ( preferredGeometry.width() / 2 );
-      middleOfCurrentScreen.ry() -= ( preferredGeometry.height() / 2 );
-      preferredGeometry.moveTopLeft( middleOfCurrentScreen );
-    }
-    setGeometry( adjustGeometryToIncludeFrame( preferredGeometry ) );
-  }
-}
-
-QRect SC_MainWindow::getSmallestScreenGeometry()
-{
-  QDesktopWidget desktopWidget;
-  QRect smallestScreenGeometry = desktopWidget.availableGeometry();
-  for ( int i = 0; i < desktopWidget.screenCount(); ++i )
-  {
-    QRect screenGeometry = desktopWidget.availableGeometry( i );
-    smallestScreenGeometry.setWidth( qMin< int >( screenGeometry.width(), smallestScreenGeometry.width() ) );
-    smallestScreenGeometry.setHeight( qMin< int >( screenGeometry.height(), smallestScreenGeometry.height() ) );
-  }
-
-  return smallestScreenGeometry;
-}
-
 void SC_MainWindow::saveHistory()
 {
   QSettings settings;
@@ -279,7 +160,6 @@ void SC_MainWindow::saveHistory()
   QString cache_file = TmpDir + "/simc_cache.dat";
   std::string cache_file_str = cache_file.toStdString();
   http::cache_save( cache_file_str.c_str() );
-
 
   settings.beginGroup( "user_data" );
 
@@ -448,10 +328,6 @@ SC_MainWindow::SC_MainWindow( QWidget *parent )
 
   simulateThread = new SimulateThread( this );
   connect( simulateThread, SIGNAL( simulationFinished( sim_t* ) ), this, SLOT( simulateFinished( sim_t* ) ) );
-
-  connect( &desktopWidget, SIGNAL( resized( int ) ), this, SLOT( screenResized( int ) ) );
-  connect( &desktopWidget, SIGNAL( workAreaResized( int ) ), this, SLOT( screenResized( int ) ) );
-  connect( &desktopWidget, SIGNAL( screenCountChanged( int ) ), this, SLOT( screenResized( int ) ) );
 
 #ifdef SC_PAPERDOLL
   paperdollThread = new PaperdollThread( this );
@@ -740,7 +616,6 @@ void SC_MainWindow::createBestInSlotTab()
   QGroupBox* bisTab = new QGroupBox();
   bisTab -> setLayout( bisTabLayout );
   importTab -> addTab( bisTab, tr( "Sample Profiles" ) );
-
 }
 
 void SC_MainWindow::createCustomTab()
@@ -796,7 +671,6 @@ void SC_MainWindow::createOverridesTab()
 void SC_MainWindow::createLogTab()
 {
   logText = new SC_TextEdit( this, false );
-  //logText -> document() -> setDefaultFont( QFont( "fixed" ) );
   logText -> setReadOnly( true );
   logText -> setPlainText( "Look here for error messages and simple text-only reporting.\n" );
   mainTab -> addTab( logText, tr( "Log" ) );
@@ -1105,14 +979,14 @@ void SC_MainWindow::importFinished()
 
     bool found = false;
     for ( int i = 0; i < historyList -> count() && !found; i++ )
+    {
       if ( historyList -> item( i ) -> text() == label )
         found = true;
+    }
 
     if ( !found )
     {
       QListWidgetItem* item = new QListWidgetItem( label );
-      //item -> setFont( QFont( "fixed" ) );
-
       historyList -> addItem( item );
       historyList -> sortItems();
     }
@@ -1123,11 +997,8 @@ void SC_MainWindow::importFinished()
   {
     simulateTab -> setTabText( simulateTab -> currentIndex(), tr( "Import Failed" ) );
     simulateTab -> current_Text() -> setformat_error(); // Print error message in big letters
-
     simulateTab -> append_Text( "# Unable to generate profile from: " + importThread -> url + "\n" );
-
     deleteSim( import_sim, simulateTab -> current_Text() ); import_sim = 0;
-
     simulateTab -> current_Text() -> resetformat(); // Reset font
   }
 
@@ -1135,12 +1006,12 @@ void SC_MainWindow::importFinished()
   {
     timer -> stop();
   }
-
   mainTab -> setCurrentTab( TAB_SIMULATE );
 }
 
 void SC_MainWindow::startSim()
 {
+  saveHistory(); // This is to save whatever work the person has done, just in case there's a crash.
   if ( simRunning() )
   {
     stopSim();
@@ -1155,10 +1026,7 @@ void SC_MainWindow::startSim()
   }
   optionsTab -> encodeOptions();
   importTab -> encodeSettings();
-  if ( simulateTab -> current_Text() -> toPlainText() != defaultSimulateText )
-  {
-    //simulateTextHistory.add( simulateText -> toPlainText() );
-  }
+
   // Clear log text on success so users don't get confused if there is
   // an error from previous attempts
   if ( consecutiveSimulationsRun == 0 ) // Only clear on first queued sim
@@ -1167,14 +1035,16 @@ void SC_MainWindow::startSim()
   }
   simProgress = 0;
   sim = initSim();
-  if ( optionsTab -> get_api_key().size() == 32 ) // api keys are 32 characters long.
+
+  if ( optionsTab -> get_api_key().size() == 32 ) // api keys are 32 characters long, it's not worth parsing <32 character keys.
     sim -> parse_option( "apikey",  optionsTab -> get_api_key().toUtf8().constData() );
+
   if ( cmdLine -> currentState() != SC_MainWindowCommandLine::SIMULATING_MULTIPLE )
   {
     cmdLine -> setState( SC_MainWindowCommandLine::SIMULATING );
   }
   simulateThread -> start( sim, simulationQueue.dequeue() );
-  // simulateText -> setPlainText( defaultSimulateText() );
+
   cmdLineText = "";
   timer -> start( 100 );
 }
@@ -1207,7 +1077,6 @@ bool SC_MainWindow::simRunning()
 
 player_t* SC_MainWindow::init_paperdoll_sim( sim_t*& sim )
 {
-
   sim = initSim();
 
   PaperdollProfile* profile = paperdollProfile;
@@ -1322,20 +1191,20 @@ void SC_MainWindow::simulateFinished( sim_t* sim )
     // SPell Query
     if ( mainTab -> currentTab() == TAB_SPELLQUERY )
     {
-        QString result;
-        std::stringstream ss;
-        try
-        {
-          sim -> spell_query -> evaluate();
-          report::print_spell_query( ss, sim -> dbc, *sim -> spell_query, sim -> spell_query_level );
-        }
-        catch( const std::exception& e ){
-          ss <<  "ERROR! Spell Query failure: " << e.what() << std::endl;
-        }
+      QString result;
+      std::stringstream ss;
+      try
+      {
+        sim -> spell_query -> evaluate();
+        report::print_spell_query( ss, sim -> dbc, *sim -> spell_query, sim -> spell_query_level );
+      }
+      catch ( const std::exception& e ){
+        ss << "ERROR! Spell Query failure: " << e.what() << std::endl;
+      }
       result = QString::fromStdString( ss.str() );
       if ( result.isEmpty() )
       {
-          result = "No results found!";
+        result = "No results found!";
       }
       spellQueryTab -> textbox.result -> setText( result );
       spellQueryTab -> checkForSave();
@@ -1352,7 +1221,7 @@ void SC_MainWindow::simulateFinished( sim_t* sim )
       QList< Qt::KeyboardModifier > emptyList;
       if ( resultsTab -> count() == 1 )
       {
-        SC_SingleResultTab* resultsEntry_one = static_cast <SC_SingleResultTab*>( resultsTab -> widget( 0 ) );
+        SC_SingleResultTab* resultsEntry_one = static_cast <SC_SingleResultTab*>(resultsTab -> widget( 0 ));
         resultsEntry_one -> addIgnoreKeyPressEvent( Qt::Key_Tab, s );
         resultsEntry_one -> addIgnoreKeyPressEvent( Qt::Key_Backtab, emptyList );
       }
@@ -1491,12 +1360,6 @@ void SC_MainWindow::closeEvent( QCloseEvent* e )
   e -> accept();
 }
 
-void SC_MainWindow::showEvent( QShowEvent* e )
-{
-  applyAdequateApplicationGeometry();
-  QWidget::showEvent( e );
-}
-
 void SC_MainWindow::cmdLineTextEdited( const QString& s )
 {
   switch ( mainTab -> currentTab() )
@@ -1517,7 +1380,7 @@ void SC_MainWindow::cmdLineReturnPressed()
   if ( mainTab -> currentTab() == TAB_IMPORT )
   {
     if ( cmdLine -> commandLineText().count( "battle.net" ) ||
-         cmdLine -> commandLineText().count( "battlenet.com" ) )
+      cmdLine -> commandLineText().count( "battlenet.com" ) )
     {
       battleNetView -> setUrl( QUrl::fromUserInput( cmdLine -> commandLineText() ) );
       cmdLine -> setCommandLineText( TAB_BATTLE_NET, cmdLine -> commandLineText() );
@@ -1613,7 +1476,6 @@ void SC_MainWindow::backButtonClicked( bool /* checked */ )
       visibleWebView -> loadHtml();
 
       QWebHistory* h = visibleWebView->history();
-      visibleWebView->history()->clear(); // This is not appearing to work.
       h->setMaximumItemCount( 0 );
       h->setMaximumItemCount( 100 );
     }
@@ -1725,7 +1587,7 @@ void SC_MainWindow::resultsTabCloseRequest( int index )
     resultsTab -> removeTab( index );
     if ( resultsTab -> count() == 1 )
     {
-      SC_SingleResultTab* tab = static_cast <SC_SingleResultTab*>( resultsTab -> widget( 0 ) );
+      SC_SingleResultTab* tab = static_cast <SC_SingleResultTab*>(resultsTab -> widget( 0 ));
       tab -> removeAllIgnoreKeyPressEvent();
     }
     else if ( resultsTab -> count() == 0 )
@@ -1833,20 +1695,14 @@ void SC_MainWindow::currentlyViewedTabCloseRequest()
   {
     simulateTab -> TabCloseRequest( simulateTab -> currentIndex() );
   }
-    break;
+  break;
   case TAB_RESULTS:
   {
     resultsTab -> TabCloseRequest( resultsTab -> currentIndex() );
   }
-    break;
+  break;
   default: break;
   }
-}
-
-void SC_MainWindow::screenResized( int screen )
-{
-  Q_UNUSED( screen );
-  applyAdequateApplicationGeometry();
 }
 
 // ==========================================================================
@@ -1863,19 +1719,18 @@ void SimulateThread::run()
     file.close();
   }
 
-  sim -> output_file_str = ( mainWindow -> AppDataDir + QDir::separator() + SIMC_LOG_FILE ).toStdString();
-  sim -> html_file_str = ( mainWindow -> AppDataDir + QDir::separator() + "simc_report.html" ).toStdString();
-  sim -> xml_file_str = ( mainWindow -> AppDataDir + QDir::separator() + "simc_report.xml" ).toStdString();
-  sim -> reforge_plot_output_file_str = ( mainWindow -> AppDataDir + QDir::separator() + "simc_plot_data.csv" ).toStdString();
-  sim -> csv_output_file_str = ( mainWindow -> AppDataDir + QDir::separator() + "simc_report.csv" ).toStdString();
+  sim -> output_file_str = (mainWindow -> AppDataDir + QDir::separator() + SIMC_LOG_FILE).toStdString();
+  sim -> html_file_str = (mainWindow -> AppDataDir + QDir::separator() + "simc_report.html").toStdString();
+  sim -> xml_file_str = (mainWindow -> AppDataDir + QDir::separator() + "simc_report.xml").toStdString();
+  sim -> reforge_plot_output_file_str = (mainWindow -> AppDataDir + QDir::separator() + "simc_plot_data.csv").toStdString();
+  sim -> csv_output_file_str = (mainWindow -> AppDataDir + QDir::separator() + "simc_report.csv").toStdString();
 
   sim_control_t description;
-
   try
   {
     description.options.parse_text( utf8_profile.constData() );
   }
-  catch( const std::exception& e )
+  catch ( const std::exception& e )
   {
     success = false;
     error_str = QString( "Option parsing error: " ) + e.what();
@@ -1886,7 +1741,7 @@ void SimulateThread::run()
   {
     sim -> setup( &description );
   }
-  catch( const std::exception& e )
+  catch ( const std::exception& e )
   {
     success = false;
     error_str = QString( "Simulation setup error: " ) + e.what();
@@ -1950,15 +1805,19 @@ void SC_ReforgeButtonGroup::setSelected( int state )
   {
     QList< QAbstractButton* > b = buttons();
     for ( QList< QAbstractButton* >::iterator i = b.begin(); i != b.end(); ++i )
-      if ( !( *i ) -> isChecked() )
-        ( *i ) -> setEnabled( false );
+    {
+      if ( !(*i) -> isChecked() )
+        (*i) -> setEnabled( false );
+    }
   }
   // Less than three selected, allow selection of all/any
   else
   {
     QList< QAbstractButton* > b = buttons();
     for ( QList< QAbstractButton* >::iterator i = b.begin(); i != b.end(); ++i )
-      ( *i ) -> setEnabled( true );
+    {
+      (*i) -> setEnabled( true );
+    }
   }
 }
 
@@ -2094,7 +1953,6 @@ mainWindow( mw )
 }
 
 #ifdef SC_PAPERDOLL
-
 void PaperdollThread::run()
 {
   cache::advance_era();

@@ -269,30 +269,6 @@ SSL_CTX* SSLWrapper::ctx = 0;
 
 struct SSLWrapper
 {
-  static SSLContextRef ctx;
-
-  static void init()
-  {
-    if ( ! ctx )
-    {
-#if __MAC_OS_X_VERSION_MIN_REQUIRED < 1080
-      if ( SSLNewContext( false, &ctx ) < 0 )
-      {
-        return;
-      }
-#else
-      ctx = SSLCreateContext( NULL, kSSLClientSide, kSSLStreamType );
-#endif
-      assert( ctx );
-
-      OSStatus ret = SSLSetIOFuncs( ctx, &SSLWrapper::do_read, &SSLWrapper::do_write );
-      if ( ret != noErr )
-      {
-        std::cerr << "SSLSetIOFuncs error: " << ret << std::endl;
-      }
-    }
-  }
-
   static OSStatus do_read( SSLConnectionRef connection, void* data, size_t* data_len )
   {
     OSStatus rval = noErr;
@@ -427,10 +403,27 @@ struct SSLWrapper
     return noErr;
   }
 
+  SSLContextRef ctx;
   int socket;
 
   SSLWrapper() : socket( -1 )
-  { }
+  {
+#if __MAC_OS_X_VERSION_MIN_REQUIRED < 1080
+    if ( SSLNewContext( false, &ctx ) < 0 )
+    {
+      return;
+    }
+#else
+    ctx = SSLCreateContext( NULL, kSSLClientSide, kSSLStreamType );
+#endif
+    assert( ctx );
+
+    OSStatus ret = SSLSetIOFuncs( ctx, &SSLWrapper::do_read, &SSLWrapper::do_write );
+    if ( ret != noErr )
+    {
+      std::cerr << "SSLSetIOFuncs error: " << ret << std::endl;
+    }
+  }
 
   ~SSLWrapper()
   {
@@ -502,11 +495,8 @@ struct SSLWrapper
 #else
     CFRelease( ctx );
 #endif
-    ::close( socket );
   }
 };
-
-SSLContextRef SSLWrapper::ctx = 0;
 #endif
 
 // parse_url ================================================================
@@ -615,7 +605,7 @@ bool download( url_cache_entry_t& entry,
 
 #endif
 
-#if defined( SC_USE_OPENSSL ) || defined( SC_OSX )
+#if defined( SC_USE_OPENSSL )
   SSLWrapper::init();
 #endif
 
@@ -869,22 +859,24 @@ void http::cache_save( const std::string& file_name )
   {}
 }
 
-
 // http::get ================================================================
 
 bool http::get( std::string&       result,
                 const std::string& url,
+                const std::string& cleanurl,
                 cache::behavior_e  caching,
                 const std::string& confirmation )
 {
   result.clear();
 
   std::string encoded_url = url;
+  std::string encoded_clean_url = cleanurl;
   util::urlencode( encoded_url );
+  util::urlencode( encoded_clean_url );
 
   auto_lock_t lock( cache_mutex );
 
-  url_cache_entry_t& entry = url_db[ encoded_url ];
+  url_cache_entry_t& entry = url_db[ encoded_clean_url ];
 
   if ( HTTP_CACHE_DEBUG )
   {
@@ -893,7 +885,7 @@ bool http::get( std::string&       result,
     std::ostream::sentry s( http_log );
     if ( s )
     {
-      http_log << cache::era() << ": get(\"" << url << "\") [";
+      http_log << cache::era() << ": get(\"" << cleanurl << "\") [";
 
       if ( entry.validated != cache::INVALID_ERA )
       {

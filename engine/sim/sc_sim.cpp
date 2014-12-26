@@ -1011,7 +1011,6 @@ sim_t::sim_t( sim_t* p, int index ) :
   item_db_sources.assign( range::begin( default_item_db_sources ),
                           range::end( default_item_db_sources ) );
 
-
   max_time = timespan_t::from_seconds( 450 );
   vary_combat_length = 0.2;
 
@@ -2493,10 +2492,12 @@ void sim_t::print_options()
 {
   out_log.raw() << "\nWorld of Warcraft Raid Simulator Options:\n";
 
-
   out_log.raw() << "\nSimulation Engine:\n";
   for ( size_t i = 0; i < options.size(); ++i )
-    out_log.raw() << options[ i ];
+  {
+    if ( options[i] -> name() != "apikey" ) // Don't print out sensitive information.
+      out_log.raw() << options[i];
+  }
 
   for ( size_t i = 0; i < player_list.size(); ++i )
   {
@@ -2707,13 +2708,24 @@ void sim_t::create_options()
 // sim_t::find_api_key ======================================================
 
 int sim_t::find_api_key()
-{  
+{
   std::string line;
+  std::vector<std::string> key_locations;
 #ifdef SC_WINDOWS
-  std::ifstream myfile (".\\apikey.txt");
+  key_locations.push_back( ".\\apikey.txt" );
 #else
-  std::ifstream myfile ("./apikey.txt");
+  key_locations.push_back( "./apikey.txt" );
+  char* home_path = getenv( "HOME" );
+  std::string home_apikey = home_path;
+  home_apikey += "/.simc_apikey";
+  key_locations.push_back( home_apikey );
 #endif
+
+  std::ifstream myfile;
+  for ( size_t i = 0; i < key_locations.size() && ! myfile.is_open(); i++ )
+  {
+    myfile.open( key_locations[ i ].c_str() );
+  }
 
   if ( myfile.is_open() )
   {
@@ -2723,15 +2735,9 @@ int sim_t::find_api_key()
       apikey = line;
     else
     {
-      std::cout << line;
-      errorf( "Blizzard API Key was not properly entered." );
+      std::cerr << "Blizzard API Key '" << line << "' was not properly entered." << std::endl;
     }
   }
-  else if ( debug )
-  {
-    errorf( "Unable to open apikey.txt, please make sure the file is located in the same directory as the simc executable." );
-  }
-
   return 0;
 }
 

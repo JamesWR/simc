@@ -6,7 +6,7 @@
 #define SIMULATIONCRAFT_H
 
 #define SC_MAJOR_VERSION "603"
-#define SC_MINOR_VERSION "20"
+#define SC_MINOR_VERSION "21"
 #define SC_USE_PTR ( 0 )
 #define SC_BETA ( 0 )
 #define SC_BETA_STR "wod"
@@ -5840,6 +5840,11 @@ struct action_t : public noncopyable
     return ( r == RESULT_MULTISTRIKE || r == RESULT_MULTISTRIKE_CRIT );
   }
 
+  static bool result_is_hit_or_multistrike( result_e r )
+  {
+    return result_is_hit( r ) || result_is_multistrike( r );
+  }
+
   static bool result_is_block( block_result_e r )
   {
     return( r == BLOCK_RESULT_BLOCKED || r == BLOCK_RESULT_CRIT_BLOCKED );
@@ -7222,7 +7227,7 @@ void cache_load( const std::string& file_name );
 void cache_save( const std::string& file_name );
 bool clear_cache( sim_t*, const std::string& name, const std::string& value );
 
-bool get( std::string& result, const std::string& url, cache::behavior_e b,
+bool get( std::string& result, const std::string& url, const std::string& cleanurl, cache::behavior_e b,
           const std::string& confirmation = std::string() );
 }
 
