@@ -282,13 +282,17 @@ public:
                       * comet_storm;
   } talents;
 
-  struct pyro_switch_t
+  struct state_switch_t
   {
       bool dump_state;
-      void reset() { dump_state = 0; }
-      pyro_switch_t() { reset(); }
-  } pyro_switch;
-
+      bool burn_rotation;
+      void reset() 
+      { 
+        dump_state = 0;
+        burn_rotation = 0;
+      }
+      state_switch_t() { reset(); }
+  } state_switch;
 
 public:
   int current_arcane_charges;
@@ -315,7 +319,7 @@ public:
     procs( procs_t() ),
     spec( specializations_t() ),
     talents( talents_list_t() ),
-    pyro_switch( pyro_switch_t() ),
+    state_switch( state_switch_t() ),
     current_arcane_charges()
   {
     //Active
@@ -1793,9 +1797,6 @@ struct arcane_orb_t : public mage_spell_t
 
   virtual void execute()
   {
-
-    
-
     for ( unsigned i = 0; i < sizeof_array( p() -> benefits.arcane_charge ); i++)
     {
       p() -> benefits.arcane_charge[ i ] -> update( as<int>( i ) == p() -> buffs.arcane_charge -> check() );
@@ -1806,7 +1807,6 @@ struct arcane_orb_t : public mage_spell_t
 
     if( p() -> sets.has_set_bonus( MAGE_ARCANE, T17, B4 ) && p() -> rppm_arcane_instability.trigger() )
       p() -> buffs.arcane_instability -> trigger();
-
   }
 
 
@@ -3917,6 +3917,16 @@ struct supernova_t : public mage_spell_t
     cooldown -> charges = 2;
   }
 
+  virtual void execute()
+  {
+    mage_spell_t::execute();
+
+    if ( execute_state -> n_targets > 1)
+    {
+      p() -> buffs.arcane_missiles -> trigger();
+    }
+  }
+
   virtual double action_multiplier() const
   {
     double am = mage_spell_t::action_multiplier();
@@ -4175,7 +4185,7 @@ struct start_pyro_chain_t : public action_t
 
     last_execute = sim -> current_time();
 
-    p -> pyro_switch.dump_state = true;
+    p -> state_switch.dump_state = true;
   }
 
   void reset()
@@ -4199,7 +4209,67 @@ struct stop_pyro_chain_t : public action_t
   virtual void execute()
   {
       mage_t* p = debug_cast<mage_t*>( player );
-      p -> pyro_switch.dump_state = false;
+      p -> state_switch.dump_state = false;
+  }
+};
+
+// Arcane Mage "Burn" State Switch Action =====================================
+
+struct start_burn_sequence_t : public action_t
+{
+  // Infinite loop protection
+  timespan_t last_execute;
+
+  start_burn_sequence_t( mage_t* p, const std::string& options_str ):
+    action_t( ACTION_USE, "start_burn_sequence", p ),
+    last_execute( timespan_t::min() )
+  {
+    parse_options( options_str );
+    trigger_gcd = timespan_t::zero();
+    harmful = false;
+    ignore_false_positive = true;
+  }
+
+  virtual void execute()
+  {
+    mage_t* p = debug_cast<mage_t*>( player );
+
+    if ( sim -> current_time() == last_execute )
+    {
+      sim -> errorf( "%s enter_burn_state infinite loop detected (no time passing between executes) at '%s'",
+        p -> name(), signature_str.c_str() );
+      sim -> cancel();
+      return;
+    }
+
+    last_execute = sim -> current_time();
+
+    p -> state_switch.burn_rotation = true;
+
+  }
+
+  void reset()
+  {
+    action_t::reset();
+    last_execute = timespan_t::min();
+  }
+};
+
+struct stop_burn_sequence_t : public action_t
+{
+  stop_burn_sequence_t( mage_t* p, const std::string& options_str ):
+    action_t( ACTION_USE, "stop_burn_sequence", p )
+  {
+    parse_options( options_str );
+    trigger_gcd = timespan_t::zero();
+    harmful = false;
+    ignore_false_positive = true;
+  }
+
+  virtual void execute()
+  {
+      mage_t* p = debug_cast<mage_t*>( player );
+      p -> state_switch.burn_rotation = false;
   }
 };
 
@@ -4364,6 +4434,9 @@ action_t* mage_t::create_action( const std::string& name,
   if ( name == "presence_of_mind"  ) return new        presence_of_mind_t( this, options_str );
   if ( name == "slow"              ) return new                    slow_t( this, options_str );
   if ( name == "supernova"         ) return new               supernova_t( this, options_str );
+
+  if ( name == "start_burn_sequence"  ) return new        start_burn_sequence_t( this, options_str );
+  if ( name == "stop_burn_sequence"   ) return new        stop_burn_sequence_t(  this, options_str );
 
   // Fire
   if ( name == "blast_wave"        ) return new              blast_wave_t( this, options_str );
@@ -4922,14 +4995,25 @@ void mage_t::apl_arcane()
   init_crystal -> add_talent( this, "Prismatic Crystal",
                               "if=buff.arcane_charge.stack=4&cooldown.arcane_power.remains<0.5" );
   init_crystal -> add_talent( this, "Prismatic Crystal",
-                              "if=glyph.arcane_power.enabled&buff.arcane_charge.stack=4&cooldown.arcane_power.remains>45" );
+                              "if=glyph.arcane_power.enabled&buff.arcane_charge.stack=4&cooldown.arcane_power.remains>75" );
 
 
   crystal_sequence -> add_action( "call_action_list,name=cooldowns",
                                   "Actions while Prismatic Crystal is active" );
   crystal_sequence -> add_talent( this, "Nether Tempest",
                                   "if=buff.arcane_charge.stack=4&!ticking&pet.prismatic_crystal.remains>8" );
-  crystal_sequence -> add_action( "call_action_list,name=burn" );
+  crystal_sequence -> add_talent( this, "Supernova",
+                                  "if=mana.pct<96" );
+  crystal_sequence -> add_action( this, "Presence of Mind",
+                                  "if=cooldown.cold_snap.up|pet.prismatic_crystal.remains<action.arcane_blast.cast_time" );
+  crystal_sequence -> add_action( this, "Arcane Blast",
+                                  "if=buff.arcane_charge.stack=4&mana.pct>93&pet.prismatic_crystal.remains>cast_time+buff.arcane_missiles.stack*2*spell_haste+action.arcane_missiles.travel_time" );
+  crystal_sequence -> add_action( this, "Arcane Missiles",
+                                  "if=pet.prismatic_crystal.remains>2*spell_haste+travel_time" );
+  crystal_sequence -> add_talent( this, "Supernova",
+                                  "if=pet.prismatic_crystal.remains<action.arcane_blast.cast_time" );
+  crystal_sequence -> add_action( "choose_target,if=pet.prismatic_crystal.remains<action.arcane_blast.cast_time&buff.presence_of_mind.down" );
+  crystal_sequence -> add_action( this, "Arcane Blast" );
 
 
   cooldowns -> add_action( this, "Arcane Power",
@@ -4958,21 +5042,20 @@ void mage_t::apl_arcane()
                       "cycle_targets=1,if=target!=prismatic_crystal&buff.arcane_charge.stack=4&(active_dot.nether_tempest=0|(ticking&remains<3.6))" );
   burn -> add_talent( this, "Arcane Orb",
                       "if=buff.arcane_charge.stack<4" );
-  burn -> add_talent( this, "Supernova",
-                      "if=current_target=prismatic_crystal" );
   burn -> add_action( this, "Presence of Mind",
-                      "if=mana.pct>96" );
+                      "if=mana.pct>96&(!talent.prismatic_crystal.enabled|!cooldown.prismatic_crystal.up)" );
   burn -> add_action( this, "Arcane Blast",
                       "if=buff.arcane_charge.stack=4&mana.pct>93" );
   burn -> add_action( this, "Arcane Missiles",
-                      "if=buff.arcane_charge.stack=4" );
+                      "if=buff.arcane_charge.stack=4&(mana.pct>70|!cooldown.evocation.up)" );
   burn -> add_talent( this, "Supernova",
-                      "if=mana.pct<96" );
+                      "if=mana.pct>70&mana.pct<96" );
   burn -> add_action( "call_action_list,name=conserve,if=cooldown.evocation.duration-cooldown.evocation.remains<5",
                       "APL hack for evocation interrupt" );
   burn -> add_action( this, "Evocation",
                       "interrupt_if=mana.pct>92,if=time_to_die>10&mana.pct<50" );
-  burn -> add_action( this, "Presence of Mind" );
+  burn -> add_action( this, "Presence of Mind",
+                      "if=!talent.prismatic_crystal.enabled|!cooldown.prismatic_crystal.up" );
   burn -> add_action( this, "Arcane Blast" );
 
 
@@ -4989,7 +5072,7 @@ void mage_t::apl_arcane()
   conserve -> add_talent( this, "Arcane Orb",
                           "if=buff.arcane_charge.stack<2" );
   conserve -> add_action( this, "Presence of Mind",
-                          "if=mana.pct>96" );
+                          "if=mana.pct>96&(!talent.prismatic_crystal.enabled|!cooldown.prismatic_crystal.up)" );
   conserve -> add_action( this, "Arcane Blast",
                           "if=buff.arcane_charge.stack=4&mana.pct>93" );
   conserve -> add_action( this, "Arcane Missiles",
@@ -5001,7 +5084,7 @@ void mage_t::apl_arcane()
   conserve -> add_action( this, "Arcane Barrage",
                           "if=buff.arcane_charge.stack=4" );
   conserve -> add_action( this, "Presence of Mind",
-                          "if=buff.arcane_charge.stack<2" );
+                          "if=buff.arcane_charge.stack<2&(!talent.prismatic_crystal.enabled|!cooldown.prismatic_crystal.up)" );
   conserve -> add_action( this, "Arcane Blast" );
   conserve -> add_action( this, "Arcane Barrage", "moving=1" );
 
@@ -5173,6 +5256,8 @@ void mage_t::apl_frost()
 
   action_priority_list_t* crystal_sequence  = get_action_priority_list( "crystal_sequence" );
   action_priority_list_t* cooldowns         = get_action_priority_list( "cooldowns"        );
+  action_priority_list_t* init_water_jet    = get_action_priority_list( "init_water_jet"   );
+  action_priority_list_t* water_jet         = get_action_priority_list( "water_jet"        );
   action_priority_list_t* aoe               = get_action_priority_list( "aoe"              );
   action_priority_list_t* single_target     = get_action_priority_list( "single_target"    );
 
@@ -5185,12 +5270,17 @@ void mage_t::apl_frost()
                               "if=movement.remains>0" );
   default_list -> add_action( this, "Time Warp",
                               "if=target.health.pct<25|time>5" );
+  default_list -> add_action( "call_action_list,name=water_jet,if=prev.water_jet|debuff.water_jet.remains>0" );
   default_list -> add_talent( this, "Mirror Image" );
   default_list -> add_talent( this, "Ice Floes",
                               "if=buff.ice_floes.down&(raid_event.movement.distance>0|raid_event.movement.in<action.frostbolt.cast_time)" );
-  default_list -> add_talent( this, "Rune of Power", "if=buff.rune_of_power.remains<cast_time" );
-  default_list -> add_talent( this, "Rune of Power", "if=(cooldown.icy_veins.remains<gcd.max&buff.rune_of_power.remains<20)|(cooldown.prismatic_crystal.remains<gcd.max&buff.rune_of_power.remains<10)" );
+  default_list -> add_talent( this, "Rune of Power",
+                              "if=buff.rune_of_power.remains<cast_time" );
+  default_list -> add_talent( this, "Rune of Power",
+                              "if=(cooldown.icy_veins.remains<gcd.max&buff.rune_of_power.remains<20)|(cooldown.prismatic_crystal.remains<gcd.max&buff.rune_of_power.remains<10)" );
   default_list -> add_action( "call_action_list,name=cooldowns,if=time_to_die<24" );
+  default_list -> add_action( "water_jet,if=time<1&!(talent.ice_nova.enabled&talent.prismatic_crystal.enabled)",
+                              "Water jet on pull for non IN+PC talent combos" );
   default_list -> add_action( "call_action_list,name=crystal_sequence,if=talent.prismatic_crystal.enabled&(cooldown.prismatic_crystal.remains<=gcd.max|pet.prismatic_crystal.active)" );
   default_list -> add_action( "call_action_list,name=aoe,if=active_enemies>=4" );
   default_list -> add_action( "call_action_list,name=single_target" );
@@ -5229,6 +5319,23 @@ void mage_t::apl_frost()
 
   for( size_t i = 0; i < item_actions.size(); i++ )
     cooldowns -> add_action( item_actions[i] );
+
+
+  init_water_jet -> add_talent( this, "Frost Bomb",
+                                "if=remains<3.6",
+                                "Water Jet initialization" );
+  init_water_jet -> add_action( this, "Ice Lance",
+                                "if=buff.fingers_of_frost.react&pet.water_elemental.cooldown.water_jet.up" );
+  init_water_jet -> add_action( "water_jet,if=prev_gcd.frostbolt" );
+  init_water_jet -> add_action( this, "Frostbolt" );
+
+
+  water_jet -> add_action( this, "Frostbolt",
+                           "if=prev.water_jet",
+                           "Water Jet sequence" );
+  water_jet -> add_action( this, "Ice Lance",
+                           "if=buff.fingers_of_frost.react&action.frostbolt.in_flight" );
+  water_jet -> add_action( "call_action_list,name=single_target" );
 
 
   aoe -> add_action( "call_action_list,name=cooldowns",
@@ -5277,7 +5384,7 @@ void mage_t::apl_frost()
                                "Camp procs and spam Frostbolt while 4T17 buff is up" );
   single_target -> add_action( this, "Ice Lance",
                                "if=!talent.frost_bomb.enabled&buff.fingers_of_frost.react&(!talent.thermal_void.enabled|cooldown.icy_veins.remains>8)" );
-  single_target -> add_action( "water_jet,if=buff.fingers_of_frost.react=0&!dot.frozen_orb.ticking" );
+  single_target -> add_action( "call_action_list,name=init_water_jet,if=pet.water_elemental.cooldown.water_jet.remains<=gcd.max*(buff.fingers_of_frost.react+talent.frost_bomb.enabled)&!dot.frozen_orb.ticking" );
   single_target -> add_action( this, "Frostbolt" );
   single_target -> add_action( this, "Ice Lance", "moving=1" );
 
@@ -5464,7 +5571,7 @@ void mage_t::reset()
   rppm_pyromaniac.reset();
   rppm_arcane_instability.reset();
   last_bomb_target = 0;
-  pyro_switch.reset();
+  state_switch.reset();
 }
 
 // mage_t::regen  ===========================================================
@@ -5530,6 +5637,9 @@ void mage_t::arise()
 
   if ( talents.incanters_flow -> ok() )
     buffs.incanters_flow -> trigger();
+
+  if ( talents.prismatic_crystal -> ok() )
+    base.distance = 20;
 
   if ( perks.enhanced_frostbolt -> ok() && specialization() == MAGE_FROST )
     buffs.enhanced_frostbolt -> trigger();
@@ -5687,12 +5797,26 @@ expr_t* mage_t::create_expression( action_t* a, const std::string& name_str )
       pyro_chain_expr_t( mage_t& m ) : mage_expr_t( "pyro_chain", m ), mage( &m )
       {}
       virtual double evaluate()
-      { return mage -> pyro_switch.dump_state; }
+      { return mage -> state_switch.dump_state; }
     };
 
     return new pyro_chain_expr_t( *this );
   }
 
+  // Arcane Burn Flag Expression ===============================================
+  if ( name_str == "burn_rotation" )
+  {
+    struct burn_switch_expr_t : public mage_expr_t
+    {
+      mage_t* mage;
+      burn_switch_expr_t( mage_t& m ) : mage_expr_t( "burn_rotation", m ), mage( &m )
+      {}
+      virtual double evaluate()
+      { return mage -> state_switch.burn_rotation; }
+    };
+
+    return new burn_switch_expr_t( *this );
+  }
 
   if ( util::str_compare_ci( name_str, "shooting_icicles" ) )
   {
