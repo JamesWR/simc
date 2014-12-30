@@ -7,6 +7,9 @@
 #ifdef SC_WINDOWS
 #include <direct.h>
 #endif
+#ifdef SC_STD_THREAD
+#include <thread>
+#endif
 
 namespace { // UNNAMED NAMESPACE ============================================
 
@@ -969,7 +972,9 @@ sim_t::sim_t( sim_t* p, int index ) :
   talent_format( TALENT_FORMAT_UNCHANGED ),
   auto_ready_trigger( 0 ), stat_cache( 1 ), max_aoe_enemies( 20 ), show_etmi( 0 ), tmi_window_global( 0 ), tmi_bin_size( 0.5 ),
   requires_regen_event( false ), enemy_death_pct( 0 ), rel_target_level( -1 ), target_level( -1 ), target_adds( 0 ), desired_targets( 0 ), enable_taunts( false ),
-  challenge_mode( false ), scale_to_itemlevel( -1 ), disable_set_bonuses( false ), pvp_crit( false ), equalize_plot_weights( false ),
+  challenge_mode( false ), scale_to_itemlevel( -1 ),
+  disable_set_bonuses( false ), disable_2_set_bonus( false ), disable_4_set_bonus( false ),
+  pvp_crit( false ), equalize_plot_weights( false ),
   active_enemies( 0 ), active_allies( 0 ),
   _rng( 0 ), seed( 0 ), deterministic( false ),
   average_range( true ), average_gauss( false ),
@@ -1013,7 +1018,6 @@ sim_t::sim_t( sim_t* p, int index ) :
 
   max_time = timespan_t::from_seconds( 450 );
   vary_combat_length = 0.2;
-
   use_optimal_buffs_and_debuffs( 1 );
 
   create_options();
@@ -1024,6 +1028,10 @@ sim_t::sim_t( sim_t* p, int index ) :
   // create_options will check to see if they have used apikey= in their simulation options, find_api_key searches
   // in predetermined locations to see if they have saved the key to a file named 'api_key.txt'. The gui has a entry field setup
   // That will update the apikey variable whenever the user enters a key there.
+#ifdef SC_DEFAULT_APIKEY
+  if ( apikey.size() != 32 )
+    apikey = std::string(SC_DEFAULT_APIKEY);
+#endif
 
   work_queue = std::shared_ptr<work_queue_t>( new work_queue_t() );
 
@@ -2628,6 +2636,8 @@ void sim_t::create_options()
   add_option( opt_bool( "challenge_mode", challenge_mode ) );
   add_option( opt_int( "scale_to_itemlevel", scale_to_itemlevel ) );
   add_option( opt_bool( "disable_set_bonuses", disable_set_bonuses ) );
+  add_option( opt_bool( "disable_2_set_bonus", disable_2_set_bonus ) );
+  add_option( opt_bool( "disable_4_set_bonus", disable_4_set_bonus ) );
   add_option( opt_bool( "pvp", pvp_crit ) );
   add_option( opt_bool( "equalize_plot_weights", equalize_plot_weights ) );
   add_option( opt_int( "desired_targets", desired_targets ) );
@@ -2851,6 +2861,18 @@ void sim_t::setup( sim_control_t* c )
     log = 1;
     print_options();
   }
+
+#ifdef SC_STD_THREAD
+  // This is to resolve https://code.google.com/p/simulationcraft/issues/detail?id=2305
+  int max_threads = std::thread::hardware_concurrency();
+  if ( threads <= 0 && max_threads > 0 ) //max_threads will return 0 if it has no clue how many threads it can use.
+  {
+    threads *= -1;
+    if ( threads <= max_threads )
+      threads = max_threads - threads;
+  }
+#endif
+
   if ( log )
   {
     if ( ! debug_each )

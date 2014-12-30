@@ -1172,6 +1172,18 @@ player_t* bcp_api::download_player( sim_t*             sim,
       server + '/' + name + "?fields=talents,items,professions&locale=en_US&apikey=";
     player.url = player.cleanurl + sim -> apikey;
     player.origin = battlenet + "wow/character/" + server + '/' + name + "/advanced";
+#ifdef SC_DEFAULT_APIKEY
+  if ( sim -> apikey == std::string( SC_DEFAULT_APIKEY ) )
+  //This is needed to prevent hitting the 'per second' api call limit.
+  // If the character is cached, it still counts as a api use, even though we don't download anything.
+  // With cached characters, it's common for 30-40 calls to be made per second when downloading a guild.
+  // This is only enabled when the person is using the default apikey.
+#if defined ( SC_WINDOWS )
+    _sleep( 250 );
+#else
+    usleep( 250000 );
+#endif
+#endif
   }
   else
   {

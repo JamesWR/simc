@@ -1,9 +1,9 @@
-mage="Mage_Fire_T17N"
+mage="Mage_Fire_T17B"
 level=100
 race=troll
 role=spell
 position=back
-talents=3003223
+talents=3003322
 glyphs=inferno_blast/combustion/dragons_breath
 spec=fire
 
@@ -64,6 +64,7 @@ actions.combust_sequence+=/prismatic_crystal
 actions.combust_sequence+=/blood_fury
 actions.combust_sequence+=/berserking
 actions.combust_sequence+=/arcane_torrent
+actions.combust_sequence+=/use_item,slot=trinket1
 actions.combust_sequence+=/potion,name=draenic_intellect
 actions.combust_sequence+=/meteor
 actions.combust_sequence+=/pyroblast,if=set_bonus.tier17_4pc&buff.pyromaniac.up
@@ -106,31 +107,32 @@ actions.single_target+=/inferno_blast,if=buff.pyroblast.up&buff.heating_up.down&
 actions.single_target+=/fireball
 actions.single_target+=/scorch,moving=1
 
-head=arcanoshatter_hood,id=115553
-neck=gruuls_lip_ring,id=113872,enchant=gift_of_critical_strike
-shoulders=arcanoshatter_mantle,id=115551
-back=runefrenzy_greatcloak,id=113937,enchant=gift_of_critical_strike
-chest=arcanoshatter_robes,id=115550
-wrists=bracers_of_spattered_steel,id=113887
-hands=arcanoshatter_gloves,id=115552
-waist=seeking_ember_girdle,id=113941
-legs=turret_mechanics_legwraps,id=113970
-feet=cavedwellers_climbers,id=113864
-finger1=timeless_solium_band_of_the_archmage,id=118296,enchant=gift_of_critical_strike
-finger2=ukuroggs_corrupted_seal,id=113975,enchant=gift_of_critical_strike
-trinket1=blackiron_micro_crucible,id=113984
-trinket2=formidable_orb_of_putrescence,id=114611
-main_hand=infernoflame_staff,id=113869,enchant=mark_of_the_thunderlord
+head=arcanoshatter_hood,id=115553,bonus_id=42/562/565/567,gem_id=115809
+neck=gruuls_lip_ring,id=113872,bonus_id=42/562/565/567,gem_id=115809,enchant=gift_of_critical_strike
+shoulders=arcanoshatter_mantle,id=115551,bonus_id=42/562/565/567,gem_id=115809
+back=runefrenzy_greatcloak,id=113937,bonus_id=42/562/565/567,gem_id=115809,enchant=gift_of_critical_strike
+chest=eyecatching_gilded_robe,id=113898,bonus_id=42/562/565/567,gem_id=115809
+wrists=bracers_of_enkindled_power,id=113956,bonus_id=42/562/565/567,gem_id=115809
+hands=arcanoshatter_gloves,id=115552,bonus_id=42/562/565/567,gem_id=115809
+waist=seeking_ember_girdle,id=113941,bonus_id=42/562/565/567,gem_id=115809
+legs=arcanoshatter_leggings,id=115554,bonus_id=42/562/565/567,gem_id=115809
+feet=cavedwellers_climbers,id=113864,bonus_id=42/562/565/567,gem_id=115809
+finger1=spellbound_solium_band_of_the_kirintor,id=118301,gem_id=115809,enchant=gift_of_critical_strike
+finger2=epicenter_loop,id=113947,bonus_id=42/562/565/567,gem_id=115809,enchant=gift_of_critical_strike
+trinket1=shards_of_nothing,id=113835,bonus_id=42/562/565/567,gem_id=115809
+trinket2=blackiron_micro_crucible,id=113984,bonus_id=42/562/565/567,gem_id=115809
+main_hand=blackhand_doomstaff,id=113988,bonus_id=42/562/565/567,gem_id=115809,enchant=mark_of_the_thunderlord
 
 # Gear Summary
-# gear_stamina=3437
-# gear_intellect=2722
-# gear_spell_power=1325
-# gear_crit_rating=928
-# gear_haste_rating=730
-# gear_mastery_rating=1313
-# gear_armor=700
-# gear_multistrike_rating=235
-# gear_versatility_rating=78
+# gear_stamina=4734
+# gear_intellect=3919
+# gear_spell_power=1852
+# gear_crit_rating=2417
+# gear_haste_rating=1056
+# gear_mastery_rating=1231
+# gear_armor=909
+# gear_multistrike_rating=231
+# gear_versatility_rating=214
+# gear_speed_rating=1972
 # set_bonus=tier17_2pc=1
 # set_bonus=tier17_4pc=1
