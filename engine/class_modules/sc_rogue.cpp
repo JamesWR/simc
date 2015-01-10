@@ -727,7 +727,16 @@ struct rogue_attack_t : public melee_attack_t
     m *= 1.0 + tdata -> debuffs.vendetta -> value();
 
     if ( p() -> spec.sanguinary_vein -> ok() && tdata -> sanguinary_veins() )
-      m *= 1.0 + p() -> spec.sanguinary_vein -> effectN( 2 ).percent();
+    {
+      if ( p() -> wod_hotfix )
+      {
+        m *= 1.25;
+      }
+      else
+      {
+        m *= 1.0 + p() -> spec.sanguinary_vein -> effectN( 2 ).percent();
+      }
+    }
 
     return m;
   }
@@ -742,7 +751,7 @@ struct rogue_attack_t : public melee_attack_t
     return m;
   }
 
-  void trigger_sinister_calling( dot_t* dot );
+  void trigger_sinister_calling( dot_t* dot, bool may_crit = false, int may_multistrike = -1 );
 };
 
 // ==========================================================================
@@ -2040,6 +2049,7 @@ struct hemorrhage_t : public rogue_attack_t
     rogue_attack_t( "hemorrhage", p, p -> find_class_spell( "Hemorrhage" ), options_str )
   {
     ability_type = HEMORRHAGE;
+    dot_behavior = DOT_REFRESH;
     weapon = &( p -> main_hand_weapon );
     tick_may_crit = true;
     may_multistrike = true;
@@ -3139,12 +3149,12 @@ void rogue_t::trigger_auto_attack( const action_state_t* state )
   auto_attack -> execute();
 }
 
-inline void actions::rogue_attack_t::trigger_sinister_calling( dot_t* dot )
+inline void actions::rogue_attack_t::trigger_sinister_calling( dot_t* dot, bool may_cr, int may_ms )
 {
   int may_multistrike_ = may_multistrike;
-  may_multistrike = 0;
+  may_multistrike = may_ms;
   bool tick_may_crit_ = tick_may_crit;
-  tick_may_crit = false;
+  tick_may_crit = may_cr;
   dot -> current_tick++;
   dot -> tick();
   tick_may_crit = tick_may_crit_;
@@ -3193,13 +3203,13 @@ void rogue_t::trigger_sinister_calling( const action_state_t* state )
 
   rogue_td_t* tdata = get_target_data( state -> target );
   if ( tdata -> dots.rupture -> is_ticking() )
-    cast_attack( tdata -> dots.rupture -> current_action ) -> trigger_sinister_calling( tdata -> dots.rupture );
+    cast_attack( tdata -> dots.rupture -> current_action ) -> trigger_sinister_calling( tdata -> dots.rupture, true );
 
   if ( tdata -> dots.garrote -> is_ticking() )
-    cast_attack( tdata -> dots.garrote -> current_action ) -> trigger_sinister_calling( tdata -> dots.garrote );
+    cast_attack( tdata -> dots.garrote -> current_action ) -> trigger_sinister_calling( tdata -> dots.garrote, true );
 
   if ( tdata -> dots.hemorrhage -> is_ticking() )
-    cast_attack( tdata -> dots.hemorrhage -> current_action ) -> trigger_sinister_calling( tdata -> dots.hemorrhage );
+    cast_attack( tdata -> dots.hemorrhage -> current_action ) -> trigger_sinister_calling( tdata -> dots.hemorrhage, true );
 
   if ( tdata -> dots.crimson_tempest -> is_ticking() )
     cast_attack( tdata -> dots.crimson_tempest -> current_action ) -> trigger_sinister_calling( tdata -> dots.crimson_tempest );
@@ -4144,13 +4154,14 @@ struct shadow_reflection_pet_t : public pet_t
     }
   };
 
-  struct sr_hemorrhage_t : public shadow_reflection_attack_t
+  struct sr_hemorrhage_t: public shadow_reflection_attack_t
   {
     sr_hemorrhage_t( shadow_reflection_pet_t* p ):
       shadow_reflection_attack_t( "hemorrhage", p, p -> find_spell( 16511 ) )
     {
       tick_may_crit = true;
       may_multistrike = true;
+      dot_behavior = DOT_REFRESH;
       if ( p -> wod_hotfix )
       {
         weapon_multiplier *= 1.2 * 1.3;
@@ -4562,7 +4573,18 @@ double rogue_t::composite_attack_power_multiplier() const
 {
   double m = player_t::composite_attack_power_multiplier();
 
-  m *= 1.0 + spec.vitality -> effectN( 2 ).percent();
+  if ( spec.vitality -> ok() )
+  {
+    if ( wod_hotfix )
+    {
+      m *= 1.5;
+    }
+    else
+    {
+      m *= 1.0 + spec.vitality -> effectN( 2 ).percent();
+    }
+  }
+
 
   return m;
 }
@@ -4588,7 +4610,7 @@ double rogue_t::composite_player_multiplier( school_e school ) const
     if ( main_hand_weapon.type == WEAPON_DAGGER && off_hand_weapon.type == WEAPON_DAGGER && spec.assassins_resolve -> ok() )
     {
       if ( wod_hotfix )
-        m *= 1.1;
+        m *= 1.17;
       else
         m *= 1.0 + spec.assassins_resolve -> effectN( 2 ).percent();
     }
@@ -4797,6 +4819,7 @@ void rogue_t::init_action_list()
   }
   else if ( specialization() == ROGUE_SUBTLETY )
   {
+    precombat -> add_action( this, "Premeditation" );
     precombat -> add_action( this, "Slice and Dice" );
     precombat -> add_action( "honor_among_thieves,cooldown=2.2,cooldown_stddev=0.1",
                              "Proxy Honor Among Thieves action. Generates Combo Points at a mean rate of 2.2 seconds. Comment out to disable (and use the real Honor Among Thieves)." );
@@ -4817,7 +4840,7 @@ void rogue_t::init_action_list()
     def -> add_action( this, "Slice and Dice", "if=(buff.slice_and_dice.remains<10.8)&buff.slice_and_dice.remains<target.time_to_die&combo_points=((target.time_to_die-buff.slice_and_dice.remains)%6)+1" );
 
     // Shadow Dancing and Vanishing and Marking for the Deathing
-    def -> add_action( this, "Premeditation", "if=combo_points<=4&!(buff.shadow_dance.up&energy>100&combo_points>1)&!buff.subterfuge.up|(buff.subterfuge.up&debuff.find_weakness.up)&time>9" );
+    def -> add_action( this, "Premeditation", "if=combo_points<=4&!(buff.shadow_dance.up&energy>100&combo_points>1)&!buff.subterfuge.up|(buff.subterfuge.up&debuff.find_weakness.up)" );
     def -> add_action( this, find_class_spell( "Garrote" ), "pool_resource", "for_next=1" );
     def -> add_action( this, "Garrote", "if=!ticking&time<1" );
     def -> add_action( "wait,sec=buff.subterfuge.remains-0.1,if=buff.subterfuge.remains>0.5&buff.subterfuge.remains<1.6&time>6" );
@@ -5182,8 +5205,6 @@ void rogue_t::init_resources( bool force )
   player_t::init_resources( force );
 
   resources.current[ RESOURCE_COMBO_POINT ] = 0;
-  if ( specialization() == ROGUE_SUBTLETY ) // Sub rogues can start with 5 combo points, they just need a healer to cast a few heals before combat.
-    resources.current[ RESOURCE_COMBO_POINT ] = 5;
 }
 
 // rogue_t::init_buffs ======================================================

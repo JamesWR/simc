@@ -72,9 +72,84 @@ namespace spells {
 struct stagger_self_damage_t;
 }
 }
+namespace pets {
+struct storm_earth_and_fire_pet_t;
+}
 struct monk_t;
 
 enum stance_e { STURDY_OX = 0x1, FIERCE_TIGER = 0x2, SPIRITED_CRANE = 0x4, WISE_SERPENT = 0x8 };
+
+enum sef_pet_e { SEF_FIRE = 0, SEF_STORM, SEF_EARTH, SEF_PET_MAX };
+enum sef_ability_e {
+  SEF_NONE = -1,
+  SEF_JAB,
+  SEF_TIGER_PALM,
+  SEF_BLACKOUT_KICK,
+  SEF_RISING_SUN_KICK,
+  SEF_FISTS_OF_FURY,
+  SEF_SPINNING_CRANE_KICK,
+  SEF_MAX
+};
+
+namespace monk_util
+{
+// Special Monk Attack Weapon damage collection, if the pointers mh or oh are
+// set, instead of the classical action_t::weapon Damage is divided instead of
+// multiplied by the weapon speed, AP portion is not multiplied by weapon
+// speed.  Both MH and OH are directly weaved into one damage number
+double monk_weapon_damage( action_t* action,
+                           weapon_t* mh,
+                           weapon_t* oh,
+                           double weapon_power_mod,
+                           double ap )
+{
+  player_t* player = action -> player;
+  sim_t* sim = player -> sim;
+
+  double total_dmg = 0;
+  // Main Hand
+  if ( mh && mh -> type != WEAPON_NONE && weapon_power_mod > 0 )
+  {
+    assert( mh -> slot != SLOT_OFF_HAND );
+    double dmg = sim -> averaged_range( mh -> min_dmg, mh -> max_dmg ) + mh -> bonus_dmg;
+    dmg /= mh -> swing_time.total_seconds();
+    total_dmg += dmg;
+
+    if ( sim->debug )
+    {
+      sim -> out_debug.printf( "%s main hand weapon damage portion for %s: td=%.3f min_dmg=%.0f max_dmg=%.0f wd=%.3f bd=%.3f ws=%.3f ap=%.3f",
+                               player -> name(), action -> name(),
+                               total_dmg, mh -> min_dmg, mh -> max_dmg, dmg,
+                               mh -> bonus_dmg, mh -> swing_time.total_seconds(), ap );
+    }
+  }
+
+  // Off Hand
+  if ( oh && oh -> type != WEAPON_NONE && weapon_power_mod > 0 )
+  {
+    assert( oh -> slot == SLOT_OFF_HAND );
+    double dmg = sim -> averaged_range( oh -> min_dmg, oh -> max_dmg ) + oh -> bonus_dmg;
+    dmg /= oh -> swing_time.total_seconds();
+    // OH penalty
+    dmg *= 0.5;
+
+    total_dmg += dmg;
+
+    if ( sim -> debug )
+    {
+      sim -> out_debug.printf( "%s off-hand weapon damage portion for %s: td=%.3f min_dmg=%.0f max_dmg=%.0f wd=%.3f bd=%.3f ws=%.3f ap=%.3f",
+                               player -> name(), action -> name(), total_dmg, oh -> min_dmg, oh -> max_dmg, dmg, oh -> bonus_dmg, oh -> swing_time.total_seconds(), ap );
+    }
+  }
+
+  if ( player -> dual_wield() )
+    total_dmg *= 0.857143;
+
+  total_dmg += weapon_power_mod * ap;
+
+  return total_dmg;
+}
+} // Namespace 'monk_util' ends
 
 struct monk_td_t: public actor_pair_t
 {
@@ -91,6 +166,7 @@ public:
   {
     debuff_t* dizzying_haze;
     debuff_t* rising_sun_kick;
+    debuff_t* storm_earth_and_fire;
   } debuff;
 
   monk_t& monk;
@@ -111,6 +187,7 @@ public:
     action_t* chi_explosion_dot;
     action_t* healing_elixir;
     action_t* healing_sphere;
+    action_t* death_note;
     actions::spells::stagger_self_damage_t* stagger_self_damage;
   } active_actions;
 
@@ -126,6 +203,7 @@ public:
     buff_t* combo_breaker_ce;
     buff_t* combo_breaker_tp;
     buff_t* dampen_harm;
+    buff_t* death_note;
     buff_t* diffuse_magic;
     buff_t* elusive_brew_activated;
     buff_t* elusive_brew_stacks;
@@ -349,6 +427,7 @@ public:
     cooldown_t* healing_elixirs;
     cooldown_t* healing_sphere;
     cooldown_t* expel_harm;
+    cooldown_t* touch_of_death;
   } cooldown;
 
   struct passives_t
@@ -363,6 +442,11 @@ public:
     const spell_data_t* hotfix_passive;
 
   } passives;
+
+  struct pets_t
+  {
+    pets::storm_earth_and_fire_pet_t* sef[ SEF_PET_MAX ];
+  } pet;
 
   // Options
   struct options_t
@@ -388,13 +472,15 @@ public:
     glyph( glyphs_t() ),
     cooldown( cooldowns_t() ),
     passives( passives_t() ),
+    pet( pets_t() ),
     user_options( options_t() )
   {
     // actives
     _active_stance = FIERCE_TIGER;
-    cooldown.healing_elixirs = get_cooldown( "healing_elixirs" );
-    cooldown.healing_sphere = get_cooldown( "healing_sphere" );
-    cooldown.expel_harm = get_cooldown( "expel_harm" );
+    cooldown.healing_elixirs  = get_cooldown( "healing_elixirs" );
+    cooldown.healing_sphere   = get_cooldown( "healing_sphere" );
+    cooldown.expel_harm       = get_cooldown( "expel_harm" );
+    cooldown.touch_of_death   = get_cooldown( "touch_of_death" );
 
     regen_type = REGEN_DYNAMIC;
     regen_caches[CACHE_HASTE] = true;
@@ -404,7 +490,6 @@ public:
   // player_t overrides
   virtual action_t* create_action( const std::string& name, const std::string& options );
   virtual double    composite_armor_multiplier() const;
-  virtual double    composite_melee_speed() const;
   virtual double    composite_melee_crit() const;
   virtual double    composite_spell_crit() const;
   virtual double    energy_regen_per_second() const;
@@ -503,6 +588,643 @@ struct jade_serpent_statue_t: public statue_t
     base_t( sim, owner, n, PET_NONE, true )
   { }
 };
+
+// ==========================================================================
+// Storm Earth and Fire
+// ==========================================================================
+
+struct storm_earth_and_fire_pet_t : public pet_t
+{
+  struct sef_td_t: public actor_pair_t
+  {
+    debuff_t* rising_sun_kick;
+
+    sef_td_t( player_t* target, storm_earth_and_fire_pet_t* source ) :
+      actor_pair_t( target, source ),
+      rising_sun_kick( buff_creator_t( *this, "rising_sun_kick" ).spell( source -> find_spell( 130320 ) ) )
+    { }
+  };
+
+  // Storm, Earth, and Fire abilities begin =================================
+
+  struct sef_melee_attack_t : public melee_attack_t
+  {
+    weapon_t* main_hand;
+    weapon_t* off_hand;
+
+    action_t* source_action;
+
+    sef_melee_attack_t( const std::string& n,
+                        storm_earth_and_fire_pet_t* p,
+                        const spell_data_t* data = spell_data_t::nil(),
+                        weapon_t* w = 0 ) :
+      melee_attack_t( n, p, data ),
+      // Automatically presume main- and off-hand weapons if there's no
+      // specific weapon given
+      main_hand( ! w ? &( p -> main_hand_weapon ) : 0 ),
+      off_hand( ! w ? &( p -> off_hand_weapon ) : 0 ),
+      source_action( 0 )
+    {
+      // Make SEF attacks always background, so they do not consume resources
+      // or do anything associated with "foreground actions".
+      background = may_crit = true;
+      school = SCHOOL_PHYSICAL;
+
+      // Cooldowns are handled automatically by the mirror abilities, the SEF specific ones need none.
+      cooldown -> duration = timespan_t::zero();
+
+      // No costs are needed either
+      base_costs[ RESOURCE_ENERGY ] = 0;
+      base_costs[ RESOURCE_CHI ] = 0;
+
+      if ( w )
+      {
+        weapon = w;
+      }
+    }
+
+    double target_armor( player_t* t ) const
+    {
+      double a = melee_attack_t::target_armor( t );
+
+      if ( p() -> tiger_power -> up() )
+        a *= 1.0 - p() -> tiger_power -> check() * p() -> tiger_power -> data().effectN( 1 ).percent();
+
+      return a;
+    }
+
+    double composite_target_multiplier( player_t* t ) const
+    {
+      double m = melee_attack_t::composite_target_multiplier( t );
+
+      const sef_td_t* tdata = td( t );
+      if ( tdata -> rising_sun_kick -> check() )
+        m *= 1.0 + ( player -> wod_hotfix ? 0.10 : tdata -> rising_sun_kick -> data().effectN( 1 ).percent() ); // Hotfix nerf to 10% (down from 20%) on 2014/12/08
+
+      return m;
+    }
+
+    sef_td_t* td( player_t* t ) const
+    { return p() -> get_target_data( t ); }
+
+    monk_t* o()
+    { return debug_cast<monk_t*>( player -> cast_pet() -> owner ); }
+
+    const monk_t* o() const
+    { return debug_cast<const monk_t*>( player -> cast_pet() -> owner ); }
+
+    const storm_earth_and_fire_pet_t* p() const
+    { return debug_cast<storm_earth_and_fire_pet_t*>( player ); }
+
+    storm_earth_and_fire_pet_t* p()
+    { return debug_cast<storm_earth_and_fire_pet_t*>( player ); }
+
+    // SEF uses the "normal" monk weapon damage calculation, except for auto
+    // attacks.
+    double calculate_weapon_damage( double attack_power )
+    {
+      if ( main_hand || ( main_hand && off_hand ) )
+        return monk_util::monk_weapon_damage( this, main_hand, off_hand, weapon_power_mod, attack_power );
+      else
+        return melee_attack_t::calculate_weapon_damage( attack_power );
+    }
+
+    void schedule_execute( action_state_t* state = 0 )
+    {
+      // Target always follows the SEF clone's target, which is assigned during
+      // summon time
+      target = player -> target;
+
+      melee_attack_t::schedule_execute( state );
+    }
+
+    // TODO: This may need a flag (similar to Shadow Reflection) to indincate
+    // that we're snapshotting for the SEF. This is necessary if we need to
+    // filter out specific multipliers because they do not affect the pets. For
+    // now, it's left out. If it is put in, owner caches have to be invalidated
+    // before and after the snapshotting.
+    //
+    // NOTE: Autoattacks need special handling, and they have their own
+    // override for snapshotting
+    void snapshot_internal( action_state_t* state, uint32_t flags, dmg_e rt )
+    {
+      // Get an owner state object, and populate it with owner current stats
+      action_state_t* owner_state = source_action -> get_state();
+      owner_state -> target = state -> target;
+      owner_state -> n_targets = state -> n_targets;
+      owner_state -> chain_target = state -> chain_target;
+      // We don't need to snapshot owner AP or target based multipliers, we
+      // will get those on our own
+      source_action -> snapshot_internal( owner_state, flags & ~( STATE_AP | STATE_TGT_MUL_DA | STATE_TGT_MUL_TA ), rt );
+
+      // Copy owner stats to our state object, including any/all multipliers
+      // for the given ability.
+      state -> copy_state( owner_state );
+
+      // Storm, Earth, and Fire pets need to re-snapshot attack power due to
+      // AP inheritance coefficient, and target multipliers because it has
+      // its own debuffs.
+      if ( flags & STATE_AP )
+        state -> attack_power = composite_attack_power() * player -> composite_attack_power_multiplier();
+
+      if ( flags & STATE_TGT_MUL_DA )
+        state -> target_da_multiplier = composite_target_da_multiplier( state -> target );
+
+      if ( flags & STATE_TGT_MUL_TA )
+        state -> target_ta_multiplier = composite_target_ta_multiplier( state -> target );
+
+      // TODO: Check-recheck-figure out some day
+      // Apply a -5% modifier to all damage generated by the pets.
+      state -> da_multiplier /= 1.05;
+      state -> ta_multiplier /= 1.05;
+
+      // Release the used owner state object
+      action_state_t::release( owner_state );
+    }
+  };
+
+  // Auto attack ============================================================
+
+  struct melee_t: public sef_melee_attack_t
+  {
+    melee_t( const std::string& n, storm_earth_and_fire_pet_t* player, weapon_t* w ):
+      sef_melee_attack_t( n, player, spell_data_t::nil(), w )
+    {
+      background = repeating = may_crit = may_glance = true;
+
+      base_execute_time = w -> swing_time;
+      trigger_gcd = timespan_t::zero();
+      special = false;
+      auto_attack = true;
+
+      if ( player -> dual_wield() )
+      {
+        base_hit -= 0.19;
+      }
+
+      // NOTE: We don't care what hand is used, we just need the multipliers
+      // and from the owner, so we do not need to implement them globally for
+      // SEF pets.
+      source_action = player -> owner -> find_action( "melee_main_hand" );
+      // TODO: Can't really assert here, need to figure out a fallback if the
+      // windwalker does not use autoattacks (how likely is that?)
+      if ( sim -> debug )
+      {
+        sim -> errorf( "%s has no auto_attack in APL, Storm, Earth, and Fire pets cannot auto-attack.",
+            o() -> name() );
+      }
+    }
+
+    // Since we use owner multipliers, we need to apply (or remove!) the auto
+    // attack Way of the Monk multiplier from the AA damage.
+    void snapshot_internal( action_state_t* state, uint32_t flags, dmg_e rt )
+    {
+      sef_melee_attack_t::snapshot_internal( state, flags, rt );
+
+      if ( ! o() -> dual_wield() && player -> dual_wield() )
+      {
+        state -> da_multiplier *= 1.0 + ( p() -> wod_hotfix ? 0.25 : o() -> spec.way_of_the_monk_aa_damage -> effectN( 1 ).percent() ); // Hotfix to 25% (down from 40%) on Jan 07, 2015
+      }
+      else if ( o() -> dual_wield() && ! player -> dual_wield() )
+      {
+        state -> da_multiplier /= 1.0 + ( p() -> wod_hotfix ? 0.25 : o() -> spec.way_of_the_monk_aa_damage -> effectN( 1 ).percent() ); // Hotfix to 25% (down from 40%) on Jan 07, 2015
+      }
+    }
+
+    virtual timespan_t execute_time() const
+    {
+      timespan_t t = sef_melee_attack_t::execute_time();
+
+      if ( ! player -> dual_wield() )
+        t *= 1.0 / ( 1.0 + ( p() -> wod_hotfix ? 0.55 : o() -> spec.way_of_the_monk_aa_speed -> effectN( 1 ).percent() ) ); // Hotfix to 55% (up from 40%) on Jan 07, 2015
+
+      return t;
+    }
+
+    void execute()
+    {
+      if ( time_to_execute > timespan_t::zero() && player -> executing )
+      {
+        if ( sim -> debug )
+        {
+          sim -> out_debug.printf( "%s Executing '%s' during melee (%s).",
+              player -> name(),
+              player -> executing -> name(),
+              util::slot_type_string( weapon -> slot ) );
+        }
+
+        schedule_execute();
+      }
+      else
+        sef_melee_attack_t::execute();
+    }
+  };
+
+  struct auto_attack_t: public attack_t
+  {
+    auto_attack_t( storm_earth_and_fire_pet_t* player, const std::string& options_str ):
+      attack_t( "auto_attack", player, spell_data_t::nil() )
+    {
+      parse_options( options_str );
+
+      trigger_gcd = timespan_t::zero();
+
+      melee_t* mh = new melee_t( "auto_attack_mh", player, &( player -> main_hand_weapon ) );
+      if ( ! mh -> source_action )
+      {
+        background = true;
+        return;
+      }
+      player -> main_hand_attack = mh;
+
+      if ( player -> dual_wield() )
+      {
+        player -> off_hand_attack = new melee_t( "auto_attack_oh", player, &( player -> off_hand_weapon ) );
+      }
+    }
+
+    virtual void execute()
+    {
+      player -> main_hand_attack -> schedule_execute();
+
+      if ( player -> off_hand_attack )
+        player -> off_hand_attack -> schedule_execute();
+    }
+
+    virtual bool ready()
+    {
+      if ( player -> is_moving() ) return false;
+
+      return ( player -> main_hand_attack -> execute_event == 0 ); // not swinging
+    }
+  };
+
+  // Special attacks ========================================================
+  //
+  // Note, these automatically use the owner's multipliers, so there's no need
+  // to adjust anything here.
+
+  struct sef_jab_t : public sef_melee_attack_t
+  {
+    sef_jab_t( storm_earth_and_fire_pet_t* player ) :
+      sef_melee_attack_t( "jab", player, player -> o() -> find_class_spell( "Jab" ) )
+    { }
+  };
+
+  struct sef_tiger_palm_t : public sef_melee_attack_t
+  {
+    sef_tiger_palm_t( storm_earth_and_fire_pet_t* player ) :
+      sef_melee_attack_t( "tiger_palm", player, player -> o() -> find_class_spell( "Tiger Palm" ) )
+    { }
+
+    void execute()
+    {
+      sef_melee_attack_t::execute();
+
+      p() -> tiger_power -> trigger();
+    }
+  };
+
+  struct sef_blackout_kick_t : public sef_melee_attack_t
+  {
+    struct sef_blackout_kick_dot_t : public residual_action::residual_periodic_action_t < sef_melee_attack_t >
+    {
+      sef_blackout_kick_dot_t( storm_earth_and_fire_pet_t* p ):
+        base_t( "blackout_kick_dot", p, p -> find_spell( 128531 ) )
+      {
+        may_miss = may_crit = false;
+      }
+    };
+
+    sef_blackout_kick_dot_t* dot;
+
+    sef_blackout_kick_t( storm_earth_and_fire_pet_t* player ) :
+      sef_melee_attack_t( "blackout_kick", player, player -> owner -> find_class_spell( "Blackout Kick" ) ),
+      dot( new sef_blackout_kick_dot_t( player ) )
+    { }
+
+    void impact( action_state_t* state )
+    {
+      sef_melee_attack_t::impact( state );
+
+      if ( ( p() -> current.position == POSITION_BACK || p() -> o() -> glyph.blackout_kick ) &&
+           ( result_is_hit( state -> result ) || result_is_multistrike( state -> result ) ) )
+      {
+        residual_action::trigger( dot,
+                                  state -> target,
+                                  state -> result_amount * data().effectN( 2 ).percent() );
+      }
+    }
+  };
+
+  struct sef_rising_sun_kick_t : public sef_melee_attack_t
+  {
+    struct sef_rsk_debuff_t : public sef_melee_attack_t
+    {
+      sef_rsk_debuff_t( storm_earth_and_fire_pet_t* player ) :
+        sef_melee_attack_t( "rsk_debuff", player, player -> owner -> find_spell( 130320 ) )
+      {
+        may_crit = may_miss = may_block = callbacks = false;
+        quiet = dual = true;
+
+        weapon_power_mod = 0;
+        aoe = -1;
+      }
+
+      void init()
+      {
+        sef_melee_attack_t::init();
+
+        snapshot_flags = update_flags = 0;
+      }
+
+      void impact( action_state_t* state )
+      {
+        sef_melee_attack_t::impact( state );
+
+        td( state -> target ) -> rising_sun_kick -> trigger();
+      }
+    };
+
+    sef_rsk_debuff_t* debuff;
+
+    sef_rising_sun_kick_t( storm_earth_and_fire_pet_t* player ) :
+      sef_melee_attack_t( "rising_sun_kick", player, player -> o() -> spec.rising_sun_kick ),
+      debuff( new sef_rsk_debuff_t( player ) )
+    { }
+
+    void execute()
+    {
+      sef_melee_attack_t::execute();
+
+      debuff -> schedule_execute();
+    }
+  };
+
+  struct sef_tick_action_t : public sef_melee_attack_t
+  {
+    sef_tick_action_t( const std::string& name, storm_earth_and_fire_pet_t* p, const spell_data_t* data ) :
+      sef_melee_attack_t( name, p, data )
+    {
+      aoe = -1;
+
+      // Reset some variables to ensure proper execution
+      dot_duration = timespan_t::zero();
+      school = SCHOOL_PHYSICAL;
+    }
+  };
+
+  struct sef_fists_of_fury_tick_t: public sef_tick_action_t
+  {
+    sef_fists_of_fury_tick_t( storm_earth_and_fire_pet_t* p ):
+      sef_tick_action_t( "fists_of_fury_tick", p, p -> o() -> find_specialization_spell( "Fists of Fury" ) )
+    { }
+
+    // Damage must be divided on non-main target by the number of targets
+    double composite_aoe_multiplier( const action_state_t* state ) const
+    {
+      if ( state -> target != target )
+      {
+        return 1.0 / state -> n_targets;
+      }
+
+      return 1.0;
+    }
+  };
+
+  struct sef_fists_of_fury_t : public sef_melee_attack_t
+  {
+    sef_fists_of_fury_t( storm_earth_and_fire_pet_t* player ) :
+      sef_melee_attack_t( "fists_of_fury", player, player -> o() -> find_specialization_spell( "Fists of Fury" ) )
+    {
+      channeled = tick_zero = true;
+      may_crit = may_miss = may_block = may_dodge = may_parry = callbacks = false;
+
+      weapon_power_mod = 0;
+
+      tick_action = new sef_fists_of_fury_tick_t( player );
+    }
+  };
+
+  struct sef_spinning_crane_kick_t : public sef_melee_attack_t
+  {
+    sef_spinning_crane_kick_t( storm_earth_and_fire_pet_t* player ) :
+      sef_melee_attack_t( "spinning_crane_kick", player, player -> o() -> find_class_spell( "Spinning Crane Kick" ) )
+    {
+      channeled = tick_zero = true;
+      may_crit = may_miss = may_block = may_dodge = may_parry = callbacks = false;
+
+      base_tick_time *= 1.0 + o() -> perk.empowered_spinning_crane_kick -> effectN( 1 ).percent();
+      dot_duration *= 1.0 + o() -> perk.empowered_spinning_crane_kick -> effectN( 2 ).percent();
+
+      weapon_power_mod = 0;
+
+      tick_action = new sef_tick_action_t( "spinning_crane_kick_tick", player, &( data() ) );
+    }
+  };
+
+  // Storm, Earth, and Fire abilities end ===================================
+
+  // SEF has its own Tiger Power armor penetration buff
+  buff_t* tiger_power;
+
+  std::vector<sef_melee_attack_t*> attacks;
+
+private:
+  target_specific_t<sef_td_t*> target_data;
+public:
+
+  storm_earth_and_fire_pet_t( const std::string& name, sim_t* sim, monk_t* owner, bool dual_wield ):
+    pet_t( sim, owner, name, true ),
+    tiger_power( 0 ), attacks( SEF_MAX )
+  {
+    // Storm, Earth, and Fire pets have to become "Windwalkers", so we can get
+    // around some sanity checks in the action execution code, that prevents
+    // abilities meant for a certain specialization to be executed by actors
+    // that do not have the specialization.
+    _spec = MONK_WINDWALKER;
+
+    double mh_dps = 0;
+    if ( owner -> items[ SLOT_MAIN_HAND ].parsed.data.id > 0 )
+    {
+      mh_dps = owner -> dbc.weapon_dps( owner -> items[ SLOT_MAIN_HAND ].parsed.data.id,
+                                        owner -> items[ SLOT_MAIN_HAND ].item_level() );
+    }
+
+    main_hand_weapon.type = WEAPON_BEAST;
+    main_hand_weapon.swing_time = timespan_t::from_seconds( dual_wield ? 2.6 : 3.6 );
+
+    if ( dual_wield )
+    {
+      off_hand_weapon.type = WEAPON_BEAST;
+      off_hand_weapon.swing_time = timespan_t::from_seconds( 2.6 );
+    }
+
+    // TODO: Check if the 0.74164 is global, or AA only?
+    // Use 100% AP inheritance for now, Blizzard has 0.74164 for something but
+    // it does not seem to fit us.
+    owner_coeff.ap_from_ap = 1.0;
+  }
+
+  void init_stats()
+  {
+    pet_t::init_stats();
+
+    unsigned owner_ilevel = owner -> items[ SLOT_MAIN_HAND ].item_level();
+    unsigned owner_quality = owner -> items[ SLOT_MAIN_HAND ].parsed.data.quality;
+    // Heirlooms?
+    if ( owner_quality > 6 )
+    {
+      owner_quality = 4;
+    }
+
+    double normalized_dps = 0;
+    bool owner_caster_weapon = ( owner -> items[ SLOT_MAIN_HAND ].parsed.data.flags_2 & ITEM_FLAG2_CASTER_WEAPON ) != 0;
+
+    // Use ilevel to figure out base dps
+    if ( owner_ilevel > 0 )
+    {
+      // Dual wielding pet, use one hand dps
+      if ( main_hand_weapon.swing_time == timespan_t::from_seconds( 2.6 ) )
+      {
+        if ( owner_caster_weapon )
+        {
+          normalized_dps = dbc.item_damage_caster_1h( owner_ilevel ).values[ owner_quality ];
+        }
+        else
+        {
+          normalized_dps = dbc.item_damage_1h( owner_ilevel ).values[ owner_quality ];
+        }
+      }
+      // 2h pet
+      else
+      {
+        if ( owner_caster_weapon )
+        {
+          normalized_dps = dbc.item_damage_caster_2h( owner_ilevel ).values[ owner_quality ];
+        }
+        else
+        {
+          normalized_dps = dbc.item_damage_2h( owner_ilevel ).values[ owner_quality ];
+        }
+      }
+    }
+    // Use min/max dmg of the weapon to approximate base dps
+    else
+    {
+      normalized_dps = owner -> main_hand_weapon.min_dmg + owner -> main_hand_weapon.max_dmg;
+      normalized_dps /= 2;
+      normalized_dps /= owner -> main_hand_weapon.swing_time.total_seconds();
+    }
+
+    // Very simplified version of weapon damage computation (see
+    // item_database::weapon_dps)
+    //
+    // TODO: Damage range always 0.4 for the pets?
+    main_hand_weapon.min_dmg = floor( normalized_dps * main_hand_weapon.swing_time.total_seconds() * ( 1 - 0.4 / 2 ) );
+    main_hand_weapon.max_dmg = ceil( normalized_dps * main_hand_weapon.swing_time.total_seconds() * ( 1 + 0.4 / 2 ) + 0.5 );
+
+    if ( main_hand_weapon.swing_time == timespan_t::from_seconds( 2.6 ) )
+    {
+      off_hand_weapon.min_dmg = floor( normalized_dps * off_hand_weapon.swing_time.total_seconds() * ( 1 - 0.4 / 2 ) );
+      off_hand_weapon.max_dmg = ceil( normalized_dps * off_hand_weapon.swing_time.total_seconds() * ( 1 + 0.4 / 2 ) + 0.5 );
+    }
+  }
+
+  timespan_t available() const
+  { return sim -> expected_iteration_time * 2; }
+
+  monk_t* o()
+  {
+    return debug_cast<monk_t*>( owner );
+  }
+
+  const monk_t* o() const
+  {
+    return debug_cast<const monk_t*>( owner );
+  }
+
+  sef_td_t* get_target_data( player_t* target ) const
+  {
+    sef_td_t*& td = target_data[ target ];
+    if ( ! td )
+    {
+      td = new sef_td_t( target, const_cast< storm_earth_and_fire_pet_t*>( this ) );
+    }
+    return td;
+  }
+
+  void create_buffs()
+  {
+    pet_t::create_buffs();
+
+    tiger_power = buff_creator_t( this, "tiger_power", o() -> find_class_spell( "Tiger Palm" ) -> effectN( 2 ).trigger() )
+      .refresh_behavior( BUFF_REFRESH_PANDEMIC );
+  }
+
+  void init_spells()
+  {
+    pet_t::init_spells();
+
+    attacks[ SEF_JAB                 ] = new sef_jab_t( this );
+    attacks[ SEF_TIGER_PALM          ] = new sef_tiger_palm_t( this );
+    attacks[ SEF_BLACKOUT_KICK       ] = new sef_blackout_kick_t( this );
+    attacks[ SEF_RISING_SUN_KICK     ] = new sef_rising_sun_kick_t( this );
+    attacks[ SEF_FISTS_OF_FURY       ] = new sef_fists_of_fury_t( this );
+    attacks[ SEF_SPINNING_CRANE_KICK ] = new sef_spinning_crane_kick_t( this );
+  }
+
+  void init_action_list()
+  {
+    action_list_str = "auto_attack";
+
+    pet_t::init_action_list();
+  }
+
+  action_t* create_action( const std::string& name,
+                           const std::string& options_str )
+  {
+    if ( name == "auto_attack" )
+      return new auto_attack_t( this, options_str );
+
+    return pet_t::create_action( name, options_str );
+  }
+
+  void summon( timespan_t duration = timespan_t::zero() )
+  {
+    pet_t::summon( duration );
+
+    o() -> buff.storm_earth_and_fire -> trigger();
+    // Note, storm_earth_fire_t (the summoning spell) has already set the
+    // correct target
+    monk_td_t* owner_td = o() -> get_target_data( target );
+    assert( owner_td -> debuff.storm_earth_and_fire -> check() == 0 );
+    owner_td -> debuff.storm_earth_and_fire -> trigger();
+  }
+
+  void dismiss()
+  {
+    pet_t::dismiss();
+
+    if ( ! target -> is_sleeping() )
+    {
+      monk_td_t* owner_td = o() -> get_target_data( target );
+      assert( owner_td -> debuff.storm_earth_and_fire -> check() == 1 );
+      owner_td -> debuff.storm_earth_and_fire -> expire();
+    }
+
+    o() -> buff.storm_earth_and_fire -> decrement();
+  }
+
+  void trigger_attack( sef_ability_e ability, action_t* action )
+  {
+    assert( attacks[ ability ] );
+
+    attacks[ ability ] -> source_action = action;
+    attacks[ ability ] -> schedule_execute();
+  }
+};
+
 
 // ==========================================================================
 // Xuen Pet
@@ -617,7 +1339,7 @@ public:
     main_hand_weapon.swing_time = timespan_t::from_seconds( 1.0 );
     owner_coeff.ap_from_ap = 0.33;
     if ( o() -> wod_hotfix )
-      owner_coeff.ap_from_ap = 0.60; // Hotfix applied on Oct-17-2014
+      owner_coeff.ap_from_ap = 0.60; // Hotfix applied on Oct 17, 2014
   }
 
   monk_t* o()
@@ -645,174 +1367,6 @@ public:
     return pet_t::create_action( name, options_str );
   }
 };
-
-// ==========================================================================
-// Storm, Earth, and Fire Pet
-// ==========================================================================
-struct storm_earth_and_fire_pet_t: pet_t
-{
-private:
-  struct sef_spell_t: spell_t
-  {
-    sef_spell_t( const std::string& n, storm_earth_and_fire_pet_t* p, const spell_data_t* s = spell_data_t::nil() ):
-      spell_t( n, p, s )
-    {
-      background = true;
-    }
-
-    storm_earth_and_fire_pet_t* p()
-    {
-      return static_cast<storm_earth_and_fire_pet_t*>( player );
-    }
-    const storm_earth_and_fire_pet_t* p() const
-    {
-      return static_cast<storm_earth_and_fire_pet_t*>( player );
-    }
-
-    monk_t* o()
-    {
-      return static_cast<monk_t*>( p() -> owner );
-    }
-    const monk_t* o() const
-    {
-      return static_cast<monk_t*>( p() -> owner );
-    }
-  };
-
-  struct sef_heal_t: public heal_t
-  {
-    sef_heal_t( const std::string& n, storm_earth_and_fire_pet_t* p, const spell_data_t* s = spell_data_t::nil() ):
-      heal_t( n, p, s )
-    {
-      background = true;
-      harmful = false;
-    }
-
-    storm_earth_and_fire_pet_t* p()
-    {
-      return static_cast<storm_earth_and_fire_pet_t*>( player );
-    }
-    const storm_earth_and_fire_pet_t* p() const
-    {
-      return static_cast<storm_earth_and_fire_pet_t*>( player );
-    }
-
-    monk_t* o()
-    {
-      return static_cast<monk_t*>( p() -> owner );
-    }
-    const monk_t* o() const
-    {
-      return static_cast<monk_t*>( p() -> owner );
-    }
-  };
-
-  struct sef_melee_attack_t: public melee_attack_t
-  {
-    weapon_t* mh;
-    weapon_t* oh;
-    sef_melee_attack_t( const std::string& n, storm_earth_and_fire_pet_t* p, const spell_data_t* s = spell_data_t::nil() ):
-      melee_attack_t( n, p, s ), mh( NULL ), oh( NULL )
-    {
-      background = true;
-      special = true;
-      may_crit = true;
-      may_glance = false;
-      school = SCHOOL_PHYSICAL;
-    }
-
-    storm_earth_and_fire_pet_t* p()
-    {
-      return static_cast<storm_earth_and_fire_pet_t*>( player );
-    }
-    const storm_earth_and_fire_pet_t* p() const
-    {
-      return static_cast<storm_earth_and_fire_pet_t*>( player );
-    }
-
-    monk_t* o()
-    {
-      return static_cast<monk_t*>( p() -> owner );
-    }
-    const monk_t* o() const
-    {
-      return static_cast<monk_t*>( p() -> owner );
-    }
-
-    // Special Monk Attack Weapon damage collection, if the pointers mh or oh are set, instead of the classical action_t::weapon
-    // Damage is divided instead of multiplied by the weapon speed, AP portion is not multiplied by weapon speed.
-    // Both MH and OH are directly weaved into one damage number
-    virtual double calculate_weapon_damage( double ap )
-    {
-      double total_dmg = 0;
-
-      // Main Hand
-      if ( mh != NULL && mh -> type != WEAPON_NONE && weapon_multiplier > 0 )
-      {
-        assert( mh -> slot != SLOT_OFF_HAND );
-        double dmg = sim -> averaged_range( mh -> min_dmg, mh -> max_dmg ) + mh -> bonus_dmg;
-        dmg /= mh -> swing_time.total_seconds();
-        total_dmg += dmg;
-
-        if ( sim -> debug )
-        {
-          sim -> out_debug.printf( "%s main hand weapon damage portion for %s: td=%.3f wd=%.3f bd=%.3f ws=%.3f ap=%.3f",
-                                   player -> name(), name(), total_dmg, dmg, mh -> bonus_dmg, mh -> swing_time.total_seconds(), ap );
-        }
-      }
-
-      // Off Hand
-      if ( oh && oh -> type != WEAPON_NONE && weapon_multiplier > 0 )
-      {
-        assert( oh -> slot == SLOT_OFF_HAND );
-        double dmg = sim -> averaged_range( oh -> min_dmg, oh -> max_dmg ) + oh -> bonus_dmg;
-        dmg /= oh -> swing_time.total_seconds();
-        // OH penalty
-        dmg *= 0.5;
-
-        total_dmg += dmg;
-
-        if ( sim -> debug )
-        {
-          sim -> out_debug.printf( "%s off-hand weapon damage portion for %s: td=%.3f wd=%.3f bd=%.3f ws=%.3f ap=%.3f",
-                                   player -> name(), name(), total_dmg, dmg, oh -> bonus_dmg, oh -> swing_time.total_seconds(), ap );
-        }
-      }
-
-      if ( o() -> dual_wield() )
-        total_dmg *= 0.857143;
-
-      if ( !mh && !oh )
-        total_dmg += calculate_weapon_damage( ap );
-      else
-        total_dmg += weapon_power_mod * ap;
-
-      return total_dmg;
-    }
-  };
-public:
-  storm_earth_and_fire_pet_t( sim_t* sim, monk_t* owner ):
-    pet_t( sim, owner, "storm_earth_and_fire", true )
-  {
-    main_hand_weapon.type = owner -> main_hand_weapon.type;
-    main_hand_weapon.min_dmg = dbc.spell_scaling( owner -> type, level );
-    main_hand_weapon.max_dmg = dbc.spell_scaling( owner -> type, level );
-    main_hand_weapon.damage = ( main_hand_weapon.min_dmg + main_hand_weapon.max_dmg ) / 2;
-    main_hand_weapon.swing_time = owner -> main_hand_weapon.swing_time;
-
-    off_hand_weapon.type = owner -> off_hand_weapon.type;
-    off_hand_weapon.min_dmg = dbc.spell_scaling( owner -> type, level );
-    off_hand_weapon.max_dmg = dbc.spell_scaling( owner -> type, level );
-    off_hand_weapon.damage = ( off_hand_weapon.min_dmg + off_hand_weapon.max_dmg ) / 2;
-    off_hand_weapon.swing_time = owner -> off_hand_weapon.swing_time;
-    owner_coeff.ap_from_ap = 1;
-
-  }
-  monk_t* o()
-  {
-    return static_cast<monk_t*>( owner );
-  }
-};
 } // end namespace pets
 
 namespace actions {
@@ -825,6 +1379,7 @@ template <class Base>
 struct monk_action_t: public Base
 {
   int stancemask;
+  sef_ability_e sef_ability;
 
 private:
   std::array < resource_e, WISE_SERPENT + 1 > _resource_by_stance;
@@ -835,7 +1390,8 @@ public:
   monk_action_t( const std::string& n, monk_t* player,
                  const spell_data_t* s = spell_data_t::nil() ):
                  ab( n, player, s ),
-                 stancemask( STURDY_OX | FIERCE_TIGER | WISE_SERPENT | SPIRITED_CRANE )
+                 stancemask( STURDY_OX | FIERCE_TIGER | WISE_SERPENT | SPIRITED_CRANE ),
+                 sef_ability( SEF_NONE )
   {
     ab::may_crit = true;
     range::fill( _resource_by_stance, RESOURCE_MAX );
@@ -1023,6 +1579,25 @@ public:
     }
     }*/
     ab::execute();
+
+    trigger_storm_earth_and_fire();
+  }
+
+  void trigger_storm_earth_and_fire()
+  {
+    if ( sef_ability == SEF_NONE )
+    {
+      return;
+    }
+
+    for ( sef_pet_e i = SEF_FIRE; i < SEF_PET_MAX; i++ )
+    {
+      if ( p() -> pet.sef[ i ] -> is_sleeping() )
+      {
+        continue;
+      }
+      p() -> pet.sef[ i ] -> trigger_attack( sef_ability, this );
+    }
   }
 };
 
@@ -1039,7 +1614,7 @@ struct monk_spell_t: public monk_action_t < spell_t >
     double m = base_t::composite_target_multiplier( t );
 
     if ( td( t ) -> debuff.rising_sun_kick -> check() )
-      m *= 1.0 + ( td( t ) -> debuff.rising_sun_kick -> data().effectN( 1 ).percent() * 0.50 ); // Hotfix nerf to 10% (down from 20%) on 2014/12/08;
+      m *= 1.0 + ( p() -> wod_hotfix ? 0.10 : td( t ) -> debuff.rising_sun_kick -> data().effectN( 1 ).percent() ); // Hotfix to 10% (down from 20%) on Dec 08, 2014
 
     return m;
   }
@@ -1135,7 +1710,7 @@ struct monk_melee_attack_t: public monk_action_t < melee_attack_t >
     double m = base_t::composite_target_multiplier( t );
 
     if ( td( t ) -> debuff.rising_sun_kick -> check() && special )
-      m *= 1.0 + ( td( t ) -> debuff.rising_sun_kick -> data().effectN( 1 ).percent() * 0.50 ); // Hotfix nerf to 10% (down from 20%) on 2014/12/08
+      m *= 1.0 + ( p() -> wod_hotfix ? 0.10 : td( t ) -> debuff.rising_sun_kick -> data().effectN( 1 ).percent() ); // Hotfix to 10% (down from 20%) on Dec 08, 2014
 
     return m;
   }
@@ -1155,6 +1730,8 @@ struct jab_t: public monk_melee_attack_t
   jab_t( monk_t* p, const std::string& options_str ):
     monk_melee_attack_t( "jab", p, jab_data( p ) )
   {
+    sef_ability = SEF_JAB;
+
     parse_options( options_str );
     stancemask = STURDY_OX | FIERCE_TIGER | SPIRITED_CRANE;
 
@@ -1227,11 +1804,12 @@ struct tiger_palm_t: public monk_melee_attack_t
     monk_melee_attack_t( "tiger_palm", p, p -> find_class_spell( "Tiger Palm" ) )
   {
     parse_options( options_str );
+    sef_ability = SEF_TIGER_PALM;
     stancemask = STURDY_OX | FIERCE_TIGER | SPIRITED_CRANE;
     mh = &( player -> main_hand_weapon );
     oh = &( player -> off_hand_weapon );
     base_multiplier *= 3; // hardcoded into tooltip
-    if (p -> wod_hotfix)
+    if ( p -> wod_hotfix )
       base_multiplier *= 1 + p -> passives.hotfix_passive -> effectN( 3 ).percent();
     if ( p -> specialization() == MONK_MISTWEAVER )
       base_multiplier *= 2;
@@ -1341,6 +1919,8 @@ struct blackout_kick_t: public monk_melee_attack_t
 
     if ( p -> spec.teachings_of_the_monastery -> ok() )
       aoe = 1 + p -> spec.teachings_of_the_monastery -> effectN( 4 ).base_value();
+
+    sef_ability = SEF_BLACKOUT_KICK;
   }
 
   virtual void impact( action_state_t* s )
@@ -1638,169 +2218,189 @@ struct rising_sun_kick_t: public monk_melee_attack_t
 };
 
 // ==========================================================================
-// Spinning Crane Kick
+// Spinning Crane Kick / Jade Rushing Wind
 // ==========================================================================
-bool chi_refund = false;
 
-struct spinning_crane_kick_t: public monk_melee_attack_t
+// Shared tick action for both abilities
+struct tick_action_t : public monk_melee_attack_t
 {
-  struct spinning_crane_kick_tick_t: public monk_melee_attack_t
+  const spell_data_t* resource_gain;
+  bool first_tick;
+
+  tick_action_t( const std::string& name, monk_t* p, const spell_data_t* data ) :
+    monk_melee_attack_t( name, p, data ),
+    resource_gain( p -> find_spell( 129881 ) ),
+    first_tick( false )
   {
-    spinning_crane_kick_tick_t( monk_t* p, const spell_data_t* s ):
-      monk_melee_attack_t( "spinning_crane_kick_tick", p, s )
-    {
-      dual = true;
-      aoe = -1;
-      mh = &( player -> main_hand_weapon );
-      oh = &( player -> off_hand_weapon );
-      base_multiplier *= 0.75; // hardcoded into tooltip
-      update_flags = ~STATE_HASTE;
-      if ( p -> wod_hotfix )
-        base_multiplier *= 1 + p -> passives.hotfix_passive -> effectN( 3 ).percent();
-    }
+    dual = background = true;
+    aoe = -1;
+    mh = &( player -> main_hand_weapon );
+    oh = &( player -> off_hand_weapon );
 
-    void execute()
-    {
-      monk_melee_attack_t::execute();
-      if ( execute_state -> n_targets >= 3 && chi_refund )
-      {
-        player -> resource_gain( RESOURCE_CHI, p() -> find_spell( 129881 ) -> effectN( 1 ).base_value(),
-                                 p() -> gain.spinning_crane_kick, this );
-        chi_refund = false; // Only let one tick refund chi.
-      }
-
-      if ( p() -> buff.power_strikes -> up() && execute_state -> n_targets >= 3 )
-      {
-        if ( p() -> resources.current[RESOURCE_CHI] < p() -> resources.max[RESOURCE_CHI] )
-          p() -> resource_gain( RESOURCE_CHI,
-          p() -> buff.power_strikes -> data().effectN( 1 ).base_value(),
-          0, this );
-        else
-          p() -> buff.chi_sphere -> trigger();
-
-        p() -> buff.power_strikes -> expire();
-      }
-    }
-  };
-
-  struct rushing_jade_wind_tick_t: public monk_melee_attack_t
-  {
-    rushing_jade_wind_tick_t( monk_t* p, const spell_data_t* s ):
-      monk_melee_attack_t( "rushing_jade_wind_tick", p, s )
-    {
-      dual = true;
-      aoe = -1;
-      dot_duration = timespan_t::zero();
-      mh = &( player -> main_hand_weapon );
-      oh = &( player -> off_hand_weapon );
-      base_multiplier *= 0.6; // hardcoded into tooltip
-      school = SCHOOL_PHYSICAL;
-      trigger_gcd = timespan_t::zero();
-      base_costs[RESOURCE_ENERGY] = 0;
-      cooldown -> duration = timespan_t::zero();
-      if ( p -> wod_hotfix )
-        base_multiplier *= 1 + p -> passives.hotfix_passive -> effectN( 3 ).percent();
-
-    }
-
-    void execute()
-    {
-      monk_melee_attack_t::execute();
-      if ( execute_state -> n_targets >= 3 && chi_refund )
-      {
-        player -> resource_gain( RESOURCE_CHI, p() -> find_spell( 129881 ) -> effectN( 1 ).base_value(),
-                                 p() -> gain.rushing_jade_wind, this );
-        chi_refund = false; // Only let one tick refund chi.
-      }
-
-      if ( p() -> buff.power_strikes -> up() && execute_state -> n_targets >= 3 )
-      {
-        if ( p() -> resources.current[RESOURCE_CHI] < p() -> resources.max[RESOURCE_CHI] )
-          p() -> resource_gain( RESOURCE_CHI,
-          p() -> buff.power_strikes -> data().effectN( 1 ).base_value(),
-          0, this );
-        else
-          p() -> buff.chi_sphere -> trigger();
-
-        p() -> buff.power_strikes -> expire();
-      }
-    }
-  };
-
-  rushing_jade_wind_tick_t* jade;
-  spinning_crane_kick_tick_t* crane;
-  spinning_crane_kick_t( monk_t* p, const std::string& options_str ):
-    monk_melee_attack_t( p -> talent.rushing_jade_wind -> ok() ? "rushing_jade_wind" : "spinning_crane_kick",
-    p,
-    p -> talent.rushing_jade_wind -> ok() ? p -> talent.rushing_jade_wind : p -> spec.spinning_crane_kick ),
-    jade( 0 ), crane( 0 )
-  {
-    parse_options( options_str );
-    stancemask = STURDY_OX | FIERCE_TIGER | WISE_SERPENT | SPIRITED_CRANE;
-    may_crit = may_miss = may_block = may_dodge = may_parry = callbacks = false;
-    tick_zero = hasted_ticks = true;
-
-    if ( p -> talent.rushing_jade_wind -> ok() )
-    {
-      channeled = false;
-      update_flags &= ~STATE_HASTE;
-      school = SCHOOL_NATURE; // Application is Nature but the actual damage ticks is Physical
-      jade = new rushing_jade_wind_tick_t( p, p -> talent.rushing_jade_wind );
-      add_child( jade );
-    }
-    else
-    {
-      school = SCHOOL_PHYSICAL;
-      channeled = true;
-      cooldown -> duration *= 1 + p -> perk.empowered_spinning_crane_kick -> effectN( 1 ).percent();
-      base_tick_time *= 1 + p -> perk.empowered_spinning_crane_kick -> effectN( 1 ).percent();
-      crane = new spinning_crane_kick_tick_t( p, p -> find_spell( 107270 ) );
-      add_child( crane );
-    }
-  }
-
-  timespan_t dot_duration()
-  {
-    timespan_t dot_length = dot_duration();
-
-    if ( !p() -> talent.rushing_jade_wind -> ok() )
-      dot_length *= 1 + p() -> perk.empowered_spinning_crane_kick -> effectN( 2 ).percent();
-    else
-      dot_length = dot_length * p() -> cache.attack_haste();
-
-    return dot_length;
-  }
-
-  void tick( dot_t*d )
-  {
-    monk_melee_attack_t::tick( d );
-    if ( crane != NULL )
-      crane -> execute();
-    else if ( jade != NULL )
-      jade -> execute();
-  }
-
-  void update_ready( timespan_t cd_duration )
-  {
-    if ( p() -> talent.rushing_jade_wind -> ok() )
-      cd_duration = cooldown -> duration * p() -> cache.attack_haste();
-
-    monk_melee_attack_t::update_ready( cd_duration );
+    // Reset some variables to ensure proper execution
+    dot_duration = timespan_t::zero();
+    school = SCHOOL_PHYSICAL;
+    cooldown -> duration = timespan_t::zero();
+    base_costs[ RESOURCE_ENERGY ] = 0;
   }
 
   void execute()
   {
-    chi_refund = true;
     monk_melee_attack_t::execute();
 
-    if ( p() -> talent.rushing_jade_wind -> ok() )
-      p() -> buff.rushing_jade_wind -> trigger( 1, 0, 1.0, cooldown -> duration * p() -> cache.attack_haste() );
+    // 3+ targets does special things
+    if ( execute_state -> n_targets < 3 )
+    {
+      return;
+    }
+
+    if ( first_tick )
+    {
+      player -> resource_gain( RESOURCE_CHI,
+                               resource_gain -> effectN( 1 ).base_value(),
+                               p() -> gain.spinning_crane_kick,
+                               this );
+      first_tick = false;
+    }
+
+    if ( p() -> buff.power_strikes -> up() )
+    {
+      if ( p() -> resources.current[ RESOURCE_CHI ] < p() -> resources.max[ RESOURCE_CHI ] )
+      {
+        p() -> resource_gain( RESOURCE_CHI,
+                              p() -> buff.power_strikes -> data().effectN( 1 ).base_value(),
+                              0,
+                              this );
+      }
+      else
+      {
+        p() -> buff.chi_sphere -> trigger();
+      }
+
+      p() -> buff.power_strikes -> expire();
+    }
+  }
+
+  void reset()
+  {
+    monk_melee_attack_t::reset();
+
+    first_tick = false;
+  }
+};
+
+struct rushing_jade_wind_t : public monk_melee_attack_t
+{
+  rushing_jade_wind_t( monk_t* p, const std::string& options_str ):
+    monk_melee_attack_t( "rushing_jade_wind", p, p -> talent.rushing_jade_wind )
+  {
+    parse_options( options_str );
+    stancemask = STURDY_OX | FIERCE_TIGER | WISE_SERPENT | SPIRITED_CRANE;
+
+    may_crit = may_miss = may_block = may_dodge = may_parry = callbacks = false;
+    tick_zero = hasted_ticks = true;
+
+    base_multiplier *= 0.6; // hardcoded into tooltip
+    if ( p -> wod_hotfix )
+      base_multiplier *= 1 + p -> passives.hotfix_passive -> effectN( 3 ).percent();
+
+    tick_action = new tick_action_t( "rushing_jade_wind_tick", p, &( data() ) );
+  }
+
+  // Physical tick_action abilities need amount_type() override, so the
+  // tick_action multistrikes are properly physically mitigated.
+  dmg_e amount_type( const action_state_t* /* state */, bool /* periodic */ ) const
+  { return DMG_DIRECT; }
+
+  // N full ticks, but never additional ones.
+  timespan_t composite_dot_duration( const action_state_t* s ) const
+  {
+    return dot_duration * ( tick_time( s -> haste ) / base_tick_time );
+  }
+
+  void execute()
+  {
+    static_cast<tick_action_t*>( tick_action ) -> first_tick = true;
+
+    monk_melee_attack_t::execute();
+
+    p() -> buff.rushing_jade_wind -> trigger( 1,
+        buff_t::DEFAULT_VALUE(),
+        1.0,
+        composite_dot_duration( execute_state ) );
+
+    if ( rng().roll( p() -> sets.set( SET_MELEE, T15, B2 ) -> proc_chance() ) )
+    {
+      p() -> resource_gain( RESOURCE_ENERGY,
+          p() -> passives.tier15_2pc_melee -> effectN( 1 ).base_value(),
+          p() -> gain.tier15_2pc_melee,
+          this );
+      p() -> proc.tier15_2pc_melee -> occur();
+    }
+  }
+
+  void init()
+  {
+    monk_melee_attack_t::init();
+
+    update_flags &= ~STATE_HASTE;
+  }
+
+  void update_ready( timespan_t )
+  {
+    monk_melee_attack_t::update_ready( cooldown -> duration * p() -> cache.attack_haste() );
+  }
+};
+
+struct spinning_crane_kick_t: public monk_melee_attack_t
+{
+  spinning_crane_kick_t( monk_t* p, const std::string& options_str ):
+    monk_melee_attack_t( "spinning_crane_kick", p, p -> spec.spinning_crane_kick )
+  {
+    parse_options( options_str );
+    stancemask = STURDY_OX | FIERCE_TIGER | WISE_SERPENT | SPIRITED_CRANE;
+
+    sef_ability = SEF_SPINNING_CRANE_KICK;
+
+    may_crit = may_miss = may_block = may_dodge = may_parry = callbacks = false;
+    tick_zero = channeled = true;
+
+    base_multiplier *= 0.75; // hardcoded into tooltip
+    if ( p -> wod_hotfix )
+      base_multiplier *= 1 + p -> passives.hotfix_passive -> effectN( 3 ).percent();
+
+    base_tick_time *= 1.0 + p -> perk.empowered_spinning_crane_kick -> effectN( 1 ).percent();
+    dot_duration *= 1.0 + p -> perk.empowered_spinning_crane_kick -> effectN( 2 ).percent();
+
+    tick_action = new tick_action_t( "spinning_crane_kick_tick", p, &( data() ) );
+  }
+
+  // Physical tick_action abilities need amount_type() override, so the
+  // tick_action multistrikes are properly physically mitigated.
+  dmg_e amount_type( const action_state_t* /* state */, bool /* periodic */ ) const
+  { return DMG_DIRECT; }
+
+  void execute()
+  {
+    static_cast<tick_action_t*>( tick_action ) -> first_tick = true;
+
+    monk_melee_attack_t::execute();
 
     if ( rng().roll( p() -> sets.set( SET_MELEE, T15, B2 ) -> proc_chance() ) )
     {
       p() -> resource_gain( RESOURCE_ENERGY, p() -> passives.tier15_2pc_melee -> effectN( 1 ).base_value(), p() -> gain.tier15_2pc_melee );
       p() -> proc.tier15_2pc_melee -> occur();
     }
+  }
+
+  bool ready()
+  {
+    if ( p() -> talent.rushing_jade_wind -> ok() )
+    {
+      return false;
+    }
+
+    return monk_melee_attack_t::ready();
   }
 };
 
@@ -1813,63 +2413,61 @@ struct fists_of_fury_tick_t: public monk_melee_attack_t
   fists_of_fury_tick_t( monk_t* p, const std::string& name ):
     monk_melee_attack_t( name, p, p -> spec.fists_of_fury )
   {
-    dual = true;
+    background = true;
     aoe = -1;
-    base_multiplier *= 5.875; // hardcoded into tooltip
     mh = &( player -> main_hand_weapon );
     oh = &( player -> off_hand_weapon );
-    base_costs[RESOURCE_CHI] = 0;
+
+    base_costs[ RESOURCE_CHI ] = 0;
     dot_duration = timespan_t::zero();
     trigger_gcd = timespan_t::zero();
-    if ( p -> wod_hotfix )
-    {
-      base_multiplier *= 1 + p -> passives.hotfix_passive -> effectN( 1 ).percent();
-    }
   }
 
-  void impact( action_state_t* s )
+  double composite_aoe_multiplier( const action_state_t* state ) const
   {
-    if ( s -> target == p() -> target )
-      monk_melee_attack_t::impact( s );
-    else
+    if ( state -> target != target )
     {
-      double damage = s -> result_amount;
-      damage /= execute_state -> n_targets;
-      s -> result_amount = damage;
-      monk_melee_attack_t::impact( s );
+      return 1.0 / state -> n_targets;
     }
+
+    return 1.0;
   }
 };
 
 struct fists_of_fury_t: public monk_melee_attack_t
 {
-  attack_t* fists_of_fury;
   fists_of_fury_t( monk_t* p, const std::string& options_str ):
-    monk_melee_attack_t( "fists_of_fury", p, p -> spec.fists_of_fury ),
-    fists_of_fury( new fists_of_fury_tick_t( p, "fists_of_fury_tick" ) )
+    monk_melee_attack_t( "fists_of_fury", p, p -> spec.fists_of_fury )
   {
     parse_options( options_str );
+
+    sef_ability = SEF_FISTS_OF_FURY;
     stancemask = FIERCE_TIGER;
+
     channeled = tick_zero = true;
     may_crit = may_miss = may_block = may_dodge = may_parry = callbacks = false;
-    add_child( fists_of_fury );
+
+    base_multiplier *= 5.875; // hardcoded into tooltip
+    if ( p -> wod_hotfix )
+      base_multiplier *= 1 + p -> passives.hotfix_passive -> effectN( 1 ).percent();
 
     // T14 WW 2PC
     cooldown -> duration = data().cooldown();
     cooldown -> duration += p -> sets.set( SET_MELEE, T14, B2 ) -> effectN( 1 ).time_value();
+
+    tick_action = new fists_of_fury_tick_t( p, "fists_of_fury_tick" );
   }
 
-  void tick( dot_t*d )
-  {
-    monk_melee_attack_t::tick( d );
-    fists_of_fury -> execute();
-  }
+  // Physical tick_action abilities need amount_type() override, so the
+  // tick_action multistrikes are properly physically mitigated.
+  dmg_e amount_type( const action_state_t* /* state */, bool /* periodic */ ) const
+  { return DMG_DIRECT; }
 
   void consume_resource()
   {
     monk_melee_attack_t::consume_resource();
 
-    double savings = base_costs[RESOURCE_CHI] - cost();
+    double savings = base_costs[ RESOURCE_CHI ] - cost();
     if ( result_is_hit( execute_state -> result ) )
     {
       p() -> track_chi_consumption += savings;
@@ -1949,11 +2547,12 @@ struct melee_t: public monk_melee_attack_t
     trigger_gcd = timespan_t::zero();
     special = false;
     school = SCHOOL_PHYSICAL;
+    auto_attack = true;
 
     if ( player -> dual_wield() )
     {
       base_hit -= 0.19;
-      base_multiplier *= 1.0 + player -> spec.way_of_the_monk_aa_damage -> effectN( 1 ).percent();
+      base_multiplier *= 1.0 + ( player -> wod_hotfix ? 0.25 : player -> spec.way_of_the_monk_aa_damage -> effectN( 1 ).percent() ); // Hotfix to 25% (down from 40%) on Jan 07, 2015
     }
   }
 
@@ -1966,6 +2565,9 @@ struct melee_t: public monk_melee_attack_t
   virtual timespan_t execute_time() const
   {
     timespan_t t = monk_melee_attack_t::execute_time();
+
+    if ( ! p() -> dual_wield() )
+      t *= 1.0 / ( 1.0 + ( p() -> wod_hotfix ? 0.55 : p() -> spec.way_of_the_monk_aa_speed -> effectN( 1 ).percent() ) ); // Hotfix to 55% (up from 40%) on Jan 07, 2015
 
     if ( first )
       return ( weapon -> slot == SLOT_OFF_HAND ) ? ( sync_weapons ? std::min( t / 2, timespan_t::zero() ) : t / 2 ) : timespan_t::zero();
@@ -2148,8 +2750,16 @@ struct touch_of_death_t: public monk_melee_attack_t
   {
     if ( target -> health_percentage() > 10 )
       return false;
+    if ( target -> current_health() <= player -> max_health() )
+      return monk_melee_attack_t::ready();
 
     return monk_melee_attack_t::ready();
+  }
+
+  virtual void execute()
+  {
+    //p() -> buff.death_note -> decrement();
+    monk_melee_attack_t::execute();
   }
 };
 
@@ -2683,47 +3293,123 @@ struct xuen_spell_t: public summon_pet_t
 
 // ==========================================================================
 // Storm, Earth, and Fire
-// =========================================================S=================
+// ==========================================================================
 
-struct sef_fire_spell_t: public summon_pet_t
+struct storm_earth_and_fire_t;
+
+struct sef_despawn_cb_t
 {
-  sef_fire_spell_t( monk_t* p, const std::string& options_str ):
-    summon_pet_t( "storm_earth_and_fire", "sef_fire_spirit", p, p -> find_spell( 138123 ) )
+  storm_earth_and_fire_t* action;
+
+  sef_despawn_cb_t( storm_earth_and_fire_t* a );
+
+  void operator()();
+};
+
+struct storm_earth_and_fire_t: public monk_spell_t
+{
+  storm_earth_and_fire_t( monk_t* p, const std::string& options_str ):
+    monk_spell_t( "storm_earth_and_fire", p, p -> spec.storm_earth_and_fire )
   {
     parse_options( options_str );
 
     trigger_gcd = timespan_t::zero();
-    harmful = false;
+    callbacks = harmful = may_miss = may_crit = may_dodge = may_parry = may_block = false;
+  }
+
+  void init()
+  {
+    monk_spell_t::init();
+
+    sim -> target_non_sleeping_list.register_callback( sef_despawn_cb_t( this ) );
   }
 
   virtual void execute()
   {
-    pet->summon( timespan_t::zero() );
-    summon_pet_t::execute();
+    monk_spell_t::execute();
 
-    p() -> buff.storm_earth_and_fire -> trigger();
+    // No clone on target, check if we can spawn one or not
+    if ( td( execute_state -> target ) -> debuff.storm_earth_and_fire -> check() == 0 )
+    {
+      // Already full clones, despawn both
+      if ( p() -> buff.storm_earth_and_fire -> check() == 2 )
+      {
+        for ( size_t i = 0; i < sizeof_array( p() -> pet.sef ); i++ )
+        {
+          if ( p() -> pet.sef[ i ] -> is_sleeping() )
+          {
+            continue;
+          }
+
+          p() -> pet.sef[ i ] -> dismiss();
+        }
+
+        assert( p() -> buff.storm_earth_and_fire -> check() == 0 );
+      }
+      // Can fit a clone on the target, randomize which clone is spawned
+      // TODO: Is this really random?
+      else
+      {
+        std::vector<size_t> sef_idx;
+        for ( size_t i = 0; i < sizeof_array( p() -> pet.sef ); i++ )
+        {
+          if ( ! p() -> pet.sef[ i ] -> is_sleeping() )
+          {
+            continue;
+          }
+
+          sef_idx.push_back( i );
+        }
+
+        size_t idx = sef_idx[ rng().range( 0, sef_idx.size() ) ];
+        assert( idx < sef_idx.size() );
+
+        p() -> pet.sef[ idx ] -> target = execute_state -> target;
+        p() -> pet.sef[ idx ] -> summon();
+      }
+    }
+    // Clone on target, despawn that specific clone
+    else
+    {
+      for ( size_t i = 0; i < sizeof_array( p() -> pet.sef ); i++ )
+      {
+        if ( p() -> pet.sef[ i ] -> is_sleeping() )
+        {
+          continue;
+        }
+
+        if ( p() -> pet.sef[ i ] -> target != execute_state -> target )
+        {
+          continue;
+        }
+
+        p() -> pet.sef[ i ] -> dismiss();
+      }
+    }
   }
 };
 
-struct sef_earth_spell_t: public summon_pet_t
+sef_despawn_cb_t::sef_despawn_cb_t( storm_earth_and_fire_t* a ) : action( a )
+{ assert( action ); }
+
+void sef_despawn_cb_t::operator()()
 {
-  sef_earth_spell_t( monk_t* p, const std::string& options_str ):
-    summon_pet_t( "storm_earth_and_fire", "sef_earth_spirit", p, p -> find_spell( 138121 ) )
+  for ( size_t i = 0; i < sizeof_array( action -> p() -> pet.sef ); i++ )
   {
-    parse_options( options_str );
+    pets::storm_earth_and_fire_pet_t* sef = action -> p() -> pet.sef[ i ];
+    // Dormant clones don't care
+    if ( sef -> is_sleeping() )
+    {
+      continue;
+    }
 
-    trigger_gcd = timespan_t::zero();
-    harmful = false;
+    // If the active clone's target is sleeping, lets despawn it.
+    if ( sef -> target -> is_sleeping() )
+    {
+      sef -> dismiss();
+    }
   }
-
-  virtual void execute()
-  {
-    pet -> summon( timespan_t::zero() );
-    summon_pet_t::execute();
-
-    p() -> buff.storm_earth_and_fire -> trigger();
-  }
-};
+}
 
 // ==========================================================================
 // Chi Sphere
@@ -3175,6 +3861,42 @@ struct diffuse_magic_t: public monk_spell_t
   }
 };
 
+// ==========================================================================
+// Death Note
+// ==========================================================================
+// This is used to better match what happens in game:
+//    - Game figures if the player can use Touch of Death
+//    - Provides the buff "Death Note"
+//    - Touch of Death is usable
+
+struct death_note_t : public monk_spell_t
+{
+  death_note_t( monk_t& p ) :
+    monk_spell_t( "death_note", &p, p.find_spell( 121125 ) )
+  {
+    stancemask = STURDY_OX | FIERCE_TIGER | SPIRITED_CRANE;
+    harmful = false;
+    trigger_gcd = timespan_t::zero();
+    cooldown = p.cooldown.touch_of_death;
+  }
+
+  bool ready()
+  {
+    if ( target -> health_percentage() > 10 )
+      return false;
+    if ( target -> current_health() <= player -> max_health() )
+      return monk_spell_t::ready();
+
+    return monk_spell_t::ready();
+  }
+
+  virtual void execute()
+  {
+    p() -> buff.death_note -> trigger();
+    monk_spell_t::execute();
+  }
+};
+
 } // END spells NAMESPACE
 
 namespace heals {
@@ -3196,7 +3918,8 @@ struct enveloping_mist_t: public monk_heal_t
     may_crit = may_miss = false;
     resource_current = RESOURCE_CHI;
     base_costs[RESOURCE_CHI] = 3.0;
-    spell_power_mod.tick *= 1.5; // Hotfix from 2014/11/26
+    if ( p.wod_hotfix )
+      spell_power_mod.tick *= 1.5; // Hotfix from Nov 26, 2014
   }
 
   virtual timespan_t execute_time() const
@@ -3594,7 +4317,8 @@ struct guard_t: public monk_absorb_t
     cooldown -> duration = data().charge_cooldown();
     cooldown -> charges = p.perk.improved_guard -> effectN( 1 ).base_value();
     attack_power_mod.direct = 9; // hardcoded into tooltip 2014/09/09
-    attack_power_mod.direct *= 2; // hardcoded hotfix from 2014/11/24
+    if ( p.wod_hotfix )
+      attack_power_mod.direct *= 2; // hardcoded hotfix from Nov 24, 2014
     base_multiplier += p.sets.set( SET_TANK, T14, B4 ) -> effectN( 1 ).percent();
     if ( p.glyph.guard -> ok() )
       base_multiplier += p.glyph.guard -> effectN( 1 ).percent();
@@ -3701,6 +4425,7 @@ monk( *p )
 {
   debuff.rising_sun_kick = buff_creator_t( *this, "rising_sun_kick" ).spell( p -> find_spell( 130320 ) );
   debuff.dizzying_haze = buff_creator_t( *this, "dizzying_haze" ).spell( p -> find_spell( 123727 ) );
+  debuff.storm_earth_and_fire = buff_creator_t( *this, "storm_earth_and_fire_target" ).cd( timespan_t::zero() );
 
   dots.enveloping_mist = target -> get_dot( "enveloping_mist", p );
   dots.renewing_mist = target -> get_dot( "renewing_mist", p );
@@ -3729,6 +4454,7 @@ action_t* monk_t::create_action( const std::string& name,
   if ( name == "energizing_brew" ) return new        energizing_brew_t( this, options_str );
   if ( name == "provoke" ) return new                provoke_t( this, options_str );
   if ( name == "touch_of_death" ) return new         touch_of_death_t( this, options_str );
+  if ( name == "storm_earth_and_fire" ) return new   storm_earth_and_fire_t( this, options_str );
   // Brewmaster
   if ( name == "breath_of_fire" ) return new         breath_of_fire_t( *this, options_str );
   if ( name == "keg_smash" ) return new              keg_smash_t( *this, options_str );
@@ -3753,7 +4479,7 @@ action_t* monk_t::create_action( const std::string& name,
   if ( name == "chi_brew" ) return new               chi_brew_t( this, options_str );
   if ( name == "dampen_harm" ) return new            dampen_harm_t( *this, options_str );
   if ( name == "diffuse_magic" ) return new          diffuse_magic_t( *this, options_str );
-  if ( name == "rushing_jade_wind" ) return new      spinning_crane_kick_t( this, options_str );
+  if ( name == "rushing_jade_wind" ) return new      rushing_jade_wind_t( this, options_str );
   if ( name == "invoke_xuen" ) return new            xuen_spell_t( this, options_str );
   if ( name == "chi_torpedo" ) return new            chi_torpedo_t( this, options_str );
   if ( name == "hurricane_strike" ) return new       hurricane_strike_t( this, options_str );
@@ -3774,9 +4500,6 @@ pet_t* monk_t::create_pet( const std::string& name,
   using namespace pets;
   if ( name == "xuen_the_white_tiger" ) return new xuen_pet_t( sim, this );
 
-  // if ( name == "sef_fire_spirit" ) return new sef_fire_spell_t( sim, this );
-  // if ( name == "sef_earth_spirit" ) return new sef_earth_spell_t( sim, this );
-
   return nullptr;
 }
 
@@ -3787,8 +4510,9 @@ void monk_t::create_pets()
   base_t::create_pets();
 
   create_pet( "xuen_the_white_tiger" );
-  //create_pet( "sef_fire_spirit" );
-  //create_pet( "sef_earth_spirit" );
+  pet.sef[ SEF_FIRE ] = new pets::storm_earth_and_fire_pet_t( "fire_spirit", sim, this, true );
+  pet.sef[ SEF_STORM ] = new pets::storm_earth_and_fire_pet_t( "storm_spirit", sim, this, true );
+  pet.sef[ SEF_EARTH ] = new pets::storm_earth_and_fire_pet_t( "earth_spirit", sim, this, false );
 }
 
 // monk_t::init_spells ======================================================
@@ -3863,7 +4587,7 @@ void monk_t::init_spells()
   spec.tigereye_brew                 = find_specialization_spell( "Tigereye Brew" );
   spec.touch_of_karma                = find_specialization_spell( "Touch of Karma" );
   spec.combat_conditioning           = find_specialization_spell( "Combat Conditioning" );
-  spec.storm_earth_and_fire          = find_specialization_spell( "Storm Earth and Fire" );
+  spec.storm_earth_and_fire          = find_specialization_spell( "Storm, Earth, and Fire" );
   spec.battle_trance                 = find_specialization_spell( "Battle Trance" );
   spec.windflurry                    = find_specialization_spell( "Windflurry" );
 
@@ -3938,8 +4662,9 @@ void monk_t::init_spells()
   //active_actions.blackout_kick_heal   = new actions::heal_blackout_kick_t( this );
   active_actions.chi_explosion_dot    = new actions::dot_chi_explosion_t( this );
   if ( talent.healing_elixirs -> ok() )
-    active_actions.healing_elixir       = new actions::healing_elixirs_t( *this );
+    active_actions.healing_elixir     = new actions::healing_elixirs_t( *this );
   active_actions.healing_sphere       = new actions::healing_sphere_t( *this );
+  active_actions.death_note           = new actions::death_note_t( *this );
 
   if (specialization() == MONK_BREWMASTER)
     active_actions.stagger_self_damage = new actions::stagger_self_damage_t( this );
@@ -3991,6 +4716,9 @@ void monk_t::init_scaling()
   }
   scales_with[STAT_STRENGTH] = false;
 
+  if ( specialization() == MONK_BREWMASTER )
+    scales_with[ STAT_BONUS_ARMOR ] = true;
+
   if ( off_hand_weapon.type != WEAPON_NONE )
     scales_with[STAT_WEAPON_OFFHAND_DPS] = true;
 }
@@ -4035,6 +4763,8 @@ void monk_t::create_buffs()
   buff.diffuse_magic = buff_creator_t( this, "diffuse_magic", talent.diffuse_magic );
 
   buff.serenity = buff_creator_t( this, "serenity", talent.serenity );
+
+  buff.death_note = buff_creator_t( this, "death_note", find_spell( 121125 ) );
 
   // Brewmaster
   buff.bladed_armor = buff_creator_t( this, "bladed_armor", spec.bladed_armor )
@@ -4082,7 +4812,9 @@ void monk_t::create_buffs()
   buff.tigereye_brew_use = buff_creator_t( this, "tigereye_brew_use", spec.tigereye_brew ).add_invalidate( CACHE_PLAYER_DAMAGE_MULTIPLIER );
   buff.tigereye_brew_use -> buff_duration += sets.set( MONK_WINDWALKER, PVP, B4 ) -> effectN( 1 ).time_value();
 
-  buff.storm_earth_and_fire = buff_creator_t( this, "storm_earth_and_fire", spec.storm_earth_and_fire );
+  buff.storm_earth_and_fire = buff_creator_t( this, "storm_earth_and_fire", spec.storm_earth_and_fire )
+                              .add_invalidate( CACHE_PLAYER_DAMAGE_MULTIPLIER )
+                              .cd( timespan_t::zero() );
 
   buff.forceful_winds = buff_creator_t( this, "forceful_winds", find_spell( 166603 ) );
 }
@@ -4219,16 +4951,6 @@ void monk_t::clear_stagger()
 
 // monk_t::composite_attack_speed =========================================
 
-double monk_t::composite_melee_speed() const
-{
-  double cas = base_t::composite_melee_speed();
-
-  if ( !dual_wield() )
-    cas *= 1.0 / ( 1.0 + spec.way_of_the_monk_aa_speed -> effectN( 1 ).percent() );
-
-  return cas;
-}
-
 // monk_t::composite_melee_crit ============================================
 
 double monk_t::composite_melee_crit() const
@@ -4257,7 +4979,7 @@ double monk_t::composite_player_multiplier( school_e school ) const
 {
   double m = base_t::composite_player_multiplier( school );
 
-  m *= 1.0 + ( active_stance_data( FIERCE_TIGER ).effectN( 3 ).percent() * 0.50 ); // Hotfix nerf to 5% (down from 10%) on 2014/12/15;
+  m *= 1.0 + ( wod_hotfix ? 0.05 : active_stance_data( FIERCE_TIGER ).effectN( 3 ).percent() ); // Hotfix to 5% (down from 10%) on Dec 15, 2014
 
   m *= 1.0 + buff.tigereye_brew_use -> value();
 
@@ -4419,7 +5141,7 @@ double monk_t::composite_armor_multiplier() const
 
   a += active_stance_data( STURDY_OX ).effectN( 13 ).percent();
   if ( wod_hotfix )
-    a *= 1.5; // Nov 12, 2014 Hotfix to 75% up from 50%
+    a *= 1.5; // Hotfix to 75% (up from 50%) on Nov 12, 2014 
 
   return a;
 }
@@ -4614,7 +5336,7 @@ void monk_t::target_mitigation( school_e school,
 
   // Passive sources (Sturdy Ox)
   if ( school != SCHOOL_PHYSICAL )
-    s -> result_amount *= 1.0 + ( active_stance_data( STURDY_OX ).effectN( 4 ).percent() * ( wod_hotfix ? 1.5 : 1 ) ); // Hotfix Nov 12, 2014 buff from 10% to 15%
+    s -> result_amount *= 1.0 + ( wod_hotfix ? 0.15 : active_stance_data( STURDY_OX ).effectN( 4 ).percent() ); // Hotfix to 15% (up from 10%) on Nov 12, 2014
 
   // Damage Reduction Cooldowns
 
@@ -4654,6 +5376,8 @@ void monk_t::assess_damage( school_e school,
     buff.guard -> up();
 
   // TODO: Add some form of cooldown to better model what is in-game
+  //    Need to add in some Option to control how often player falls below 35% or else this will be triggering
+  //    for half the fight.
   //if ( health_percentage() < 35 )
   //  cooldown.expel_harm -> reset( true );
 
@@ -4877,8 +5601,6 @@ void monk_t::apl_combat_brewmaster()
   st -> add_action( this, "Jab", "if=chi.max-chi>=1&cooldown.keg_smash.remains>=gcd&cooldown.expel_harm.remains>=gcd&(energy+(energy.regen*(cooldown.keg_smash.remains)))>=80" );
   st -> add_action( this, "Tiger Palm" );
 
-
-
   aoe -> add_action( this, "Purifying Brew", "if=stagger.heavy" );
   aoe -> add_action( this, "Blackout Kick", "if=buff.shuffle.down" );
   aoe -> add_action( this, "Purifying Brew", "if=buff.serenity.up" );
@@ -4898,11 +5620,6 @@ void monk_t::apl_combat_brewmaster()
   aoe -> add_action( this, "Expel Harm", "if=chi.max-chi>=1&cooldown.keg_smash.remains>=gcd&(energy+(energy.regen*(cooldown.keg_smash.remains)))>=80" );
   aoe -> add_action( this, "Jab", "if=chi.max-chi>=1&cooldown.keg_smash.remains>=gcd&cooldown.expel_harm.remains>=gcd&(energy+(energy.regen*(cooldown.keg_smash.remains)))>=80" );
   aoe -> add_action( this, "Tiger Palm" );
-	
-	
-	
-	
-	
 }
 
 // Windwalker Combat Action Priority List ===============================
@@ -4941,7 +5658,7 @@ void monk_t::apl_combat_windwalker()
   }
 
   def -> add_talent( this, "Chi Brew", "if=chi.max-chi>=2&((charges=1&recharge_time<=10)|charges=2|target.time_to_die<charges*10)&buff.tigereye_brew.stack<=16" );
-  def -> add_action( this, "Tiger Palm", "if=buff.tiger_power.remains<=3" );
+  def -> add_action( this, "Tiger Palm", "if=buff.tiger_power.remains<6" );
   def -> add_action( this, "Tigereye Brew", "if=buff.tigereye_brew_use.down&buff.tigereye_brew.stack=20" );
   def -> add_action( this, "Tigereye Brew", "if=buff.tigereye_brew_use.down&buff.tigereye_brew.stack>=10&buff.serenity.up" );
   def -> add_action( this, "Tigereye Brew", "if=buff.tigereye_brew_use.down&buff.tigereye_brew.stack>=10&cooldown.fists_of_fury.up&chi>=3&debuff.rising_sun_kick.up&buff.tiger_power.up" );
@@ -4954,7 +5671,7 @@ void monk_t::apl_combat_windwalker()
   def -> add_action( "call_action_list,name=st,if=active_enemies<3" );
 
   st -> add_action( this, "Fists of Fury", "if=buff.tiger_power.remains>cast_time&debuff.rising_sun_kick.remains>cast_time&!buff.serenity.remains" );
-  st -> add_action( this, "Fortifying Brew", "if=target.health.percent<10&cooldown.touch_of_death.remains=0" );
+  st -> add_action( this, "Fortifying Brew", "if=target.health.percent<10&cooldown.touch_of_death.remains=0&chi>=3" );
   st -> add_action( this, "Touch of Death", "if=target.health.percent<10" );
   st -> add_talent( this, "Hurricane Strike", "if=talent.hurricane_strike.enabled&energy.time_to_max>cast_time&buff.tiger_power.remains>cast_time&debuff.rising_sun_kick.remains>cast_time&buff.energizing_brew.down" );
   st -> add_action( this, "Energizing Brew", "if=cooldown.fists_of_fury.remains>6&(!talent.serenity.enabled|(!buff.serenity.remains&cooldown.serenity.remains>4))&energy+energy.regen*gcd<50" );
@@ -4964,9 +5681,9 @@ void monk_t::apl_combat_windwalker()
   st -> add_action( "zen_sphere,cycle_targets=1,if=energy.time_to_max>2&!dot.zen_sphere.ticking&buff.serenity.down" );
   st -> add_action( this, "Blackout Kick", "if=!talent.chi_explosion.enabled&(buff.combo_breaker_bok.react|buff.serenity.up)" );
   st -> add_talent( this, "Chi Explosion", "if=talent.chi_explosion.enabled&chi>=3&buff.combo_breaker_ce.react&cooldown.fists_of_fury.remains>3" );
-  st -> add_action( this, "Tiger Palm", "if=buff.combo_breaker_tp.react&buff.combo_breaker_tp.remains<=2" );
+  st -> add_action( this, "Tiger Palm", "if=buff.combo_breaker_tp.react&buff.combo_breaker_tp.remains<6" );
   st -> add_action( this, "Blackout Kick", "if=!talent.chi_explosion.enabled&chi.max-chi<2" );
-  st -> add_talent( this, "Chi Explosion", "if=talent.chi_explosion.enabled&chi>=3" );
+  st -> add_talent( this, "Chi Explosion", "if=talent.chi_explosion.enabled&chi>=3&cooldown.fists_of_fury.remains>3" );
   st -> add_action( this, "Jab", "if=chi.max-chi>=2" );
   st -> add_action( this, "Jab", "if=chi.max-chi>=1&talent.chi_explosion.enabled&cooldown.fists_of_fury.remains<=3" );
 
@@ -4984,7 +5701,7 @@ void monk_t::apl_combat_windwalker()
   aoe -> add_action( this, "Blackout Kick", "if=talent.rushing_jade_wind.enabled&!talent.chi_explosion.enabled&(buff.combo_breaker_bok.react|buff.serenity.up)" );
   aoe -> add_action( this, "Tiger Palm", "if=talent.rushing_jade_wind.enabled&buff.combo_breaker_tp.react&buff.combo_breaker_tp.remains<=2" );
   aoe -> add_action( this, "Blackout Kick", "if=talent.rushing_jade_wind.enabled&!talent.chi_explosion.enabled&chi.max-chi<2&(cooldown.fists_of_fury.remains>3|!talent.rushing_jade_wind.enabled)" );
-  aoe -> add_action( this, "Spinning Crane Kick", "if=!talent.rushing_jade_wind.enabled" );
+  aoe -> add_action( this, "Spinning Crane Kick" );
   aoe -> add_action( this, "Jab", "if=talent.rushing_jade_wind.enabled&chi.max-chi>=2" );
   aoe -> add_action( this, "Jab", "if=talent.rushing_jade_wind.enabled&chi.max-chi>=1&talent.chi_explosion.enabled&cooldown.fists_of_fury.remains<=3" );
 }
@@ -5101,7 +5818,8 @@ double monk_t::stagger_pct()
   if ( current_stance() == STURDY_OX ) // no stagger without active stance
   {
     stagger += static_stance_data( STURDY_OX ).effectN( 8 ).percent();
-    stagger *= 1.5; // Hotfix to 30% baseline on 2014/11/24
+    if ( wod_hotfix )
+      stagger *= 1.5; // Hotfix to 30% baseline on Nov 24, 2014
 
     if ( buff.shuffle -> check() )
       stagger += buff.shuffle -> data().effectN( 2 ).percent();

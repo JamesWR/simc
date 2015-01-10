@@ -6,7 +6,7 @@
 #define SIMULATIONCRAFT_H
 
 #define SC_MAJOR_VERSION "603"
-#define SC_MINOR_VERSION "21"
+#define SC_MINOR_VERSION "23"
 #define SC_USE_PTR ( 0 )
 #define SC_BETA ( 0 )
 #define SC_BETA_STR "wod"
@@ -41,6 +41,7 @@
 #include <string>
 #include <typeinfo>
 #include <vector>
+#include <bitset>
 #if defined( SC_OSX )
 #include <Availability.h>
 #endif
@@ -1139,6 +1140,7 @@ namespace util
 {
 double wall_time();
 double cpu_time();
+int cpu_thread_count();
 
 template <typename T>
 T ability_rank( int player_level, T ability_value, int ability_level, ... );
@@ -4936,7 +4938,8 @@ struct player_t : public actor_t
 
   virtual double health_percentage() const;
   virtual double max_health() const;
-  virtual timespan_t time_to_percent( double percent ) const;
+  virtual double current_health() const;
+  virtual timespan_t time_to_percent(double percent) const;
   timespan_t total_reaction_time();
 
   void stat_gain( stat_e stat, double amount, gain_t* g = 0, action_t* a = 0, bool temporary = false );
@@ -5580,6 +5583,7 @@ struct action_state_t : public noncopyable
   double          target_mitigation_ta_multiplier;
 
   static void release( action_state_t*& s );
+  static std::string flags_to_str( unsigned flags );
 
   action_state_t( action_t*, player_t* );
   virtual ~action_state_t() {}
@@ -5983,6 +5987,12 @@ public:
   // Persistent modifiers that are snapshot at the start of the spell cast
   virtual double composite_persistent_multiplier( const action_state_t* ) const
   { return player -> composite_persistent_multiplier( get_school() ); }
+
+  // Generic aoe multiplier for the action. Used in
+  // action_t::calculate_direct_amount, and applied after other (passive) aoe
+  // multipliers are applied.
+  virtual double composite_aoe_multiplier( const action_state_t* ) const
+  { return 1.0; }
 
   virtual double composite_target_mitigation( player_t* t, school_e s ) const
   { return t -> composite_mitigation_multiplier( s ); }
@@ -7076,7 +7086,7 @@ size_t parse_tokens( std::vector<token_t>& tokens, const std::string& encoded_st
 
 // Procs ====================================================================
 
-namespace proc
+namespace special_effect
 {
   bool parse_special_effect_encoding( special_effect_t& effect, const item_t& item, const std::string& str );
   bool usable_proc( const special_effect_t& effect );

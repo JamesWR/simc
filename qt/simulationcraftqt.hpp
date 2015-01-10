@@ -8,7 +8,14 @@
 
 #include "simulationcraft.hpp"
 #include <QtGui/QtGui>
+
+#if defined( SC_USE_WEBENGINE )
+#include <QtWebEngineWidgets/QtWebEngineWidgets>
+#include <QtWebEngine/QtWebEngine>
+#else
+#include <QtWebKitWidgets/QtWebKitWidgets>
 #include <QtWebKit/QtWebKit>
+#endif
 #include <QtCore/QTranslator>
 #include <QtNetwork/QtNetwork>
 
@@ -16,7 +23,6 @@
 #include <CoreFoundation/CoreFoundation.h>
 #endif
 #include <QtWidgets/QtWidgets>
-#include <QtWebKitWidgets/QtWebKitWidgets>
 
 class SC_MainWindow;
 class SC_SearchBox;
@@ -32,7 +38,6 @@ class PaperdollProfile;
 #include "util/sc_recentlyclosed.hpp" // remove once implementations are moved to source files
 #include "util/sc_searchbox.hpp" // remove once implementations are moved to source files
 #include "util/sc_textedit.hpp" // remove once implementations are moved to source files
-
 
 enum main_tabs_e
 {
@@ -69,6 +74,15 @@ class SimulateThread;
 class PaperdollThread;
 #endif
 class ImportThread;
+
+#if defined( SC_USE_WEBENGINE )
+typedef QWebEngineView SC_WebEngineView;
+typedef QWebEnginePage SC_WebEnginePage;
+#else
+typedef QWebView SC_WebEngineView;
+
+typedef QWebPage SC_WebEnginePage;
+#endif
 
 // ============================================================================
 // SC_StringHistory
@@ -436,13 +450,35 @@ public:
 // SC_WelcomeTabWidget
 // ============================================================================
 
-class SC_WelcomeTabWidget : public QWebView
+class SC_WelcomeTabWidget: public SC_WebEngineView
 {
   Q_OBJECT
-public:
+  public:
   SC_WelcomeTabWidget( SC_MainWindow* parent = nullptr );
+
 private slots:
- void linkClickedSlot( const QUrl& url ) { QDesktopServices::openUrl( url ); }
+#ifndef SC_USE_WEBKIT
+  void urlChangedSlot( const QUrl& url )
+  {
+    if ( url.isLocalFile() )
+    {
+      return;
+    }
+    else
+    {
+      page() -> triggerAction( QWebEnginePage::Stop );
+      QDesktopServices::openUrl( url );
+      page() -> triggerAction( QWebEnginePage::Back );
+    }
+  }
+public:
+  QString welcome_uri;
+  QTimer* welcome_timer;
+public slots:
+  void welcomeLoadSlot();
+#else
+  void linkClickedSlot( const QUrl& url ) { QDesktopServices::openUrl( url ); }
+#endif
 
 };
 
@@ -642,6 +678,7 @@ class SC_SimulateTab: public SC_RecentlyClosedTab
   {
     SC_TextEdit* s = new SC_TextEdit();
     s -> setText( text );
+
     int indextoInsert = indexOf( addTabWidget );
     int i = insertTab( indextoInsert, s, tab_name );
     setCurrentIndex( i );
@@ -1041,6 +1078,7 @@ public:
   QDesktopWidget desktopWidget;
 
   QTimer* timer;
+  QTimer* soloChar;
   ImportThread* importThread;
   SimulateThread* simulateThread;
 
@@ -1057,6 +1095,7 @@ public:
   std::string importSimPhase;
   int simProgress;
   int importSimProgress;
+  int soloimport;
   int simResults;
 
   QString AppDataDir;
@@ -1123,6 +1162,7 @@ protected:
   virtual void closeEvent( QCloseEvent* );
 
 private slots:
+  void updatetimer();
   void itemWasEnqueuedTryToSim();
   void importFinished();
   void simulateFinished( sim_t* );
@@ -1173,14 +1213,15 @@ public:
 // SC_WebPage
 // ============================================================================
 
-class SC_WebPage : public QWebPage
+class SC_WebPage : public SC_WebEnginePage
 {
   Q_OBJECT
 public:
-  explicit SC_WebPage( QObject* parent = 0 ) :
-    QWebPage( parent )
+explicit SC_WebPage( QObject* parent = 0 ):
+SC_WebEnginePage( parent )
   {}
 
+#if defined( SC_USE_WEBKIT )
   QString userAgentForUrl( const QUrl& /* url */ ) const
   { return QString( "simulationcraft_gui" ); }
 protected:
@@ -1190,7 +1231,7 @@ protected:
   }
   virtual bool extension( Extension extension, const ExtensionOption* option = nullptr, ExtensionReturn* output = nullptr )
   {
-    if ( extension != QWebPage::ErrorPageExtension )
+    if ( extension != SC_WebPage::ErrorPageExtension )
     {
       return false;
     }
@@ -1200,13 +1241,13 @@ protected:
     QString domain;
     switch( errorOption -> domain )
     {
-    case QWebPage::QtNetwork:
+    case SC_WebEnginePage::QtNetwork:
       domain = tr( "Network Error" );
       break;
-    case QWebPage::WebKit:
+    case SC_WebEnginePage::WebKit:
       domain = tr( "WebKit Error" );
       break;
-    case QWebPage::Http:
+    case SC_WebEnginePage::Http:
       domain = tr( "HTTP Error" );
       break;
     default:
@@ -1250,13 +1291,14 @@ protected:
     errorReturn -> baseUrl = errorOption -> url;
     return true;
   }
+#endif /* SC_USE_WEBKIT */
 };
 
 // ============================================================================
 // SC_WebView
 // ============================================================================
 
-class SC_WebView : public QWebView
+class SC_WebView : public SC_WebEngineView
 {
   Q_OBJECT
   SC_SearchBox* searchBox;
@@ -1271,7 +1313,7 @@ public:
   QString url_to_show;
 
   SC_WebView( SC_MainWindow* mw, QWidget* parent = 0, const QString& h = QString() ) :
-    QWebView( parent ),
+    SC_WebEngineView( parent ),
     searchBox( nullptr ),
     previousSearch( "" ),
     allow_mouse_navigation( false ),
@@ -1293,11 +1335,15 @@ public:
     connect( this,      SIGNAL( loadProgress( int ) ),           this,      SLOT( loadProgressSlot( int ) ) );
     connect( this,      SIGNAL( loadFinished( bool ) ),          this,      SLOT( loadFinishedSlot( bool ) ) );
     connect( this,      SIGNAL( urlChanged( const QUrl& ) ),     this,      SLOT( urlChangedSlot( const QUrl& ) ) );
+#if defined ( SC_USE_WEBKIT )
     connect( this,      SIGNAL( linkClicked( const QUrl& ) ),    this,      SLOT( linkClickedSlot( const QUrl& ) ) );
+#endif
 
     SC_WebPage* page = new SC_WebPage( this );
     setPage( page );
+#if defined( SC_USE_WEBKIT )
     page -> setLinkDelegationPolicy( QWebPage::DelegateExternalLinks );
+#endif
 
     // Add QT Major Version to avoid "mysterious" problems resulting in qBadAlloc.
     QDir dir( mainWindow -> TmpDir + QDir::separator() + "simc_webcache_qt" + std::string( QT_VERSION_STR ).substr( 0, 3 ).c_str() );
@@ -1310,13 +1356,14 @@ public:
       QNetworkDiskCache* diskCache = new QNetworkDiskCache( this );
       diskCache -> setCacheDirectory( dir.absolutePath() );
       QString test = diskCache -> cacheDirectory();
+#if defined( SC_USE_WEBKIT )
       page -> networkAccessManager()->setCache( diskCache );
+#endif
     }
     else
     {
       qDebug() << "Can't write webcache! sucks";
     }
-
   }
 
   void store_html( const QString& s )
@@ -1330,11 +1377,12 @@ public:
   {
     setHtml( html_str );
   }
-
+#if defined( SC_USE_WEBKIT )
   QString toHtml()
   {
     return page() -> currentFrame() -> toHtml();
   }
+#endif
 
   void enableMouseNavigation()
   {
@@ -1380,7 +1428,7 @@ protected:
         break;
       }
     }
-    QWebView::mouseReleaseEvent( e );
+    SC_WebEngineView::mouseReleaseEvent( e );
   }
 
   virtual void keyReleaseEvent( QKeyEvent* e )
@@ -1417,19 +1465,19 @@ protected:
       default: break;
       }
     }
-    QWebView::keyReleaseEvent( e );
+    SC_WebEngineView::keyReleaseEvent( e );
   }
 
   virtual void resizeEvent( QResizeEvent* e )
   {
     searchBox -> updateGeometry();
-    QWebView::resizeEvent( e );
+    SC_WebEngineView::resizeEvent( e );
   }
 
   virtual void focusInEvent( QFocusEvent* e )
   {
     hideSearchBox();
-    QWebView::focusInEvent( e );
+    SC_WebEngineView::focusInEvent( e );
   }
 
 private slots:
@@ -1446,9 +1494,23 @@ private slots:
     {
       url_to_show = "results.html";
     }
+#ifndef SC_USE_WEBKIT 
+    else if ( url.isLocalFile() || url_to_show.contains( "battle.net" ) || url_to_show.contains( "battlenet" ) || url_to_show.contains( "google.com" ) )
+    {
+      return;
+    }
+    else
+    {
+      page() -> triggerAction( QWebEnginePage::Stop );
+      QDesktopServices::openUrl( url_to_show );
+      page() -> triggerAction( QWebEnginePage::Back );
+      return;
+    }
+#endif
     mainWindow -> updateWebView( this );
   }
 
+#if defined ( SC_USE_WEBKIT )
   void linkClickedSlot( const QUrl& url )
   {
     QString clickedurl = url.toString();
@@ -1457,11 +1519,12 @@ private slots:
     // AMR and Lootrank links are nice to load externally too so we don't lose sim results
     // In general, we err towards opening things externally because we are not Mozilla
     // google.com is needed for our help tab; battle.net (us/eu) and battlenet (china) cover armory
-    if ( url.isLocalFile() || clickedurl.contains( "battle.net" ) || clickedurl.contains( " battlenet" ) || clickedurl.contains( "google.com" ) )
+    if ( url.isLocalFile() || clickedurl.contains( "battle.net" ) || clickedurl.contains( "battlenet" ) || clickedurl.contains( "google.com" ) )
       load( url );
     else
       QDesktopServices::openUrl( url );
   }
+#endif
 
 public slots:
   void hideSearchBox()
@@ -1470,18 +1533,20 @@ public slots:
     searchBox -> hide();
   }
 
-  void findSomeText( const QString& text, QWebPage::FindFlags options )
+  void findSomeText( const QString& text, SC_WebEnginePage::FindFlags options )
   {
+#if defined( SC_USE_WEBKIT )
     if ( ! previousSearch.isEmpty() && previousSearch != text )
     {
-      findText( "", QWebPage::HighlightAllOccurrences ); // clears previous highlighting
+      findText( "", SC_WebEnginePage::HighlightAllOccurrences ); // clears previous highlighting
     }
     previousSearch = text;
 
     if ( searchBox -> wrapSearch() )
     {
-      options |= QWebPage::FindWrapsAroundDocument;
+      options |= SC_WebEnginePage::FindWrapsAroundDocument;
     }
+#endif
     findText( text, options );
 
     // If the QWebView scrolls due to searching with the SC_SearchBox visible
@@ -1509,17 +1574,17 @@ public slots:
 
   void findSomeText( const QString& text )
   {
-    QWebPage::FindFlags flags = 0;
+    SC_WebEnginePage::FindFlags flags = 0;
     if ( searchBox -> reverseSearch() )
     {
-      flags |= QWebPage::FindBackward;
+      flags |= SC_WebEnginePage::FindBackward;
     }
     findSomeText( text, flags );
   }
 
   void findPrev()
   {
-    findSomeText( searchBox -> text(), QWebPage::FindBackward );
+    findSomeText( searchBox -> text(), SC_WebEnginePage::FindBackward );
   }
 
   void findNext()
@@ -1580,7 +1645,6 @@ public:
   virtual void run();
   ImportThread( SC_MainWindow* mw ) : mainWindow( mw ), sim( 0 ), player( 0 ) {}
 };
-
 
 namespace automation {
 

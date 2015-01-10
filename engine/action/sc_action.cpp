@@ -290,8 +290,6 @@ action_t::action_t( action_e       ty,
   dot_behavior                   = DOT_CLIP;
   trigger_gcd                    = player -> base_gcd;
   range                          = -1.0;
-  weapon_power_mod               = 1.0 / 3.5;
-
 
   amount_delta                   = 0.0;
   base_dd_min                    = 0.0;
@@ -896,6 +894,8 @@ double action_t::calculate_direct_amount( action_state_t* state )
   // Spell splits damage across all targets equally
   if ( state -> action -> split_aoe_damage )
     amount /= state -> n_targets;
+
+  amount *= composite_aoe_multiplier( state );
 
   // Spell goes over the maximum number of AOE targets - ignore for enemies
   if ( ! state -> action -> split_aoe_damage && state -> n_targets > static_cast< size_t >( sim -> max_aoe_enemies ) && ! state -> action -> player -> is_enemy() )
@@ -1854,6 +1854,13 @@ void action_t::init()
   if ( ( spell_power_mod.direct > 0 || attack_power_mod.direct > 0 ) || weapon_multiplier > 0 )
     snapshot_flags |= STATE_MUL_DA | STATE_TGT_MUL_DA | STATE_MUL_PERSISTENT | STATE_VERSATILITY;
 
+  // Tick actions use tick multipliers, so snapshot them too if direct
+  // multipliers are snapshot for "base" ability
+  if ( tick_action && ( snapshot_flags & STATE_MUL_DA ) > 0 )
+  {
+    snapshot_flags |= STATE_MUL_TA | STATE_TGT_MUL_TA;
+  }
+
   if ( ( spell_power_mod.direct > 0 || spell_power_mod.tick > 0 ) )
   {
     snapshot_flags |= STATE_SP;
@@ -1871,12 +1878,6 @@ void action_t::init()
   if ( dot_duration > timespan_t::zero() && ( hasted_ticks || channeled ) )
     snapshot_flags |= STATE_HASTE;
 
-  // If the action has a tick action, we have to snapshot tick multiplier,
-  // since ::tick() will actually replace da_modifier in the snapshot state
-  // with ta_modifier.
-  if ( tick_action )
-    snapshot_flags |= STATE_MUL_TA;
-
   // WOD: Dot Snapshoting is gone
   update_flags |= snapshot_flags;
 
@@ -1890,22 +1891,16 @@ void action_t::init()
     update_flags &= ~STATE_HASTE;
   }
 
-  if ( ! ( background || sequence ) && ( pre_combat || ( action_list && action_list -> name_str == "precombat" ) ) )
+  if ( !(background || sequence) && (pre_combat || (action_list && action_list -> name_str == "precombat")) )
   {
     if ( harmful )
     {
-      if ( player -> first_cast == true )
+      if ( this -> travel_speed > 0 || this -> base_execute_time > timespan_t::zero() )
       {
-        if ( this -> travel_speed > 0 || this -> base_execute_time > timespan_t::zero() )
-        {
-          player -> first_cast = false;
-          player -> precombat_action_list.push_back( this );
-        }
-        else
-          sim -> errorf( "Player %s attempted to add harmful action %s to precombat action list. Only one spell with travel time/cast time may be cast here.", player -> name(), name() );
+        player -> precombat_action_list.push_back( this );
       }
       else
-        sim -> errorf( "Player %s attempted to add harmful action %s to precombat action list. A maximum of one harmful spell may be cast here.", player -> name(), name() );
+        sim -> errorf( "Player %s attempted to add harmful action %s to precombat action list. Only spells with travel time/cast time may be cast here.", player -> name(), name() );
     }
     else
       player -> precombat_action_list.push_back( this );

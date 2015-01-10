@@ -619,7 +619,6 @@ public:
 
     equipped_weapon_dps = 0;
 
-    base.distance = ( specialization() == DRUID_FERAL || specialization() == DRUID_GUARDIAN ) ? 3 : 30;
     regen_type = REGEN_DYNAMIC;
     regen_caches[ CACHE_HASTE ] = true;
     regen_caches[ CACHE_ATTACK_HASTE ] = true;
@@ -2101,6 +2100,10 @@ public:
        of the NEW Savage Roar. */
     if ( p() -> buff.savage_roar -> check() )
       duration += std::min( p() -> buff.savage_roar -> remains(), duration * 0.3 );
+
+    // 01/02/2015: Glyph of Savage Roar only pandemics up to 51.0 seconds instead of 54.6
+    if ( p() -> bugs )
+      duration = std::min( timespan_t::from_seconds( 51.0 ), duration );
 
     p() -> buff.savage_roar -> trigger( 1, buff_t::DEFAULT_VALUE(), -1.0, duration );
   }
@@ -5352,7 +5355,7 @@ struct starfire_t : public druid_spell_t
     druid_spell_t::impact( s );
 
     if ( p() -> talent.balance_of_power && result_is_hit( s -> result ) )
-      td( s -> target ) -> dots.moonfire -> extend_duration( p() -> talent.balance_of_power -> effectN( 1 ).time_value(), 0 );
+      td( s -> target ) -> dots.moonfire -> extend_duration( timespan_t::from_seconds( p() -> talent.balance_of_power -> effectN( 1 ).base_value() ), 0 );
   }
 };
 
@@ -6097,6 +6100,9 @@ void druid_t::init_base_stats()
 {
   player_t::init_base_stats();
 
+  // Set base distance based on spec
+  base.distance = ( specialization() == DRUID_FERAL || specialization() == DRUID_GUARDIAN ) ? 3 : 30;
+
   if ( specialization () == DRUID_FERAL || specialization() == DRUID_GUARDIAN )
     base.attack_power_per_agility  = 1.0;
   if ( specialization () == DRUID_BALANCE || specialization() == DRUID_RESTORATION )
@@ -6668,6 +6674,7 @@ void druid_t::init_scaling()
   {
     scales_with[ STAT_WEAPON_DPS ] = false;
     scales_with[ STAT_PARRY_RATING ] = false;
+    scales_with[ STAT_BONUS_ARMOR ] = true;
   }
 
   scales_with[ STAT_STRENGTH ] = false;
@@ -7505,8 +7512,7 @@ void druid_t::assess_damage( school_e school,
          ! ( s -> result == RESULT_DODGE || s -> result == RESULT_MISS ) &&
          ! buff.primal_tenacity -> check() ) 
     {
-      // TODO: Does this really scale with versatility?
-      double pt_amount = s -> result_mitigated * cache.mastery_value() * ( 1 + cache.heal_versatility() );
+      double pt_amount = s -> result_mitigated * cache.mastery_value();
 
       /* Primal Tenacity may only occur if the amount of damage PT absorbed from the triggering attack
           is less than 20% of the size of the new absorb. */

@@ -27,6 +27,9 @@
 #  define SC_WINDOWS
 #  define WIN32_LEAN_AND_MEAN
 #  define VC_EXTRALEAN
+#if !( (NTDDI_VERSION >= NTDDI_VISTA) && !defined(_USING_V110_SDK71_) && !defined(_ATL_XP_TARGETING) )
+#define VS_XP_TARGET //Toolkit targeting.
+#endif
 #  ifndef _CRT_SECURE_NO_WARNINGS
 #    define _CRT_SECURE_NO_WARNINGS
 #  endif
@@ -69,8 +72,6 @@
 #undef __STRICT_ANSI__
 #endif
 
-
-
 // ==========================================================================
 // C++11
 // ==========================================================================
@@ -99,7 +100,7 @@ public:
 #define USE_TR1_NAMESPACE 1
 #endif
 
-# if ( SC_VS >= 11 || __cplusplus >= 201103L )
+# if ( SC_VS >= 11 || __cplusplus >= 201103L ) && ! defined( SC_OSX )
 # define SC_STD_THREAD // Enables std::thread:hardware_concurrency, which returns the number of logical processors.
 #endif
 
@@ -129,10 +130,6 @@ public:
 #  endif
 #endif
 
-#ifndef M_PI
-#define M_PI ( 3.14159265358979323846 )
-#endif
-
 // ==========================================================================
 // C99 fixed-width integral types & format specifiers
 // ==========================================================================
@@ -155,6 +152,7 @@ public:
 // Floating Point finite and NaN checks
 // ==========================================================================
 
+#define _USE_MATH_DEFINES
 #include <cmath>
 template<class T>
 inline bool sc_isfinite( T x )
@@ -175,5 +173,9 @@ inline bool sc_isnan( T x )
   return std::isnan( x );
 #endif
 }
+
+#ifndef M_PI
+#define M_PI ( 3.14159265358979323846 )
+#endif
 
 #endif // CONFIG_H

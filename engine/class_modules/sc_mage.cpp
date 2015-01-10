@@ -1150,7 +1150,9 @@ public:
       may_proc_missiles = false;
     }
 
-    if ( p() -> specialization() == MAGE_ARCANE && may_proc_missiles )
+    if ( p() -> specialization() == MAGE_ARCANE &&
+         result_is_hit( execute_state -> result ) &&
+         may_proc_missiles )
     {
       p() -> buffs.arcane_missiles -> trigger();
     }
@@ -3921,8 +3923,10 @@ struct supernova_t : public mage_spell_t
   {
     mage_spell_t::execute();
 
-    if ( execute_state -> n_targets > 1)
+    if ( result_is_hit( execute_state -> result ) &&
+         execute_state -> n_targets > 1 )
     {
+      // NOTE: Supernova AOE effect causes secondary trigger chance for AM
       p() -> buffs.arcane_missiles -> trigger();
     }
   }
@@ -4916,7 +4920,6 @@ void mage_t::apl_precombat()
   precombat -> add_talent( this, "Rune of Power" );
   precombat -> add_talent( this, "Mirror Image" );
 
-
   //Potions
   if ( sim -> allow_potions && level >= 80 )
   {
@@ -5279,7 +5282,7 @@ void mage_t::apl_frost()
   default_list -> add_talent( this, "Rune of Power",
                               "if=(cooldown.icy_veins.remains<gcd.max&buff.rune_of_power.remains<20)|(cooldown.prismatic_crystal.remains<gcd.max&buff.rune_of_power.remains<10)" );
   default_list -> add_action( "call_action_list,name=cooldowns,if=time_to_die<24" );
-  default_list -> add_action( "water_jet,if=time<1&!(talent.ice_nova.enabled&talent.prismatic_crystal.enabled)",
+  default_list -> add_action( "water_jet,if=time<1&active_enemies<4&!(talent.ice_nova.enabled&talent.prismatic_crystal.enabled)",
                               "Water jet on pull for non IN+PC talent combos" );
   default_list -> add_action( "call_action_list,name=crystal_sequence,if=talent.prismatic_crystal.enabled&(cooldown.prismatic_crystal.remains<=gcd.max|pet.prismatic_crystal.active)" );
   default_list -> add_action( "call_action_list,name=aoe,if=active_enemies>=4" );

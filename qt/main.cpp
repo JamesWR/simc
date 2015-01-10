@@ -1,8 +1,15 @@
-#include "simulationcraft.hpp"
+﻿#include "simulationcraft.hpp"
 #include "simulationcraftqt.hpp"
 #include <QLocale>
 #include <QtWidgets/QApplication>
 #include <locale>
+#if defined SC_WINDOWS
+#include <windows.h>
+#include <stdio.h>
+#ifndef VS_XP_TARGET
+#include <VersionHelpers.h>
+#endif
+#endif
 
 /* Parse additional arguments
  * 1. Argument is parsed as a file name, complete content goes into simulate tab.
@@ -31,11 +38,42 @@ void parse_additional_args( SC_MainWindow& w, QStringList args )
   }
 }
 
+bool checkWindowsVersion()
+{
+#if defined SC_WINDOWS
+
+  OSVERSIONINFO osvi;
+  BOOL bIsWindowsXPorLater;
+  ZeroMemory( &osvi, sizeof( OSVERSIONINFO ) );
+  osvi.dwOSVersionInfoSize = sizeof( OSVERSIONINFO );
+  GetVersionEx(&osvi);
+  bIsWindowsXPorLater = osvi.dwMajorVersion >= 6; // 6.0 and up is Vista
+
+#ifndef VS_XP_TARGET // The 32 bit version should be built with xp toolchain so that it will give an error box with an explanation, instead of a generic appcrash that it would give
+                     // with the normal toolchain.. which would just mean more issues being posted. After a few months we can probably remove this targetting for the GUI and only leave it in for CLI. - 01/08/2015
+  if ( !IsWindows7SP1OrGreater() && IsWindows7OrGreater() ) // Winxp cannot access fancy-pants methods to determine if the OS has Win7 SP1... which is probably ok.
+  {
+    int msgboxID = MessageBox( NULL,  // Added to warn people to install SP1 before posting issues about simc not loading, as it fixes the issue in a majority of cases.
+      (LPCWSTR)L"SimulationCraft GUI is known to have issues with Windows 7 when Service Pack 1 is not installed.\nThe program will continue to load, but if you run into any problems, please install Service Pack 1.",
+      (LPCWSTR)L"SimulationCraft", MB_OK );
+    return true;
+  }
+#endif
+  if ( !bIsWindowsXPorLater )
+  {
+    int msgboxID = MessageBox( NULL,
+      (LPCWSTR)L"SimulationCraft GUI is no longer supported on Windows XP as of January 2015. If you wish to continue using Simulationcraft, you may do so by the command line interface -- simc.exe.",
+      (LPCWSTR)L"SimulationCraft", MB_OK );
+    return false; // Do not continue loading.
+  }
+#endif
+  return true;
+}
+
 int main( int argc, char *argv[] )
 {
-#ifdef SC_WINDOWS
-  QCoreApplication::addLibraryPath("plugins");
-#endif
+  if ( !checkWindowsVersion() ) //Returns false on any windows version below Vista.
+  { return 0; }
   QLocale::setDefault( QLocale( "C" ) );
   std::locale::global( std::locale( "C" ) );
   setlocale( LC_ALL, "C" );
@@ -55,13 +93,33 @@ int main( int argc, char *argv[] )
   // Localization
   QTranslator qtTranslator;
   qtTranslator.load( "qt_" + QLocale::system().name(),
-                     QLibraryInfo::location( QLibraryInfo::TranslationsPath ) );
+    QLibraryInfo::location( QLibraryInfo::TranslationsPath ) );
   a.installTranslator( &qtTranslator );
 
-  QString path_to_locale = QString( "locale" );
-
+  QString lang( "" );
+  QSettings settings;
+  settings.beginGroup( "options" );
+  if ( settings.contains( "gui_localization" ) )
+  {
+    lang = settings.value( "gui_localization" ).toString();
+    qDebug() << "simc gui localization: " << lang;
+  }
+  settings.endGroup();
+  if ( lang == "auto" )
+  {
+    lang = QLocale::system().name();
+    //qDebug() << "using auto localization: " << lang;
+  }
   QTranslator myappTranslator;
-  myappTranslator.load( QString( "sc_" ) + QLocale::system().name(), path_to_locale );
+  if ( !lang.isEmpty() && !lang.startsWith( "en" ) )
+  {
+    QString path_to_locale( "locale" );
+
+    QString qm_file = QString( "sc_" ) + lang;
+    //qDebug() << "qm file: " << qm_file;
+    myappTranslator.load( qm_file, path_to_locale );
+    //qDebug() << "translator: " << myappTranslator.isEmpty();
+  }
   a.installTranslator( &myappTranslator );
 
   // Setup search paths for resources

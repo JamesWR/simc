@@ -3,13 +3,39 @@ TEMPLATE = app
 CONFIG(qt) {
   TARGET = SimulationCraft
 
-  QT += core gui network webkit
+  QT += core gui network
 
   contains ( QT_MAJOR_VERSION , 5 ) {
-    QT += widgets webkitwidgets
+    greaterThan( QT_MINOR_VERSION, 3 ) {
+      QT += webengine webenginewidgets
+      DEFINES += SC_USE_WEBENGINE
+    }
+    lessThan( QT_MINOR_VERSION, 4 ) {
+      QT += webkit webkitwidgets
+      DEFINES += SC_USE_WEBKIT
+    }
+    QT += widgets
     DEFINES += QT_VERSION_5
   }
+  contains( QT_MAJOR_VERSION, 4 ) {
+    QT += webkit
+  }
   OBJECTS_DIR = qt
+}
+
+win32-mingw
+{
+  ! macx {
+    # QT 5.4 for MinGW does not yet contain the new Web Engine
+    contains ( QT_MAJOR_VERSION , 5 ) {
+        greaterThan( QT_MINOR_VERSION, 3 ) {
+            QT -= webengine webenginewidgets
+            QT += webkit webkitwidgets
+            DEFINES -= SC_USE_WEBENGINE
+            DEFINES += SC_USE_WEBKIT
+        }
+    }
+  }
 }
 
 CONFIG(console) {
@@ -20,6 +46,9 @@ CONFIG(console) {
   CONFIG += static staticlib
   OBJECTS_DIR = engine
 }
+
+TRANSLATIONS = locale/sc_de.ts \
+    locale/sc_zh.ts
 
 # OSX qt 5.1 is fubar and has double slashes, messing up things
 QTDIR=$$[QT_INSTALL_PREFIX]
@@ -34,7 +63,7 @@ QMAKE_CXXFLAGS_RELEASE += -DNDEBUG
 QMAKE_CXXFLAGS += $$OPTS
 
 ! isEmpty( SC_DEFAULT_APIKEY ) {
-  DEFINES += SC_DEFAULT_APIKEY=\"$${SC_DEFAULT_APIKEY}\"
+  DEFINES += SC_DEFAULT_APIKEY=\\\"$${SC_DEFAULT_APIKEY}\\\"
 }
 
 win32 {
@@ -54,7 +83,7 @@ macx {
 
     Resources.files = Welcome.html Welcome.png Error.html
     Resources.path = Contents/Resources
-    Profiles.files = profiles/Tier16M profiles/Tier17P profiles/Tier17N profiles/Tier17H profiles/Tier17M profiles/Tier17B
+    Profiles.files = profiles/Tier17P profiles/Tier17N profiles/Tier17H profiles/Tier17M profiles/Tier17B
     Profiles.path = Contents/Resources/profiles
     QMAKE_BUNDLE_DATA += Profiles Resources
     QMAKE_DISTCLEAN += simc *.dmg

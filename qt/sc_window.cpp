@@ -11,18 +11,33 @@
 #ifdef SC_PAPERDOLL
 #include "simcpaperdoll.hpp"
 #endif
-#include <QtWebKit/QtWebKit>
 #if defined( Q_OS_MAC )
 #include <CoreFoundation/CoreFoundation.h>
 #endif
 #include <QStandardPaths>
 
-static int SC_GUI_HISTORY_VERSION = 6;
+static int SC_GUI_HISTORY_VERSION = 640;
 
 namespace { // UNNAMED NAMESPACE
 
 const char* SIMC_LOG_FILE = "simc_log.txt";
 
+#if ! defined( SC_USE_WEBKIT )
+struct HtmlOutputFunctor
+{
+  QFile* file_;
+
+  HtmlOutputFunctor( QFile* out_file ) : file_( out_file )
+  { }
+
+  void operator()( QString htmlOutput )
+  {
+    QByteArray out_utf8 = htmlOutput.toUtf8();
+    file_ -> write( out_utf8.constData(), out_utf8.size() );
+    file_ -> close();
+  }
+};
+#endif
 } // UNNAMED NAMESPACE
 
 // ==========================================================================
@@ -50,6 +65,11 @@ void SC_MainWindow::updateSimProgress()
   if ( importRunning() )
   {
     importSimProgress = static_cast<int>( 100.0 * import_sim -> progress( importSimPhase, &progressBarToolTip ) );
+    if ( soloChar -> isActive() && importSimProgress == 0 )
+    {
+      soloimport += 2;
+      importSimProgress = static_cast<int>( std::min( soloimport, 100 ) );
+    }
   }
 #if !defined( SC_WINDOWS ) && !defined( SC_OSX )
   // Progress bar text in Linux is displayed inside the progress bar as opposed next to it in Windows
@@ -60,6 +80,7 @@ void SC_MainWindow::updateSimProgress()
     simPhase += progressBarToolTip;
   }
 #endif
+
   cmdLine -> setSimulatingProgress( simProgress, simPhase.c_str(), progressBarToolTip.c_str() );
   cmdLine -> setImportingProgress( importSimProgress, importSimPhase.c_str(), progressBarToolTip.c_str() );
 }
@@ -67,11 +88,14 @@ void SC_MainWindow::updateSimProgress()
 void SC_MainWindow::loadHistory()
 {
   QSettings settings;
-  
+  QString saveApiKey;
+  saveApiKey = settings.value( "options/apikey" ).toString();
+
   QVariant gui_version_number = settings.value( "gui/gui_version_number", 0 );
   if ( gui_version_number.toInt() < SC_GUI_HISTORY_VERSION )
   {
     settings.clear();
+    settings.setValue( "options/apikey", saveApiKey );
     QMessageBox msgBox;
     msgBox.setText( "We have reset your configuration settings due to major changes to the GUI" );
     msgBox.exec();
@@ -118,7 +142,6 @@ void SC_MainWindow::loadHistory()
         {
           simulateTab -> add_Text( sl.at( 1 ), sl.at( 0 ) );
         }
-
       }
     }
   }
@@ -205,6 +228,7 @@ SC_MainWindow::SC_MainWindow( QWidget *parent )
   importSimPhase( "%p%" ),
   simProgress( 100 ),
   importSimProgress( 100 ),
+  soloimport( 0 ),
   simResults( 0 ),
   AppDataDir( "." ),
   ResultsDestDir( "." ),
@@ -293,6 +317,7 @@ SC_MainWindow::SC_MainWindow( QWidget *parent )
   resultsFileText = AppDataDir + "/" + "results.html";
 
   mainTab = new SC_MainTab( this );
+
   createWelcomeTab();
   createImportTab();
   createOptionsTab();
@@ -319,6 +344,9 @@ SC_MainWindow::SC_MainWindow( QWidget *parent )
   vLayout -> addWidget( cmdLine, 0 );
   setLayout( vLayout );
   vLayout -> activate();
+
+  soloChar = new QTimer( this );
+  connect( soloChar, SIGNAL( timeout() ), this, SLOT( updatetimer() ) );
 
   timer = new QTimer( this );
   connect( timer, SIGNAL( timeout() ), this, SLOT( updateSimProgress() ) );
@@ -384,8 +412,16 @@ void SC_MainWindow::createOptionsTab()
   connect( optionsTab, SIGNAL( armory_region_changed( const QString& ) ), this, SLOT( armoryRegionChanged( const QString& ) ) );
 }
 
-SC_WelcomeTabWidget::SC_WelcomeTabWidget( SC_MainWindow* parent ):
-QWebView( parent )
+#if ! defined( SC_USE_WEBKIT )
+void SC_WelcomeTabWidget::welcomeLoadSlot()
+{
+  setUrl( welcome_uri );
+  welcome_timer -> deleteLater();
+}
+#endif
+
+SC_WelcomeTabWidget::SC_WelcomeTabWidget( SC_MainWindow* parent ) :
+  SC_WebEngineView( parent )
 {
   QString welcomeFile = QDir::currentPath() + "/Welcome.html";
 
@@ -402,10 +438,21 @@ QWebView( parent )
 #elif defined( SC_LINUX_PACKAGING )
   welcomeFile = SC_LINUX_PACKAGING "/Welcome.html";
 #endif
-  setUrl( "file:///" + welcomeFile );
+#ifndef SC_USE_WEBKIT
+  welcome_uri = "file:///" + welcomeFile;
+  welcome_timer = new QTimer( this );
+  welcome_timer -> setSingleShot( true );
+  welcome_timer -> setInterval( 500 );
 
+  connect( welcome_timer, SIGNAL( timeout() ), this, SLOT( welcomeLoadSlot() ) );
+  welcome_timer -> start();
+
+  connect( this, SIGNAL( urlChanged(const QUrl& ) ), this, SLOT( urlChangedSlot(const QUrl&) ) );
+#else
+  setUrl( "file:///" + welcomeFile );
   page() -> setLinkDelegationPolicy( QWebPage::DelegateAllLinks );
   connect( this, SIGNAL( linkClicked( const QUrl& ) ), this, SLOT( linkClickedSlot( const QUrl& ) ) );
+#endif
 }
 
 void SC_MainWindow::createImportTab()
@@ -918,7 +965,7 @@ void SC_MainWindow::deleteSim( sim_t* sim, SC_TextEdit* append_error_message )
 void SC_MainWindow::enqueueSim()
 {
   QString title = simulateTab -> tabText( simulateTab -> currentIndex() );
-  QString options = simulateTab -> current_Text() -> toPlainText();
+  QString options = simulateTab -> current_Text() -> toPlainText().toUtf8();
   QString fullOptions = optionsTab -> mergeOptions();
 
   simulationQueue.enqueue( title, options, fullOptions );
@@ -935,7 +982,6 @@ void SC_MainWindow::startImport( int tab, const QString& url )
   import_sim = initSim();
   importThread -> start( import_sim, tab, url, optionsTab -> get_db_order(), optionsTab -> get_active_spec(), optionsTab -> get_player_role(), optionsTab -> get_api_key() );
   simulateTab -> add_Text( defaultSimulateText, tr( "Importing" ) );
-  timer -> start( 500 );
 }
 
 void SC_MainWindow::stopImport()
@@ -963,6 +1009,19 @@ void SC_MainWindow::itemWasEnqueuedTryToSim()
   }
 }
 
+void SC_MainWindow::updatetimer()
+{
+  if ( importRunning() )
+  {
+    updateSimProgress();
+    soloChar -> start();
+  }
+  else
+  {
+    soloimport = 0;
+  }
+}
+
 void SC_MainWindow::importFinished()
 {
   importSimPhase = "%p%";
@@ -976,7 +1035,11 @@ void SC_MainWindow::importFinished()
     QString label = QString::fromUtf8( importThread -> player -> name_str.c_str() );
     while ( label.size() < 20 ) label += ' ';
     label += QString::fromUtf8( importThread -> player -> origin_str.c_str() );
-
+    if ( label.contains( ".api." ) )
+    { // Strip the s out of https and the api. out of the string so that it is a usable link.
+      label.replace( QString( ".api" ), QString( "" ) );
+      label.replace( QString( "https"), QString( "http" ) );
+    }
     bool found = false;
     for ( int i = 0; i < historyList -> count() && !found; i++ )
     {
@@ -1449,7 +1512,12 @@ void SC_MainWindow::importButtonClicked()
 {
   switch ( importTab -> currentTab() )
   {
-  case TAB_BATTLE_NET: startImport( TAB_BATTLE_NET, cmdLine -> commandLineText( TAB_BATTLE_NET ) ); break;
+  case TAB_BATTLE_NET:
+  {
+    soloChar -> start( 50 );
+    startImport( TAB_BATTLE_NET, cmdLine -> commandLineText( TAB_BATTLE_NET ) );
+    break;
+  }
   case TAB_RECENT:     recentlyClosedTabImport -> restoreCurrentlySelected(); break;
   case TAB_AUTOMATION: startAutomationImport( TAB_AUTOMATION ); break;
   default: break;
@@ -1474,10 +1542,11 @@ void SC_MainWindow::backButtonClicked( bool /* checked */ )
     if ( mainTab -> currentTab() == TAB_RESULTS && !visibleWebView->history()->canGoBack() )
     {
       visibleWebView -> loadHtml();
-
+#if defined( SC_USE_WEBKIT )
       QWebHistory* h = visibleWebView->history();
       h->setMaximumItemCount( 0 );
       h->setMaximumItemCount( 100 );
+#endif
     }
     else
     {
@@ -1921,17 +1990,24 @@ void SC_SingleResultTab::save_result()
       switch ( currentTab() )
       {
       case TAB_HTML:
-        file.write( static_cast<SC_WebView*>( currentWidget() ) -> toHtml().toUtf8() );
+#if defined( SC_USE_WEBKIT )
+        file.write(static_cast<SC_WebView*>(currentWidget())->toHtml().toUtf8());
+        file.close();
+#else
+        static_cast<SC_WebView*>(currentWidget()) -> page() -> toHtml( HtmlOutputFunctor( &file ) );
+#endif /* SC_USE_WEBKIT */
         break;
       case TAB_TEXT:
       case TAB_XML:
       case TAB_PLOTDATA:
       case TAB_CSV:
+#if defined ( SC_USE_WEBKIT )
         file.write( static_cast<SC_TextEdit*>( currentWidget() ) -> toPlainText().toUtf8() );
+        file.close();
         break;
+#endif
       default: break;
       }
-      file.close();
       QMessageBox::information( this, tr( "Save Result" ), tr( "Result saved to %1" ).arg( file.fileName() ), QMessageBox::Ok, QMessageBox::Ok );
       mainWindow -> logText -> append( QString( "Results saved to: %1\n" ).arg( file.fileName() ) );
     }

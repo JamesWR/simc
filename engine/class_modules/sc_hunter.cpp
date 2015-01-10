@@ -2233,7 +2233,7 @@ struct black_arrow_t: public hunter_ranged_attack_t
     }
 
     may_multistrike = 1;
-    lnl_chance = data().effectN( 2 ).percent();
+    lnl_chance = data().effectN( 2 ).percent(); 
   }
   
   virtual void tick( dot_t* d )
@@ -2298,6 +2298,40 @@ struct black_arrow_t: public hunter_ranged_attack_t
       lnl_procs |= proc_bit;
       proc_count--;
       possible_slots--;
+    }
+  }
+};
+
+// Freezing Trap ==============================================================
+// Implemented here because often there are buffs associated with it
+
+struct freezing_trap_t: public hunter_ranged_attack_t
+{
+  gain_t* freezing_trap_gain;
+
+  freezing_trap_t( hunter_t* player, const std::string& options_str ):
+    hunter_ranged_attack_t( "freezing_trap", player, player -> find_class_spell( "Freezing Trap" ) )
+  {
+    parse_options( options_str );
+
+    cooldown -> duration = data().cooldown();
+    cooldown -> duration += p() -> specs.trap_mastery -> effectN( 4 ).time_value();
+    if ( p() -> perks.enhanced_traps -> ok() )
+      cooldown -> duration *= ( 1.0 + p() -> perks.enhanced_traps -> effectN( 1 ).percent() );
+
+    freezing_trap_gain = player -> get_gain( "freezing_trap" );
+    
+    // BUG simulate slow velocity of launch
+    travel_speed = 18.0;
+  }
+   
+  virtual void impact( action_state_t* s )
+  {
+    hunter_ranged_attack_t::impact( s );
+    if ( p() -> sets.has_set_bonus( p() -> specialization(), PVP, B2 ) )
+    {
+      int focus = p() -> sets.set( p() -> specialization(), PVP, B2 ) ->  effectN( 1 ).trigger() -> effectN( 1 ).base_value();
+      p() -> resource_gain( RESOURCE_FOCUS, focus, freezing_trap_gain );
     }
   }
 };
@@ -2587,7 +2621,7 @@ struct kill_shot_t: public hunter_ranged_attack_t
 
   virtual bool ready()
   {
-    if ( target -> health_percentage() > ( p() -> perks.enhanced_kill_shot ? 35 : 20 ) )
+    if ( target -> health_percentage() > ( p() -> perks.enhanced_kill_shot -> ok() ? 35 : 20 ) )
       return false;
 
     return hunter_ranged_attack_t::ready();
@@ -3374,11 +3408,12 @@ action_t* hunter_t::create_action( const std::string& name,
   if ( name == "exotic_munitions"      ) return new       exotic_munitions_t( this, options_str );
   if ( name == "explosive_shot"        ) return new         explosive_shot_t( this, options_str );
   if ( name == "explosive_trap"        ) return new         explosive_trap_t( this, options_str );
+  if ( name == "freezing_trap"         ) return new          freezing_trap_t( this, options_str );
   if ( name == "focus_fire"            ) return new             focus_fire_t( this, options_str );
   if ( name == "kill_command"          ) return new           kill_command_t( this, options_str );
   if ( name == "kill_shot"             ) return new              kill_shot_t( this, options_str );
   if ( name == "multishot"             ) return new             multi_shot_t( this, options_str );
-  if ( name == "multi_shot"             ) return new             multi_shot_t( this, options_str );
+  if ( name == "multi_shot"            ) return new             multi_shot_t( this, options_str );
   if ( name == "rapid_fire"            ) return new             rapid_fire_t( this, options_str );
   if ( name == "steady_shot"           ) return new            steady_shot_t( this, options_str );
   if ( name == "focusing_shot"         ) return new          focusing_shot_t( this, options_str );
@@ -3992,7 +4027,7 @@ void hunter_t::apl_surv()
   // default_list -> add_talent( this, "Glaive Toss" );
   // default_list -> add_talent( this, "Powershot" );
   // default_list -> add_talent( this, "Barrage" );
-  default_list -> add_action( this, "Cobra Shot", "if=buff.pre_steady_focus.up&buff.steady_focus.remains<5&(14+cast_regen)<=focus.deficit<80", "Cast a second shot for steady focus if that won't cap us." );
+  default_list -> add_action( this, "Cobra Shot", "if=buff.pre_steady_focus.up&buff.steady_focus.remains<5&(14+cast_regen)<=focus.deficit", "Cast a second shot for steady focus if that won't cap us." );
   default_list -> add_action( this, "Arcane Shot", "if=focus>=80|talent.focusing_shot.enabled" );
   default_list -> add_talent( this, "Focusing Shot" );
   if ( level >= 81 )

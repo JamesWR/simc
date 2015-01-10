@@ -4830,7 +4830,7 @@ void warrior_t::init_scaling()
   if ( specialization() == WARRIOR_FURY )
     scales_with[STAT_WEAPON_OFFHAND_DPS] = true;
 
-  if ( talents.gladiators_resolve -> ok() && primary_role() == ROLE_ATTACK )
+  if ( specialization() == WARRIOR_PROTECTION )
     scales_with[STAT_BONUS_ARMOR] = true;
 
   scales_with[STAT_AGILITY] = false;
@@ -5385,7 +5385,7 @@ void warrior_t::invalidate_cache( cache_e c )
 role_e warrior_t::primary_role() const
 {
   // For now, assume "Default role"/ROLE_NONE wants to be a gladiator dps.
-  if ( specialization() == WARRIOR_PROTECTION && player_t::primary_role() == ROLE_TANK )
+  if ( specialization() == WARRIOR_PROTECTION && ( player_t::primary_role() == ROLE_TANK || !player_t::find_talent_spell( "Gladiator's Resolve" ) ) )
   {
     return ROLE_TANK;
   }
