@@ -1762,10 +1762,12 @@ void print_html_player_scale_factor_table( report::sc_html_stream& os, sim_t*, p
     os.printf(
     "<li><a href=\"%s\" class=\"ext\">wowhead</a></li>\n",
     ri.gear_weights_wowhead_std_link[ sm ].c_str() );
+#if LOOTRANK_ENABLED == 1
   if ( !ri.gear_weights_lootrank_link[ sm ].empty() )
     os.printf(
     "<li><a href=\"%s\" class=\"ext\">lootrank</a></li>\n",
     ri.gear_weights_lootrank_link[ sm ].c_str() );
+#endif
   os << "</ul>\n";
   os << "</td>\n";
   os << "</tr>\n";
@@ -1878,14 +1880,14 @@ void print_html_player_scale_factors( report::sc_html_stream& os, sim_t* sim, pl
 
 bool print_html_sample_sequence_resource( const player_t* p, const player_collected_data_t::action_sequence_data_t* data, resource_e r )
 {
+  if ( r == RESOURCE_ECLIPSE && p -> specialization() == DRUID_BALANCE ) // Eclipse dips into the negatives.
+    return true;
+
   if ( data -> resource_snapshot[ r ] < 0 )
     return false;
 
   if ( p -> role == ROLE_TANK && r == RESOURCE_HEALTH )
       return true;
-
-  if ( r == RESOURCE_ECLIPSE && p -> specialization() == DRUID_BALANCE ) // Eclipse currently dips into the negatives.
-    return true;
 
   if ( p -> resources.is_infinite( r ) )
     return false;

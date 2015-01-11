@@ -6586,9 +6586,17 @@ void death_knight_t::init_action_list()
     for ( size_t i = 0; i < get_item_actions().size(); i++ )
       def -> add_action( get_item_actions()[i] );
 
-    //decide between single_target and aoe rotation
-    def -> add_action( "run_action_list,name=aoe,if=active_enemies>=3" );
-    def -> add_action( "run_action_list,name=single_target,if=active_enemies<3" );
+    if ( main_hand_weapon.group() == WEAPON_2H )
+    {
+      //decide between single_target and aoe rotation
+      def -> add_action( "run_action_list,name=aoe,if=active_enemies>=4" );
+      def -> add_action( "run_action_list,name=single_target,if=active_enemies<4" );
+    }
+    else
+    {
+      def -> add_action( "run_action_list,name=aoe,if=active_enemies>=3" );
+      def -> add_action( "run_action_list,name=single_target,if=active_enemies<3" );
+    }
 
     // Breath of Sindragosa specific APLs
     action_priority_list_t* bos_aoe = get_action_priority_list( "bos_aoe" );
@@ -6759,7 +6767,7 @@ void death_knight_t::init_action_list()
     bos_aoe -> add_action( this, "Death Coil", "if=buff.sudden_doom.react" );
 
     action_priority_list_t* spread = get_action_priority_list( "spread" );
-    spread -> add_action( "blood_boil,cycle_targets=1,if=dot.blood_plague.ticking|dot.frost_fever.ticking" );
+    spread -> add_action( "blood_boil,cycle_targets=1,if=(dot.blood_plague.ticking|dot.frost_fever.ticking)&!talent.necrotic_plague.enabled" );
     spread -> add_action( this, "Outbreak", "if=!talent.necrotic_plague.enabled&(!dot.blood_plague.ticking|!dot.frost_fever.ticking)" );
     spread -> add_action( this, "Outbreak", "if=talent.necrotic_plague.enabled&!dot.necrotic_plague.ticking" );
     spread -> add_action( this, "Plague Strike", "if=!talent.necrotic_plague.enabled&(!dot.blood_plague.ticking|!dot.frost_fever.ticking)" );
@@ -6822,7 +6830,7 @@ void death_knight_t::init_action_list()
 
     //AoE
     aoe -> add_talent( this, "Unholy Blight" );
-    aoe -> add_action( "run_action_list,name=spread,if=!dot.blood_plague.ticking|!dot.frost_fever.ticking" );
+    aoe -> add_action( "run_action_list,name=spread,if=(!dot.blood_plague.ticking|!dot.frost_fever.ticking)&!dot.necrotic_plague.ticking" );
     // AoE defile
     aoe -> add_talent( this, "Defile" );
     // AoE Breath of Sindragosa in use, cast and then keep up

@@ -17,7 +17,7 @@ struct spell_data_expr_t;
 
 #define MAX_PLAYERS_PER_CHART 20
 
-#define LOOTRANK_ENABLED 1
+#define LOOTRANK_ENABLED 0 // The website works, but the link we send out is not usable. If anyone ever fixes it, just set this to 1.
 
 namespace chart
 {
@@ -41,9 +41,7 @@ std::string time_spent( player_t* );
 std::string gains( player_t*, resource_e );
 std::string normal_distribution(  double mean, double std_dev, double confidence, double tolerance_interval = 0, int print_styles = 0  );
 
-#if LOOTRANK_ENABLED == 1
 std::array<std::string, SCALE_METRIC_MAX> gear_weights_lootrank  ( player_t* );
-#endif
 std::array<std::string, SCALE_METRIC_MAX> gear_weights_wowhead   ( player_t* );
 std::array<std::string, SCALE_METRIC_MAX> gear_weights_askmrrobot( player_t* );
 
