@@ -390,7 +390,9 @@ public:
   {
     double pm = pet_multiplier;
     if ( mastery.master_of_beasts -> ok() )
-      pm *= 1.0 + cache.mastery_value();
+    {
+      pm *= 1.0 + (cache.mastery_value() * ( wod_hotfix ? 1.125 : 1.0 ) );
+    }
 
     return pm;
   }

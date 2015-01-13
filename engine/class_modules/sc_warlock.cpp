@@ -1019,7 +1019,7 @@ void warlock_pet_t::init_base_stats()
 
   main_hand_weapon.type = WEAPON_BEAST;
 
-  double dmg = dbc.spell_scaling( owner -> type, owner -> level );
+  //double dmg = dbc.spell_scaling( owner -> type, owner -> level );
 
   main_hand_weapon.swing_time = timespan_t::from_seconds( 2.0 );
 }
@@ -1065,11 +1065,16 @@ double warlock_pet_t::composite_player_multiplier( school_e school ) const
 {
   double m = pet_t::composite_player_multiplier( school );
 
-  if  (owner -> race == RACE_ORC && pet_type != PET_WILD_IMP )
+  if  ( owner -> race == RACE_ORC )
     m *= 1.0 + o() -> find_spell( 21563 ) -> effectN( 1 ).percent();
 
   if ( o() -> mastery_spells.master_demonologist -> ok() )
-    m *= 1.0 + o() -> cache.mastery() * o() -> mastery_spells.master_demonologist -> effectN( 1 ).mastery_value();
+  {
+    double mastery = o() -> cache.mastery();
+    if ( wod_hotfix )
+      mastery *= 4.0 / 3.0;
+    m *= 1.0 + mastery * o() -> mastery_spells.master_demonologist -> effectN( 1 ).mastery_value();
+  }
 
   if ( o() -> talents.grimoire_of_supremacy -> ok() && pet_type != PET_WILD_IMP )
     m *= 1.0 + supremacy -> effectN( 1 ).percent(); // The relevant effect is not attatched to the talent spell, weirdly enough
@@ -1602,7 +1607,12 @@ struct inner_demon_t : public pet_t
     double m = pet_t::composite_player_multiplier( school );
 
     if ( o() -> mastery_spells.master_demonologist -> ok() )
-      m *= 1.0 + o() -> cache.mastery() * o() -> mastery_spells.master_demonologist -> effectN( 1 ).mastery_value();
+    {
+      double mastery = o() -> cache.mastery();
+      if ( wod_hotfix )
+        mastery *= 4.0 / 3.0;
+      m *= 1.0 + mastery * o() -> mastery_spells.master_demonologist -> effectN( 1 ).mastery_value();
+    }
 
     return m;
   }
@@ -1941,7 +1951,12 @@ public:
     double pm = spell_t::action_multiplier();
 
     if ( p() -> buffs.metamorphosis -> up() && demo_mastery )
-      pm *= 1.0 + p() -> cache.mastery() * p() -> mastery_spells.master_demonologist -> effectN( 3 ).mastery_value();
+    {
+      double mastery = p() -> cache.mastery();
+      if ( p() -> wod_hotfix )
+        mastery *= 4.0 / 3.0;
+      pm *= 1.0 + mastery * p() -> mastery_spells.master_demonologist -> effectN( 3 ).mastery_value();
+    }
 
     return pm;
   }
@@ -2197,7 +2212,11 @@ struct doom_t: public warlock_spell_t
   {
     double am = spell_t::action_multiplier();
 
-    am *= 1.0 + p() -> cache.mastery() * p() -> mastery_spells.master_demonologist -> effectN( 3 ).mastery_value();
+    double mastery = p() -> cache.mastery();
+    if ( p() -> wod_hotfix )
+      mastery *= 4.0 / 3.0;
+
+    am *= 1.0 + mastery * p() -> mastery_spells.master_demonologist -> effectN( 3 ).mastery_value();
 
     return am;
   }
@@ -4898,7 +4917,12 @@ double warlock_t::composite_player_multiplier( school_e school ) const
     m *= 1.0 + buffs.demonic_synergy -> data().effectN( 1 ).percent();
 
   if ( mastery_spells.master_demonologist -> ok() )
-    m *= 1.0 + cache.mastery() * mastery_spells.master_demonologist -> effectN( 1 ).mastery_value();
+  {
+    double mastery = cache.mastery();
+    if ( wod_hotfix )
+      mastery *= 4.0 / 3.0;
+    m *= 1.0 + mastery * mastery_spells.master_demonologist -> effectN( 1 ).mastery_value();
+  }
 
   return m;
 }
@@ -4965,9 +4989,7 @@ double warlock_t::composite_mastery() const
     {
       m += spec.dark_soul -> effectN( 1 ).average( this );
     }
-
   }
-
   return m;
 }
 
@@ -4987,13 +5009,22 @@ double warlock_t::composite_rating_multiplier( rating_e rating ) const
     m *= 1.0 + spec.eradication -> effectN( 1 ).percent();
     break;
   case RATING_SPELL_CRIT:
-    m *= 1.0 + spec.devastation -> effectN( 1 ).percent();
+    if ( wod_hotfix && specialization() == WARLOCK_DESTRUCTION )
+      m *= 1.15;
+    else
+      m *= 1.0 + spec.devastation -> effectN( 1 ).percent();
     break;
   case RATING_MELEE_CRIT:
-    m *= 1.0 + spec.devastation -> effectN( 1 ).percent();
+    if ( wod_hotfix && specialization() == WARLOCK_DESTRUCTION )
+      m *= 1.15;
+    else
+      m *= 1.0 + spec.devastation -> effectN( 1 ).percent();
     break;
   case RATING_RANGED_CRIT:
-    m *= 1.0 + spec.devastation -> effectN( 1 ).percent();
+    if ( wod_hotfix && specialization() == WARLOCK_DESTRUCTION )
+      m *= 1.15;
+    else
+      m *= 1.0 + spec.devastation -> effectN( 1 ).percent();
     break;
   case RATING_MASTERY:
     return m *= 1.0 + spec.demonic_tactics -> effectN( 1 ).percent();
@@ -5117,6 +5148,8 @@ action_t* warlock_t::create_action( const std::string& action_name,
   else if ( action_name == "service_imp"           ) a = new grimoire_of_service_t( this, "imp" );
   else if ( action_name == "service_succubus"      ) a = new grimoire_of_service_t( this, "succubus" );
   else if ( action_name == "service_voidwalker"    ) a = new grimoire_of_service_t( this, "voidwalker" );
+  else if ( action_name == "service_infernal"      ) a = new grimoire_of_service_t( this, "infernal" );
+  else if ( action_name == "service_doomguard"     ) a = new grimoire_of_service_t( this, "doomguard" );
   else if ( action_name == "service_pet"           ) a = new grimoire_of_service_t( this, default_pet );
   else return player_t::create_action( action_name, options_str );
 
@@ -5156,6 +5189,8 @@ pet_t* warlock_t::create_pet( const std::string& pet_name,
   if ( pet_name == "service_imp"          ) return new         imp_pet_t( sim, this, pet_name );
   if ( pet_name == "service_succubus"     ) return new    succubus_pet_t( sim, this, pet_name );
   if ( pet_name == "service_voidwalker"   ) return new  voidwalker_pet_t( sim, this, pet_name );
+  if ( pet_name == "service_doomguard"    ) return new   doomguard_pet_t( sim, this           );
+  if ( pet_name == "service_infernal"     ) return new    infernal_pet_t( sim, this           );
 
   return 0;
 }
@@ -5198,6 +5233,8 @@ void warlock_t::create_pets()
   create_pet( "service_imp"        );
   create_pet( "service_succubus"   );
   create_pet( "service_voidwalker" );
+  create_pet( "service_doomguard"  );
+  create_pet( "service_infernal"   );
 }
 
 void warlock_t::init_spells()

@@ -452,7 +452,7 @@ player_t::player_t( sim_t*             s,
   ready_type( READY_POLL ),
   _spec( SPEC_NONE ),
   bugs( true ),
-  wod_hotfix( true ),
+  wod_hotfix( -1 ),
   scale_player( true ),
   death_pct( 0.0 ),
   size( 0 ),
@@ -753,6 +753,12 @@ void player_t::init()
 
       dynamic_regen_pets = true;
     }
+  }
+
+  // Adjust wod_hotfix variable if it's set to autodetection
+  if ( wod_hotfix == -1 )
+  {
+    wod_hotfix = ! maybe_ptr( dbc.ptr ) == true ? 1 : 0;
   }
 }
 
@@ -2250,7 +2256,18 @@ double player_t::mana_regen_per_second() const
 
 double player_t::composite_melee_haste() const
 {
-  double h = 1.0 / ( 1.0 + std::max( 0.0, composite_melee_haste_rating() ) / current.rating.attack_haste );
+  double h;
+
+  if ( wod_hotfix )
+  {
+    h = std::max( 0.0, composite_melee_haste_rating() ) / ( current.rating.attack_haste / 1.111 );
+  }
+  else
+  {
+    h = std::max( 0.0, composite_melee_haste_rating() ) / current.rating.attack_haste;
+  }
+
+  h = 1.0 / ( 1.0 + h );
 
   if ( ! is_pet() && ! is_enemy() )
   {
@@ -2518,7 +2535,18 @@ double player_t::composite_crit_avoidance() const
 
 double player_t::composite_spell_haste() const
 {
-  double h = 1.0 / ( 1.0 + std::max( 0.0, composite_spell_haste_rating() ) / current.rating.spell_haste );
+  double h;
+
+  if ( wod_hotfix )
+  {
+    h = std::max( 0.0, composite_spell_haste_rating() ) / ( current.rating.spell_haste / 1.111 );
+  }
+  else
+  {
+    h = std::max( 0.0, composite_spell_haste_rating() ) / current.rating.spell_haste;
+  }
+
+  h = 1.0 / ( 1.0 + h );
 
   if ( ! is_pet() && ! is_enemy() )
   {
@@ -8412,7 +8440,7 @@ void player_t::create_options()
     add_option( opt_string( "save_actions", report_information.save_actions_str ) );
     add_option( opt_string( "comment", report_information.comment_str ) );
     add_option( opt_bool( "bugs", bugs ) );
-    add_option( opt_bool( "wod_hotfix", wod_hotfix ) );
+    add_option( opt_int( "wod_hotfix", wod_hotfix ) );
     add_option( opt_func( "world_lag", parse_world_lag ) );
     add_option( opt_func( "world_lag_stddev", parse_world_lag_stddev ) );
     add_option( opt_func( "brain_lag", parse_brain_lag ) );

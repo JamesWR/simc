@@ -1403,6 +1403,11 @@ struct dancing_rune_weapon_pet_t : public pet_t
       drw_spell_t( "blood_boil", p, p -> owner -> find_class_spell( "Blood Boil" ) )
     {
       aoe = -1;
+
+      if ( p -> wod_hotfix )
+      {
+        base_multiplier *= 0.667;
+      }
     }
 
     virtual void impact( action_state_t* s )
@@ -4869,7 +4874,10 @@ struct blood_boil_t : public death_knight_spell_t
     base_multiplier *= 1.0 + p -> spec.crimson_scourge -> effectN( 1 ).percent();
 
     if ( p -> wod_hotfix )
+    {
       attack_power_mod.direct *= 1.20;
+      attack_power_mod.direct *= 0.667;
+    }
 
     rp_gain = data().effectN( 2 ).resource( RESOURCE_RUNIC_POWER );
 
@@ -6767,10 +6775,10 @@ void death_knight_t::init_action_list()
     bos_aoe -> add_action( this, "Death Coil", "if=buff.sudden_doom.react" );
 
     action_priority_list_t* spread = get_action_priority_list( "spread" );
-    spread -> add_action( "blood_boil,cycle_targets=1,if=(dot.blood_plague.ticking|dot.frost_fever.ticking)&!talent.necrotic_plague.enabled" );
-    spread -> add_action( this, "Outbreak", "if=!talent.necrotic_plague.enabled&(!dot.blood_plague.ticking|!dot.frost_fever.ticking)" );
+    spread -> add_action( "blood_boil,cycle_targets=1,if=!disease.ticking&!talent.necrotic_plague.enabled" );
+    spread -> add_action( this, "Outbreak", "if=!talent.necrotic_plague.enabled&!disease.ticking" );
     spread -> add_action( this, "Outbreak", "if=talent.necrotic_plague.enabled&!dot.necrotic_plague.ticking" );
-    spread -> add_action( this, "Plague Strike", "if=!talent.necrotic_plague.enabled&(!dot.blood_plague.ticking|!dot.frost_fever.ticking)" );
+    spread -> add_action( this, "Plague Strike", "if=!talent.necrotic_plague.enabled&!disease.ticking" );
     spread -> add_action( this, "Plague Strike", "if=talent.necrotic_plague.enabled&!dot.necrotic_plague.ticking" );
 
     //decide between single_target and aoe rotation
@@ -6778,10 +6786,10 @@ void death_knight_t::init_action_list()
     def -> add_action( "run_action_list,name=single_target,if=active_enemies<2" );
     // Plague Leech
     st -> add_talent( this, "Plague Leech", "if=(cooldown.outbreak.remains<1)&((blood<1&frost<1)|(blood<1&unholy<1)|(frost<1&unholy<1))" );
-    st -> add_talent( this, "Plague Leech", "if=((blood<1&frost<1)|(blood<1&unholy<1)|(frost<1&unholy<1))&(dot.blood_plague.remains<3|dot.frost_fever.remains<3)" );
-    st -> add_talent( this, "Plague Leech", "if=(dot.blood_plague.remains<1|dot.frost_fever.remains<1)" );
-    st -> add_action( this, "Outbreak", "if=!talent.necrotic_plague.enabled&(!dot.frost_fever.ticking|!dot.blood_plague.ticking)" );
-    st -> add_talent( this, "Unholy Blight", "if=!talent.necrotic_plague.enabled&(dot.frost_fever.remains<3|dot.blood_plague.remains<3)" );
+    st -> add_talent( this, "Plague Leech", "if=((blood<1&frost<1)|(blood<1&unholy<1)|(frost<1&unholy<1))&disease.min_remains<3" );
+    st -> add_talent( this, "Plague Leech", "if=disease.min_remains<1" );
+    st -> add_action( this, "Outbreak", "if=!talent.necrotic_plague.enabled&!disease.ticking" );
+    st -> add_talent( this, "Unholy Blight", "if=!talent.necrotic_plague.enabled&disease.min_remains<3" );
     st -> add_talent( this, "Unholy Blight", "if=talent.necrotic_plague.enabled&dot.necrotic_plague.remains<1" );
     st -> add_action( this, "Death Coil", "if=runic_power>90" );
     // Soul Reaper
@@ -6797,13 +6805,13 @@ void death_knight_t::init_action_list()
     st -> add_talent( this, "Blood Tap", "if=((target.health.pct-3*(target.health.pct%target.time_to_die))<=" + soul_reaper_pct + ")&cooldown.soul_reaper.remains=0" );
     st -> add_action( this, "Death and Decay", "if=unholy=2" );
     st -> add_talent( this, "Defile", "if=unholy=2" );
-    st -> add_action( this, "Plague Strike", "if=(!dot.blood_plague.ticking|!dot.frost_fever.ticking)&unholy=2" );
+    st -> add_action( this, "Plague Strike", "if=!disease.ticking&unholy=2" );
     st -> add_action( this, "Scourge Strike", "if=unholy=2" );
     st -> add_action( this, "Death Coil", "if=runic_power>80" );
     st -> add_action( this, "Festering Strike", "if=blood=2&frost=2&(((Frost-death)>0)|((Blood-death)>0))" );
     st -> add_action( this, "Festering Strike", "if=(blood=2|frost=2)&(((Frost-death)>0)&((Blood-death)>0))" );
     st -> add_talent( this, "Defile", "if=blood=2|frost=2" );
-    st -> add_action( this, "Plague Strike", "if=(!dot.blood_plague.ticking|!dot.frost_fever.ticking)&(blood=2|frost=2)" );
+    st -> add_action( this, "Plague Strike", "if=!disease.ticking&(blood=2|frost=2)" );
     st -> add_action( this, "Scourge Strike", "if=blood=2|frost=2" );
     st -> add_action( this, "Festering Strike", "if=((Blood-death)>1)" );
     st -> add_action( this, "Blood Boil", "if=((Blood-death)>1)" );
@@ -6813,7 +6821,7 @@ void death_knight_t::init_action_list()
     st -> add_action( this, "Death and Decay" );
     st -> add_talent( this, "Defile" );
     st -> add_talent( this, "Blood Tap", "if=cooldown.defile.remains=0" );
-    st -> add_action( this, "Plague Strike", "if=(!dot.blood_plague.ticking|!dot.frost_fever.ticking)" );
+    st -> add_action( this, "Plague Strike", "if=!disease.ticking" );
     st -> add_action( this, "Dark Transformation" );
     st -> add_talent( this, "Blood Tap", "if=buff.blood_charge.stack>10&(buff.sudden_doom.react|(buff.dark_transformation.down&unholy<=1))" );
     st -> add_action( this, "Death Coil", "if=buff.sudden_doom.react|(buff.dark_transformation.down&unholy<=1)" );
@@ -7485,7 +7493,7 @@ double death_knight_t::composite_rating_multiplier( rating_e rating ) const
     case RATING_SPELL_HASTE:
     case RATING_MELEE_HASTE:
     case RATING_RANGED_HASTE:
-      m *= 1.0 + spec.icy_talons -> effectN( 3 ).percent();
+      m *= 1.0 + ( wod_hotfix && specialization() == DEATH_KNIGHT_FROST ? 0.2 : spec.icy_talons -> effectN( 3 ).percent() );
       break;
     default:
       break;
