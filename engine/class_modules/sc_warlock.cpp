@@ -1260,8 +1260,8 @@ struct voidwalker_pet_t: public warlock_pet_t
 
 struct infernal_pet_t: public warlock_pet_t
 {
-  infernal_pet_t( sim_t* sim, warlock_t* owner ):
-    warlock_pet_t( sim, owner, "infernal", PET_INFERNAL, true )
+  infernal_pet_t( sim_t* sim, warlock_t* owner, const std::string& name = "infernal"   ):
+    warlock_pet_t( sim, owner, name, PET_INFERNAL, name != "infernal" )
   {
     owner_coeff.ap_from_sp = 0.065934;
   }
@@ -1287,8 +1287,8 @@ struct infernal_pet_t: public warlock_pet_t
 
 struct doomguard_pet_t: public warlock_pet_t
 {
-  doomguard_pet_t( sim_t* sim, warlock_t* owner ):
-    warlock_pet_t( sim, owner, "doomguard", PET_DOOMGUARD, true )
+    doomguard_pet_t( sim_t* sim, warlock_t* owner, const std::string& name = "doomguard"  ):
+    warlock_pet_t( sim, owner, name, PET_DOOMGUARD, name != "doomguard" )
   {
     owner_coeff.ap_from_sp = 0.065934;
     action_list_str = "doom_bolt";
@@ -5150,7 +5150,7 @@ action_t* warlock_t::create_action( const std::string& action_name,
   else if ( action_name == "service_voidwalker"    ) a = new grimoire_of_service_t( this, "voidwalker" );
   else if ( action_name == "service_infernal"      ) a = new grimoire_of_service_t( this, "infernal" );
   else if ( action_name == "service_doomguard"     ) a = new grimoire_of_service_t( this, "doomguard" );
-  else if ( action_name == "service_pet"           ) a = new grimoire_of_service_t( this, default_pet );
+  else if ( action_name == "service_pet"           ) a = new grimoire_of_service_t( this,  talents.demonic_servitude -> ok() ? "doomguard" : default_pet );
   else return player_t::create_action( action_name, options_str );
 
   a -> parse_options( options_str );
@@ -5189,8 +5189,8 @@ pet_t* warlock_t::create_pet( const std::string& pet_name,
   if ( pet_name == "service_imp"          ) return new         imp_pet_t( sim, this, pet_name );
   if ( pet_name == "service_succubus"     ) return new    succubus_pet_t( sim, this, pet_name );
   if ( pet_name == "service_voidwalker"   ) return new  voidwalker_pet_t( sim, this, pet_name );
-  if ( pet_name == "service_doomguard"    ) return new   doomguard_pet_t( sim, this           );
-  if ( pet_name == "service_infernal"     ) return new    infernal_pet_t( sim, this           );
+  if ( pet_name == "service_doomguard"    ) return new   doomguard_pet_t( sim, this, pet_name );
+  if ( pet_name == "service_infernal"     ) return new    infernal_pet_t( sim, this, pet_name );
 
   return 0;
 }
@@ -5580,7 +5580,7 @@ void warlock_t::apl_precombat()
     if ( level == 100 && specialization() == WARLOCK_DEMONOLOGY )
       action_list_str += "/potion,name=draenic_intellect,if=buff.bloodlust.react|(buff.dark_soul.up&(trinket.proc.any.react|trinket.stacking_proc.any.react>6)&!buff.demonbolt.remains)|target.health.pct<20";
     else if ( level == 100 )
-      action_list_str += "/potion,name=draenic_intellect,if=buff.bloodlust.react|target.health.pct<=20";
+      action_list_str += "/potion,name=draenic_intellect,if=buff.bloodlust.react&buff.dark_soul.remains>10|target.time_to_die<=25|buff.dark_soul.remains>10";
     else if ( level >= 85 && specialization() == WARLOCK_DEMONOLOGY )
       action_list_str += "/potion,name=jade_serpent,if=buff.bloodlust.react|(buff.dark_soul.up&(trinket.proc.any.react|trinket.stacking_proc.any.react>6)&!buff.demonbolt.remains)|target.health.pct<20";
     else if ( level >= 85 )
