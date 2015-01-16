@@ -66,6 +66,7 @@ highchart::time_series_t& generate_actor_timeline( highchart::time_series_t&,
                                                    const std::string&   series_color,
                                                    const sc_timeline_t& data );
 highchart::time_series_t& generate_actor_dps_series( highchart::time_series_t& series, const player_t* p );
+bool generate_scale_factors( highchart::bar_chart_t& bc, const player_t* p, scale_metric_e metric );
 
 } // end namespace sc_chart
 

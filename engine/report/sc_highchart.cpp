@@ -141,11 +141,11 @@ std::string chart_t::to_aggregate_string( bool on_click ) const
 
     js_.Accept( writer );
     std::string javascript = b.GetString();
-    assert( ! toggle_id_str_.empty() );
 
     std::string str_;
     if ( on_click )
     {
+      assert( ! toggle_id_str_.empty() );
       str_ += "$('#" + toggle_id_str_ + "').on('click', function() {\n";
       str_ += "console.log(\"Loading " + id_str_ + ": " + toggle_id_str_ + " ...\" );\n";
     }
@@ -346,6 +346,40 @@ void chart_t::add_data_series( const std::vector<data_entry_t>& d )
 void chart_t::add_simple_series( const std::string& type,
                                  const std::string& color,
                                  const std::string& name,
+                                 const std::vector<std::pair<double, double> >& series )
+{
+  rapidjson::Value obj( rapidjson::kObjectType );
+
+  set( obj, "type", type );
+  set( obj, "name", name );
+
+  rapidjson::Value arr( rapidjson::kArrayType );
+  for ( size_t i = 0, end = series.size(); i < end; ++i )
+  {
+    rapidjson::Value pair( rapidjson::kArrayType );
+    pair.PushBack( series[ i ].first, js_.GetAllocator() );
+    pair.PushBack( series[ i ].second, js_.GetAllocator() );
+
+    arr.PushBack( pair, js_.GetAllocator() );
+  }
+
+  set( obj, "data", arr );
+
+  if ( ! color.empty() )
+  {
+    std::string color_hex = color;
+    if ( color_hex[ 0 ] != '#' )
+      color_hex = '#' + color_hex;
+
+    add( "colors", color_hex );
+  }
+
+  add( "series", obj );
+}
+
+void chart_t::add_simple_series( const std::string& type,
+                                 const std::string& color,
+                                 const std::string& name,
                                  const std::vector<double>& series )
 {
   rapidjson::Value obj( rapidjson::kObjectType );
@@ -354,12 +388,15 @@ void chart_t::add_simple_series( const std::string& type,
   set( obj, "data", series );
   set( obj, "name", name );
 
-  std::string color_hex = color;
-  if ( color_hex[ 0 ] != '#' )
-    color_hex = '#' + color_hex;
+  if ( ! color.empty() )
+  {
+    std::string color_hex = color;
+    if ( color_hex[ 0 ] != '#' )
+      color_hex = '#' + color_hex;
+    add( "colors", color_hex );
+  }
 
   add( "series", obj );
-  add( "colors", color_hex );
 }
 
 chart_t& chart_t::set( const std::string& path, const char* value_ )

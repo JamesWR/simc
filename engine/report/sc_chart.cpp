@@ -1453,7 +1453,9 @@ std::string chart::scaling_dps( player_t* p )
   const int end = 2 * range;
   size_t num_points = 1 + 2 * range;
 
-  std::string formatted_name = util::google_image_chart_encode( p -> scales_over().name );
+  scaling_metric_data_t scaling_data = p -> scaling_for_metric( p -> sim -> scaling -> scaling_metric );
+
+  std::string formatted_name = util::google_image_chart_encode( scaling_data.name );
   util::urlencode( formatted_name );
 
   sc_chart chart( "Stat Scaling|" + formatted_name, LINE, p -> sim -> print_styles );
@@ -1595,7 +1597,7 @@ std::string chart::reforge_dps( player_t* p )
     int negative_mod = static_cast<int>( std::max( std::ceil( negative_steps / 4 ), 4.0 ) );
     int positive_mod = static_cast<int>( std::max( std::ceil( positive_steps / 4 ), 4.0 ) );
 
-    std::string formatted_name = util::google_image_chart_encode( p -> scales_over().name );
+    std::string formatted_name = util::google_image_chart_encode( p -> scaling_for_metric( p -> sim -> scaling -> scaling_metric ).name );
     util::urlencode( formatted_name );
 
     sc_chart chart( "Reforge Scaling|" + formatted_name, XY_LINE, p -> sim -> print_styles );
@@ -2986,7 +2988,57 @@ bool chart::generate_action_dpet( highchart::bar_chart_t& bc, const player_t* p 
   generate_dpet( bc, p -> sim, stats_list );
 
   return true;
+}
 
+bool chart::generate_scale_factors( highchart::bar_chart_t& bc, const player_t* p, scale_metric_e metric )
+{
+  std::vector<stat_e> scaling_stats;
+
+  for ( size_t i = 0, end = p -> scaling_stats[ metric ].size(); i < end; ++i )
+  {
+    if ( ! p -> scales_with[ p -> scaling_stats[ metric ][ i ] ] )
+    {
+      continue;
+    }
+
+    scaling_stats.push_back( p -> scaling_stats[ metric ][ i ] );
+  }
+
+  if ( scaling_stats.size() == 0 )
+  {
+    return false;
+  }
+
+  scaling_metric_data_t scaling_data = p -> scaling_for_metric( metric );
+
+  bc.set_title( scaling_data.name + " Scale Factors" );
+  bc.height_ = 92 + scaling_stats.size() * 24;
+  bc.set( "plotOptions.bar.dataLabels.align", "right" );
+  bc.set( "plotOptions.errorbar.stemColor", "#FF0000" );
+  bc.set( "plotOptions.errorbar.whiskerColor", "#FF0000" );
+  bc.set( "plotOptions.errorbar.whiskerLength", "75%" );
+  bc.set( "plotOptions.errorbar.whiskerWidth", 1.5 );
+
+  std::vector<double> data;
+  std::vector<std::pair<double, double> > error;
+  for ( size_t i = 0; i < scaling_stats.size(); ++i )
+  {
+    bc.add( "xAxis.categories", util::stat_type_abbrev( scaling_stats[ i ] ) );
+
+    double value = p -> scaling[ metric ].get_stat( scaling_stats[ i ] );
+    double error_value = p -> scaling_error[ metric ].get_stat( scaling_stats[ i ] );
+    data.push_back( value );
+    error.push_back( std::pair<double, double>( value - fabs( error_value ), value + fabs( error_value ) ) );
+  }
+
+  bc.add_simple_series( "bar", class_color( p -> type ), util::scale_metric_type_string( metric ) + std::string( " per point" ), data );
+  bc.add_simple_series( "errorbar", "", "Error", error );
+
+  // Enable datalabels on the second series (the actual scale factor mean)
+  bc.set( "series.0.dataLabels.enabled", true );
+  bc.set( "series.0.dataLabels.format", "{point.y:." + util::to_string( p -> sim -> report_precision ) + "f}" );
+  bc.set( "series.0.dataLabels.y", -2 );
+  return true;
 }
 
 // Generate a "standard" timeline highcharts object as a string based on a stats_t object

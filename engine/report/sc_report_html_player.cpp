@@ -2669,6 +2669,17 @@ void print_html_player_charts( report::sc_html_stream& os, sim_t* sim, player_t*
       os << chart_str;
   }
 
+  scaling_metric_data_t scaling_data = p -> scaling_for_metric( p -> sim -> scaling -> scaling_metric );
+  std::string scale_factor_id = "scale_factor_";
+  scale_factor_id += util::scale_metric_type_string( scaling_data.metric );
+  highchart::bar_chart_t bc( highchart::build_id( p, scale_factor_id ), p -> sim );
+  if ( chart::generate_scale_factors( bc, p, scaling_data.metric ) )
+  {
+    os << bc.to_target_div();
+    p -> sim -> highcharts_str += bc.to_aggregate_string( p -> sim -> player_no_pet_list.size() > 1 );
+  }
+
+  /*
   if ( ! ri.scale_factors_chart.empty() )
   {
     std::string chart_str;
@@ -2678,6 +2689,7 @@ void print_html_player_charts( report::sc_html_stream& os, sim_t* sim, player_t*
       chart_str = "<span class=\"chart-scale-factors\" title=\"Scale Factors Chart\">" + ri.scale_factors_chart + "</span>\n";
     os << chart_str;
   }
+  */
 
   if ( p -> collected_data.dps.mean() > 0 )
   {

@@ -70,6 +70,7 @@ struct chart_t
   void set_yaxis_title( const std::string& label );
   void set_xaxis_max( double max );
 
+  void add_simple_series( const std::string& type, const std::string& color, const std::string& name, const std::vector<std::pair<double, double> >& series );
   void add_simple_series( const std::string& type, const std::string& color, const std::string& name, const std::vector<double>& series );
   void add_data_series( const std::string& type, const std::string& name, const std::vector<data_entry_t>& d );
   void add_data_series( const std::vector<data_entry_t>& d );
@@ -79,6 +80,8 @@ struct chart_t
   virtual std::string to_target_div() const;
   virtual std::string to_json() const;
   virtual std::string to_xml() const;
+
+  chart_t& set( rapidjson::Value& obj, const std::string& name_, rapidjson::Value& value_ );
 
   // Set the value of JSON object indicated by path to value_
   template <typename T>
@@ -233,6 +236,14 @@ chart_t& chart_t::set( rapidjson::Value& obj, const std::string& name_, const st
   rapidjson::Value value_obj( rapidjson::kArrayType );
 
   do_set( obj, name_.c_str(), do_insert( value_obj, value_ ) );
+  return *this;
+}
+
+inline chart_t& chart_t::set( rapidjson::Value& obj, const std::string& name_, rapidjson::Value& value_ )
+{
+  assert( obj.GetType() == rapidjson::kObjectType );
+
+  do_set( obj, name_.c_str(), value_ );
   return *this;
 }
 }

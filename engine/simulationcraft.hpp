@@ -4307,6 +4307,18 @@ struct action_variable_t
   { current_value_ = default_; }
 };
 
+struct scaling_metric_data_t {
+  std::string name;
+  double value, stddev;
+  scale_metric_e metric;
+  scaling_metric_data_t( scale_metric_e m, const std::string& n, double v, double dev ) :
+    name( n ), value( v ), stddev( dev ), metric( m ) {}
+  scaling_metric_data_t( scale_metric_e m, const extended_sample_data_t& sd ) :
+    name( sd.name_str ), value( sd.mean() ), stddev( sd.mean_std_dev ), metric( m ) {}
+  scaling_metric_data_t( scale_metric_e m, const sc_timeline_t& tl, const std::string& name ) :
+    name( name ), value( tl.mean() ), stddev( tl.mean_stddev() ), metric( m ) {}
+};
+
 struct player_t : public actor_t
 {
   static const int default_level = 100;
@@ -5069,17 +5081,7 @@ struct player_t : public actor_t
 
   virtual void analyze( sim_t& );
 
-  struct scales_over_t {
-    std::string name; double value, stddev;
-    scales_over_t( const std::string& n, double v, double dev ) :
-      name( n ), value( v ), stddev( dev ) {}
-    scales_over_t( const extended_sample_data_t& sd ) :
-      name( sd.name_str ), value( sd.mean() ), stddev( sd.mean_std_dev ) {}
-    scales_over_t( const sc_timeline_t& tl, const std::string& name ) :
-      name( name ), value( tl.mean() ), stddev( tl.mean_stddev() ) {}
-  };
-  scales_over_t scales_over();
-  scales_over_t scaling_for_metric( scale_metric_e metric );
+  scaling_metric_data_t scaling_for_metric( scale_metric_e metric ) const;
 
   void change_position( position_e );
   position_e position() const
