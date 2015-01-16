@@ -3013,7 +3013,7 @@ bool chart::generate_scale_factors( highchart::bar_chart_t& bc, const player_t* 
 
   bc.set_title( scaling_data.name + " Scale Factors" );
   bc.height_ = 92 + scaling_stats.size() * 24;
-  bc.set( "plotOptions.bar.dataLabels.align", "right" );
+  bc.set( "plotOptions.bar.dataLabels.align", "center" );
   bc.set( "plotOptions.errorbar.stemColor", "#FF0000" );
   bc.set( "plotOptions.errorbar.whiskerColor", "#FF0000" );
   bc.set( "plotOptions.errorbar.whiskerLength", "75%" );

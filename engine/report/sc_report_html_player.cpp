@@ -2679,18 +2679,6 @@ void print_html_player_charts( report::sc_html_stream& os, sim_t* sim, player_t*
     p -> sim -> highcharts_str += bc.to_aggregate_string( p -> sim -> player_no_pet_list.size() > 1 );
   }
 
-  /*
-  if ( ! ri.scale_factors_chart.empty() )
-  {
-    std::string chart_str;
-    if ( num_players == 1 )
-      chart_str = "<img src=\"" + ri.scale_factors_chart + "\" alt=\"Scale Factors Chart\" />\n";
-    else
-      chart_str = "<span class=\"chart-scale-factors\" title=\"Scale Factors Chart\">" + ri.scale_factors_chart + "</span>\n";
-    os << chart_str;
-  }
-  */
-
   if ( p -> collected_data.dps.mean() > 0 )
   {
     highchart::time_series_t ts( highchart::build_id( p, "dps" ), p -> sim );
