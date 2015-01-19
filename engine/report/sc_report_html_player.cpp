@@ -2628,6 +2628,14 @@ void print_html_player_charts( report::sc_html_stream& os, sim_t* sim, player_t*
     }
   }
 
+  highchart::chart_t scaling_plot( highchart::build_id( p, "scaling_plot" ), p -> sim );
+  if ( chart::generate_scaling_plot( scaling_plot, p, p -> sim -> scaling -> scaling_metric ) )
+  {
+    os << scaling_plot.to_target_div();
+    p -> sim -> highcharts_str += scaling_plot.to_aggregate_string( p -> sim -> player_no_pet_list.size() > 1 );
+  }
+
+  /*
   if ( ! ri.scaling_dps_chart.empty() )
   {
     std::string chart_str;
@@ -2637,6 +2645,7 @@ void print_html_player_charts( report::sc_html_stream& os, sim_t* sim, player_t*
       chart_str = "<span class=\"chart-scaling-dps\" title=\"Scaling DPS Chart\">" + ri.scaling_dps_chart + "</span>\n";
     os << chart_str;
   }
+  */
 
   if ( p -> collected_data.timeline_dmg_taken.mean() > 0 )
   {

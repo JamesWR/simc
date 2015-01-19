@@ -25,7 +25,11 @@ sc_js_t& highchart::theme( sc_js_t& json, highchart_theme_e theme )
   std::string _text_color = theme == THEME_DEFAULT ? TEXT_COLOR : TEXT_COLOR_ALT;
 
   json.set( "credits", false );
+
   json.set( "legend.enabled", false );
+  json.set( "legend.itemStyle.fontsize", "14px" );
+  json.set( "legend.itemStyle.color", _text_color );
+  json.set( "legend.itemStyle.textShadow", TEXT_OUTLINE );
 
   json.set( "chart.backgroundColor", _bg_color );
   json.set( "chart.style.fontSize", "14px" );
@@ -260,8 +264,15 @@ void chart_t::add_simple_series( const std::string& type,
 {
   rapidjson::Value obj( rapidjson::kObjectType );
 
-  set( obj, "type", type );
-  set( obj, "name", name );
+  if ( ! type.empty() )
+  {
+    set( obj, "type", type );
+  }
+
+  if ( ! name.empty() )
+  {
+    set( obj, "name", name );
+  }
 
   rapidjson::Value arr( rapidjson::kArrayType );
   for ( size_t i = 0, end = series.size(); i < end; ++i )
