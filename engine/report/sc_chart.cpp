@@ -191,6 +191,7 @@ std::string class_color( player_e type )
   switch ( type )
   {
     case PLAYER_NONE:  return color::grey;
+    case PLAYER_GUARDIAN: return color::grey;
     case DEATH_KNIGHT: return color::red;
     case DRUID:        return color::orange;
     case HUNTER:       return color::hunter_green;
