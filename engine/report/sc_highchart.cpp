@@ -16,60 +16,52 @@ static const char* CHART_BGCOLOR_ALT = "white";
 
 }
 
+using namespace js;
 using namespace highchart;
 
-sc_chart_formatter_t::sc_chart_formatter_t( std::string bg_color, std::string text_color ) :
-  chart_formatter_t(),
-  _bg_color( bg_color ),
-  _text_color( text_color )
-
+sc_js_t& highchart::theme( sc_js_t& json, highchart_theme_e theme )
 {
-}
+  std::string _bg_color = theme == THEME_DEFAULT ? CHART_BGCOLOR : CHART_BGCOLOR_ALT;
+  std::string _text_color = theme == THEME_DEFAULT ? TEXT_COLOR : TEXT_COLOR_ALT;
 
-void sc_chart_formatter_t::do_format( chart_t& c )
-{
-  c.set( "chart.backgroundColor", _bg_color );
-  c.set( "chart.style.fontSize", "14px" );
+  json.set( "credits", false );
+  json.set( "legend.enabled", false );
 
-  c.set( "xAxis.lineColor", _text_color );
-  c.set( "xAxis.tickColor", _text_color );
-  c.set( "xAxis.title.style.color", _text_color );
-  c.set( "xAxis.labels.style.color", _text_color );
-  c.set( "xAxis.labels.style.fontSize", "14px" );
+  json.set( "chart.backgroundColor", _bg_color );
+  json.set( "chart.style.fontSize", "14px" );
+  json.add( "chart.spacing", 2 ).add( "chart.spacing", 2 ).add( "chart.spacing", 2 ).add( "chart.spacing", 2 );
 
-  c.set( "yAxis.lineColor", _text_color );
-  c.set( "yAxis.tickColor", _text_color );
-  c.set( "yAxis.title.style.color", _text_color );
-  c.set( "yAxis.labels.style.color", _text_color );
-  c.set( "yAxis.labels.style.fontSize", "14px" );
+  json.set( "xAxis.lineColor", _text_color );
+  json.set( "xAxis.tickColor", _text_color );
+  json.set( "xAxis.title.style.color", _text_color );
+  json.set( "xAxis.title.style.textShadow", TEXT_OUTLINE );
+  json.set( "xAxis.labels.style.color", _text_color );
+  json.set( "xAxis.labels.style.fontSize", "14px" );
+  json.set( "xAxis.labels.style.textShadow", TEXT_OUTLINE );
 
-  c.set( "title.style.fontSize", "16px" );
-  c.set( "title.style.color", _text_color );
-  c.set( "tooltip.backgroundColor", "#3F3E38" );
-  c.set( "tooltip.style.color", TEXT_COLOR );
-}
+  json.set( "yAxis.lineColor", _text_color );
+  json.set( "yAxis.tickColor", _text_color );
+  json.set( "yAxis.title.style.color", _text_color );
+  json.set( "yAxis.title.style.textShadow", TEXT_OUTLINE );
+  json.set( "yAxis.labels.style.color", _text_color );
+  json.set( "yAxis.labels.style.fontSize", "14px" );
+  json.set( "yAxis.labels.style.textShadow", TEXT_OUTLINE );
 
-default_chart_formatter_t::default_chart_formatter_t() :
-    sc_chart_formatter_t( CHART_BGCOLOR, TEXT_COLOR )
-{
+  json.set( "title.style.fontSize", "16px" );
+  json.set( "title.style.color", _text_color );
+  json.set( "title.style.textShadow", TEXT_OUTLINE );
 
-}
+  json.set( "subtitle.style.fontsize", "14px" );
+  json.set( "subtitle.style.textShadow", TEXT_OUTLINE );
 
-void default_chart_formatter_t::do_format( chart_t& c )
-{
-  sc_chart_formatter_t::do_format( c );
+  json.set( "tooltip.backgroundColor", "#3F3E38" );
+  json.set( "tooltip.style.color", _text_color );
 
-  c.set( "title.style.textShadow", TEXT_OUTLINE );
-  c.set( "xAxis.title.style.textShadow", TEXT_OUTLINE );
-  c.set( "yAxis.title.style.textShadow", TEXT_OUTLINE );
-  c.set( "xAxis.labels.style.textShadow", TEXT_OUTLINE );
-  c.set( "yAxis.labels.style.textShadow", TEXT_OUTLINE );
-}
+  json.set( "plotOptions.series.shadow", true );
+  json.set( "plotOptions.series.dataLabels.style.color", _text_color );
+  json.set( "plotOptions.series.dataLabels.style.textShadow", TEXT_OUTLINE );
 
-alt_chart_formatter_t::alt_chart_formatter_t() :
-    sc_chart_formatter_t( CHART_BGCOLOR_ALT, TEXT_COLOR_ALT )
-{
-
+  return json;
 }
 
 std::string highchart::build_id( const stats_t* stats, const std::string& suffix )
@@ -105,20 +97,6 @@ chart_t::chart_t( const std::string& id_str, const sim_t* sim ) :
   sc_js_t(), id_str_( id_str ), height_( 250 ), width_( 550 ), sim_( sim )
 {
   assert( ! id_str_.empty() );
-
-  // Select which formatter we use for this chart, depending on sim print_styles
-  if ( sim -> print_styles == 1 )
-  {
-    formatter = std::shared_ptr<chart_formatter_t>( new alt_chart_formatter_t() );
-  }
-  else
-  {
-    formatter = std::shared_ptr<chart_formatter_t>( new default_chart_formatter_t() );
-  }
-
-  // Let the formatter format the chart
-  formatter -> do_format( *this );
-
 }
 
 std::string chart_t::to_target_div() const
@@ -190,16 +168,6 @@ std::string chart_t::to_string() const
     str_ += "</script>\n";
 
     return str_;
-}
-
-std::string chart_t::to_json() const
-{
-  rapidjson::StringBuffer b;
-  rapidjson::PrettyWriter< rapidjson::StringBuffer > writer( b );
-
-  js_.Accept( writer );
-
-  return b.GetString();
 }
 
 std::string chart_t::to_xml() const
@@ -344,15 +312,10 @@ void chart_t::add_simple_series( const std::string& type,
 time_series_t::time_series_t( const std::string& id_str, const sim_t* sim ) :
   chart_t( id_str, sim )
 {
-  set( "legend.enabled", false );
-
   set( "chart.type", "area" );
-
-  add( "chart.spacing", 5 ).add( "chart.spacing", 5 ).add( "chart.spacing", 5 ).add( "chart.spacing", 5 );
 
   set_xaxis_title( "Time (seconds)" );
 
-  set( "plotOptions.series.shadow", true );
   set( "plotOptions.area.lineWidth", 1.25 );
   set( "plotOptions.area.states.hover.lineWidth", 1 );
   set( "plotOptions.area.fillOpacity", 0.2 );
@@ -374,9 +337,6 @@ time_series_t& time_series_t::add_yplotline( double value_,
   {
     if ( obj -> GetType() != rapidjson::kArrayType )
       obj -> SetArray();
-    set( "credits", false);
-    set( "subtitle.style.fontsize", "14px" );
-    set( "subtitle.style.textShadow", TEXT_OUTLINE );
 
     std::string color = color_;
     if ( color.empty() )
@@ -431,21 +391,12 @@ time_series_t& time_series_t::set_max( double value_, const std::string& color )
 bar_chart_t::bar_chart_t( const std::string& id_str, const sim_t* sim ) :
     chart_t( id_str, sim )
 {
-  set( "credits", false);
-  set( "legend.enabled", false );
-
   set( "chart.type", "bar" );
 
-  add( "chart.spacing", 2 ).add( "chart.spacing", 2 ).add( "chart.spacing", 2 ).add( "chart.spacing", 2 );
-
-  set( "plotOptions.series.shadow", true );
   set( "plotOptions.bar.borderWidth", 0 );
   set( "plotOptions.bar.pointWidth", 16 );
-  set( "plotOptions.bar.dataLabels.style.color", TEXT_COLOR );
-  set( "plotOptions.bar.dataLabels.style.textShadow", TEXT_OUTLINE );
   set( "xAxis.tickLength", 0 );
   set( "xAxis.type", "category" );
-  set( "xAxis.labels.style.textShadow", TEXT_OUTLINE );
   set( "xAxis.labels.step", 1 );
   set( "xAxis.labels.y", 4 );
   set( "xAxis.offset", -10 );
@@ -456,18 +407,10 @@ pie_chart_t::pie_chart_t( const std::string& id_str, const sim_t* sim ) :
 {
   height_ = 300; // Default Pie Chart height
 
-  set( "credits", false);
-  set( "legend.enabled", false );
-
   set( "chart.type", "pie" );
 
-  add( "chart.spacing", 2 ).add( "chart.spacing", 2 ).add( "chart.spacing", 2 ).add( "chart.spacing", 2 );
-
-  set( "plotOptions.series.shadow", true );
   //set( "plotOptions.bar.states.hover.lineWidth", 1 );
   set( "plotOptions.pie.fillOpacity", 0.2 );
-  set( "plotOptions.pie.dataLabels.style.color", TEXT_COLOR );
-  set( "plotOptions.pie.dataLabels.style.textShadow", TEXT_OUTLINE );
 
   set( "plotOptions.pie.dataLabels.enabled", true );
 }
@@ -477,16 +420,11 @@ histogram_chart_t::histogram_chart_t( const std::string& id_str, const sim_t* si
 {
   height_ = 300;
 
-  set( "credits", false);
-  set( "legend.enabled", false );
   set( "chart.type", "column" );
-
-  add( "chart.spacing", 5 ).add( "chart.spacing", 5 ).add( "chart.spacing", 5 ).add( "chart.spacing", 5 );
 
   set( "plotOptions.column.borderWidth", 0 );
   set( "plotOptions.column.pointWidth", 8 );
 
   set( "xAxis.tickLength", 0 );
   set( "xAxis.type", "category" );
-  set( "xAxis.labels.style.textShadow", TEXT_OUTLINE );
 }

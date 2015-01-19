@@ -13,35 +13,15 @@ std::string build_id( const stats_t* stats, const std::string& suffix = "" );
 std::string build_id( const player_t* actor, const std::string& suffix );
 std::string build_id( const buff_t* buff, const std::string& suffix );
 
+enum highchart_theme_e
+{
+  THEME_DEFAULT = 0,
+  THEME_ALT
+};
+
+js::sc_js_t& theme( js::sc_js_t&, highchart_theme_e theme );
+
 struct chart_t;
-
-/* Abstract base class
- */
-struct chart_formatter_t
-{
-  virtual void do_format( chart_t& ) = 0;
-  virtual ~chart_formatter_t() {}
-};
-
-/* Core formatting for SimC charts, based on a given background and text color
- */
-struct sc_chart_formatter_t : public chart_formatter_t
-{
-  sc_chart_formatter_t( std::string bg_color, std::string text_color );
-  void do_format( chart_t& ) override;
-private:
-  std::string _bg_color,_text_color;
-};
-
-struct default_chart_formatter_t : public sc_chart_formatter_t
-{
-  default_chart_formatter_t();
-  void do_format( chart_t& ) override;
-};
-struct alt_chart_formatter_t : public sc_chart_formatter_t
-{
-  alt_chart_formatter_t();
-};
 
 struct data_entry_t
 {
@@ -55,7 +35,6 @@ struct chart_t : public js::sc_js_t
   std::string toggle_id_str_;
   size_t height_, width_;
   const sim_t* sim_;
-  std::shared_ptr<chart_formatter_t> formatter;
 
   chart_t( const std::string& id_str, const sim_t* sim );
   virtual ~chart_t() { }
@@ -75,7 +54,6 @@ struct chart_t : public js::sc_js_t
   virtual std::string to_string() const;
   virtual std::string to_aggregate_string( bool on_click = true ) const;
   virtual std::string to_target_div() const;
-  virtual std::string to_json() const;
   virtual std::string to_xml() const;
 };
 

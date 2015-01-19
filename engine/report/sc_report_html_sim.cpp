@@ -6,6 +6,7 @@
 #include "simulationcraft.hpp"
 #include "sc_report.hpp"
 #include "data/report_data.inc"
+#include "interfaces/sc_js.hpp"
 
 // Experimental Raw Ability Output for Blizzard to do comparisons
 namespace raw_ability_summary {
@@ -1244,8 +1245,12 @@ void print_html_( report::sc_html_stream& os, sim_t* sim )
 
   print_html_image_load_scripts( os );
 
+  js::sc_js_t highcharts_theme;
+  highchart::theme( highcharts_theme, highchart::THEME_DEFAULT );
+
   os << "<script type=\"text/javascript\">\n";
   os << "jQuery( document ).ready( function( $ ) {\n";
+  os << "Highcharts.setOptions(" << highcharts_theme.to_json() << ");\n";
   os << sim -> highcharts_str << "\n";
   os << "});\n";
   os << "</script>\n";
