@@ -2597,6 +2597,7 @@ std::string chart::stat_color( stat_e type )
     case STAT_PARRY_RATING:             return color::teal;
     case STAT_ARMOR:                    return class_color( PRIEST );
     case STAT_BONUS_ARMOR:              return class_color( PRIEST );
+    case STAT_VERSATILITY_RATING:       return color::purple_dark;
     default:                            return std::string();
   }
 }
@@ -3013,79 +3014,14 @@ bool chart::generate_scaling_plot( highchart::chart_t& ac, const player_t* p, sc
 
   scaling_metric_data_t scaling_data = p -> scaling_for_metric( metric );
 
+  ac.set_title( scaling_data.name + " Scaling Plot" );
+  ac.set_yaxis_title( "Damage per Second" );
+  ac.set_xaxis_title( "\u0394 Stat" );
   ac.set( "chart.type", "line" );
   ac.set( "legend.enabled", true );
-  /*
-
-  s += "chd=t:";
-  bool first = true;
-  for ( stat_e i = STAT_NONE; i < STAT_MAX; i++ )
-  {
-    if ( stat_color( i ).empty() ) continue;
-    std::vector<plot_data_t>& pd = p -> dps_plot_data[ i ];
-    size_t size = pd.size();
-    if ( size != num_points ) continue;
-    if ( ! first ) s += "|";
-    for ( size_t j = 0; j < size; j++ )
-    {
-      str::format( s, "%s%.0f", ( j ? "," : "" ), pd[ j ].value );
-    }
-    first = false;
-  }
-  s += amp;
-  str::format( s, "chds=%.0f,%.0f", min_dps, max_dps );
-  s += amp;
-  s += "chxt=x,y";
-  s += amp;
-  if ( p -> sim -> plot -> dps_plot_positive )
-  {
-    const int start = 0;  // start and end only used for dps_plot_positive
-    str::format( s, "chxl=0:|0|%%2b%.0f|%%2b%.0f|%%2b%.0f|%%2b%.0f|1:|%.0f|%.0f", ( start + ( 1.0 / 4 )*end )*step, ( start + ( 2.0 / 4 )*end )*step, ( start + ( 3.0 / 4 )*end )*step, ( start + end )*step, min_dps, max_dps );
-  }
-  else if ( p -> sim -> plot -> dps_plot_negative )
-  {
-    const int start = (int) - ( p -> sim -> plot -> dps_plot_points * p -> sim -> plot -> dps_plot_step );
-    str::format( s, "chxl=0:|%d|%.0f|%.0f|%.0f|0|1:|%.0f|%.0f", start, start * 0.75, start * 0.5, start * 0.25, min_dps, max_dps );
-  }
-  else
-  {
-    str::format( s, "chxl=0:|%.0f|%.0f|0|%%2b%.0f|%%2b%.0f|1:|%.0f|%.0f|%.0f", ( -range * step ), ( -range * step ) / 2, ( +range * step ) / 2, ( +range * step ), min_dps, p -> collected_data.dps.mean(), max_dps );
-    s += amp;
-    str::format( s, "chxp=1,1,%.0f,100", 100.0 * ( p -> collected_data.dps.mean() - min_dps ) / ( max_dps - min_dps ) );
-  }
-  s += amp;
-  s += "chdl=";
-  first = true;
-  for ( stat_e i = STAT_NONE; i < STAT_MAX; i++ )
-  {
-    if ( stat_color( i ).empty() ) continue;
-    size_t size = p -> dps_plot_data[ i ].size();
-    if ( size != num_points ) continue;
-    if ( ! first ) s += "|";
-    s += util::stat_type_abbrev( i );
-    first = false;
-  }
-  s += amp;
-  if ( ! ( p -> sim -> print_styles == 1 ) )
-  {
-    s += "chdls=dddddd,12";
-    s += amp;
-  }
-  s += "chco=";
-  first = true;
-  for ( stat_e i = STAT_NONE; i < STAT_MAX; i++ )
-  {
-    if ( stat_color( i ).empty() ) continue;
-    size_t size = p -> dps_plot_data[ i ].size();
-    if ( size != num_points ) continue;
-    if ( ! first ) s += ",";
-    first = false;
-    s += stat_color( i );
-  }
-  s += amp;
-  str::format( s, "chg=%.4f,10,1,3", floor( 10000.0 * 100.0 / ( num_points - 1 ) ) / 10000.0 );
-  s += amp;
-  */
+  ac.set( "legend.margin", 5 );
+  ac.set( "legend.padding", 0 );
+  ac.set( "legend.itemMarginBottom", 5 );
 
   for ( stat_e i = STAT_NONE; i < STAT_MAX; i++ )
   {

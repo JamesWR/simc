@@ -27,12 +27,12 @@ sc_js_t& highchart::theme( sc_js_t& json, highchart_theme_e theme )
   json.set( "credits", false );
 
   json.set( "legend.enabled", false );
-  json.set( "legend.itemStyle.fontsize", "14px" );
+  json.set( "legend.itemStyle.fontsize", "12px" );
   json.set( "legend.itemStyle.color", _text_color );
   json.set( "legend.itemStyle.textShadow", TEXT_OUTLINE );
 
   json.set( "chart.backgroundColor", _bg_color );
-  json.set( "chart.style.fontSize", "14px" );
+  json.set( "chart.style.fontSize", "12px" );
   json.add( "chart.spacing", 2 ).add( "chart.spacing", 2 ).add( "chart.spacing", 2 ).add( "chart.spacing", 2 );
 
   json.set( "xAxis.lineColor", _text_color );
@@ -40,7 +40,7 @@ sc_js_t& highchart::theme( sc_js_t& json, highchart_theme_e theme )
   json.set( "xAxis.title.style.color", _text_color );
   json.set( "xAxis.title.style.textShadow", TEXT_OUTLINE );
   json.set( "xAxis.labels.style.color", _text_color );
-  json.set( "xAxis.labels.style.fontSize", "14px" );
+  json.set( "xAxis.labels.style.fontSize", "12px" );
   json.set( "xAxis.labels.style.textShadow", TEXT_OUTLINE );
 
   json.set( "yAxis.lineColor", _text_color );
@@ -48,14 +48,14 @@ sc_js_t& highchart::theme( sc_js_t& json, highchart_theme_e theme )
   json.set( "yAxis.title.style.color", _text_color );
   json.set( "yAxis.title.style.textShadow", TEXT_OUTLINE );
   json.set( "yAxis.labels.style.color", _text_color );
-  json.set( "yAxis.labels.style.fontSize", "14px" );
+  json.set( "yAxis.labels.style.fontSize", "12px" );
   json.set( "yAxis.labels.style.textShadow", TEXT_OUTLINE );
 
-  json.set( "title.style.fontSize", "16px" );
+  json.set( "title.style.fontSize", "14px" );
   json.set( "title.style.color", _text_color );
   json.set( "title.style.textShadow", TEXT_OUTLINE );
 
-  json.set( "subtitle.style.fontsize", "14px" );
+  json.set( "subtitle.style.fontsize", "12px" );
   json.set( "subtitle.style.textShadow", TEXT_OUTLINE );
 
   json.set( "tooltip.backgroundColor", "#3F3E38" );
