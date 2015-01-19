@@ -155,3 +155,13 @@ sc_js_t& sc_js_t::set( rapidjson::Value& obj, const std::string& name, const std
   return set( obj, name, value_.c_str() );
 }
 
+std::string sc_js_t::to_json() const
+{
+  rapidjson::StringBuffer b;
+  rapidjson::PrettyWriter< rapidjson::StringBuffer > writer( b );
+
+  js_.Accept( writer );
+
+  return b.GetString();
+}
+

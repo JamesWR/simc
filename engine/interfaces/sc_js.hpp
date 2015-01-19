@@ -17,6 +17,8 @@ struct sc_js_t
 
   sc_js_t();
 
+  virtual std::string to_json() const;
+
   sc_js_t& set( rapidjson::Value& obj, const std::string& name_, rapidjson::Value& value_ );
 
   // Set the value of JSON object indicated by path to value_
