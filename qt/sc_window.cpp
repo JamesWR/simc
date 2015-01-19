@@ -704,13 +704,7 @@ void SC_MainWindow::createSimulateTab()
 
 void SC_MainWindow::createOverridesTab()
 {
-  overridesText = new SC_TextEdit( this );
-  overridesText -> setPlainText( "# User-specified persistent global and player parameters will be set here.\n" );
-
-  // Set a bigger font size, it's not like people put much into the override tab
-  QFont override_font = QFont();
-  override_font.setPixelSize( 24 );
-  overridesText -> setFont( override_font );
+  overridesText = new SC_OverridesTab( this );
 
   mainTab -> addTab( overridesText, tr( "Overrides" ) );
 }
@@ -1275,7 +1269,7 @@ void SC_MainWindow::simulateFinished( sim_t* sim )
   }
   else
   {
-    QString resultsName = QString( "Results %1" ).arg( ++simResults );
+    QString resultsName = tr( "Results %1" ).arg( ++simResults );
     SC_SingleResultTab* resultsEntry = new SC_SingleResultTab( this, resultsTab );
     if ( resultsTab -> count() != 0 )
     {
@@ -1860,11 +1854,14 @@ QLineEdit( parent )
 
 SC_ReforgeButtonGroup::SC_ReforgeButtonGroup( QObject* parent ):
 QButtonGroup( parent ), selected( 0 )
-{}
-
-void SC_ReforgeButtonGroup::setSelected( int state )
 {
-  if ( state )
+  connect( this, SIGNAL( buttonToggled( int, bool ) ), this, SLOT( setSelected( int, bool ) ) );
+}
+
+void SC_ReforgeButtonGroup::setSelected( int id, bool checked )
+{
+  Q_UNUSED( id );
+  if ( checked )
     selected++;
   else
     selected--;
@@ -1872,20 +1869,17 @@ void SC_ReforgeButtonGroup::setSelected( int state )
   // Three selected, disallow selection of any more
   if ( selected >= 3 )
   {
-    QList< QAbstractButton* > b = buttons();
-    for ( QList< QAbstractButton* >::iterator i = b.begin(); i != b.end(); ++i )
+    foreach ( QAbstractButton* button, buttons() )
     {
-      if ( !(*i) -> isChecked() )
-        (*i) -> setEnabled( false );
+      button -> setEnabled( button -> isChecked() );
     }
   }
   // Less than three selected, allow selection of all/any
   else
   {
-    QList< QAbstractButton* > b = buttons();
-    for ( QList< QAbstractButton* >::iterator i = b.begin(); i != b.end(); ++i )
+    foreach ( QAbstractButton* button, buttons() )
     {
-      (*i) -> setEnabled( true );
+      button -> setEnabled( true );
     }
   }
 }

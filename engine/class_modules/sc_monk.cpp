@@ -154,6 +154,7 @@ double monk_weapon_damage( action_t* action,
 struct monk_td_t: public actor_pair_t
 {
 public:
+
   struct dots_t
   {
     dot_t* enveloping_mist;
@@ -179,6 +180,13 @@ private:
   stance_e _active_stance;
 public:
   typedef player_t base_t;
+
+  simple_sample_data_t stagger_tick_damage;
+  simple_sample_data_t stagger_total_damage;
+  simple_sample_data_t purified_damage;
+  simple_sample_data_t light_stagger_total_damage;
+  simple_sample_data_t moderate_stagger_total_damage;
+  simple_sample_data_t heavy_stagger_total_damage;
 
   struct active_actions_t
   {
@@ -473,7 +481,10 @@ public:
     cooldown( cooldowns_t() ),
     passives( passives_t() ),
     pet( pets_t() ),
-    user_options( options_t() )
+    user_options( options_t() ),
+    light_stagger_threshold( 0 ),
+    moderate_stagger_threshold( 0.035 ),
+    heavy_stagger_threshold( 0.065 )
   {
     // actives
     _active_stance = FIERCE_TIGER;
@@ -538,16 +549,21 @@ public:
     }
     return td;
   }
+  virtual void       merge(player_t& other) override
+  {
+    monk_t& other_p = dynamic_cast<monk_t&>(other);
+
+    stagger_tick_damage.merge( other_p.stagger_tick_damage );
+    stagger_total_damage.merge( other_p.stagger_total_damage );
+    purified_damage.merge( other_p.purified_damage );
+    light_stagger_total_damage.merge( other_p.light_stagger_total_damage );
+    moderate_stagger_total_damage.merge( other_p.moderate_stagger_total_damage );
+    heavy_stagger_total_damage.merge( other_p.heavy_stagger_total_damage );
+
+    player_t::merge(other);
+  }
 
   // Monk specific
-  double current_stagger_dmg();
-  double current_stagger_dmg_percent();
-  double stagger_pct();
-  // Blizzard rounds it's stagger damage; anything higher than half a percent beyond 
-  // the threshold will switch to the next threshold
-  const double light_stagger_threshold = 0;
-  const double moderate_stagger_threshold = 0.035;
-  const double heavy_stagger_threshold = 0.065;
   void apl_combat_brewmaster();
   void apl_combat_mistweaver();
   void apl_combat_windwalker();
@@ -566,6 +582,14 @@ public:
   const spell_data_t& active_stance_data( stance_e ) const;
 
   // Custom Monk Functions
+  double current_stagger_dmg();
+  double current_stagger_dmg_percent();
+  double stagger_pct();
+  // Blizzard rounds it's stagger damage; anything higher than half a percent beyond 
+  // the threshold will switch to the next threshold
+  const double light_stagger_threshold;
+  const double moderate_stagger_threshold;
+  const double heavy_stagger_threshold;
   void  clear_stagger();
   bool  has_stagger();
 };
@@ -1921,7 +1945,7 @@ struct blackout_kick_t: public monk_melee_attack_t
     base_multiplier *= 5.375; // hardcoded into tooltip
 
     if ( p -> wod_hotfix )
-      base_multiplier *= 1 + p -> passives.hotfix_passive -> effectN( 3 ).percent();
+      base_multiplier *= 6.4 / 5.375;
 
     if ( p -> spec.teachings_of_the_monastery -> ok() )
       aoe = 1 + p -> spec.teachings_of_the_monastery -> effectN( 4 ).base_value();
@@ -2066,7 +2090,7 @@ struct chi_explosion_t: public monk_melee_attack_t
 
   void execute()
   {
-    monk_melee_attack_t::execute();
+    monk_melee_attack_t::execute(); 
 
     if ( p() -> specialization() == MONK_BREWMASTER )
     {
@@ -2081,14 +2105,26 @@ struct chi_explosion_t: public monk_melee_attack_t
           p() -> buff.shuffle -> extend_duration( p(), timespan_t::from_seconds( 2 + ( 2 * resource_consumed ) ) );
         }
       }
-      if ( resource_consumed >= 3 )
+      if ( resource_consumed >= 3 && p() -> has_stagger() )
       {
-        // Tier 17 4 pieces Brewmaster: 3 stacks of Chi Explosion generates 1 stacks of Elusive Brew.
-        // Hotfix Jan 13, 2014 - Only procs on Moderate or Heavy Stagger
-        if ( p() -> sets.has_set_bonus( MONK_BREWMASTER, T17, B4 )  && ( p() -> current_stagger_dmg_percent() > p() -> moderate_stagger_threshold ) )
-          trigger_brew( p() -> sets.set( MONK_BREWMASTER, T17, B4 ) -> effectN( 1 ).base_value() );
+          double stagger_dmg = p() -> current_stagger_dmg();
+          double stagger_pct = p() -> current_stagger_dmg_percent();
 
-        if ( p() -> has_stagger() )
+          // Tier 17 4 pieces Brewmaster: 3 stacks of Chi Explosion generates 1 stacks of Elusive Brew.
+          // Hotfix Jan 13, 2014 - Only procs on Moderate or Heavy Stagger
+          if ( p() -> sets.has_set_bonus( MONK_BREWMASTER, T17, B4 ) && ( stagger_pct > p() -> moderate_stagger_threshold) )
+            trigger_brew( p() -> sets.set( MONK_BREWMASTER, T17, B4 ) -> effectN( 1 ).base_value() );
+
+          // Optional addition: Track and report amount of damage cleared
+          if ( stagger_pct > p() -> heavy_stagger_threshold )
+            p() -> heavy_stagger_total_damage.add( stagger_dmg );
+          else if ( stagger_pct > p() -> moderate_stagger_threshold )
+            p() -> moderate_stagger_total_damage.add( stagger_dmg );
+          else
+            p() -> light_stagger_total_damage.add( stagger_dmg );
+
+          p() -> purified_damage.add( stagger_dmg );
+
           p() -> clear_stagger();
       }
     }
@@ -3120,7 +3156,7 @@ struct zen_sphere_damage_t: public monk_spell_t
   {
     background = true;
 
-    attack_power_mod.direct = 0.069165; // fix this for the love of jebus
+    attack_power_mod.direct = 0.06864; // Hardcoded into Tooltip
     school = SCHOOL_NATURE;
   }
 };
@@ -3133,7 +3169,7 @@ struct zen_sphere_detonate_damage_t: public monk_spell_t
     background = true;
     aoe = -1;
 
-    attack_power_mod.direct = 0.47155; // hardcoded into tooltip
+    attack_power_mod.direct = 0.471; // hardcoded into tooltip
     school = SCHOOL_NATURE;
   }
 };
@@ -3369,7 +3405,7 @@ struct storm_earth_and_fire_t: public monk_spell_t
           sef_idx.push_back( i );
         }
 
-        size_t idx = sef_idx[ static_cast<unsigned int>( rng().range(0.0, sef_idx.size()) ) ];
+        size_t idx = sef_idx[ static_cast<unsigned int>( rng().range(0.0, static_cast<double>( sef_idx.size() )) ) ];
         assert( idx < sef_idx.size() );
 
         p() -> pet.sef[ idx ] -> target = execute_state -> target;
@@ -3623,7 +3659,11 @@ struct mana_tea_t: public monk_spell_t
   }
 };
 
-struct stagger_self_damage_t: public residual_action::residual_periodic_action_t < monk_spell_t >
+// ==========================================================================
+// Stagger Damage
+// ==========================================================================
+
+struct stagger_self_damage_t : public residual_action::residual_periodic_action_t < monk_spell_t >
 {
   stagger_self_damage_t( monk_t* p ):
     base_t( "stagger_self_damage", p, p -> find_spell( 124255 ) )
@@ -3639,7 +3679,7 @@ struct stagger_self_damage_t: public residual_action::residual_periodic_action_t
     base_t::init();
 
     // We don't want this counted towards our dps
-    stats->type = STATS_NEUTRAL;
+    stats -> type = STATS_NEUTRAL;
   }
 
   /* Clears the dot and all damage. Used by Purifying Brew
@@ -3684,20 +3724,31 @@ struct purifying_brew_t: public monk_spell_t
   void execute()
   {
     monk_spell_t::execute();
+    double stagger_dmg = p() -> current_stagger_dmg();
+    double stagger_pct = p() -> current_stagger_dmg_percent();
 
     // Tier 16 4 pieces Brewmaster: Purifying Brew also heals you for 15% of the amount of staggered damage cleared.
     if ( p() -> sets.has_set_bonus( SET_TANK, T16, B4 ) )
     {
-      double stagger_heal = p() -> current_stagger_dmg() * p() -> sets.set( SET_TANK, T16, B4 ) -> effectN( 1 ).percent();
+      double stagger_heal = stagger_dmg * p() -> sets.set( SET_TANK, T16, B4 ) -> effectN( 1 ).percent();
       player -> resource_gain( RESOURCE_HEALTH, stagger_heal, p() -> gain.tier16_4pc_tank, this );
     }
 
     // Tier 17 4 pieces Brewmaster: Purifying Brew generates 1 stacks of Elusive Brew.
     // Hotfix Jan 13, 2014 - Only procs on Moderate or Heavy Stagger
-    if ( p() -> sets.has_set_bonus( MONK_BREWMASTER, T17, B4 ) && ( p() -> current_stagger_dmg_percent() > p() -> moderate_stagger_threshold ) )
+    if ( p() -> sets.has_set_bonus( MONK_BREWMASTER, T17, B4 ) && ( stagger_pct > p() -> moderate_stagger_threshold ) )
       trigger_brew( p() -> sets.set( MONK_BREWMASTER, T17, B4 ) -> effectN( 1 ).base_value() );
 
     // Optional addition: Track and report amount of damage cleared
+    if ( stagger_pct > p() -> heavy_stagger_threshold )
+      p() -> heavy_stagger_total_damage.add( stagger_dmg );
+    else if ( stagger_pct > p() -> moderate_stagger_threshold )
+      p() -> moderate_stagger_total_damage.add( stagger_dmg );
+    else
+      p() -> light_stagger_total_damage.add( stagger_dmg );
+
+    p() -> purified_damage.add( stagger_dmg );
+
     p() -> active_actions.stagger_self_damage -> clear_all_damage();
   }
 
@@ -4200,7 +4251,7 @@ struct zen_sphere_t: public monk_heal_t
       background = dual = true;
       aoe = -1;
 
-      attack_power_mod.direct = 0.547; // hardcoded into tooltip
+      attack_power_mod.direct = 0.548; // hardcoded into tooltip
       school = SCHOOL_NATURE;
     }
   };
@@ -5414,11 +5465,16 @@ void monk_t::assess_damage_imminent_pre_absorb( school_e school,
   if ( current_stance() != STURDY_OX )
     return;
 
+  double stagger_dmg = 0;
+
   // Stagger damage can't be staggered!
   if ( s -> action -> id == 124255 )
+  {
+    // Register the tick then exit
+    stagger_dmg = s -> result_amount;
+    stagger_tick_damage.add( stagger_dmg );
     return;
-
-  double stagger_dmg = 0;
+  }
 
   if ( school == SCHOOL_PHYSICAL )
     stagger_dmg += s -> result_amount > 0 ? s -> result_amount * stagger_pct() : 0.0;
@@ -5429,7 +5485,10 @@ void monk_t::assess_damage_imminent_pre_absorb( school_e school,
   s -> result_amount -= stagger_dmg;
   // Hook up Stagger Mechanism
   if ( stagger_dmg > 0 )
+  {
+    stagger_total_damage.add( stagger_dmg );
     residual_action::trigger( active_actions.stagger_self_damage, this, stagger_dmg );
+  }
 }
 
 // Brewmaster Pre-Combat Action Priority List ============================
@@ -6048,18 +6107,99 @@ public:
   {
   }
 
-  virtual void html_customsection( report::sc_html_stream& /* os*/ ) override
+  virtual void html_customsection( report::sc_html_stream& os ) override
   {
-    (void)p;
-    /*// Custom Class Section
-    os << "\t\t\t\t<div class=\"player-section custom_section\">\n"
-    << "\t\t\t\t\t<h3 class=\"toggle open\">Custom Section</h3>\n"
-    << "\t\t\t\t\t<div class=\"toggle-content\">\n";
+    // Custom Class Section
+    if (p.specialization() == MONK_BREWMASTER)
+    {
+      double stagger_total_dmg = p.stagger_total_damage.sum();
+      double stagger_tick_dmg = p.stagger_tick_damage.sum();
+      double purified_dmg = p.purified_damage.sum();
 
-    os << p.name();
+      os << "\t\t\t\t<div class=\"player-section custom_section\">\n"
+        << "\t\t\t\t\t<h3 class=\"toggle open\">Stagger Analysis</h3>\n"
+        << "\t\t\t\t\t<div class=\"toggle-content\">\n";
 
-    os << "\t\t\t\t\t\t</div>\n" << "\t\t\t\t\t</div>\n";
-    */
+      os << "\t\t\t\t\t\t<p style=\"color: red;\">This section is a work in progress</p>\n";
+
+      os << "\t\t\t\t\t\t<p>Percent amount of stagger that was purified: "
+       << ( ( purified_dmg / stagger_total_dmg ) / 100 ) << "%</p>\n"
+       << "\t\t\t\t\t\t<p>Percent amount of stagger that directly damaged the player: "
+       << ( ( stagger_tick_dmg / stagger_total_dmg ) / 100 ) << "%</p>\n\n";
+
+      os << "\t\t\t\t\t\t<table class=\"sc\">\n"
+        << "\t\t\t\t\t\t\t<tbody>\n"
+        << "\t\t\t\t\t\t\t\t<tr>\n"
+        << "\t\t\t\t\t\t\t\t\t<th class=\"left\">Damage Stats</th>\n"
+        << "\t\t\t\t\t\t\t\t\t<th>DTPS</th>\n"
+//        << "\t\t\t\t\t\t\t\t\t<th>DTPS%</th>\n"
+        << "\t\t\t\t\t\t\t\t\t<th>Execute</th>\n"
+        << "\t\t\t\t\t\t\t\t</tr>\n";
+
+      // Stagger info
+      os << "\t\t\t\t\t\t\t\t<tr>\n"
+       << "\t\t\t\t\t\t\t\t\t<td class=\"left small\" rowspan=\"1\">\n"
+       << "\t\t\t\t\t\t\t\t\t\t<span class=\"toggle - details\">\n"
+       << "\t\t\t\t\t\t\t\t\t\t\t<a href = \"http://www.wowhead.com/spell=124255\" class = \" icontinyl icontinyl icontinyl\" "
+       << "style = \"background: url(http://wowimg.zamimg.com/images/wow/icons/tiny/ability_rogue_cheatdeath.gif) 0% 50% no-repeat;\"> "
+       << "<span style = \"margin - left: 18px; \">Stagger</span></a></span>\n"
+       << "\t\t\t\t\t\t\t\t\t</td>\n";
+      os << "\t\t\t\t\t\t\t\t\t<td class=\"right small\" rowspan=\"1\">"
+        << ( p.stagger_tick_damage.mean() / 60 ) << "</td>\n";
+      os << "\t\t\t\t\t\t\t\t\t<td class=\"right small\" rowspan=\"1\">"
+        << p.stagger_tick_damage.count() << "</td>\n";
+      os << "\t\t\t\t\t\t\t\t</tr>\n";
+
+      // Light Stagger info
+      os << "\t\t\t\t\t\t\t\t<tr>\n"
+       << "\t\t\t\t\t\t\t\t\t<td class=\"left small\" rowspan=\"1\">\n"
+       << "\t\t\t\t\t\t\t\t\t\t<span class=\"toggle - details\">\n"
+       << "\t\t\t\t\t\t\t\t\t\t\t<a href = \"http://www.wowhead.com/spell=124275\" class = \" icontinyl icontinyl icontinyl\" "
+       << "style = \"background: url(http://wowimg.zamimg.com/images/wow/icons/tiny/priest_icon_chakra_green.gif) 0% 50% no-repeat;\"> "
+       << "<span style = \"margin - left: 18px; \">Light Stagger</span></a></span>\n"
+       << "\t\t\t\t\t\t\t\t\t</td>\n";
+      os << "\t\t\t\t\t\t\t\t\t<td class=\"right small\" rowspan=\"1\">"
+        << ( p.light_stagger_total_damage.mean() / 60 ) << "</td>\n";
+      os << "\t\t\t\t\t\t\t\t\t<td class=\"right small\" rowspan=\"1\">"
+        << p.light_stagger_total_damage.count() << "</td>\n";
+      os << "\t\t\t\t\t\t\t\t</tr>\n";
+
+      // Moderate Stagger info
+      os << "\t\t\t\t\t\t\t\t<tr>\n"
+        << "\t\t\t\t\t\t\t\t\t<td class=\"left small\" rowspan=\"1\">\n"
+        << "\t\t\t\t\t\t\t\t\t\t<span class=\"toggle - details\">\n"
+        << "\t\t\t\t\t\t\t\t\t\t\t<a href = \"http://www.wowhead.com/spell=124274\" class = \" icontinyl icontinyl icontinyl\" "
+        << "style = \"background: url(http://wowimg.zamimg.com/images/wow/icons/tiny/priest_icon_chakra.gif) 0% 50% no-repeat;\"> "
+        << "<span style = \"margin - left: 18px; \">Moderate Stagger</span></a></span>\n"
+        << "\t\t\t\t\t\t\t\t\t</td>\n";
+      os << "\t\t\t\t\t\t\t\t\t<td class=\"right small\" rowspan=\"1\">"
+        << ( p.moderate_stagger_total_damage.mean() / 60 ) << "</td>\n";
+      os << "\t\t\t\t\t\t\t\t\t<td class=\"right small\" rowspan=\"1\">"
+        << p.moderate_stagger_total_damage.count() << "</td>\n";
+      os << "\t\t\t\t\t\t\t\t</tr>\n";
+
+      // Heavy Stagger info
+      os << "\t\t\t\t\t\t\t\t<tr>\n"
+        << "\t\t\t\t\t\t\t\t\t<td class=\"left small\" rowspan=\"1\">\n"
+        << "\t\t\t\t\t\t\t\t\t\t<span class=\"toggle - details\">\n"
+        << "\t\t\t\t\t\t\t\t\t\t\t<a href = \"http://www.wowhead.com/spell=124273\" class = \" icontinyl icontinyl icontinyl\" "
+        << "style = \"background: url(http://wowimg.zamimg.com/images/wow/icons/tiny/priest_icon_chakra_red.gif) 0% 50% no-repeat;\"> "
+        << "<span style = \"margin - left: 18px; \">Heavy Stagger</span></a></span>\n"
+        << "\t\t\t\t\t\t\t\t\t</td>\n";
+      os << "\t\t\t\t\t\t\t\t\t<td class=\"right small\" rowspan=\"1\">"
+        << ( p.heavy_stagger_total_damage.mean() / 60 ) << "</td>\n";
+      os << "\t\t\t\t\t\t\t\t\t<td class=\"right small\" rowspan=\"1\">"
+        << p.heavy_stagger_total_damage.count() << "</td>\n";
+      os << "\t\t\t\t\t\t\t\t</tr>\n";
+
+      os << "\t\t\t\t\t\t\t</tbody>\n"
+       << "\t\t\t\t\t\t</table>\n";
+
+      os << "\t\t\t\t\t\t</div>\n"
+       << "\t\t\t\t\t</div>\n";
+    }
+    else
+      ( void )p;
   }
 private:
   monk_t& p;
