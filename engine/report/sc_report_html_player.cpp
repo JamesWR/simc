@@ -2515,6 +2515,26 @@ void print_html_player_resources( report::sc_html_stream& os, player_t* p, playe
     if ( timeline.timeline.mean() == 0 )
       continue;
 
+    // There's no need to print resources that never change
+    bool static_resource = true;
+    double ival = std::numeric_limits<double>::min();
+    for ( size_t i = 1; i < timeline.timeline.data().size(); i++ )
+    {
+      if ( ival == std::numeric_limits<double>::min() )
+      {
+        ival = timeline.timeline.data()[ i ];
+      }
+      else if ( ival != timeline.timeline.data()[ i ] )
+      {
+        static_resource = false;
+      }
+    }
+
+    if ( static_resource )
+    {
+      continue;
+    }
+
     std::string resource_str = util::resource_type_string( timeline.type );
 
     highchart::time_series_t ts = highchart::time_series_t( highchart::build_id( p, "resource_" + resource_str ), p -> sim );
