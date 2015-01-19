@@ -1124,6 +1124,12 @@ void print_html_head( report::sc_html_stream& os, sim_t* sim )
   }
 
   print_html_styles( os, sim );
+
+  js::sc_js_t highcharts_theme;
+  highchart::theme( highcharts_theme, highchart::THEME_DEFAULT );
+  os << "<script type=\"text/javascript\">\n"
+     << "Highcharts.setOptions(" << highcharts_theme.to_json() << ");\n"
+     << "</script>";
 }
 
 void print_nothing_to_report( report::sc_html_stream& os, const std::string& reason )
@@ -1245,12 +1251,8 @@ void print_html_( report::sc_html_stream& os, sim_t* sim )
 
   print_html_image_load_scripts( os );
 
-  js::sc_js_t highcharts_theme;
-  highchart::theme( highcharts_theme, highchart::THEME_DEFAULT );
-
   os << "<script type=\"text/javascript\">\n";
   os << "jQuery( document ).ready( function( $ ) {\n";
-  os << "Highcharts.setOptions(" << highcharts_theme.to_json() << ");\n";
   os << sim -> highcharts_str << "\n";
   os << "});\n";
   os << "</script>\n";
