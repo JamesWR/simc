@@ -759,7 +759,7 @@ void print_html_scale_factors( report::sc_html_stream& os, sim_t* sim )
   if ( ! sim -> scaling -> has_scale_factors() ) return;
   
   scale_metric_e sm = sim -> scaling -> scaling_metric;
-  std::string sf = util::scale_metric_type_string( sm );
+  std::string sf = util::scale_metric_type_abbrev( sm );
   std::string SF = sf;
   std::transform(SF.begin(), SF.end(), SF.begin(), toupper);
   

@@ -1171,6 +1171,7 @@ const char* proc_type_string          ( proc_types type );
 const char* proc_type2_string         ( proc_types2 type );
 const char* special_effect_string     ( special_effect_e type );
 const char* special_effect_source_string( special_effect_source_e type );
+const char* scale_metric_type_abbrev  ( scale_metric_e );
 const char* scale_metric_type_string  ( scale_metric_e );
 
 bool is_match_slot( slot_e slot );
