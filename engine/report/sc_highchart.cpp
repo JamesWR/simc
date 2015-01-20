@@ -27,12 +27,12 @@ sc_js_t& highchart::theme( sc_js_t& json, highchart_theme_e theme )
   json.set( "credits", false );
 
   json.set( "legend.enabled", false );
-  json.set( "legend.itemStyle.fontsize", "12px" );
+  json.set( "legend.itemStyle.fontsize", "13px" );
   json.set( "legend.itemStyle.color", _text_color );
   json.set( "legend.itemStyle.textShadow", TEXT_OUTLINE );
 
   json.set( "chart.backgroundColor", _bg_color );
-  json.set( "chart.style.fontSize", "12px" );
+  json.set( "chart.style.fontSize", "13px" );
   json.add( "chart.spacing", 2 ).add( "chart.spacing", 2 ).add( "chart.spacing", 2 ).add( "chart.spacing", 2 );
 
   json.set( "xAxis.lineColor", _text_color );
@@ -40,7 +40,7 @@ sc_js_t& highchart::theme( sc_js_t& json, highchart_theme_e theme )
   json.set( "xAxis.title.style.color", _text_color );
   json.set( "xAxis.title.style.textShadow", TEXT_OUTLINE );
   json.set( "xAxis.labels.style.color", _text_color );
-  json.set( "xAxis.labels.style.fontSize", "12px" );
+  json.set( "xAxis.labels.style.fontSize", "13px" );
   json.set( "xAxis.labels.style.textShadow", TEXT_OUTLINE );
 
   json.set( "yAxis.lineColor", _text_color );
@@ -48,14 +48,14 @@ sc_js_t& highchart::theme( sc_js_t& json, highchart_theme_e theme )
   json.set( "yAxis.title.style.color", _text_color );
   json.set( "yAxis.title.style.textShadow", TEXT_OUTLINE );
   json.set( "yAxis.labels.style.color", _text_color );
-  json.set( "yAxis.labels.style.fontSize", "12px" );
+  json.set( "yAxis.labels.style.fontSize", "13px" );
   json.set( "yAxis.labels.style.textShadow", TEXT_OUTLINE );
 
-  json.set( "title.style.fontSize", "14px" );
+  json.set( "title.style.fontSize", "15px" );
   json.set( "title.style.color", _text_color );
   json.set( "title.style.textShadow", TEXT_OUTLINE );
 
-  json.set( "subtitle.style.fontsize", "12px" );
+  json.set( "subtitle.style.fontsize", "13px" );
   json.set( "subtitle.style.textShadow", TEXT_OUTLINE );
 
   json.set( "tooltip.backgroundColor", "#3F3E38" );
@@ -64,6 +64,19 @@ sc_js_t& highchart::theme( sc_js_t& json, highchart_theme_e theme )
   json.set( "plotOptions.series.shadow", true );
   json.set( "plotOptions.series.dataLabels.style.color", _text_color );
   json.set( "plotOptions.series.dataLabels.style.textShadow", TEXT_OUTLINE );
+
+  json.set( "plotOptions.pie.dataLabels.enabled", true );
+  json.set( "plotOptions.pie.fillOpacity", 0.2 );
+
+  json.set( "plotOptions.bar.borderWidth", 0 );
+  json.set( "plotOptions.bar.pointWidth", 18 );
+
+  json.set( "plotOptions.column.borderWidth", 0 );
+  json.set( "plotOptions.column.pointWidth", 8 );
+
+  json.set( "plotOptions.area.lineWidth", 1.25 );
+  json.set( "plotOptions.area.states.hover.lineWidth", 1 );
+  json.set( "plotOptions.area.fillOpacity", 0.2 );
 
   return json;
 }
@@ -326,10 +339,6 @@ time_series_t::time_series_t( const std::string& id_str, const sim_t* sim ) :
   set( "chart.type", "area" );
 
   set_xaxis_title( "Time (seconds)" );
-
-  set( "plotOptions.area.lineWidth", 1.25 );
-  set( "plotOptions.area.states.hover.lineWidth", 1 );
-  set( "plotOptions.area.fillOpacity", 0.2 );
 }
 
 /**
@@ -404,8 +413,6 @@ bar_chart_t::bar_chart_t( const std::string& id_str, const sim_t* sim ) :
 {
   set( "chart.type", "bar" );
 
-  set( "plotOptions.bar.borderWidth", 0 );
-  set( "plotOptions.bar.pointWidth", 16 );
   set( "xAxis.tickLength", 0 );
   set( "xAxis.type", "category" );
   set( "xAxis.labels.step", 1 );
@@ -421,9 +428,6 @@ pie_chart_t::pie_chart_t( const std::string& id_str, const sim_t* sim ) :
   set( "chart.type", "pie" );
 
   //set( "plotOptions.bar.states.hover.lineWidth", 1 );
-  set( "plotOptions.pie.fillOpacity", 0.2 );
-
-  set( "plotOptions.pie.dataLabels.enabled", true );
 }
 
 histogram_chart_t::histogram_chart_t( const std::string& id_str, const sim_t* sim ) :
@@ -432,9 +436,6 @@ histogram_chart_t::histogram_chart_t( const std::string& id_str, const sim_t* si
   height_ = 300;
 
   set( "chart.type", "column" );
-
-  set( "plotOptions.column.borderWidth", 0 );
-  set( "plotOptions.column.pointWidth", 8 );
 
   set( "xAxis.tickLength", 0 );
   set( "xAxis.type", "category" );

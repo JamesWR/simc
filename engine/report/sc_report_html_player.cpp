@@ -2700,7 +2700,7 @@ void print_html_player_charts( report::sc_html_stream& os, sim_t* sim, player_t*
 
   scaling_metric_data_t scaling_data = p -> scaling_for_metric( p -> sim -> scaling -> scaling_metric );
   std::string scale_factor_id = "scale_factor_";
-  scale_factor_id += util::scale_metric_type_string( scaling_data.metric );
+  scale_factor_id += util::scale_metric_type_abbrev( scaling_data.metric );
   highchart::bar_chart_t bc( highchart::build_id( p, scale_factor_id ), p -> sim );
   if ( chart::generate_scale_factors( bc, p, scaling_data.metric ) )
   {

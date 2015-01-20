@@ -2903,7 +2903,7 @@ bool chart::generate_raid_aps( highchart::bar_chart_t& bc,
     data.push_back( e );
   }
 
-  bc.height_ = 92 + player_list.size() * 24;
+  bc.height_ = 92 + player_list.size() * 20;
   bc.set_title( long_type + " Ranking" );
   bc.set( "yAxis.title.text", long_type.c_str() );
   // Make the Y-axis a bit longer, so we can put in all numbers on the right
@@ -2947,7 +2947,7 @@ highchart::bar_chart_t& chart::generate_dpet( highchart::bar_chart_t& bc , sim_t
   {
     size_t num_stats = stats_list.size();
 
-    bc.height_ = 92 + num_stats * 24;
+    bc.height_ = 92 + num_stats * 20;
 
     std::vector<highchart::data_entry_t> data;
     for ( size_t i = 0; i < num_stats; ++i )
@@ -3015,7 +3015,7 @@ bool chart::generate_scaling_plot( highchart::chart_t& ac, const player_t* p, sc
   scaling_metric_data_t scaling_data = p -> scaling_for_metric( metric );
 
   ac.set_title( scaling_data.name + " Scaling Plot" );
-  ac.set_yaxis_title( "Damage per Second" );
+  ac.set_yaxis_title( util::scale_metric_type_string( metric ) );
   ac.set_xaxis_title( "\u0394 Stat" );
   ac.set( "chart.type", "line" );
   ac.set( "legend.enabled", true );
@@ -3079,7 +3079,10 @@ bool chart::generate_scale_factors( highchart::bar_chart_t& bc, const player_t* 
 
   bc.set_title( scaling_data.name + " Scale Factors" );
   bc.height_ = 92 + scaling_stats.size() * 24;
-  bc.set( "plotOptions.bar.dataLabels.align", "center" );
+
+  bc.set_yaxis_title( util::scale_metric_type_string( metric ) + std::string( " per point" ) );
+
+  //bc.set( "plotOptions.bar.dataLabels.align", "center" );
   bc.set( "plotOptions.errorbar.stemColor", "#FF0000" );
   bc.set( "plotOptions.errorbar.whiskerColor", "#FF0000" );
   bc.set( "plotOptions.errorbar.whiskerLength", "75%" );
@@ -3089,21 +3092,25 @@ bool chart::generate_scale_factors( highchart::bar_chart_t& bc, const player_t* 
   std::vector<std::pair<double, double> > error;
   for ( size_t i = 0; i < scaling_stats.size(); ++i )
   {
-    bc.add( "xAxis.categories", util::stat_type_abbrev( scaling_stats[ i ] ) );
 
     double value = p -> scaling[ metric ].get_stat( scaling_stats[ i ] );
     double error_value = p -> scaling_error[ metric ].get_stat( scaling_stats[ i ] );
     data.push_back( value );
     error.push_back( std::pair<double, double>( value - fabs( error_value ), value + fabs( error_value ) ) );
+
+    std::string category_str = util::stat_type_abbrev( scaling_stats[ i ] );
+    category_str += " (" + util::to_string( util::round( value, p -> sim -> report_precision ), p -> sim -> report_precision ) + ")";
+
+    bc.add( "xAxis.categories", category_str );
   }
 
-  bc.add_simple_series( "bar", class_color( p -> type ), util::scale_metric_type_string( metric ) + std::string( " per point" ), data );
+  bc.add_simple_series( "bar", class_color( p -> type ), util::scale_metric_type_abbrev( metric ) + std::string( " per point" ), data );
   bc.add_simple_series( "errorbar", "", "Error", error );
 
   // Enable datalabels on the second series (the actual scale factor mean)
-  bc.set( "series.0.dataLabels.enabled", true );
-  bc.set( "series.0.dataLabels.format", "{point.y:." + util::to_string( p -> sim -> report_precision ) + "f}" );
-  bc.set( "series.0.dataLabels.y", -2 );
+  //bc.set( "series.0.dataLabels.enabled", false );
+  //bc.set( "series.0.dataLabels.format", "{point.y:." + util::to_string( p -> sim -> report_precision ) + "f}" );
+  //bc.set( "series.0.dataLabels.y", -2 );
   return true;
 }
 
