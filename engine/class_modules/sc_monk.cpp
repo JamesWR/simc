@@ -12,6 +12,7 @@ Change expel harm to heal later on.
 GENERAL:
 - Fortuitous Sphers - Finish implementing
 - Break up Healing Elixers and Fortuitous into two spells; one for proc and one for heal
+- Zen Meditation
 
 WINDWALKER:
 - Make Sure the healing for Blackout Kick is working
@@ -56,8 +57,8 @@ Gift of the Serpent Proc Coefficients:
 
 BREWMASTER:
 
-  - Add some form of cooldown for Expel harm below 35% to better model what is in-game
-- Zen Meditation
+- Add some form of cooldown for Expel harm below 35% to better model what is in-game
+
 */
 #include "simulationcraft.hpp"
 
@@ -1893,6 +1894,16 @@ struct monk_heal_t: public monk_action_t < heal_t >
   {
     harmful = false;
   }
+
+  virtual double composite_target_multiplier( player_t* target ) const
+  {
+    double m = base_t::composite_target_multiplier( target );
+
+    if ( p() -> buff.guard -> up() && player == target )
+      m *= 1.0 + p() -> spec.guard -> effectN( 2 ).percent();
+
+    return m;
+  }
 };
 
 namespace attacks {
@@ -2789,7 +2800,9 @@ struct hurricane_strike_t: public monk_melee_attack_t
     channeled = true;
     dot_duration = data().duration();
     base_tick_time = dot_duration / 15;
-    base_multiplier *= 2.0;
+    base_multiplier = 2.0;
+    if ( maybe_ptr( p -> dbc.ptr ) )
+      base_multiplier *= 1.25;
 
     tick_action = new hurricane_strike_tick_t( "hurricane_strike_tick", p, p -> find_spell( 158221 ) );
   }
@@ -3405,6 +3418,8 @@ struct zen_sphere_detonate_damage_t: public monk_spell_t
     aoe = -1;
 
     attack_power_mod.direct = 0.471; // hardcoded into tooltip
+    if ( maybe_ptr( p() -> dbc.ptr ) )
+      attack_power_mod.direct *= 1.97;
     school = SCHOOL_NATURE;
   }
 };
@@ -3490,7 +3505,9 @@ struct chi_burst_t: public monk_spell_t
     parse_options( options_str );
     aoe = -1;
     interrupt_auto_attack = false;
-    attack_power_mod.direct = 1.345; // hardcoded into tooltip
+    attack_power_mod.direct = 1.344; // hardcoded into tooltip
+    if ( maybe_ptr( p() -> dbc.ptr ) )
+      attack_power_mod.direct *= 1.51; // hardcoded till next PTR build
   }
 };
 
@@ -3509,6 +3526,8 @@ struct chi_torpedo_t: public monk_spell_t
     aoe = -1;
     cooldown -> duration = p() -> talent.chi_torpedo -> charge_cooldown();
     cooldown -> charges = p() -> talent.chi_torpedo -> charges();
+    if ( maybe_ptr( p() -> dbc.ptr ) )
+      attack_power_mod.direct *= 2.50;
   }
 };
 
@@ -3893,10 +3912,20 @@ struct mana_tea_t: public monk_spell_t
 
     int max_stacks_consumable = 2;
 
-    double mana_gain = player -> resources.max[RESOURCE_MANA]
-      * data().effectN( 1 ).percent()
-      * std::min( p() -> buff.mana_tea -> stack(), max_stacks_consumable );
-    player->resource_gain( RESOURCE_MANA, mana_gain, p() -> gain.mana_tea, this );
+    double mana_gain = 0;
+    if ( maybe_ptr( p() -> dbc.ptr ) )
+    {
+      mana_gain = player -> resources.base[STAT_SPIRIT]
+        * 0.03    // Hardcode for now.
+        * std::min( p() -> buff.mana_tea -> stack(), max_stacks_consumable );
+    }
+    else
+    {
+      mana_gain = player -> resources.max[RESOURCE_MANA]
+        * data().effectN( 1 ).percent()
+        * std::min( p() -> buff.mana_tea -> stack(), max_stacks_consumable );
+    }
+    player -> resource_gain( RESOURCE_MANA, mana_gain, p() -> gain.mana_tea, this );
     p() -> buff.mana_tea -> decrement( max_stacks_consumable );
   }
 };
@@ -4494,6 +4523,8 @@ struct zen_sphere_t: public monk_heal_t
       aoe = -1;
 
       attack_power_mod.direct = 0.548; // hardcoded into tooltip
+      if ( maybe_ptr( p() -> dbc.ptr ) )
+        attack_power_mod.direct *= 1.7;
       school = SCHOOL_NATURE;
     }
   };
@@ -4515,6 +4546,8 @@ struct zen_sphere_t: public monk_heal_t
       attack_power_mod.tick = 0.156 * 1.2; // hardcoded into tooltip
     else
       attack_power_mod.tick = 0.156;  // hardcoded into tooltip
+    if ( maybe_ptr( player -> dbc.ptr ) )
+      attack_power_mod.tick *= 0.61;
 
     cooldown -> duration = data().cooldown();
   }
@@ -4651,7 +4684,7 @@ struct power_strikes_event_t: public event_t
     event_t( player, "power_strikes" )
   {
     // Safety clamp
-    tick_time = clamp( tick_time, timespan_t::zero(), timespan_t::from_seconds( 15.0 ) );
+    tick_time = clamp( tick_time, timespan_t::zero(), player.talent.power_strikes -> effectN( 1 ).period() );
     add_event( tick_time );
   }
 
@@ -4661,7 +4694,7 @@ struct power_strikes_event_t: public event_t
 
     p -> buff.power_strikes -> trigger();
 
-    new ( sim() ) power_strikes_event_t( *p, timespan_t::from_seconds( 15.0 ) );
+    new ( sim() ) power_strikes_event_t( *p, p -> talent.power_strikes -> effectN( 1 ).period() );
   }
 };
 
@@ -4706,16 +4739,16 @@ namespace buffs
     // Extra Health is set by current max_health, doesn't change when max_health changes.
     health_gain = static_cast<int>( monk.resources.max[RESOURCE_HEALTH] * ( monk.glyph.fortifying_brew -> ok() ? monk.find_spell( 124997 ) -> effectN( 2 ).percent() :
       monk.spec.fortifying_brew -> effectN( 1 ).percent() ) );
-    monk.stat_gain( STAT_MAX_HEALTH, health_gain, (gain_t*)0, (action_t*)0, true );
-    monk.stat_gain( STAT_HEALTH, health_gain, (gain_t*)0, (action_t*)0, true );
+    monk.stat_gain( STAT_MAX_HEALTH, health_gain, ( gain_t* )0, ( action_t* )0, true );
+    monk.stat_gain( STAT_HEALTH, health_gain, ( gain_t* )0, ( action_t* )0, true );
     return base_t::trigger( stacks, value, chance, duration );
   }
 
   void expire_override( int expiration_stacks, timespan_t remaining_duration )
   {
     base_t::expire_override( expiration_stacks, remaining_duration );
-    monk.stat_loss( STAT_MAX_HEALTH, health_gain, (gain_t*)0, (action_t*)0, true );
-    monk.stat_loss( STAT_HEALTH, health_gain, (gain_t*)0, (action_t*)0, true );
+    monk.stat_loss( STAT_MAX_HEALTH, health_gain, ( gain_t* )0, ( action_t* )0, true );
+    monk.stat_loss( STAT_HEALTH, health_gain, ( gain_t* )0, ( action_t* )0, true );
   }
 };
 }
@@ -5004,7 +5037,7 @@ void monk_t::init_base_stats()
 
   resources.base[RESOURCE_CHI] = 4 + talent.ascension -> effectN( 1 ).base_value() + perk.empowered_chi -> effectN( 1 ).base_value();
   resources.base[RESOURCE_ENERGY] = 100;
-  resources.base_multiplier[RESOURCE_MANA] *= 1.0 + talent.ascension -> effectN( 2 ).percent();
+  resources.base_multiplier[RESOURCE_MANA] *= 1.0 + ( !maybe_ptr( dbc.ptr ) ? talent.ascension -> effectN( 2 ).percent() : 0 );
 
   base_chi_regen_per_second = 0;
   base_energy_regen_per_second = 10.0;
@@ -5100,7 +5133,6 @@ void monk_t::create_buffs()
     .cd( timespan_t::zero() );
 
   buff.guard = absorb_buff_creator_t( this, "guard", spec.guard )
-    .add_invalidate( CACHE_PLAYER_HEAL_MULTIPLIER )
     .source( get_stats( "guard" ) )
     .cd( timespan_t::zero() );
 
@@ -5326,6 +5358,9 @@ double monk_t::composite_attribute_multiplier( attribute_e attr ) const
   if ( attr == ATTR_STAMINA )
     cam *= 1.0 + active_stance_data( STURDY_OX ).effectN( 5 ).percent();
 
+  if ( attr == ATTR_SPIRIT && specialization() == MONK_MISTWEAVER )
+    cam *= 1.0 + ( maybe_ptr( dbc.ptr ) ? talent.ascension -> effectN( 2 ).percent() : 0 );
+
   return cam;
 }
 
@@ -5337,9 +5372,6 @@ double monk_t::composite_player_heal_multiplier( const action_state_t* s ) const
 
   if ( current_stance() == WISE_SERPENT )
     m *= 1.0 + active_stance_data( WISE_SERPENT ).effectN( 3 ).percent();
-
-  if ( buff.guard -> up() )
-    m *= 1.0 + spec.guard -> effectN( 2 ).percent();
 
   return m;
 }
