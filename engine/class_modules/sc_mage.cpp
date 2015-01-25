@@ -3789,6 +3789,8 @@ struct pyroblast_t : public mage_spell_t
 
   void reset()
   {
+    mage_spell_t::reset();
+
     is_hot_streak = false;
     dot_is_hot_streak = false;
   }
@@ -5339,6 +5341,8 @@ void mage_t::apl_frost()
                            "if=buff.fingers_of_frost.react=2&action.frostbolt.in_flight" );
   water_jet -> add_action( this, "Frostbolt",
                            "if=debuff.water_jet.remains>cast_time+travel_time" );
+  water_jet -> add_action( this, "Ice Lance",
+                           "if=prev_gcd.frostbolt" );
   water_jet -> add_action( "call_action_list,name=single_target" );
 
 

@@ -9,7 +9,8 @@ namespace
 { // UNNAMED NAMESPACE
 // ==========================================================================
 // Warrior
-// 
+// Check EVERYTHING with dbc.ptr after next patch. Also devastate.
+// They may have reverted the nerf to Ravager on ptr. Worth checking.
 // ==========================================================================
 
 struct warrior_t;
@@ -555,7 +556,7 @@ public:
 
     if ( weapons_master )
     {
-      am *= 1.0 + ( ab::player -> cache.mastery_value() * ( p() -> wod_hotfix ? 1.29 : 1.0 ) );
+      am *= 1.0 + ( ab::player -> cache.mastery_value() * ( !p() -> dbc.ptr ? 1.2857 : 0.8181 ) );
     }
 
     return am;
@@ -732,7 +733,7 @@ public:
       p() -> resource_gain( RESOURCE_RAGE, rage*0.8, p() -> gain.avoided_attacks );
   }
 
-  void anger_management( double rage )
+  virtual void anger_management( double rage )
   {
     if ( rage > 0 )
     {
@@ -1404,7 +1405,7 @@ struct bloodthirst_t: public warrior_attack_t
     stancemask = STANCE_BATTLE | STANCE_DEFENSE;
 
     crit_chance = data().effectN( 4 ).percent();
-    if ( p -> wod_hotfix )
+    if ( !p -> dbc.ptr )
       crit_chance += 0.1;
 
     if ( p -> talents.unquenchable_thirst -> ok() )
@@ -1622,11 +1623,7 @@ struct devastate_t: public warrior_attack_t
     parse_options( options_str );
     stancemask = STANCE_GLADIATOR | STANCE_DEFENSE;
     weapon = &( p -> main_hand_weapon );
-    if ( p -> wod_hotfix )
-    {
-      weapon_multiplier *= 1.05;
-      weapon_multiplier *= 1.2;
-    }
+    weapon_multiplier = 2.5; // Fix
   }
 
   void execute()
@@ -1703,7 +1700,7 @@ struct execute_off_hand_t: public warrior_attack_t
          p -> off_hand_weapon.group() == WEAPON_1H )
          weapon_multiplier *= 1.0 + p -> spec.singleminded_fury -> effectN( 3 ).percent();
 
-    if ( p -> wod_hotfix )
+    if ( !p -> dbc.ptr )
       weapon_multiplier *= 1.1;
 
     weapon_multiplier *= 1.0 + p -> perk.empowered_execute -> effectN( 1 ).percent();
@@ -1737,8 +1734,10 @@ struct execute_t: public warrior_attack_t
       sudden_death_rage = 10;
     }
 
-    if ( p -> wod_hotfix ) 
+    if ( !p -> dbc.ptr )
+    {
       weapon_multiplier *= 1.1; // I guess Blizzard messed up and applied this hotfix to all executes.
+    }
 
     weapon_multiplier *= 1.0 + p -> perk.empowered_execute -> effectN( 1 ).percent();
   }
@@ -1749,8 +1748,17 @@ struct execute_t: public warrior_attack_t
 
     if ( p() -> mastery.weapons_master -> ok() )
     {
-      if ( !p() -> buff.sudden_death -> check() || p() -> buff.tier16_4pc_death_sentence -> check() )
-        am *= 4.0 * std::min( 40.0, p() -> resources.current[ RESOURCE_RAGE ] ) / 40;
+      if ( target -> health_percentage() < 20 || p() -> buff.tier16_4pc_death_sentence -> check() )
+      {
+        if ( p() -> buff.sudden_death -> check() )
+        { // If the target is below 20% hp, arms execute with sudden death procced will consume x rage, but hit the target as if it had x + 10 rage. 
+          am *= 4.0 * std::min( 40.0, ( p() -> resources.current[RESOURCE_RAGE] + 10 ) ) / 40;
+        }
+        else
+        {
+          am *= 4.0 * std::min( 40.0, ( p() -> resources.current[RESOURCE_RAGE] ) ) / 40;
+        }
+      }
     }
     else if ( p() -> has_shield_equipped() )
       am *= 1.0 + p() -> spec.protection -> effectN( 2 ).percent();
@@ -1768,8 +1776,17 @@ struct execute_t: public warrior_attack_t
     if ( p() -> buff.tier16_4pc_death_sentence -> up() && target -> health_percentage() < 20 )
       c *= 1.0 + p() -> buff.tier16_4pc_death_sentence -> data().effectN( 2 ).percent();
 
-    if ( p() -> buff.sudden_death -> up() && !p() -> buff.tier16_4pc_death_sentence -> check() )
-      c *= 1.0 + p() -> buff.sudden_death -> data().effectN( 2 ).percent(); // Tier 16 4 piece overrides sudden death.
+    if ( p() -> buff.sudden_death -> up() && c > 0.0 )
+    {
+      if ( p() -> mastery.weapons_master -> ok() && target -> health_percentage() < 20 )
+      {
+        c -= 10;
+      }
+      else
+      {
+        c *= 1.0 + p() -> buff.sudden_death -> data().effectN( 2 ).percent(); // Tier 16 4 piece overrides sudden death.
+      }
+    }
 
     return c;
   }
@@ -1782,11 +1799,17 @@ struct execute_t: public warrior_attack_t
          p() -> off_hand_weapon.type != WEAPON_NONE ) // If MH fails to land, or if there is no OH weapon for Fury, oh attack does not execute.
          oh_attack -> execute();
 
-    if ( p() -> buff.sudden_death -> check() && p() -> talents.anger_management -> ok() )
-      base_t::anger_management( sudden_death_rage ); // Even though it doesn't consume rage, anger management still grants cooldown reduction from the original cost.
-
     p() -> buff.sudden_death -> expire(); // Consumes both buffs
     p() -> buff.tier16_4pc_death_sentence -> expire();
+  }
+
+  void anger_management( double )
+  {
+    double newrage = resource_consumed;
+    if ( p() -> buff.sudden_death -> check() )
+      newrage += sudden_death_rage;
+
+    base_t::anger_management( newrage );
   }
 
   bool ready()
@@ -1822,6 +1845,7 @@ struct hamstring_t: public warrior_attack_t
 
 struct heroic_strike_t: public warrior_attack_t
 {
+  double anger_management_rage;
   heroic_strike_t( warrior_t* p, const std::string& options_str ):
     warrior_attack_t( "heroic_strike", p, p -> find_class_spell( "Heroic Strike" ) )
   {
@@ -1833,6 +1857,7 @@ struct heroic_strike_t: public warrior_attack_t
     if ( p -> glyphs.cleave -> ok() )
       aoe = 2;
 
+    anger_management_rage = base_costs[RESOURCE_RAGE];
     use_off_gcd = true;
   }
 
@@ -1844,6 +1869,11 @@ struct heroic_strike_t: public warrior_attack_t
       am *= 1.0 + p() -> buff.shield_charge -> default_value;
 
     return am;
+  }
+
+  void anger_management( double )
+  {
+    base_t::anger_management( anger_management_rage );
   }
 
   void assess_damage( dmg_e type, action_state_t* s )
@@ -2267,12 +2297,7 @@ struct revenge_t: public warrior_attack_t
     base_add_multiplier = data().effectN( 3 ).percent();
     aoe = 3;
     rage_gain = data().effectN( 2 ).resource( RESOURCE_RAGE );
-    if ( p -> wod_hotfix )
-    {
-      attack_power_mod.direct *= 1.05;
-      attack_power_mod.direct *= 0.8;
-      attack_power_mod.direct *= 1.4;
-    }
+    attack_power_mod.direct = 3.528; //Fix
   }
 
   double action_multiplier() const
@@ -2353,17 +2378,26 @@ struct blood_craze_t: public residual_action::residual_periodic_action_t < warri
 
 struct second_wind_t: public warrior_heal_t
 {
+  double heal_pct;
   second_wind_t( warrior_t* p ):
     warrior_heal_t( "second_wind", p, p -> talents.second_wind )
   {
     callbacks = false;
     background = true;
+    if ( p -> dbc.ptr )
+    {
+      heal_pct = 0.25;
+    }
+    else
+    {
+      heal_pct = 0.1;
+    }
   }
 
   void execute()
   {
-    base_dd_max *= 0.1; //Heals for 10% of original damage
-    base_dd_min *= 0.1;
+    base_dd_max *= heal_pct;
+    base_dd_min *= heal_pct;
 
     warrior_heal_t::execute();
   }
@@ -2465,6 +2499,10 @@ struct siegebreaker_off_hand_t: public warrior_attack_t
     may_dodge = may_parry = may_block = may_miss = false;
     dual = true;
     weapon = &( p -> off_hand_weapon );
+    if ( p -> dbc.ptr )
+    {
+      weapon_multiplier *= 1.5;
+    }
   }
 };
 
@@ -2478,11 +2516,15 @@ struct siegebreaker_t: public warrior_attack_t
     parse_options( options_str );
     stancemask = STANCE_BATTLE | STANCE_DEFENSE;
     may_dodge = may_parry = may_block = false;
-
+    weapon = &( p -> main_hand_weapon );
     if ( p -> specialization() == WARRIOR_FURY )
     {
       oh_attack = new siegebreaker_off_hand_t( p, "siegebreaker_oh", data().effectN( 5 ).trigger() );
       add_child( oh_attack );
+    }
+    if ( p -> dbc.ptr )
+    {
+      weapon_multiplier *= 1.5;
     }
   }
 
@@ -2561,19 +2603,12 @@ struct shield_slam_t: public warrior_attack_t
     stancemask = STANCE_GLADIATOR | STANCE_DEFENSE;
     rage_gain = data().effectN( 3 ).resource( RESOURCE_RAGE );
 
-    attack_power_mod.direct = 0.36; // Low level value for shield slam.
+    attack_power_mod.direct = 0.366; // Low level value for shield slam.
     if ( p -> level >= 80 )
-      attack_power_mod.direct += 0.42; // Adds 42% ap once the character is level 80
+      attack_power_mod.direct += 0.426; // Adds 42.6% ap once the character is level 80
     if ( p -> level >= 85 )
-      attack_power_mod.direct += 2.40; // Adds another 240% ap at level 85
+      attack_power_mod.direct += 2.46; // Adds another 246% ap at level 85
     //Shield slam is just the best.
-
-    if ( p -> wod_hotfix )
-    {
-      attack_power_mod.direct *= 1.05;
-      attack_power_mod.direct *= 0.8;
-      attack_power_mod.direct *= 1.2;
-    }
   }
 
   double action_multiplier() const
@@ -2688,7 +2723,7 @@ struct slam_t: public warrior_attack_t
     stancemask = STANCE_BATTLE;
     weapon = &( p -> main_hand_weapon );
     base_costs[RESOURCE_RAGE] = 10;
-    if ( p -> wod_hotfix )
+    if ( !p -> dbc.ptr )
     {
       weapon_multiplier *= 0.7;
     }
@@ -2826,7 +2861,7 @@ struct thunder_clap_t: public warrior_attack_t
     cooldown -> duration = data().cooldown();
     cooldown -> duration *= 1 + p -> glyphs.resonating_power -> effectN( 2 ).percent();
     attack_power_mod.direct *= 1.0 + p -> glyphs.resonating_power -> effectN( 1 ).percent();
-    if ( p -> wod_hotfix )
+    if ( !p -> dbc.ptr )
     {
       attack_power_mod.direct *= 1.4;
     }
@@ -2916,7 +2951,7 @@ struct whirlwind_off_hand_t: public warrior_attack_t
     range += p -> glyphs.wind_and_thunder -> effectN( 1 ).base_value(); // Increased by the glyph.
     weapon_multiplier *= 1.0 + p -> spec.crazed_berserker -> effectN( 4 ).percent();
     weapon = &( p -> off_hand_weapon );
-    if ( p -> wod_hotfix )
+    if ( !p -> dbc.ptr )
     {
       weapon_multiplier *= 0.7;
     }
@@ -2961,7 +2996,7 @@ struct whirlwind_t: public warrior_attack_t
       weapon_multiplier *= 2;
     }
 
-    if ( p -> wod_hotfix )
+    if ( !p -> dbc.ptr )
     {
       weapon_multiplier *= 0.7;
     }
@@ -3076,6 +3111,10 @@ struct avatar_t: public warrior_spell_t
   {
     parse_options( options_str );
     stancemask = STANCE_BATTLE | STANCE_GLADIATOR | STANCE_DEFENSE;
+    if ( p -> dbc.ptr )
+    {
+      cooldown -> duration = timespan_t::from_seconds( 90 );
+    }
   }
 
   void execute()
@@ -3182,7 +3221,7 @@ struct deep_wounds_t: public warrior_spell_t
   {
     background = tick_may_crit = true;
     hasted_ticks = false;
-    if ( p -> wod_hotfix )
+    if ( !p -> dbc.ptr )
     {
       attack_power_mod.tick *= 1.4;
     }
@@ -3299,7 +3338,7 @@ struct ravager_tick_t: public warrior_spell_t
   {
     aoe = -1;
     dual = may_crit = true;
-    if ( p -> wod_hotfix )
+    if ( !p -> dbc.ptr )
     {
       attack_power_mod.direct *= 0.75;
     }
@@ -4717,7 +4756,8 @@ void warrior_t::create_buffs()
 
   buff.avatar = buff_creator_t( this, "avatar", talents.avatar )
     .cd( timespan_t::zero() )
-    .add_invalidate( CACHE_PLAYER_DAMAGE_MULTIPLIER );
+    .add_invalidate( CACHE_PLAYER_DAMAGE_MULTIPLIER )
+    .duration( dbc.ptr ? timespan_t::from_seconds( 20 ) : timespan_t::from_seconds( 24 ) );
 
   buff.battle_stance = new buffs::battle_stance_t( *this, "battle_stance", find_class_spell( "Battle Stance" ) );
 
@@ -5140,7 +5180,7 @@ double warrior_t::composite_player_multiplier( school_e school ) const
 
   if ( active_stance == STANCE_GLADIATOR && school == SCHOOL_PHYSICAL )
   {
-    m *= 1.0 + ( wod_hotfix ? 0.05 : buff.gladiator_stance -> data().effectN( 1 ).percent() );
+    m *= 1.0 +  0.05; //Fix
   }
 
   return m;

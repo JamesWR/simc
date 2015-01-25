@@ -115,16 +115,16 @@ struct enemy_action_t : public ACTION_TYPE
     dmg_type_override = "none";
   }
 
+  virtual void set_name_string()
+  {
+    this -> name_str = this -> name_str + "_" + this -> target -> name();
+  }
+
   void init()
   {
     action_type_t::init();
-
-    if ( aoe_tanks == 1 )
-      this -> aoe = -1;
-    else
-      this -> aoe = aoe_tanks;
-
-    this -> name_str = this -> name_str + "_" + this -> target -> name();
+    
+    set_name_string();
     this -> cooldown = this -> player -> get_cooldown( this -> name_str );
 
     this -> stats = this -> player -> get_stats( this -> name_str, this );
@@ -269,23 +269,48 @@ struct melee_t : public enemy_action_t<melee_attack_t>
 
 struct auto_attack_t : public enemy_action_t<attack_t>
 {
-  melee_t* mh;
+  std::vector<melee_t*> mh_list;
 
   // default constructor
   auto_attack_t( player_t* p, const std::string& options_str ) :
-    base_t( "auto_attack", p ), mh( 0 )
+    base_t( "auto_attack", p ), mh_list( 0 )
   {
     parse_options( options_str );
 
     use_off_gcd = true;
     trigger_gcd = timespan_t::zero();
+    
+    size_t num_attacks = aoe_tanks;
+    if ( num_attacks == 1 || num_attacks < 0 )
+       num_attacks = this -> player -> sim -> actor_list.size();
 
-    mh = new melee_t( "melee_main_hand", p, options_str );
-    mh -> weapon = &( p -> main_hand_weapon );
-    if ( ! mh -> target )
-      mh -> target = target;
+    std::vector<player_t*> target_list;
+    if ( aoe_tanks )
+    {
+      for ( size_t i = 0; i < sim -> player_no_pet_list.size(); i++ )
+        if ( target_list.size() < num_attacks && sim -> player_no_pet_list[ i ] -> primary_role() == ROLE_TANK )
+          target_list.push_back( sim -> player_no_pet_list[ i ] );
+    }
+    else
+      target_list.push_back( target );
 
-    p -> main_hand_attack = mh;
+    for ( size_t i = 0; i < target_list.size(); i++ )
+    {
+      melee_t* mh = new melee_t( "melee_main_hand", p, options_str );
+      mh -> weapon = &( p -> main_hand_weapon );
+      mh -> target = target_list[ i ];
+      mh_list.push_back( mh );
+    }
+
+    p -> main_hand_attack = mh_list[ 0 ];
+  }
+
+  virtual void set_name_string()
+  {
+    if ( mh_list.size() > 1 )
+      this -> name_str = this -> name_str + "_tanks";
+    else
+      base_t::set_name_string();
   }
 
   void init()
@@ -294,15 +319,19 @@ struct auto_attack_t : public enemy_action_t<attack_t>
 
     if ( enemy_t* e = dynamic_cast< enemy_t* >( player ) )
     {
-      // if the number of debuff stacks hasn't been specified yet, set it
-      if ( mh -> num_debuff_stacks == -1e6 )
+      for ( size_t i = 0; i < mh_list.size(); i++ )
       {
-        if ( e -> apply_damage_taken_debuff == 0 )
-          mh -> num_debuff_stacks = 0;
-        else
+        melee_t* mh = mh_list[ i ];
+        // if the number of debuff stacks hasn't been specified yet, set it
+        if ( mh -> num_debuff_stacks == -1e6 )
         {
-          mh -> apply_debuff = true;
-          mh -> num_debuff_stacks = e -> apply_damage_taken_debuff;
+          if ( e -> apply_damage_taken_debuff == 0 )
+            mh -> num_debuff_stacks = 0;
+          else
+          {
+            mh -> apply_debuff = true;
+            mh -> num_debuff_stacks = e -> apply_damage_taken_debuff;
+          }
         }
       }
     }
@@ -310,8 +339,9 @@ struct auto_attack_t : public enemy_action_t<attack_t>
 
   virtual void execute()
   {
-    player -> main_hand_attack = mh;
-    player -> main_hand_attack -> schedule_execute();
+    player -> main_hand_attack = mh_list[ 0 ];
+    for (size_t i = 0; i < mh_list.size(); i++ )
+      mh_list[ i ] -> schedule_execute();
   }
 
   virtual bool ready()
@@ -325,23 +355,40 @@ struct auto_attack_t : public enemy_action_t<attack_t>
 
 struct auto_attack_off_hand_t : public enemy_action_t<attack_t>
 {
-  melee_t* oh;
+  std::vector<melee_t*> oh_list;
 
   // default constructor
   auto_attack_off_hand_t( player_t* p, const std::string& options_str ) :
-    base_t( "auto_attack_off_hand", p ), oh( 0 )
+    base_t( "auto_attack_off_hand", p ), oh_list( 0 )
   {
     parse_options( options_str );
 
     use_off_gcd = true;
     trigger_gcd = timespan_t::zero();
+    
+    size_t num_attacks = aoe_tanks;
+    if ( num_attacks == 1 || num_attacks < 0 )
+       num_attacks = this -> player -> sim -> actor_list.size();
+    
+    std::vector<player_t*> target_list;
+    if ( aoe_tanks )
+    {
+      for ( size_t i = 0; i < sim -> player_no_pet_list.size(); i++ )
+        if ( target_list.size() < num_attacks && sim -> player_no_pet_list[ i ] -> primary_role() == ROLE_TANK )
+          target_list.push_back( sim -> player_no_pet_list[ i ] );
+    }
+    else
+      target_list.push_back( target );
 
-    oh = new melee_t( "melee_off_hand", p, options_str );
-    oh -> weapon = &( p -> off_hand_weapon );
-    if ( !oh -> target )
-      oh -> target = target;
+    for ( size_t i = 0; i < target_list.size(); i++ )
+    {
+      melee_t* oh = new melee_t( "melee_off_hand", p, options_str );
+      oh -> weapon = &( p -> off_hand_weapon );
+      oh -> target = target_list[ i ];
+      oh_list.push_back( oh );
+    }
 
-    p -> off_hand_attack = oh;
+    p -> off_hand_attack = oh_list[ 0 ];
   }
 
   void init()
@@ -350,15 +397,19 @@ struct auto_attack_off_hand_t : public enemy_action_t<attack_t>
 
     if ( enemy_t* e = dynamic_cast< enemy_t* >( player ) )
     {
-      // if the number of debuff stacks hasn't been specified yet, set it
-      if ( oh && oh -> num_debuff_stacks == -1e6 )
+      for ( size_t i = 0; i < oh_list.size(); i++ )
       {
-        if ( e -> apply_damage_taken_debuff == 0 )
-          oh -> num_debuff_stacks = 0;
-        else
+        melee_t* oh = oh_list[ i ];
+        // if the number of debuff stacks hasn't been specified yet, set it
+        if ( oh && oh -> num_debuff_stacks == -1e6 )
         {
-          oh -> apply_debuff = true;
-          oh -> num_debuff_stacks = e -> apply_damage_taken_debuff;
+          if ( e -> apply_damage_taken_debuff == 0 )
+            oh -> num_debuff_stacks = 0;
+          else
+          {
+            oh -> apply_debuff = true;
+            oh -> num_debuff_stacks = e -> apply_damage_taken_debuff;
+          }
         }
       }
     }
@@ -366,9 +417,12 @@ struct auto_attack_off_hand_t : public enemy_action_t<attack_t>
 
   virtual void execute()
   {
-    oh -> first = true;
-    player -> off_hand_attack = oh;
-    player -> off_hand_attack -> schedule_execute();
+    player -> off_hand_attack = oh_list[ 0 ];
+    for ( size_t i = 0; i < oh_list.size(); i++ )
+    {
+      oh_list[ i ] -> first = true;
+      oh_list[ i ] -> schedule_execute();
+    }
 
   }
 
@@ -391,7 +445,8 @@ struct melee_nuke_t : public enemy_action_t<attack_t>
     may_miss = may_dodge = may_parry = false;
     may_block = true;
     base_execute_time = timespan_t::from_seconds( 3.0 );
-    base_dd_min = 25000;
+    background=true;
+    base_dd_min = 70000;
 
     parse_options( options_str );
   }
@@ -409,6 +464,55 @@ struct melee_nuke_t : public enemy_action_t<attack_t>
 
     if ( base_execute_time < timespan_t::zero() )
       base_execute_time = timespan_t::from_seconds( 3.0 );
+  }
+};
+
+struct melee_nuke_helper_t : public enemy_action_t<attack_t>
+{
+  std::vector<melee_nuke_t*> ch_list;
+
+  melee_nuke_helper_t( player_t* p, const std::string& options_str ) :
+    base_t( "melee_nuke", p )
+  {
+    // need this for checking for casts for other spells (doesn't seem to work w/ melee_nuke)
+    base_execute_time = timespan_t::from_seconds( 3.0 );
+
+    parse_options( options_str );
+
+    size_t num_attacks = aoe_tanks;
+    if ( num_attacks == 1 || num_attacks < 0 )
+       num_attacks = this -> player -> sim -> actor_list.size();
+    
+    std::vector<player_t*> target_list;
+    if ( aoe_tanks )
+    {
+      for ( size_t i = 0; i < sim -> player_no_pet_list.size(); i++ )
+        if ( target_list.size() < num_attacks && sim -> player_no_pet_list[ i ] -> primary_role() == ROLE_TANK )
+          target_list.push_back( sim -> player_no_pet_list[ i ] );
+    }
+    else
+      target_list.push_back( target );
+
+    for ( size_t i = 0; i < target_list.size(); i++ )
+    {
+      melee_nuke_t* ch = new melee_nuke_t( p, options_str );
+      ch -> target = target_list[ i ];
+      ch_list.push_back( ch );
+    }
+  }
+
+  virtual void set_name_string()
+  {
+    if ( ch_list.size() > 1 )
+      this -> name_str = this -> name_str + "_all_tanks";
+    else
+      base_t::set_name_string();
+  }
+  
+  virtual void execute()
+  {
+    for ( size_t i = 0; i < ch_list.size(); i++ )
+      ch_list[ i ] -> schedule_execute();
   }
 };
 
@@ -421,7 +525,8 @@ struct spell_nuke_t : public enemy_action_t<spell_t>
   {
     school            = SCHOOL_FIRE;
     base_execute_time = timespan_t::from_seconds( 3.0 );
-    base_dd_min       = 5000;
+    base_dd_min       = 60000;
+    background        = true;
 
     parse_options( options_str );
   }
@@ -442,6 +547,59 @@ struct spell_nuke_t : public enemy_action_t<spell_t>
   }
 };
 
+struct spell_nuke_helper_t : public enemy_action_t<spell_t>
+{
+  std::vector<spell_nuke_t*> ch_list;
+
+  spell_nuke_helper_t( player_t* p, const std::string& options_str ) :
+    base_t( "spell_nuke", p )
+  {
+    // need this for checking for casts
+    base_execute_time = timespan_t::from_seconds( 3.0 );
+
+    parse_options( options_str );
+
+    size_t num_attacks = aoe_tanks;
+    if ( num_attacks == 1 || num_attacks < 0 )
+       num_attacks = this -> player -> sim -> actor_list.size();
+    
+    std::vector<player_t*> target_list;
+    if ( aoe_tanks )
+    {
+      for ( size_t i = 0; i < sim -> player_no_pet_list.size(); i++ )
+        if ( target_list.size() < num_attacks && sim -> player_no_pet_list[ i ] -> primary_role() == ROLE_TANK )
+          target_list.push_back( sim -> player_no_pet_list[ i ] );
+    }
+    else
+      target_list.push_back( target );
+
+    for ( size_t i = 0; i < target_list.size(); i++ )
+    {
+      spell_nuke_t* ch = new spell_nuke_t( p, options_str );
+      ch -> target = target_list[ i ];
+      ch_list.push_back( ch );
+    }
+  }
+
+  virtual void set_name_string()
+  {
+    if ( ch_list.size() > 1 )
+      this -> name_str = this -> name_str + "_tanks";
+    else
+      base_t::set_name_string();
+  }
+  
+  virtual void execute()
+  {
+    for ( size_t i = 0; i < ch_list.size(); i++ )
+      ch_list[ i ] -> schedule_execute();
+    base_t::execute();
+  }
+
+  virtual void impact()
+  {}
+};
+
 // Spell DoT ================================================================
 
 struct spell_dot_t : public enemy_action_t<spell_t>
@@ -451,10 +609,12 @@ struct spell_dot_t : public enemy_action_t<spell_t>
   {
     school         = SCHOOL_FIRE;
     base_tick_time = timespan_t::from_seconds( 1.0 );
+    base_execute_time = timespan_t::from_seconds( 1.0 );
     dot_duration   = timespan_t::from_seconds( 10.0 );
     base_td        = 5000;
-    tick_may_crit  = false; // FIXME: should ticks crit or not?
+    tick_may_crit  = false;
     may_crit       = false;
+    background     = true;
 
     // Replace damage option
     add_option( opt_float( "damage", base_td ) );
@@ -477,6 +637,61 @@ struct spell_dot_t : public enemy_action_t<spell_t>
 
     base_t::execute();
   }
+};
+
+struct spell_dot_helper_t : public enemy_action_t<spell_t>
+{
+  std::vector<spell_dot_t*> ch_list;
+
+  spell_dot_helper_t( player_t* p, const std::string& options_str ) :
+    base_t( "spell_dot", p )
+  {
+    base_tick_time = timespan_t::from_seconds( 1.0 );
+
+    add_option( opt_float( "damage", base_td ) );
+    add_option( opt_timespan( "dot_duration", dot_duration ) );
+    add_option( opt_timespan( "tick_time", base_tick_time ) );
+    parse_options( options_str );
+
+    size_t num_attacks = aoe_tanks;
+    if ( num_attacks == 1 || num_attacks < 0 )
+       num_attacks = this -> player -> sim -> actor_list.size();
+    
+    std::vector<player_t*> target_list;
+    if ( aoe_tanks )
+    {
+      for ( size_t i = 0; i < sim -> player_no_pet_list.size(); i++ )
+        if ( target_list.size() < num_attacks && sim -> player_no_pet_list[ i ] -> primary_role() == ROLE_TANK )
+          target_list.push_back( sim -> player_no_pet_list[ i ] );
+    }
+    else
+      target_list.push_back( target );
+
+    for ( size_t i = 0; i < target_list.size(); i++ )
+    {
+      spell_dot_t* ch = new spell_dot_t( p, options_str );
+      ch -> target = target_list[ i ];
+      ch_list.push_back( ch );
+    }
+  }
+
+  virtual void set_name_string()
+  {
+    if ( ch_list.size() > 1 )
+      this -> name_str = this -> name_str + "_tanks";
+    else
+      base_t::set_name_string();
+  }
+  
+  virtual void execute()
+  {
+    for ( size_t i = 0; i < ch_list.size(); i++ )
+      ch_list[ i ] -> schedule_execute();
+    base_t::execute();
+  }
+
+  virtual void impact()
+  {}
 };
 
 // Spell AoE ================================================================
@@ -575,9 +790,9 @@ action_t* enemy_create_action( player_t* p, const std::string& name, const std::
 {
   if ( name == "auto_attack" )          return new          auto_attack_t( p, options_str );
   if ( name == "auto_attack_off_hand" ) return new auto_attack_off_hand_t( p, options_str );
-  if ( name == "melee_nuke"  )          return new           melee_nuke_t( p, options_str );
-  if ( name == "spell_nuke"  )          return new           spell_nuke_t( p, options_str );
-  if ( name == "spell_dot"   )          return new            spell_dot_t( p, options_str );
+  if ( name == "melee_nuke"  )          return new           melee_nuke_helper_t( p, options_str );
+  if ( name == "spell_nuke"  )          return new           spell_nuke_helper_t( p, options_str );
+  if ( name == "spell_dot"   )          return new            spell_dot_helper_t( p, options_str );
   if ( name == "spell_aoe"   )          return new            spell_aoe_t( p, options_str );
   if ( name == "summon_add"  )          return new           summon_add_t( p, options_str );
 
