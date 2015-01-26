@@ -284,6 +284,7 @@ enum pet_e
   PET_HUNTER,
 
   PET_FELGUARD,
+  PET_WRATHGUARD,
   PET_FELHUNTER,
   PET_IMP,
   PET_VOIDWALKER,
@@ -2587,6 +2588,7 @@ struct sim_t : private sc_thread_t
   player_t*   active_player;
   int         num_players;
   int         num_enemies;
+  int         enemy_targets;
   int         healing; // Creates healing targets. Useful for ferals, I guess.
   int global_spawn_index;
   int         max_player_level;
@@ -3776,7 +3778,7 @@ struct cooldown_t
   int current_charge;
   core_event_t* recharge_event;
   core_event_t* ready_trigger_event;
-  timespan_t last_start;
+  timespan_t last_start, last_charged;
 
   cooldown_t( const std::string& name, player_t& );
   cooldown_t( const std::string& name, sim_t& );
@@ -3816,6 +3818,8 @@ struct cooldown_t
 
   static timespan_t ready_init()
   { return timespan_t::from_seconds( -60 * 60 ); }
+
+  static timespan_t cooldown_duration( const cooldown_t* cd, const timespan_t& override_duration = timespan_t::min(), const action_t* cooldown_action = 0 );
 
 private:
   double recharge_multiplier;
