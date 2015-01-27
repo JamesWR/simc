@@ -91,7 +91,6 @@ enum sef_ability_e {
   SEF_FISTS_OF_FURY,
   SEF_SPINNING_CRANE_KICK,
   SEF_RUSHING_JADE_WIND,
-  SEF_CHI_TORPEDO,
   SEF_HURRICANE_STRIKE,
   SEF_ATTACK_MAX,
   // Attacks end here
@@ -1214,15 +1213,6 @@ struct storm_earth_and_fire_pet_t : public pet_t
     }
   };
 
-  struct sef_chi_torpedo_t : public sef_melee_attack_t
-  {
-    sef_chi_torpedo_t( storm_earth_and_fire_pet_t* player ) :
-      sef_melee_attack_t( "chi_torpedo", player, player -> o() -> talent.chi_torpedo -> ok() ? player -> find_spell( 117993 ) : spell_data_t::not_found() )
-    {
-      aoe = -1;
-    }
-  };
-
   struct sef_hurricane_strike_tick_t : public sef_tick_action_t
   {
     sef_hurricane_strike_tick_t( storm_earth_and_fire_pet_t* p ):
@@ -1411,7 +1401,6 @@ public:
     attacks[ SEF_FISTS_OF_FURY       ] = new sef_fists_of_fury_t( this );
     attacks[ SEF_SPINNING_CRANE_KICK ] = new sef_spinning_crane_kick_t( this );
     attacks[ SEF_RUSHING_JADE_WIND   ] = new sef_rushing_jade_wind_t( this );
-    attacks[ SEF_CHI_TORPEDO         ] = new sef_chi_torpedo_t( this );
     attacks[ SEF_HURRICANE_STRIKE    ] = new sef_hurricane_strike_t( this );
 
     spells[ sef_spell_idx( SEF_CHI_WAVE )   ] = new sef_chi_wave_t( this );
@@ -3520,8 +3509,6 @@ struct chi_torpedo_t: public monk_spell_t
   chi_torpedo_t( monk_t* player, const std::string& options_str ):
     monk_spell_t( "chi_torpedo", player, player -> talent.chi_torpedo -> ok() ? player -> find_spell( 117993 ) : spell_data_t::not_found() )
   {
-    sef_ability = SEF_CHI_TORPEDO;
-
     parse_options( options_str );
     aoe = -1;
     cooldown -> duration = p() -> talent.chi_torpedo -> charge_cooldown() - timespan_t::from_seconds( p() -> talent.celerity -> effectN( 4 ).base_value() );
@@ -5651,7 +5638,7 @@ void monk_t::combat_begin()
 {
   base_t::combat_begin();
 
-  resources.current[RESOURCE_CHI] = clamp( as<double>( user_options.initial_chi ), 0.0, resources.max[RESOURCE_CHI] );
+  resources.current[RESOURCE_CHI] = clamp( as<double>( user_options.initial_chi ), ( specialization() == MONK_WINDWALKER ? 5.0 : 1.0 ), resources.max[RESOURCE_CHI] );
 
   if ( _active_stance == FIERCE_TIGER && !buffs.fierce_tiger_movement_aura -> up() )
   {
@@ -6041,7 +6028,7 @@ void monk_t::apl_combat_windwalker()
 // TODO: Will activate these lines once Storm, Earth, and Fire is finished; too spammy right now
 //  def -> add_action( "storm_earth_and_fire,target=2,if=debuff.storm_earth_and_fire_target.down&active_enemies>=2" );
 //  def -> add_action( "storm_earth_and_fire,target=3,if=debuff.storm_earth_and_fire_target.down&active_enemies>=3" );
-  def -> add_action( "call_action_list,name=opener,if=talent.serenity.enabled&talent.chi_brew.enabled&time<13" );
+  def -> add_action( "call_action_list,name=opener,if=talent.serenity.enabled&talent.chi_brew.enabled&cooldown.fists_of_fury.up&time<20" );
   def -> add_action( "chi_sphere,if=talent.power_strikes.enabled&buff.chi_sphere.react&chi<4" );
 
   if ( sim -> allow_potions )
@@ -6075,7 +6062,7 @@ void monk_t::apl_combat_windwalker()
   def -> add_action( this, "Tigereye Brew", "if=buff.tigereye_brew_use.down&chi>=2&(buff.tigereye_brew.stack>=16|target.time_to_die<40)&debuff.rising_sun_kick.up&buff.tiger_power.up" );
   def -> add_action( this, "Rising Sun Kick", "if=(debuff.rising_sun_kick.down|debuff.rising_sun_kick.remains<3)" );
   def -> add_talent( this, "Serenity", "if=chi>=2&buff.tiger_power.up&debuff.rising_sun_kick.up" );
-  def -> add_action( this, "Fists of Fury", "if=buff.tiger_power.remains>cast_time&debuff.rising_sun_kick.remains>cast_time&!buff.serenity.remains" );
+  def -> add_action( this, "Fists of Fury", "if=buff.tiger_power.remains>cast_time&debuff.rising_sun_kick.remains>cast_time&energy.time_to_max>cast_time&!buff.serenity.remains" );
   def -> add_action( this, "Fortifying Brew", "if=target.health.percent<10&cooldown.touch_of_death.remains=0&(glyph.touch_of_death.enabled|chi>=3)" );
   def -> add_action( this, "Touch of Death", "if=target.health.percent<10&(glyph.touch_of_death.enabled|chi>=3)" );
   def -> add_talent( this, "Hurricane Strike", "if=energy.time_to_max>cast_time&buff.tiger_power.remains>cast_time&debuff.rising_sun_kick.remains>cast_time&buff.energizing_brew.down" );
@@ -6094,7 +6081,7 @@ void monk_t::apl_combat_windwalker()
   st -> add_talent( this, "Chi Wave", "if=energy.time_to_max>2&buff.serenity.down" );
   st -> add_talent( this, "Chi Burst", "if=energy.time_to_max>2&buff.serenity.down" );
   st -> add_talent( this, "Zen Sphere", "cycle_targets=1,if=energy.time_to_max>2&!dot.zen_sphere.ticking&buff.serenity.down" );
-  st -> add_talent( this, "Chi Torpedo", ",if=energy.time_to_max>2&buff.serenity.down");
+  st -> add_talent( this, "Chi Torpedo", "if=energy.time_to_max>2&buff.serenity.down");
   st -> add_action( this, "Blackout Kick", "if=chi.max-chi<2" );
   st -> add_action( this, "Expel Harm", "if=chi.max-chi>=2&health.percent<95" );
   st -> add_action( this, "Jab", "if=chi.max-chi>=2" );
@@ -6108,7 +6095,7 @@ void monk_t::apl_combat_windwalker()
   st_chix -> add_action( this, "Rising Sun Kick" );
   st_chix -> add_action( this, "Tiger Palm", "if=chi=4&!buff.combo_breaker_tp.react" );
   st_chix -> add_talent( this, "Chi Explosion", "if=chi>=3&cooldown.fists_of_fury.remains>4" );
-  st_chix -> add_talent( this, "Chi Torpedo", ",if=energy.time_to_max>2" );
+  st_chix -> add_talent( this, "Chi Torpedo", "if=energy.time_to_max>2" );
   st_chix -> add_action( this, "Expel Harm", "if=chi.max-chi>=2&health.percent<95" );
   st_chix -> add_action( this, "Jab", "if=chi.max-chi>=2" );
 
@@ -6118,7 +6105,7 @@ void monk_t::apl_combat_windwalker()
   cleave_chix -> add_talent( this, "Chi Wave", "if=energy.time_to_max>2&buff.serenity.down" );
   cleave_chix -> add_talent( this, "Chi Burst", "if=energy.time_to_max>2&buff.serenity.down" );
   cleave_chix -> add_talent( this, "Zen Sphere", "cycle_targets=1,if=energy.time_to_max>2&!dot.zen_sphere.ticking" );
-  cleave_chix -> add_talent( this, "Chi Torpedo", ",if=energy.time_to_max>2" );
+  cleave_chix -> add_talent( this, "Chi Torpedo", "if=energy.time_to_max>2" );
   cleave_chix -> add_action( this, "Expel Harm", "if=chi.max-chi>=2&health.percent<95" );
   cleave_chix -> add_action( this, "Jab", "if=chi.max-chi>=2" );
 
@@ -6128,7 +6115,7 @@ void monk_t::apl_combat_windwalker()
   aoe -> add_talent( this, "Chi Wave", "if=energy.time_to_max>2&buff.serenity.down" );
   aoe -> add_talent( this, "Chi Burst", "if=energy.time_to_max>2&buff.serenity.down" );
   aoe -> add_talent( this, "Zen Sphere", "cycle_targets=1,if=energy.time_to_max>2&!dot.zen_sphere.ticking" );
-  aoe -> add_talent( this, "Chi Torpedo", ",if=energy.time_to_max>2" );
+  aoe -> add_talent( this, "Chi Torpedo", "if=energy.time_to_max>2" );
   aoe -> add_action( this, "Spinning Crane Kick" );
   
   // AoE Rushing Jade Wind
@@ -6140,12 +6127,12 @@ void monk_t::apl_combat_windwalker()
   aoe_rjw -> add_action( this, "Blackout Kick", "if=buff.combo_breaker_bok.react|buff.serenity.up" );
   aoe_rjw -> add_action( this, "Tiger Palm", "if=buff.combo_breaker_tp.react&buff.combo_breaker_tp.remains<=2" );
   aoe_rjw -> add_action( this, "Blackout Kick", "if=chi.max-chi<2&(cooldown.fists_of_fury.remains>3|!talent.rushing_jade_wind.enabled)" );
-  aoe_rjw -> add_talent( this, "Chi Torpedo", ",if=energy.time_to_max>2" );
+  aoe_rjw -> add_talent( this, "Chi Torpedo", "if=energy.time_to_max>2" );
   aoe_rjw -> add_action( this, "Expel Harm", "if=chi.max-chi>=2&health.percent<95" );
   aoe_rjw -> add_action( this, "Jab", "if=chi.max-chi>=2" );
 
   // Chi Brew & Serenity Opener
-  opener -> add_action( this, "Tigereye Brew", "if=buff.tigereye_brew_use.down&buff.tigereye_brew.stack>=10" );
+  opener -> add_action( this, "Tigereye Brew", "if=buff.tigereye_brew_use.down&buff.tigereye_brew.stack>=9" );
   for ( int i = 0; i < num_items; i++ )
   {
     if ( items[i].has_special_effect( SPECIAL_EFFECT_SOURCE_NONE, SPECIAL_EFFECT_USE ) )
@@ -6158,13 +6145,12 @@ void monk_t::apl_combat_windwalker()
     else
       opener -> add_action( racial_actions[i] + ",if=buff.tigereye_brew_use.up" );
   }
+  opener -> add_action( this, "Fists of Fury", "if=buff.tiger_power.remains>cast_time&debuff.rising_sun_kick.remains>cast_time&buff.serenity.up&buff.serenity.remains<1.5" );
   opener -> add_action( this, "Tiger Palm", "if=buff.tiger_power.remains<2" );
   opener -> add_action( this, "Rising Sun Kick" );
-  opener -> add_action( this, "Blackout Kick", "if=chi.max-chi<=1&cooldown.chi_brew.up" );
+  opener -> add_action( this, "Blackout Kick", "if=chi.max-chi<=1&cooldown.chi_brew.up|buff.serenity.up" );
   opener -> add_talent( this, "Chi Brew", "if=chi.max-chi>=2" );
-  opener -> add_talent( this, "Serenity" );
-  opener -> add_action( this, "Fists of Fury", "if=buff.tiger_power.remains>cast_time&debuff.rising_sun_kick.remains>cast_time&buff.serenity.remains<1.5" );
-  opener -> add_action( this, "Blackout Kick", "if=buff.combo_breaker_bok.react|buff.serenity.up" );
+  opener -> add_talent( this, "Serenity", "if=chi.max-chi<=2" );
   opener -> add_action( this, "Jab", "if=chi.max-chi>=2&!buff.serenity.up" );
 }
 

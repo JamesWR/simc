@@ -358,6 +358,8 @@ public:
     const spell_data_t* vampiric_embrace;
   } glyphs;
 
+  int shadowy_apparitions_in_flight;
+
   priest_t( sim_t* sim, const std::string& name, race_e r ) :
     player_t( sim, PRIEST, name, r ),
     buffs(),
@@ -372,7 +374,8 @@ public:
     active_spells(),
     pets(),
     options(),
-    glyphs()
+    glyphs(),
+    shadowy_apparitions_in_flight( 0 )
   {
     base.distance = 27.0; // Halo
 
@@ -2095,6 +2098,8 @@ struct shadowy_apparition_spell_t : public priest_spell_t
   {
     priest_spell_t::impact( s );
 
+    priest.shadowy_apparitions_in_flight--;
+
     if ( priest.talents.auspicious_spirits -> ok() && result_is_hit( s -> result ) )
     {
       generate_shadow_orb( 1, priest.gains.shadow_orb_auspicious_spirits );
@@ -2141,6 +2146,7 @@ struct shadowy_apparition_spell_t : public priest_spell_t
       priest.sim -> out_debug << priest.name() << " triggered shadowy apparition.";
 
     priest.procs.shadowy_apparition -> occur();
+    priest.shadowy_apparitions_in_flight++;
     schedule_execute();
   }
 };
@@ -5214,6 +5220,7 @@ priest_td_t::priest_td_t( player_t* target, priest_t& p ) :
 void priest_td_t::reset()
 {
   glyph_of_mind_harvest_consumed = false;
+  priest.shadowy_apparitions_in_flight = 0;
 }
 
 void priest_td_t::target_demise()
@@ -5414,6 +5421,24 @@ expr_t* priest_t::create_expression( action_t* a,
       }
     };
     return new primary_target_t( *this, *a );
+  }
+  if ( name_str == "shadowy_apparitions_in_flight" )
+  {
+    struct shadowy_apparitions_in_flight_t : public expr_t
+    {
+      priest_t& player;
+      action_t& action;
+      shadowy_apparitions_in_flight_t( priest_t& p, action_t& act ) :
+        expr_t( "shadowy_apparitions_in_flight" ), player( p ), action( act )
+      {
+      }
+
+      virtual double evaluate()
+      {
+        return player.shadowy_apparitions_in_flight;
+      }
+    };
+    return new shadowy_apparitions_in_flight_t( *this, *a );
   }
   else
   {
@@ -6383,6 +6408,8 @@ void priest_t::apl_shadow()
   main -> add_action( "mind_blast,if=glyph.mind_harvest.enabled&shadow_orb<=2&active_enemies<=5&cooldown_react" );
   main -> add_action( "devouring_plague,if=shadow_orb=5&!target.dot.devouring_plague_dot.ticking&(talent.surge_of_darkness.enabled|set_bonus.tier17_4pc),cycle_targets=1" );
   main -> add_action( "devouring_plague,if=shadow_orb=5" );
+  main -> add_action( "devouring_plague,if=shadow_orb>=3&talent.auspicious_spirits.enabled&shadowy_apparitions_in_flight>=3" );
+  main -> add_action( "devouring_plague,if=shadow_orb>=4&talent.auspicious_spirits.enabled&shadowy_apparitions_in_flight>=2" );
   main -> add_action( "devouring_plague,if=shadow_orb>=3&buff.mental_instinct.remains<gcd&buff.mental_instinct.remains>(gcd*0.7)&buff.mental_instinct.remains" );
   main -> add_action( "devouring_plague,if=shadow_orb>=4&talent.auspicious_spirits.enabled&((cooldown.mind_blast.remains<gcd&!set_bonus.tier17_2pc)|(target.health.pct<20&cooldown.shadow_word_death.remains<gcd))&!target.dot.devouring_plague_tick.ticking&talent.surge_of_darkness.enabled,cycle_targets=1" );
   main -> add_action( "devouring_plague,if=shadow_orb>=4&talent.auspicious_spirits.enabled&((cooldown.mind_blast.remains<gcd&!set_bonus.tier17_2pc)|(target.health.pct<20&cooldown.shadow_word_death.remains<gcd))" );
@@ -6459,7 +6486,7 @@ void priest_t::apl_shadow()
 
   // Clarity of Power DoT Weaving, for when you have Insanity and the target is above 20%
   cop_dotweave -> add_action( "devouring_plague,if=target.dot.vampiric_touch.ticking&target.dot.shadow_word_pain.ticking&shadow_orb=5&cooldown_react" );
-  cop_dotweave -> add_action( "devouring_plague,if=(buff.mental_instinct.remains<gcd&buff.mental_instinct.remains)" );
+  cop_dotweave -> add_action( "devouring_plague,if=buff.mental_instinct.remains<gcd&buff.mental_instinct.remains>(gcd*0.7)&buff.mental_instinct.remains" );
   cop_dotweave -> add_action( "devouring_plague,if=(target.dot.vampiric_touch.ticking&target.dot.shadow_word_pain.ticking&!buff.shadow_word_insanity.remains&cooldown.mind_blast.remains>0.4*gcd)" );
   cop_dotweave -> add_action( "mind_blast,if=glyph.mind_harvest.enabled&mind_harvest=0&shadow_orb<=2,cycle_targets=1" );
   cop_dotweave -> add_action( "mind_blast,if=shadow_orb<=4&cooldown_react" );
@@ -6481,9 +6508,8 @@ void priest_t::apl_shadow()
   cop_dotweave -> add_action( "divine_star,if=talent.divine_star.enabled&cooldown.mind_blast.remains>0.5*gcd&active_enemies=3&target.distance<=24" );
   cop_dotweave -> add_action( "shadow_word_pain,if=primary_target=0&(!ticking|remains<=18*0.3),cycle_targets=1,max_cycle_targets=5" );
   cop_dotweave -> add_action( "vampiric_touch,if=primary_target=0&(!ticking|remains<=15*0.3),cycle_targets=1,max_cycle_targets=5" );
-  cop_dotweave -> add_action( "mind_spike,if=buff.shadow_word_insanity.remains<=gcd&buff.bloodlust.up&!target.dot.shadow_word_pain.remains&!target.dot.vampiric_touch.remains" );
-  cop_dotweave -> add_action( "mind_spike,if=((target.dot.shadow_word_pain.remains&!target.dot.vampiric_touch.remains)|(!target.dot.shadow_word_pain.remains&target.dot.vampiric_touch.remains))&shadow_orb<=2&cooldown.mind_blast.remains>0.5*gcd" );
-  cop_dotweave -> add_action( "mind_flay,if=set_bonus.tier17_2pc&target.dot.shadow_word_pain.remains&target.dot.vampiric_touch.remains&cooldown.mind_blast.remains>0.9*gcd,interrupt_if=(cooldown.mind_blast.remains<=0.1|cooldown.shadow_word_death.remains<=0.1)" );
+//cop_dotweave -> add_action( "mind_spike,if=buff.shadow_word_insanity.remains<=gcd&buff.bloodlust.up&!target.dot.shadow_word_pain.remains&!target.dot.vampiric_touch.remains" );
+//cop_dotweave -> add_action( "mind_spike,if=((target.dot.shadow_word_pain.remains&!target.dot.vampiric_touch.remains)|(!target.dot.shadow_word_pain.remains&target.dot.vampiric_touch.remains))&shadow_orb<=2&cooldown.mind_blast.remains>0.5*gcd" );
   cop_dotweave -> add_action( "mind_spike" );
   cop_dotweave -> add_action( "shadow_word_death,moving=1,if=movement.remains>=1*gcd" );
   cop_dotweave -> add_action( "power_word_shield,moving=1,if=talent.body_and_soul.enabled&movement.distance>=25" );
