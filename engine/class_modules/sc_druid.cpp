@@ -407,6 +407,7 @@ public:
   {
     // Done
     const spell_data_t* primal_tenacity;
+    const spell_data_t* primal_tenacity_AP;
     const spell_data_t* razor_claws;
     const spell_data_t* total_eclipse;
 
@@ -446,6 +447,7 @@ public:
     const spell_data_t* predatory_swiftness;
     const spell_data_t* rip;
     const spell_data_t* savage_roar;
+    const spell_data_t* swipe;
     const spell_data_t* tigers_fury;
 
     // Balance
@@ -497,12 +499,14 @@ public:
     const spell_data_t* berserk_bear; // Berserk bear mangler
     const spell_data_t* berserk_cat; // Berserk cat resource cost reducer
     const spell_data_t* cat_form; // Cat form bonuses
+    const spell_data_t* cat_form_speed;
     const spell_data_t* frenzied_regeneration;
     const spell_data_t* mangle; // Mangle cooldown reset
     const spell_data_t* moonkin_form; // Moonkin form bonuses
     const spell_data_t* primal_fury; // Primal fury gain
     const spell_data_t* regrowth; // Old GoRegrowth
     const spell_data_t* survival_instincts; // Survival instincts aura
+    const spell_data_t* gushing_wound; // Feral t17 4pc driver
   } spell;
 
   // Talents
@@ -746,17 +750,10 @@ struct gushing_wound_t : public residual_action::residual_periodic_action_t< att
   druid_t* p() const
   { return static_cast<druid_t*>( player ); }
 
-  virtual void init()
-  {
-    attack_t::init();
-
-    // Don't double dip!
-    snapshot_flags &= STATE_NO_MULTIPLIER;
-  }
-
   virtual void tick( dot_t* d )
   {
-    attack_t::tick( d );
+    residual_periodic_action_t::tick( d );
+
     if ( trigger_t17_2p )
       p() -> resource_gain( RESOURCE_ENERGY,
                             p() -> sets.set( DRUID_FERAL, T17, B2 ) -> effectN( 1 ).base_value(),
@@ -1020,8 +1017,16 @@ struct force_of_nature_balance_t : public pet_t
   force_of_nature_balance_t( sim_t* sim, druid_t* owner ) :
     pet_t( sim, owner, "treant", true /*GUARDIAN*/, true )
   {
-    owner_coeff.sp_from_sp = 1.0 /3 ;
-    owner_coeff.ap_from_ap = 1.0 /3 ;
+    if ( owner -> dbc.ptr )
+    {
+      owner_coeff.sp_from_sp      = 0.45;
+      owner_coeff.ap_from_ap      = 0.60;
+      owner_coeff.health          = 1.35; // needs checking
+      owner_coeff.armor           = 1.80; // needs checking
+    } else {
+      owner_coeff.sp_from_sp      = 1.0 /3 ;
+      owner_coeff.ap_from_ap      = 1.0 /3 ;
+    }
     action_list_str = "wrath";
     regen_type = REGEN_DISABLED;
   }
@@ -1173,10 +1178,16 @@ struct force_of_nature_feral_t : public pet_t
     main_hand_weapon.min_dmg    = owner -> find_spell( 102703 ) -> effectN( 1 ).min( owner );
     main_hand_weapon.max_dmg    = owner -> find_spell( 102703 ) -> effectN( 1 ).max( owner );
     main_hand_weapon.damage     = ( main_hand_weapon.min_dmg + main_hand_weapon.max_dmg ) / 2;
-    owner_coeff.sp_from_sp = 1.0 / 3.0;
-    owner_coeff.ap_from_ap = 1.0 / 3.0;
     if ( p -> dbc.ptr )
-      owner_coeff.ap_from_ap *= 1.8;
+    {
+      owner_coeff.sp_from_sp    = 0.45;
+      owner_coeff.ap_from_ap    = 0.60;
+      owner_coeff.health        = 1.35; // needs checking
+      owner_coeff.armor         = 1.80; // needs checking
+    } else {
+      owner_coeff.sp_from_sp    = 1.0 / 3.0;
+      owner_coeff.ap_from_ap    = 1.0 / 3.0;
+    }
     regen_type = REGEN_DISABLED;
   }
 
@@ -1265,6 +1276,13 @@ struct force_of_nature_guardian_t : public pet_t
     main_hand_weapon.max_dmg    = owner -> find_spell( 102706 ) -> effectN( 1 ).max( owner ) * 0.2;
     main_hand_weapon.damage     = ( main_hand_weapon.min_dmg + main_hand_weapon.max_dmg ) / 2;
     owner_coeff.ap_from_ap      = 0.2 * 1.2;
+    if ( dbc.ptr )
+    {
+      owner_coeff.ap_from_ap     *= 1.8;
+      owner_coeff.sp_from_sp      = 0.45;
+      owner_coeff.health          = 1.35; // needs checking
+      owner_coeff.armor           = 1.80; // needs checking
+    }
     regen_type = REGEN_DISABLED;
   }
 
@@ -1788,13 +1806,13 @@ public:
 
   void trigger_gushing_wound( player_t* t, double dmg )
   {
-    if ( ! ( p() -> buff.berserk -> check() && ab::special && ab::harmful ) )
+    if ( ! ( p() -> buff.berserk -> check() && ab::special && ab::harmful && dmg > 0 ) )
       return;
 
     residual_action::trigger(
       p() -> active.gushing_wound, // ignite spell
       t, // target
-      p() -> find_spell( 165432 ) -> effectN( 1 ).percent() * dmg );
+      p() -> spell.gushing_wound -> effectN( 1 ).percent() * dmg );
   }
 
   virtual expr_t* create_expression( const std::string& name_str )
@@ -2741,7 +2759,7 @@ struct shred_t : public cat_attack_t
     double tm = cat_attack_t::composite_target_multiplier( t );
 
     if ( t -> debuffs.bleeding -> up() )
-      tm *= 1.0 + p() -> find_spell( 106785 ) -> effectN( 2 ).percent();
+      tm *= 1.0 + p() -> spec.swipe -> effectN( 2 ).percent();
 
     return tm;
   }
@@ -2788,7 +2806,7 @@ private:
   bool critical;
 public:
   swipe_t( druid_t* player, const std::string& options_str ) :
-    cat_attack_t( "swipe", player, player -> find_specialization_spell( "Swipe" ), options_str ),
+    cat_attack_t( "swipe", player, player -> spec.swipe, options_str ),
     hit( false ), critical( false )
   {
     aoe = -1;
@@ -4379,8 +4397,6 @@ struct bristling_fur_t : public druid_spell_t
     druid_spell_t( "bristling_fur", player, player -> talent.bristling_fur, options_str  )
   {
     harmful = false;
-    if ( player -> dbc.ptr && cooldown -> duration == timespan_t::from_seconds( 60.0 ) )
-      cooldown -> duration -= timespan_t::from_seconds( 30.0 );
   }
 
   void execute()
@@ -5071,7 +5087,7 @@ struct moonfire_cat_t : public druid_spell_t
       if ( p() -> spell.primal_fury -> ok() && s -> result == RESULT_CRIT )
       {
         p() -> proc.primal_fury -> occur();
-        p() -> resource_gain( RESOURCE_COMBO_POINT, p() -> find_spell( 16953 ) -> effectN( 1 ).base_value(), p() -> gain.primal_fury );
+        p() -> resource_gain( RESOURCE_COMBO_POINT, p() -> spell.primal_fury -> effectN( 1 ).base_value(), p() -> gain.primal_fury );
       }
     }
   }
@@ -5498,12 +5514,6 @@ struct stellar_flare_t : public druid_spell_t
     druid_spell_t( "stellar_flare", player, player -> talent.stellar_flare )
   {
     parse_options( options_str );
-    if ( player -> dbc.ptr )
-    {
-      spell_power_mod.direct *= 1.16;
-      spell_power_mod.tick *= 1.16;
-      dot_duration = timespan_t::from_seconds( 24 );
-    }
   }
 
   double action_multiplier() const
@@ -5969,9 +5979,10 @@ void druid_t::init_spells()
   spec.predatory_swiftness     = find_specialization_spell( "Predatory Swiftness" );
   spec.nurturing_instinct      = find_specialization_spell( "Nurturing Instinct" );
   spec.predatory_swiftness     = find_specialization_spell( "Predatory Swiftness" );
+  spec.rip                     = find_specialization_spell( "Rip" );
   spec.savage_roar             = find_specialization_spell( "Savage Roar" );
   spec.sharpened_claws         = find_specialization_spell( "Sharpened Claws" );
-  spec.rip                     = find_specialization_spell( "Rip" );
+  spec.swipe                   = find_specialization_spell( "Swipe" );
   spec.tigers_fury             = find_specialization_spell( "Tiger's Fury" );
 
   // Guardian
@@ -6051,6 +6062,7 @@ void druid_t::init_spells()
   mastery.razor_claws      = find_mastery_spell( DRUID_FERAL );
   mastery.harmony          = find_mastery_spell( DRUID_RESTORATION );
   mastery.primal_tenacity  = find_mastery_spell( DRUID_GUARDIAN );
+  mastery.primal_tenacity_AP = find_spell( 159195 );
 
   // Active actions
   if ( spec.leader_of_the_pack -> ok() )
@@ -6069,6 +6081,8 @@ void druid_t::init_spells()
   spell.bear_form                       = find_class_spell( "Bear Form"                   ) -> ok() ? find_spell( 1178   ) : spell_data_t::not_found(); // This is the passive applied on shapeshift!
   spell.berserk_bear                    = find_class_spell( "Berserk"                     ) -> ok() ? find_spell( 50334  ) : spell_data_t::not_found(); // Berserk bear mangler
   spell.berserk_cat                     = find_class_spell( "Berserk"                     ) -> ok() ? find_spell( 106951 ) : spell_data_t::not_found(); // Berserk cat resource cost reducer
+  spell.cat_form                        = find_class_spell( "Cat Form"                    ) -> ok() ? find_spell( 3025 )   : spell_data_t::not_found();
+  spell.cat_form_speed                  = find_class_spell( "Cat Form"                    ) -> ok() ? find_spell( 113636 ) : spell_data_t::not_found();
   spell.frenzied_regeneration           = find_class_spell( "Frenzied Regeneration"       ) -> ok() ? find_spell( 22842  ) : spell_data_t::not_found();
   spell.moonkin_form                    = find_class_spell( "Moonkin Form"                ) -> ok() ? find_spell( 24905  ) : spell_data_t::not_found(); // This is the passive applied on shapeshift!
   spell.regrowth                        = find_class_spell( "Regrowth"                    ) -> ok() ? find_spell( 93036  ) : spell_data_t::not_found(); // Regrowth refresh
@@ -6077,6 +6091,9 @@ void druid_t::init_spells()
     spell.primal_fury = find_spell( 16953 );
   else if ( specialization() == DRUID_GUARDIAN )
     spell.primal_fury = find_spell( 16959 );
+
+  if ( specialization() == DRUID_FERAL )
+    spell.gushing_wound = find_spell( 165432 );
 
   // Perks
 
@@ -6986,7 +7003,7 @@ double druid_t::composite_attack_power_multiplier() const
   double ap = player_t::composite_attack_power_multiplier();
 
   if ( mastery.primal_tenacity -> ok() )
-    ap *= 1.0 + cache.mastery_value() * ( find_spell( 159195 ) -> effectN( 1 ).sp_coeff() / mastery.primal_tenacity -> effectN( 1 ).sp_coeff() );
+    ap *= 1.0 + cache.mastery() * mastery.primal_tenacity_AP -> effectN( 1 ).sp_coeff();
 
   return ap;
 }
@@ -7098,7 +7115,7 @@ double druid_t::passive_movement_modifier() const
 
   if ( buff.cat_form -> up() )
   {
-    ms += find_spell( 113636 ) -> effectN( 1 ).percent();
+    ms += spell.cat_form_speed -> effectN( 1 ).percent();
     if ( buff.prowl -> up() && ! perk.enhanced_prowl -> ok() )
       ms += buff.prowl -> data().effectN( 2 ).percent();
   }

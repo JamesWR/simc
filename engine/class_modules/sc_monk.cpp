@@ -2316,8 +2316,10 @@ struct dot_chi_explosion_t: public residual_action::residual_periodic_action_t <
 
 struct chi_explosion_t: public monk_melee_attack_t
 {
+  const spell_data_t* windwalker_chi_explosion_dot;
   chi_explosion_t( monk_t* p, const std::string& options_str ):
-    monk_melee_attack_t( "chi_explosion", p, p -> talent.chi_explosion )
+    monk_melee_attack_t( "chi_explosion", p, p -> talent.chi_explosion ),
+    windwalker_chi_explosion_dot( p -> find_spell( 157680 ) )
   {
     parse_options( options_str );
   }
@@ -2406,7 +2408,7 @@ struct chi_explosion_t: public monk_melee_attack_t
       residual_action::trigger(
       p() -> active_actions.chi_explosion_dot,
       s -> target,
-      s -> result_amount * p() -> find_spell( 157680 ) -> effectN( 2 ).percent() );
+      s -> result_amount * windwalker_chi_explosion_dot -> effectN( 2 ).percent() );
   }
 
   double cost() const
@@ -4309,19 +4311,12 @@ Add bouncing.
 struct renewing_mist_t: public monk_heal_t
 {
   renewing_mist_t( monk_t& p, const std::string& options_str ):
-    monk_heal_t( "renewing_mist", p, p.find_spell( 119611 ) )
+    monk_heal_t( "renewing_mist", p, p.spec.renewing_mist )
   {
     parse_options( options_str );
     stancemask = WISE_SERPENT;
     may_crit = may_miss = false;
-    spell_power_mod.tick = p.spec.renewing_mist -> effectN( 3 ).sp_coeff();
-
-    trigger_gcd = p.spec.renewing_mist -> gcd();
-    base_execute_time = p.spec.renewing_mist -> cast_time( p.level );
-    resource_current = RESOURCE_MANA;
-    base_costs[RESOURCE_MANA] = p.spec.renewing_mist -> cost( POWER_MANA ) * p.resources.base[RESOURCE_MANA];
-    cooldown -> duration = p.spec.renewing_mist -> charge_cooldown();
-    cooldown -> charges = p.spec.renewing_mist -> charges();
+    dot_duration = p.find_spell( 119611 ) -> duration();
 
     // Improved Renewing Mist
     dot_duration += p.perk.improved_renewing_mist -> effectN( 1 ).time_value();
@@ -4330,7 +4325,7 @@ struct renewing_mist_t: public monk_heal_t
   virtual void execute()
   {
     monk_heal_t::execute();
-    player -> resource_gain( RESOURCE_CHI, p() -> find_spell( 115151 ) -> effectN( 2 ).base_value(), p() -> gain.renewing_mist, this );
+    player -> resource_gain( RESOURCE_CHI, p() -> spec.renewing_mist -> effectN( 2 ).base_value(), p() -> gain.renewing_mist, this );
   }
 };
 
@@ -4724,7 +4719,7 @@ namespace buffs
   bool trigger( int stacks, double value, double chance, timespan_t duration )
   {
     // Extra Health is set by current max_health, doesn't change when max_health changes.
-    health_gain = static_cast<int>( monk.resources.max[RESOURCE_HEALTH] * ( monk.glyph.fortifying_brew -> ok() ? monk.find_spell( 124997 ) -> effectN( 2 ).percent() :
+    health_gain = static_cast<int>( monk.resources.max[RESOURCE_HEALTH] * ( monk.glyph.fortifying_brew -> ok() ? monk.glyph.fortifying_brew -> effectN( 2 ).percent() :
       monk.spec.fortifying_brew -> effectN( 1 ).percent() ) );
     monk.stat_gain( STAT_MAX_HEALTH, health_gain, ( gain_t* )0, ( action_t* )0, true );
     monk.stat_gain( STAT_HEALTH, health_gain, ( gain_t* )0, ( action_t* )0, true );
@@ -6062,7 +6057,7 @@ void monk_t::apl_combat_windwalker()
   def -> add_action( this, "Tigereye Brew", "if=buff.tigereye_brew_use.down&chi>=2&(buff.tigereye_brew.stack>=16|target.time_to_die<40)&debuff.rising_sun_kick.up&buff.tiger_power.up" );
   def -> add_action( this, "Rising Sun Kick", "if=(debuff.rising_sun_kick.down|debuff.rising_sun_kick.remains<3)" );
   def -> add_talent( this, "Serenity", "if=chi>=2&buff.tiger_power.up&debuff.rising_sun_kick.up" );
-  def -> add_action( this, "Fists of Fury", "if=buff.tiger_power.remains>cast_time&debuff.rising_sun_kick.remains>cast_time&energy.time_to_max>cast_time&!buff.serenity.remains" );
+  def -> add_action( this, "Fists of Fury", "if=buff.tiger_power.remains>cast_time&debuff.rising_sun_kick.remains>cast_time&energy.time_to_max>cast_time&!buff.serenity.up" );
   def -> add_action( this, "Fortifying Brew", "if=target.health.percent<10&cooldown.touch_of_death.remains=0&(glyph.touch_of_death.enabled|chi>=3)" );
   def -> add_action( this, "Touch of Death", "if=target.health.percent<10&(glyph.touch_of_death.enabled|chi>=3)" );
   def -> add_talent( this, "Hurricane Strike", "if=energy.time_to_max>cast_time&buff.tiger_power.remains>cast_time&debuff.rising_sun_kick.remains>cast_time&buff.energizing_brew.down" );
@@ -6141,7 +6136,7 @@ void monk_t::apl_combat_windwalker()
   for ( size_t i = 0; i < racial_actions.size(); i++ )
   {
     if ( racial_actions[i] == "arcane_torrent" )
-      opener -> add_action( racial_actions[i] + ",if=buff.tigereye_brew_use.up" );
+      opener -> add_action( racial_actions[i] + ",if=buff.tigereye_brew_use.up&chi.max-chi>=1" );
     else
       opener -> add_action( racial_actions[i] + ",if=buff.tigereye_brew_use.up" );
   }
