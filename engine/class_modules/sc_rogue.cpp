@@ -344,7 +344,6 @@ struct rogue_t : public player_t
     proc_t* no_revealing_strike;
     proc_t* t16_2pc_melee;
 
-    proc_t* combo_points_wasted;
     proc_t* anticipation_wasted;
   } procs;
 
@@ -540,6 +539,9 @@ struct rogue_attack_t : public melee_attack_t
   bool proc_ruthlessness_cp_;
   bool proc_ruthlessness_energy_;
 
+  // Relentless strikes things
+  bool proc_relentless_strikes_;
+
   rogue_attack_t( const std::string& token, rogue_t* p,
                   const spell_data_t* s = spell_data_t::nil(),
                   const std::string& options = std::string() ) :
@@ -550,7 +552,8 @@ struct rogue_attack_t : public melee_attack_t
     combo_points_spent( 0 ),
     ability_type( ABILITY_NONE ),
     proc_ruthlessness_cp_( data().affected_by( p -> spell.ruthlessness_cp_driver -> effectN( 1 ) ) ),
-    proc_ruthlessness_energy_( data().affected_by( p -> spell.ruthlessness_driver -> effectN( 2 ) ) )
+    proc_ruthlessness_energy_( data().affected_by( p -> spell.ruthlessness_driver -> effectN( 2 ) ) ),
+    proc_relentless_strikes_( data().affected_by( p -> spec.relentless_strikes -> effectN( 1 ) ) )
   {
     parse_options( options );
 
@@ -614,6 +617,9 @@ struct rogue_attack_t : public melee_attack_t
   virtual bool procs_ruthlessness_energy() const
   { return proc_ruthlessness_energy_; }
 
+  virtual bool procs_relentless_strikes() const
+  { return proc_relentless_strikes_; }
+
   // Adjust poison proc chance
   virtual double composite_poison_flat_modifier( const action_state_t* ) const
   { return 0.0; }
@@ -639,7 +645,6 @@ struct rogue_attack_t : public melee_attack_t
 
   rogue_td_t* td( player_t* t ) const
   { return p() -> get_target_data( t ); }
-
 
   virtual double cost() const;
   virtual void   execute();
@@ -3387,6 +3392,10 @@ void rogue_t::trigger_relentless_strikes( const action_state_t* state )
   if ( s -> cp == 0 )
     return;
 
+  actions::rogue_attack_t* attack = debug_cast<actions::rogue_attack_t*>( state -> action );
+  if ( ! attack -> procs_relentless_strikes() )
+    return;
+
   double chance = spec.relentless_strikes -> effectN( 1 ).pp_combo_points() * s -> cp / 100.0;
   if ( ! rng().roll( chance ) )
     return;
@@ -3515,25 +3524,24 @@ void rogue_t::trigger_combo_point_gain( const action_state_t* state, int cp_over
   if ( gain_obj == 0 && attack && attack -> cp_gain )
     gain_obj = attack -> cp_gain;
 
-  if ( added > 0 )
+  if ( ! talent.anticipation -> ok() )
   {
-    resource_gain( RESOURCE_COMBO_POINT, added,
-        gain_obj ? gain_obj : 0,
-        state ? state -> action : 0 );
+    resource_gain( RESOURCE_COMBO_POINT, n_cp, gain_obj, state ? state -> action : 0 );
   }
-
-  if ( anticipation_added > 0 )
+  else
   {
-    buffs.anticipation -> trigger( anticipation_added );
-    if ( gain_obj )
-      gain_obj -> add( RESOURCE_COMBO_POINT, anticipation_added, 0 );
+    if ( added > 0 )
+    {
+      resource_gain( RESOURCE_COMBO_POINT, added, gain_obj, state ? state -> action : 0 );
+    }
+
+    if ( anticipation_added + anticipation_overflow > 0 )
+    {
+      buffs.anticipation -> trigger( anticipation_added + anticipation_overflow );
+      if ( gain_obj )
+        gain_obj -> add( RESOURCE_COMBO_POINT, anticipation_added, anticipation_overflow );
+    }
   }
-
-  for ( int i = 0; i < overflow; i++ )
-    procs.combo_points_wasted -> occur();
-
-  for ( int i = 0; i < anticipation_overflow; i++ )
-    procs.anticipation_wasted -> occur();
 
   if ( sim -> log )
   {
@@ -5191,8 +5199,7 @@ void rogue_t::init_procs()
 {
   player_t::init_procs();
 
-  procs.anticipation_wasted      = get_proc( "Anticipation Charges (wasted)" );
-  procs.combo_points_wasted      = get_proc( "Combo Points (wasted)" );
+  procs.anticipation_wasted      = get_proc( "Anticipation Charges (wasted during replenish)" );
   procs.honor_among_thieves      = get_proc( "Honor Among Thieves" );
   procs.honor_among_thieves_proxy= get_proc( "Honor Among Thieves (Proxy action)" );
   procs.no_revealing_strike      = get_proc( "Finisher with no Revealing Strike" );

@@ -6438,7 +6438,7 @@ void priest_t::apl_shadow()
 
   // Clarity of Power with Insanity
   cop_mfi -> add_action( "devouring_plague,if=shadow_orb=5" );
-  cop_mfi -> add_action( "devouring_plague,if=buff.mental_instinct.remains<gcd&buff.mental_instinct.remains>(gcd*0.7)&buff.mental_instinct.remains" );
+  cop_mfi -> add_action( "devouring_plague,if=buff.mental_instinct.remains<(gcd*1.7)&buff.mental_instinct.remains>(gcd*0.7)&buff.mental_instinct.remains" );
   cop_mfi -> add_action( "mind_blast,if=glyph.mind_harvest.enabled&mind_harvest=0,cycle_targets=1" );
   cop_mfi -> add_action( "mind_blast,if=active_enemies<=5&cooldown_react" );
   cop_mfi -> add_action( "shadow_word_death,if=target.health.pct<20,cycle_targets=1" );

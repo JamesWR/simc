@@ -800,7 +800,7 @@ public:
 
     // Use buff to indicate whether the pet is a stampede summon
     buffs.stampede          = buff_creator_t( this, 130201, "stampede" )
-      .duration( timespan_t::from_millis( 20027 ) )
+      .duration( timespan_t::from_millis( owner -> dbc.ptr ? 40027 : 20027 ))
       // Added 0.027 seconds to properly reflect haste threshholds seen in game.
       .activated( true )
       /*.quiet( true )*/;
@@ -2053,8 +2053,6 @@ struct glaive_toss_strike_t: public ranged_attack_t
     aoe = -1;    
     if ( player -> wod_hotfix )
       base_multiplier *= 1.15;
-    if ( player -> dbc.ptr )
-      base_multiplier *= 1.25;
   }
 
   virtual double composite_target_multiplier( player_t* target ) const
@@ -3002,8 +3000,6 @@ struct barrage_t: public hunter_spell_t
       base_aoe_multiplier = 0.5;
       if ( player -> wod_hotfix )
         weapon_multiplier *= 1.15;
-      if ( player -> dbc.ptr )
-        weapon_multiplier *= 1.21;
     }
   };
 

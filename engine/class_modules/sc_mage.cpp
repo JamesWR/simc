@@ -3421,15 +3421,12 @@ struct living_bomb_t : public mage_spell_t
     mage_spell_t::impact( s );
   }
 
-  void tick( dot_t* d )
+  void last_tick( dot_t* d )
   {
-    mage_spell_t::tick( d );
+    mage_spell_t::last_tick( d );
 
-    if ( d -> ticks_left() == 0 )
-    {
-      explosion -> target = d -> target;
-      explosion -> execute();
-    }
+    explosion -> target = d -> target;
+    explosion -> execute();
   }
 };
 
@@ -4740,6 +4737,7 @@ void mage_t::create_buffs()
   }
   buffs.presence_of_mind      = buff_creator_t( this, "presence_of_mind", find_spell( 12043 ) )
                                   .activated( true )
+                                  .cd( timespan_t::zero() )
                                   .duration( timespan_t::zero() );
   buffs.improved_blink        = buff_creator_t( this, "improved_blink", perks.improved_blink )
                                   .default_value( perks.improved_blink -> effectN( 1 ).percent() );

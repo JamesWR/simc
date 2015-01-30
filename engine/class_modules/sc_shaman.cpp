@@ -664,7 +664,7 @@ public:
       cd_wasted_iter = p() -> template get_data_entry<simple_sample_data_t, simple_data_t>( ab::name_str, p() -> cd_waste_iter );
     }
 
-    if ( maybe_ptr( p() -> dbc.ptr ) && uses_eoe )
+    if ( maybe_ptr( p() -> dbc.ptr ) && ab::data().charges() > 0 )
     {
       ab::cooldown -> duration = ab::data().charge_cooldown();
       ab::cooldown -> charges = ab::data().charges() + p() -> talent.echo_of_the_elements -> effectN( 1 ).base_value();
@@ -4587,7 +4587,17 @@ inline void ascendance_buff_t::expire_override( int expiration_stacks, timespan_
 {
   shaman_t* p = debug_cast< shaman_t* >( player );
 
-  ascendance( p -> melee_mh, p -> melee_oh, lava_burst ? lava_burst -> data().cooldown() : timespan_t::zero() );
+  timespan_t lvbcd;
+  if ( maybe_ptr( p -> dbc.ptr ) )
+  {
+    lvbcd = lava_burst ? lava_burst -> data().charge_cooldown() : timespan_t::zero();
+  }
+  else
+  {
+    lvbcd = lava_burst ? lava_burst -> data().cooldown() : timespan_t::zero();
+  }
+
+  ascendance( p -> melee_mh, p -> melee_oh, lvbcd );
   // Start CD waste recollection from when Ascendance buff fades, since Lava
   // Burst is guaranteed to be very much ready when Ascendance ends.
   if ( lava_burst )
@@ -5229,16 +5239,26 @@ void shaman_t::trigger_enhanced_chain_lightning( const action_state_t* state )
   if ( ! perk.enhanced_chain_lightning -> ok() )
     return;
 
-  // Trigger as many stacks as there are targets, if the buff is not up
-  if ( ! buff.enhanced_chain_lightning -> check() )
-    buff.enhanced_chain_lightning -> trigger( (int)state -> n_targets );
+  if ( maybe_ptr( dbc.ptr ) )
+  {
+    if ( static_cast<const int>( state -> n_targets ) >= perk.enhanced_chain_lightning -> effectN( 1 ).base_value() )
+    {
+      buff.enhanced_chain_lightning -> trigger();
+    }
+  }
   else
   {
-    // Stacks are only refreshed if the new number is higher than the current
-    if ( state -> n_targets >= static_cast<size_t>( buff.enhanced_chain_lightning -> check() ) )
-    {
-      buff.enhanced_chain_lightning -> expire();
+    // Trigger as many stacks as there are targets, if the buff is not up
+    if ( ! buff.enhanced_chain_lightning -> check() )
       buff.enhanced_chain_lightning -> trigger( (int)state -> n_targets );
+    else
+    {
+      // Stacks are only refreshed if the new number is higher than the current
+      if ( state -> n_targets >= static_cast<size_t>( buff.enhanced_chain_lightning -> check() ) )
+      {
+        buff.enhanced_chain_lightning -> expire();
+        buff.enhanced_chain_lightning -> trigger( (int)state -> n_targets );
+      }
     }
   }
 }

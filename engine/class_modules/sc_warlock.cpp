@@ -315,6 +315,7 @@ public:
   {
     proc_t* wild_imp;
     proc_t* t17_2pc_demo;
+    proc_t* havoc_waste;
   } procs;
 
   struct spells_t
@@ -2267,8 +2268,6 @@ struct kiljaedens_cunning_t: public warlock_spell_t
   kiljaedens_cunning_t( warlock_t* p ):
     warlock_spell_t( "kiljaedens_cunning", p, p -> talents.kiljaedens_cunning )
   {
-    if ( p -> dbc.ptr )
-      cooldown -> duration = timespan_t::from_seconds( 35 );
   }
 
   void execute()
@@ -2405,8 +2404,8 @@ struct hand_of_guldan_t: public warlock_spell_t
   {
     aoe = -1;
 
-    if ( p -> wod_hotfix || p -> dbc.ptr )
-      base_multiplier *= 0.8;               // Hotfixed on both live and ptr.
+    if ( p -> wod_hotfix )
+      base_multiplier *= 0.8;
 
     cooldown -> duration = timespan_t::from_seconds( 15 );
     cooldown -> charges = 2 + p -> sets.set( WARLOCK_DEMONOLOGY, T17, B4 ) -> effectN( 1 ).base_value();
@@ -2566,9 +2565,6 @@ struct shadowburn_t: public warlock_spell_t
     if ( p() -> mastery_spells.emberstorm -> ok() )
       m *= 1.0 + p() -> cache.mastery_value();
 
-    if ( p() -> dbc.ptr )
-      m *= 1.0 + 0.25 * p() -> buffs.grimoire_of_sacrifice -> stack();
-    else
       m *= 1.0 + p() -> talents.grimoire_of_sacrifice -> effectN( 4 ).percent() * p() -> buffs.grimoire_of_sacrifice -> stack();
 
     return m;
@@ -2802,9 +2798,6 @@ struct haunt_t: public warlock_spell_t
   {
     double m = warlock_spell_t::action_multiplier();
 
-    if ( p() -> dbc.ptr )
-      m *= 1.0 + 0.25 * p() -> buffs.grimoire_of_sacrifice -> stack();
-    else
       m *= 1.0 + p() -> talents.grimoire_of_sacrifice -> effectN( 4 ).percent() * p() -> buffs.grimoire_of_sacrifice -> stack();
 
     return m;
@@ -3128,9 +3121,7 @@ struct incinerate_t: public warlock_spell_t
   {
     if ( p -> talents.charred_remains -> ok() )
     {
-      if ( p -> dbc.ptr )
-        base_multiplier *= 0.5;
-      else
+      if ( p -> talents.charred_remains -> ok() )
         base_multiplier *= 1.0 + p -> talents.charred_remains -> effectN( 1 ).percent();
     }
     if ( p -> wod_hotfix )
@@ -3149,9 +3140,7 @@ struct incinerate_t: public warlock_spell_t
     gain = p -> get_gain( "incinerate_fnb" );
     if ( p -> talents.charred_remains -> ok() )
     {
-      if ( p -> dbc.ptr )
-        base_multiplier *= 0.5;
-      else
+      if ( p -> talents.charred_remains -> ok() )
         base_multiplier *= 1.0 + p -> talents.charred_remains -> effectN( 1 ).percent();
     }
     if ( p -> wod_hotfix )
@@ -3203,9 +3192,6 @@ struct incinerate_t: public warlock_spell_t
       m *= p() -> buffs.fire_and_brimstone -> data().effectN( 5 ).percent();
     }
 
-    if ( p() -> dbc.ptr )
-      m *= 1.0 + 0.25 * p() -> buffs.grimoire_of_sacrifice -> stack();
-    else
       m *= 1.0 + p() -> talents.grimoire_of_sacrifice -> effectN( 4 ).percent() * p() -> buffs.grimoire_of_sacrifice -> stack();
 
     m *= 1.0 + p() -> mastery_spells.emberstorm -> effectN( 3 ).percent() + p() -> composite_mastery() * p() -> mastery_spells.emberstorm -> effectN( 3 ).mastery_value();
@@ -3442,9 +3428,6 @@ struct chaos_bolt_t: public warlock_spell_t
 
     m *= 1.0 + p() -> cache.spell_crit();
 
-    if ( p() -> dbc.ptr )
-      m *= 1.0 + 0.25 * p() -> buffs.grimoire_of_sacrifice -> stack();
-    else
       m *= 1.0 + p() -> talents.grimoire_of_sacrifice -> effectN( 4 ).percent() * p() -> buffs.grimoire_of_sacrifice -> stack();
 
     return m;
@@ -3622,8 +3605,8 @@ struct chaos_wave_dmg_t: public warlock_spell_t
     background = true;
     dual = true;
 
-    if ( p -> wod_hotfix || p -> dbc.ptr )
-      base_multiplier *= 0.8;               // Hotfixed on both live and ptr.
+    if ( p -> wod_hotfix )
+      base_multiplier *= 0.8;
   }
 };
 
@@ -3758,10 +3741,7 @@ struct drain_soul_t: public warlock_spell_t
 
     m *= 1.0 + p() -> sets.set( SET_CASTER, T15, B4 ) -> effectN( 1 ).percent();
 
-    if ( p() -> dbc.ptr )
-      m *= 1.0 + 0.25 * p() -> buffs.grimoire_of_sacrifice -> stack();
-    else
-      m *= 1.0 + p() -> talents.grimoire_of_sacrifice -> effectN( 4 ).percent() * p() -> buffs.grimoire_of_sacrifice -> stack();
+    m *= 1.0 + p() -> talents.grimoire_of_sacrifice -> effectN( 4 ).percent() * p() -> buffs.grimoire_of_sacrifice -> stack();
 
 
     if ( p() ->  buffs.tier16_2pc_empowered_grasp -> up() )
@@ -3778,11 +3758,8 @@ struct drain_soul_t: public warlock_spell_t
     trigger_soul_leech( p(), d -> state -> result_amount * p() -> talents.soul_leech -> effectN( 1 ).percent() * 2 );
 
     double multiplier = data().effectN( 3 ).percent();
-    
-    if ( p() -> dbc.ptr )
-      multiplier *= 1.0 + 0.25 * p() -> buffs.grimoire_of_sacrifice -> stack();
-    else
-      multiplier *= 1.0 + p() -> talents.grimoire_of_sacrifice -> effectN( 4 ).percent() * p() -> buffs.grimoire_of_sacrifice -> stack();
+
+    multiplier *= 1.0 + p() -> talents.grimoire_of_sacrifice -> effectN( 4 ).percent() * p() -> buffs.grimoire_of_sacrifice -> stack();
 
     trigger_extra_tick( td( d -> state -> target ) -> dots_agony, multiplier );
     trigger_extra_tick( td( d -> state -> target ) -> dots_corruption, multiplier );
@@ -4109,7 +4086,7 @@ struct rain_of_fire_tick_t: public warlock_spell_t
 
   void schedule_travel( action_state_t* s )
   {
-    if ( p() -> wod_hotfix )
+    if ( !p() -> wod_hotfix && !p() -> dbc.ptr )
     {
       if ( result_is_hit( s -> result ) )
         trigger_ember_gain( p(), 0.2, p() -> gains.rain_of_fire, 0.125 );
@@ -4884,10 +4861,7 @@ struct grimoire_of_service_t: public summon_pet_t
   {
     cooldown = p -> get_cooldown( "grimoire_of_service" );
     cooldown -> duration = data().cooldown();
-    if ( p -> dbc.ptr )
-      summoning_duration = timespan_t::from_seconds( 25 );
-    else
-      summoning_duration = data().duration();
+    summoning_duration = data().duration();
     if ( pet )
       pet -> summon_stats = stats;
   }
@@ -5480,6 +5454,23 @@ void warlock_t::init_scaling()
   player_t::init_scaling();
 }
 
+struct havoc_buff_t : public buff_t
+{
+  havoc_buff_t( warlock_t* p ) :
+    buff_t( buff_creator_t( p, "havoc", p -> find_specialization_spell( "Havoc" ) ).cd( timespan_t::zero() ) )
+  { }
+
+  void expire_override( int expiration_stacks, timespan_t remaining_duration )
+  {
+    buff_t::expire_override( expiration_stacks, remaining_duration );
+
+    if ( remaining_duration == timespan_t::zero() )
+    {
+      debug_cast<warlock_t*>( player ) -> procs.havoc_waste -> occur();
+    }
+  }
+};
+
 void warlock_t::create_buffs()
 {
   player_t::create_buffs();
@@ -5499,8 +5490,7 @@ void warlock_t::create_buffs()
   buffs.fire_and_brimstone = buff_creator_t( this, "fire_and_brimstone", spec.fire_and_brimstone )
     .cd( timespan_t::zero() );
   buffs.soul_swap = buff_creator_t( this, "soul_swap", find_spell( 86211 ) );
-  buffs.havoc = buff_creator_t( this, "havoc", find_class_spell( "Havoc" ) )
-    .cd( timespan_t::zero() );
+  buffs.havoc = new havoc_buff_t( this );
   buffs.demonic_rebirth = buff_creator_t( this, "demonic_rebirth", find_spell( 88448 ) ).cd( find_spell( 89140 ) -> duration() );
   buffs.mannoroths_fury = buff_creator_t( this, "mannoroths_fury", talents.mannoroths_fury );
 
@@ -5575,6 +5565,7 @@ void warlock_t::init_procs()
 
   procs.wild_imp = get_proc( "wild_imp" );
   procs.t17_2pc_demo = get_proc( "t17_2pc_demo" );
+  procs.havoc_waste = get_proc( "Havoc: Buff expiration" );
 }
 
 void warlock_t::apl_precombat()
@@ -5892,15 +5883,6 @@ void warlock_t::init_resources( bool force )
 
   if ( pets.active )
     pets.active -> init_resources( force );
-}
-
-void warlock_t::combat_begin()
-{
-  player_t::combat_begin();
-
-  resources.current[RESOURCE_BURNING_EMBER] = initial_burning_embers;
-  resources.current[RESOURCE_DEMONIC_FURY] = initial_demonic_fury;
-
   if ( specialization() == WARLOCK_DEMONOLOGY )
   {
     buffs.demonic_calling -> trigger();
@@ -5909,6 +5891,10 @@ void warlock_t::combat_begin()
   }
 }
 
+void warlock_t::combat_begin()
+{
+  player_t::combat_begin();
+}
 
 void warlock_t::reset()
 {

@@ -1937,7 +1937,15 @@ struct ghoul_pet_t : public death_knight_pet_t
       am *= 1.0 + p -> o() -> buffs.shadow_infusion -> stack() * p -> o() -> buffs.shadow_infusion -> data().effectN( 1 ).percent();
 
       if ( p -> o() -> buffs.dark_transformation -> up() )
-        am *= 1.0 + p -> o() -> buffs.dark_transformation -> data().effectN( 1 ).percent();
+      {
+        double dtb = p -> o() -> buffs.dark_transformation -> data().effectN( 1 ).percent();
+        if ( maybe_ptr( p -> dbc.ptr ) )
+        {
+          dtb += p -> o() -> sets.set( DEATH_KNIGHT_UNHOLY, T17, B2 ) -> effectN( 2 ).percent();
+        }
+
+        am *= 1.0 + dtb;
+      }
 
       am *= 0.8;
 
@@ -5414,7 +5422,7 @@ struct breath_of_sindragosa_tick_t: public death_knight_spell_t
 
   void consume_resource()
   {
-    if ( td( target ) -> dots_breath_of_sindragosa -> current_tick > 0 )
+    if ( maybe_ptr( p() -> dbc.ptr ) || td( target ) -> dots_breath_of_sindragosa -> current_tick > 0 )
     {
       death_knight_spell_t::consume_resource();
     }
@@ -5464,7 +5472,14 @@ struct breath_of_sindragosa_t : public death_knight_spell_t
     tick_zero = true;
 
     tick_action = new breath_of_sindragosa_tick_t( p, this );
-    tick_action -> base_costs[ RESOURCE_RUNIC_POWER ] = base_costs[ RESOURCE_RUNIC_POWER ];
+    if ( ! maybe_ptr( p -> dbc.ptr ) )
+    {
+      tick_action -> base_costs[ RESOURCE_RUNIC_POWER ] = base_costs[ RESOURCE_RUNIC_POWER ];
+    }
+    else
+    {
+      tick_action -> base_costs[ RESOURCE_RUNIC_POWER ] = data().powerN( 1 ).cost_per_second();
+    }
     school = tick_action -> school;
   }
 
@@ -6840,7 +6855,7 @@ void death_knight_t::init_action_list()
 
     //AoE
     aoe -> add_talent( this, "Unholy Blight" );
-    aoe -> add_action( "run_action_list,name=spread,if=!dot.blood_plague.ticking|!dot.frost_fever.ticking|!dot.necrotic_plague.ticking" );
+    aoe -> add_action( "run_action_list,name=spread,if=!dot.blood_plague.ticking|!dot.frost_fever.ticking|(!dot.necrotic_plague.ticking&talent.necrotic_plague.enabled)" );
     // AoE defile
     aoe -> add_talent( this, "Defile" );
     // AoE Breath of Sindragosa in use, cast and then keep up
@@ -7930,8 +7945,13 @@ void death_knight_t::trigger_t17_4pc_unholy( const action_state_t* )
   size_t n_regened = 0;
   for ( size_t i = 0; i < _runes.slot.size() && n_regened < max_runes; i++ )
   {
-    if ( _runes.slot[ i ].state != STATE_REGENERATING )
+    if ( _runes.slot[ i ].state != STATE_DEPLETED )
       continue;
+
+    if ( _runes.slot[ i ].paired_rune -> value >= 0.9 )
+    {
+      continue;
+    }
 
     rune_t* regen_rune = &( _runes.slot[ i ] );
 
@@ -7948,6 +7968,34 @@ void death_knight_t::trigger_t17_4pc_unholy( const action_state_t* )
     if ( sim -> log ) sim -> out_log.printf( "%s regened rune %d", name(), i );
     n_regened++;
   }
+
+  // Reeeeewinddd
+  for ( size_t i = 0; i < 4 && n_regened < max_runes; i++ )
+  {
+    if ( _runes.slot[ i ].value >= 0.5 )
+    {
+      continue;
+    }
+
+    rune_t* regen_rune = &( _runes.slot[ i ] );
+
+    double overflow = _runes.slot[ i ].value;
+
+    regen_rune -> fill_rune();
+    regen_rune -> type |= RUNE_TYPE_DEATH;
+
+    if ( regen_rune -> is_blood() )
+      gains.t17_4pc_unholy_blood -> add( RESOURCE_RUNE, 1 - overflow, overflow );
+    else if ( regen_rune -> is_frost() )
+      gains.t17_4pc_unholy_frost -> add( RESOURCE_RUNE, 1 - overflow, overflow );
+    else if ( regen_rune -> is_unholy() )
+      gains.t17_4pc_unholy_unholy -> add( RESOURCE_RUNE, 1 - overflow, overflow );
+
+    if ( sim -> log ) sim -> out_log.printf( "%s regened rune %d (fallback, wasted %.2f)", name(), i, overflow );
+    n_regened++;
+  }
+
+  // TODO: ReeeeREEEEEEEEEEEEEEEEEEEEEEeeeeeeeeeeeewind
 
   for ( size_t i = 0; i < max_runes - n_regened; i++ )
     gains.t17_4pc_unholy_waste -> add( RESOURCE_RUNE, 1, 0 );
