@@ -129,6 +129,9 @@ struct rogue_t : public player_t
   actions::melee_t* melee_main_hand;
   actions::melee_t* melee_off_hand;
 
+  // Data collection
+  luxurious_sample_data_t* dfa_mh, *dfa_oh;
+
   // Buffs
   struct buffs_t
   {
@@ -365,6 +368,7 @@ struct rogue_t : public player_t
     active_main_gauche( 0 ),
     active_venomous_wound( 0 ),
     auto_attack( 0 ), melee_main_hand( 0 ), melee_off_hand( 0 ),
+    dfa_mh( 0 ), dfa_oh( 0 ),
     buffs( buffs_t() ),
     cooldowns( cooldowns_t() ),
     gains( gains_t() ),
@@ -1768,6 +1772,7 @@ struct envenom_t : public rogue_attack_t
     weapon_multiplier = weapon_power_mod = 0.0;
     base_multiplier *= 1.05; // Hard-coded tooltip.
     base_dd_min = base_dd_max = 0;
+    proc_relentless_strikes_ = true;
   }
 
   void consume_resource()
@@ -2888,12 +2893,57 @@ struct death_from_above_t : public rogue_attack_t
     aoe = -1;
   }
 
+  void adjust_attack( attack_t* attack, const timespan_t& oor_delay )
+  {
+    if ( ! attack || ! attack -> execute_event )
+    {
+      return;
+    }
+
+    if ( attack -> execute_event -> remains() >= oor_delay )
+    {
+      return;
+    }
+
+    timespan_t next_swing = attack -> execute_event -> remains();
+    timespan_t initial_next_swing = next_swing;
+    // Fit the next autoattack swing into a set of increasing 500ms values,
+    // which seems to be what is occurring with OOR+autoattacks in game.
+    while ( next_swing <= oor_delay )
+    {
+      next_swing += timespan_t::from_millis( 500 );
+    }
+
+    if ( attack == player -> main_hand_attack )
+    {
+      p() -> dfa_mh -> add( ( next_swing - oor_delay ).total_seconds() );
+    }
+    else if ( attack == player -> off_hand_attack )
+    {
+      p() -> dfa_oh -> add( ( next_swing - oor_delay ).total_seconds() );
+    }
+
+    attack -> execute_event -> reschedule( next_swing );
+    if ( sim -> debug )
+    {
+      sim -> out_debug.printf( "%s %s swing pushback: oor_time=%.3f orig_next=%.3f next=%.3f lands=%.3f",
+          player -> name(), name(), oor_delay.total_seconds(), initial_next_swing.total_seconds(),
+          next_swing.total_seconds(),
+          attack -> execute_event -> occurs().total_seconds() );
+    }
+  }
+
   void execute()
   {
     rogue_attack_t::execute();
 
     p() -> buffs.death_from_above -> trigger();
 
+    timespan_t oor_delay = timespan_t::from_seconds( rng().gauss( 1.3, 0.025 ) );
+
+    adjust_attack( player -> main_hand_attack, oor_delay );
+    adjust_attack( player -> off_hand_attack, oor_delay );
+/*
     // Apparently DfA is out of range for ~0.8 seconds during the "attack", so
     // ensure that we have a swing timer of at least 800ms on both hands. Note
     // that this can sync autoattacks which also happens in game.
@@ -2908,7 +2958,7 @@ struct death_from_above_t : public rogue_attack_t
       if ( player -> off_hand_attack -> execute_event -> remains() < timespan_t::from_seconds( 0.8 ) )
         player -> off_hand_attack -> execute_event -> reschedule( timespan_t::from_seconds( 0.8 ) );
     }
-
+*/
     action_state_t* driver_state = driver -> get_state( execute_state );
     driver_state -> target = target;
     driver -> schedule_execute( driver_state );
@@ -3108,11 +3158,11 @@ struct blade_flurry_attack_t : public rogue_attack_t
   {
     tl.clear();
 
-    for ( size_t i = 0, actors = sim -> actor_list.size(); i < actors; i++ )
+    for ( size_t i = 0, actors = sim -> target_non_sleeping_list.size(); i < actors; i++ )
     {
-      player_t* t = sim -> actor_list[ i ];
+      player_t* t = sim -> target_non_sleeping_list[ i ];
 
-      if ( ! t -> is_sleeping() && t -> is_enemy() && t != target )
+      if ( t -> is_enemy() && t != target )
         tl.push_back( t );
     }
 
@@ -5226,6 +5276,11 @@ void rogue_t::init_procs()
     }
   }
 
+  if ( talent.death_from_above -> ok() )
+  {
+    dfa_mh = get_sample_data( "dfa_mh" );
+    dfa_oh = get_sample_data( "dfa_oh" );
+  }
 }
 
 // rogue_t::init_scaling ====================================================
@@ -5534,17 +5589,51 @@ public:
 
   }
 
-  virtual void html_customsection( report::sc_html_stream& /* os*/ ) override
+  virtual void html_customsection( report::sc_html_stream& os ) override
   {
-    (void) p;
-    /*// Custom Class Section
-    os << "\t\t\t\t<div class=\"player-section custom_section\">\n"
-        << "\t\t\t\t\t<h3 class=\"toggle open\">Custom Section</h3>\n"
-        << "\t\t\t\t\t<div class=\"toggle-content\">\n";
+    os << "<div class=\"player-section custom_section\">\n";
+    if ( p.talent.death_from_above -> ok() )
+    {
+      os << "<h3 class=\"toggle open\">Death from Above swing time loss</h3>\n"
+         << "<div class=\"toggle-content\">\n";
 
-    os << p.name();
+      os << "<p>";
+      os <<
+        "Death from Above causes out of range time for the Rogue while the"
+        " animation is performing. This out of range time translates to a"
+        " potential loss of auto-attack swing time. The following table"
+        " represents the total auto-attack swing time loss, when performing Death"
+        " from Above during the length of the combat. It is computed as the"
+        " interval between the out of range delay (an average of 1.3 seconds in"
+        " simc), and the next time the hand swings after the out of range delay"
+        " elapsed.";
+      os << "</p>";
+      os << "<table class=\"sc\" style=\"float: left;margin-right: 10px;\">\n";
 
-    os << "\t\t\t\t\t\t</div>\n" << "\t\t\t\t\t</div>\n";*/
+      os << "<tr><th></th><th colspan=\"3\">Lost time per iteration (sec)</th></tr>";
+      os << "<tr><th>Weapon hand</th><th>Minimum</th><th>Average</th><th>Maximum</th></tr>";
+
+      os << "<tr>";
+      os << "<td class=\"left\">Main hand</td>";
+      os.printf("<td class=\"right\">%.3f</td>", p.dfa_mh -> min() );
+      os.printf("<td class=\"right\">%.3f</td>", p.dfa_mh -> mean() );
+      os.printf("<td class=\"right\">%.3f</td>", p.dfa_mh -> max() );
+      os << "</tr>";
+
+      os << "<tr>";
+      os << "<td class=\"left\">Off hand</td>";
+      os.printf("<td class=\"right\">%.3f</td>", p.dfa_oh -> min() );
+      os.printf("<td class=\"right\">%.3f</td>", p.dfa_oh -> mean() );
+      os.printf("<td class=\"right\">%.3f</td>", p.dfa_oh -> max() );
+      os << "</tr>";
+
+      os << "</table>";
+
+      os << "</div>\n";
+
+      os << "<div class=\"clear\"></div>\n";
+    }
+    os << "</div>\n";
   }
 private:
   rogue_t& p;

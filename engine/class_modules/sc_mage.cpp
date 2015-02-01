@@ -12,6 +12,7 @@ namespace { // UNNAMED NAMESPACE
 
 // ==========================================================================
 // Mage
+// Manually set RPPM for T17 4P Fire on 1-31-2015 - Collision
 // ==========================================================================
 
 struct mage_t;
@@ -4644,7 +4645,10 @@ void mage_t::init_spells()
   if ( spec.icicles -> ok() ) icicle = new actions::icicle_t( this );
 
   // RPPM
-  rppm_pyromaniac.set_frequency( find_spell( 165459 ) -> real_ppm() );
+  if ( dbc.ptr )
+  { rppm_pyromaniac.set_frequency( 0.7 ); }
+  else
+  { rppm_pyromaniac.set_frequency( find_spell( 165459 ) -> real_ppm() ); }
   rppm_arcane_instability.set_frequency( find_spell( 165476 ) -> real_ppm() );
 }
 

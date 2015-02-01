@@ -42,11 +42,7 @@ public:
   // Also set to true whenever gladiator's resolve is talented.
   bool gladiator; //Check a bunch of crap to see if this guy wants to be gladiator dps or not.
 
-  simple_sample_data_t cs_damage;
-  simple_sample_data_t priority_damage;
-  simple_sample_data_t all_damage;
   simple_sample_data_t shield_charge_damage;
-
   // Active
   action_t* active_blood_craze;
   action_t* active_bloodbath_dot;
@@ -469,12 +465,7 @@ public:
   virtual void       merge( player_t& other ) override
   {
     warrior_t& other_p = dynamic_cast<warrior_t&>( other );
-
-    cs_damage.merge( other_p.cs_damage );
-    all_damage.merge( other_p.all_damage );
-    priority_damage.merge( other_p.priority_damage );
     shield_charge_damage.merge( other_p.shield_charge_damage );
-
     player_t::merge( other );
   }
 
@@ -696,21 +687,6 @@ public:
         d -> state -> composite_da_multiplier(),
         d -> state -> action -> action_ta_multiplier() );
     }
-  }
-
-  virtual void assess_damage( dmg_e type,
-                              action_state_t* s )
-  {
-    ab::assess_damage( type, s );
-
-    if ( td( s -> target ) -> debuffs_colossus_smash -> up() && s -> result_amount > 0 )
-      p() -> cs_damage.add( s -> result_amount );
-
-    if ( ( s -> target == p() -> sim -> target ) && s -> result_amount > 0 )
-      p() -> priority_damage.add( s -> result_amount );
-
-    if ( s -> result_amount > 0 && s -> target != p() )
-      p() -> all_damage.add( s -> result_amount );
   }
 
   virtual void consume_resource()
@@ -1497,7 +1473,7 @@ struct charge_t: public warrior_attack_t
     movement_directionality = MOVEMENT_TOWARDS;
 
     if ( p -> talents.double_time -> ok() )
-      cooldown -> charges = 2;
+      cooldown -> charges = p -> talents.double_time -> effectN( 1 ).base_value();
     else if ( p -> talents.juggernaut -> ok() )
       cooldown -> duration += p -> talents.juggernaut -> effectN( 1 ).time_value();
   }
@@ -1569,9 +1545,11 @@ struct colossus_smash_t: public warrior_attack_t
     warrior_attack_t::execute();
 
     if ( p() -> sets.has_set_bonus( WARRIOR_ARMS, T17, B4 ) )
-      p() -> resource_gain( RESOURCE_RAGE,
-      p() -> sets.set( WARRIOR_ARMS, T17, B4 ) -> effectN( 1 ).trigger() -> effectN( 1 ).resource( RESOURCE_RAGE ),
-      p() -> gain.tier17_4pc_arms );
+    {
+      p() -> resource_gain( RESOURCE_RAGE, ( p() -> dbc.ptr ? 20 : // Fix
+        p() -> sets.set( WARRIOR_ARMS, T17, B4 ) -> effectN( 1 ).trigger() -> effectN( 1 ).resource( RESOURCE_RAGE ) ),
+        p() -> gain.tier17_4pc_arms );
+    }
     if ( p() -> sets.set( WARRIOR_ARMS, T17, B2 ) )
       if ( p() -> buff.tier17_2pc_arms -> trigger() )
         p() -> proc.t17_2pc_arms -> occur();
@@ -3452,8 +3430,8 @@ struct shield_block_t: public warrior_spell_t
   {
     parse_options( options_str );
     stancemask = STANCE_DEFENSE | STANCE_BATTLE;
-    cooldown -> duration = timespan_t::from_seconds( 12.0 );
-    cooldown -> charges = 2;
+    cooldown -> duration = data().charge_cooldown();
+    cooldown -> charges = data().charges();
     use_off_gcd = true;
     block_cd = p -> get_cooldown( "block_cd" );
     block_cd -> duration = timespan_t::from_seconds( 1.5 );
@@ -3503,8 +3481,8 @@ struct shield_charge_t: public warrior_spell_t
   {
     parse_options( options_str );
     stancemask = STANCE_GLADIATOR;
-    cooldown -> charges = 2;
-    cooldown -> duration = timespan_t::from_seconds( 15 );
+    cooldown -> duration = data().charge_cooldown();
+    cooldown -> charges = data().charges();
     movement_directionality = MOVEMENT_TOWARDS;
     use_off_gcd = true;
 
@@ -5173,9 +5151,12 @@ double warrior_t::composite_player_multiplier( school_e school ) const
   if ( buff.rude_interruption -> up() )
     m *= 1.0 + buff.rude_interruption -> value();
 
-  if ( active_stance == STANCE_GLADIATOR && school == SCHOOL_PHYSICAL )
+  if ( active_stance == STANCE_GLADIATOR )
   {
-    m *= 1.0 +  0.05; //Fix
+    if ( dbc::is_school( school, SCHOOL_PHYSICAL ) )
+    {
+      m *= 1.0 + 0.05; //Fix
+    }
   }
 
   return m;
@@ -5737,9 +5718,7 @@ public:
 
   virtual void html_customsection( report::sc_html_stream& os ) override
   {
-    double cs_damage = p.cs_damage.sum();
-    double all_damage = p.all_damage.sum();
-    double priority_damage = p.priority_damage.sum();
+    double all_damage = p.collected_data.dps.sum();
     double shield_charge_dmg = p.shield_charge_damage.sum();
 
     // Custom Class Section
@@ -5750,15 +5729,6 @@ public:
     os << p.name() << "\n<br>";
     os << "\t\t\t\t\t<p>Overall DPS</p>\n";
     os << p.collected_data.dps.mean() << "</p>\n";
-    os << "\t\t\t\t\t<p>Percentage of damage dealt to primary target</p>\n";
-    os << "%" << ( ( priority_damage / all_damage ) * 100 ) << "</p>\n";
-    if ( cs_damage > 0 )
-    {
-      os << "\t\t\t\t\t<p>Percentage of primary target damage that occurs inside of Colossus Smash</p>\n";
-      os << "%" << ( ( cs_damage / priority_damage ) * 100 ) << "</p>\n";
-    }
-    os << "\t\t\t\t\t<p> Dps done to primary target </p>\n";
-    os << ( ( priority_damage / all_damage ) * p.collected_data.dps.mean() ) << "</p>\n";
 
     if ( shield_charge_dmg > 0 )
     {
@@ -5768,7 +5738,6 @@ public:
       os << "\t\t\t\t\t<p> Percentage of overall damage </p>\n";
       os << ( ( shield_charge_dmg / all_damage ) * 100 ) << "</p>\n";
     }
-
     os << "\t\t\t\t\t\t</div>\n" << "\t\t\t\t\t</div>\n";
   }
 private:

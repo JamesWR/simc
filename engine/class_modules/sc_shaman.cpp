@@ -2911,6 +2911,13 @@ struct fire_nova_explosion_t : public shaman_spell_t
     stats = player -> get_stats( "fire_nova" );
   }
 
+  void execute()
+  {
+    // The explosion has to regenerate target cache every time
+    target_cache.is_valid = false;
+    shaman_spell_t::execute();
+  }
+
   // Fire nova does not damage the main target.
   size_t available_targets( std::vector< player_t* >& tl ) const
   {
@@ -3406,6 +3413,21 @@ struct earthquake_t : public shaman_spell_t
     shaman_spell_t::consume_resource();
 
     p() -> buff.enhanced_chain_lightning -> expire();
+  }
+
+  timespan_t execute_time() const
+  {
+    timespan_t et = shaman_spell_t::execute_time();
+
+    if ( p() -> dbc.ptr )
+    {
+      if ( p() -> buff.enhanced_chain_lightning -> check() )
+      {
+        et *= 1.0 + p() -> buff.enhanced_chain_lightning -> data().effectN( 2 ).percent();
+      }
+    }
+
+    return et;
   }
 
   double action_multiplier() const
@@ -5631,8 +5653,8 @@ void shaman_t::init_action_list()
     // Need to remove the "/" in front of the profession action(s) for the new default action priority list stuff :/
     def -> add_action( init_use_profession_actions().erase( 0, 1 ) );
 
-    def -> add_action( "call_action_list,name=single,if=active_enemies=1", "If only one enemy, priority follows the 'single' action list." );
-    def -> add_action( "call_action_list,name=aoe,if=active_enemies>1", "On multiple enemies, the priority follows the 'aoe' action list." );
+    def -> add_action( "call_action_list,name=single,if=active_enemies<3", "If one or two enemies, priority follows the 'single' action list." );
+    def -> add_action( "call_action_list,name=aoe,if=active_enemies>2", "On multiple enemies, the priority follows the 'aoe' action list." );
 
     single -> add_action( this, "Unleash Flame", "moving=1" );
     single -> add_action( this, "Spiritwalker's Grace", "moving=1,if=buff.ascendance.up" );
@@ -5642,7 +5664,7 @@ void shaman_t::init_action_list()
     single -> add_action( this, "Lava Burst", "if=dot.flame_shock.remains>cast_time&(buff.ascendance.up|cooldown_react)" );
     single -> add_action( this, "Unleash Flame", "if=talent.unleashed_fury.enabled&!buff.ascendance.up" );
     single -> add_action( this, "Flame Shock", "if=dot.flame_shock.remains<=9" );
-    single -> add_action( this, spec.fulmination, "earth_shock", "if=(set_bonus.tier17_4pc&buff.lightning_shield.react>=15&!buff.lava_surge.up)|(!set_bonus.tier17_4pc&buff.lightning_shield.react>15)" );
+    single -> add_action( this, spec.fulmination, "earth_shock", "if=(set_bonus.tier17_4pc&buff.lightning_shield.react>=15+ptr*3&!buff.lava_surge.up)|(!set_bonus.tier17_4pc&buff.lightning_shield.react>15)" );
     single -> add_action( this, "Earthquake", "if=!talent.unleashed_fury.enabled&((1+stat.spell_haste)*(1+(mastery_value*2%4.5))>=(1.875+(1.25*0.226305)+1.25*(2*0.226305*stat.multistrike_pct%100)))&target.time_to_die>10&buff.elemental_mastery.down&buff.bloodlust.down" );
     single -> add_action( this, "Earthquake", "if=!talent.unleashed_fury.enabled&((1+stat.spell_haste)*(1+(mastery_value*2%4.5))>=1.3*(1.875+(1.25*0.226305)+1.25*(2*0.226305*stat.multistrike_pct%100)))&target.time_to_die>10&(buff.elemental_mastery.up|buff.bloodlust.up)" );
     single -> add_action( this, "Earthquake", "if=!talent.unleashed_fury.enabled&((1+stat.spell_haste)*(1+(mastery_value*2%4.5))>=(1.875+(1.25*0.226305)+1.25*(2*0.226305*stat.multistrike_pct%100)))&target.time_to_die>10&(buff.elemental_mastery.remains>=10|buff.bloodlust.remains>=10)" );

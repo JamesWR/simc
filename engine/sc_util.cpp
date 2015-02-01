@@ -1704,6 +1704,7 @@ const char* util::scale_metric_type_abbrev( scale_metric_e sm )
   switch ( sm )
   {
     case SCALE_METRIC_DPS:       return "dps";
+    case SCALE_METRIC_DPSP:      return "prioritydps";
     case SCALE_METRIC_DPSE:      return "dpse";
     case SCALE_METRIC_HPS:       return "hps";
     case SCALE_METRIC_HPSE:      return "hpse";

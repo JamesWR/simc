@@ -1499,6 +1499,11 @@ void action_t::assess_damage( dmg_e    type,
     }
   }
 
+  if ( ( s -> target == player -> sim -> target ) && s -> result_amount > 0 )
+  {
+    player -> priority_iteration_dmg += s -> result_amount;
+  }
+
   if ( s -> result_amount > 0 && composite_leech( s ) > 0 )
     player -> resource_gain( RESOURCE_HEALTH, composite_leech( s ) * s -> result_amount, player -> gains.leech, s -> action );
 
@@ -2756,6 +2761,7 @@ void action_t::impact( action_state_t* s )
         impact_action -> pre_execute_state = impact_action -> get_state( s );
 
       assert( impact_action -> background );
+      impact_action -> target = s -> target;
       impact_action -> execute();
     }
   }
