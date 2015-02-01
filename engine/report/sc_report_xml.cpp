@@ -1153,14 +1153,14 @@ void print_xml_summary( sim_t* sim, xml_writer_t & writer, sim_report_informatio
   writer.end_tag( "player_by_dps" );
 
   writer.begin_tag( "player_by_priority_dps" );
-  count = sim -> players_by_dps.size();
+  count = sim -> players_by_priority_dps.size();
   for ( size_t i = 0; i < count; i++ )
   {
-    player_t* p = sim -> players_by_dps[ i ];
+    player_t* p = sim -> players_by_priority_dps[ i ];
     writer.begin_tag( "player" );
     writer.print_attribute( "name", p -> name() );
     writer.print_attribute( "index", util::to_string( i ) );
-    writer.print_attribute( "dps", util::to_string( p -> collected_data.prioritydps.mean() ) );
+    writer.print_attribute( "prioritydps", util::to_string( p -> collected_data.prioritydps.mean() ) );
     writer.end_tag( "player" );
   }
   writer.end_tag( "player_by_priority_dps" );

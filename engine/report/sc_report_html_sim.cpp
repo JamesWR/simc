@@ -642,7 +642,7 @@ void print_html_raid_summary( report::sc_html_stream& os, sim_t* sim, const sim_
   os << "<div class=\"charts\">\n";
 
   highchart::bar_chart_t priority_dps( "priority_dps", sim );
-  if ( chart::generate_raid_aps( priority_dps, sim, "priority_dps" ) )
+  if ( chart::generate_raid_aps( priority_dps, sim, "prioritydps" ) )
     os << priority_dps.to_string();
 
   highchart::bar_chart_t raid_hps( "raid_hps", sim );

@@ -2861,6 +2861,11 @@ bool chart::generate_raid_aps( highchart::bar_chart_t& bc,
     long_type = "Damage per Second";
     range::remove_copy_if( s -> players_by_dps, back_inserter( player_list ), filter_non_performing_players( type ) );
   }
+  else  if ( util::str_compare_ci( type, "prioritydps" ) )
+  {
+    long_type = "Priority Target/Boss Damage ";
+    range::remove_copy_if( s -> players_by_priority_dps, back_inserter( player_list ), filter_non_performing_players( type ) );
+  }
   else if ( util::str_compare_ci( type, "hps" ) )
   {
     long_type = "Heal & Absorb per Second";
@@ -2899,6 +2904,8 @@ bool chart::generate_raid_aps( highchart::bar_chart_t& bc,
     e.name = p -> name_str;
     if ( util::str_compare_ci( type, "dps" ) )
       e.value = p -> collected_data.dps.mean();
+    else if ( util::str_compare_ci( type, "prioritydps" ) )
+      e.value = p -> collected_data.prioritydps.mean();
     else if ( util::str_compare_ci( type, "hps" ) )
       e.value = p -> collected_data.hps.mean() + p -> collected_data.aps.mean();
     else if ( util::str_compare_ci( type, "dtps" ) )

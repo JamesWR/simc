@@ -1683,6 +1683,7 @@ const char* util::scale_metric_type_string( scale_metric_e sm )
   {
     case SCALE_METRIC_DPS:       return "Damage per Second";
     case SCALE_METRIC_DPSE:      return "Damage per Second (effective)";
+    case SCALE_METRIC_DPSP:      return "Damage per Second to Priority Target/Boss";
     case SCALE_METRIC_HPS:       return "Healing per Second";
     case SCALE_METRIC_HPSE:      return "Healing per Second (effective)";
     case SCALE_METRIC_APS:       return "Absorb per Second";

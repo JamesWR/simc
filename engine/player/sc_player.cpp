@@ -8814,9 +8814,6 @@ scaling_metric_data_t player_t::scaling_for_metric( scale_metric_e metric ) cons
   if ( !q )
     q = this;
 
-
-  if ( util::str_compare_ci( so, "prioritydps" ) )
-    return q -> collected_data.prioritydps;
   switch ( metric )
   {
     case SCALE_METRIC_DPS:        return scaling_metric_data_t( metric, q -> collected_data.dps );
@@ -8824,7 +8821,7 @@ scaling_metric_data_t player_t::scaling_for_metric( scale_metric_e metric ) cons
     case SCALE_METRIC_HPS:        return scaling_metric_data_t( metric, q -> collected_data.hps );
     case SCALE_METRIC_HPSE:       return scaling_metric_data_t( metric, q -> collected_data.hpse );
     case SCALE_METRIC_APS:        return scaling_metric_data_t( metric, q -> collected_data.aps );
-    case SCALE_METRIC DPSP:       return scaling_metric_data_t( metric, q -> collected_data.prioritydps );
+    case SCALE_METRIC_DPSP:       return scaling_metric_data_t( metric, q -> collected_data.prioritydps );
     case SCALE_METRIC_HAPS:
       {
         double mean = q -> collected_data.hps.mean() + q -> collected_data.aps.mean();
