@@ -399,8 +399,8 @@ public:
     cooldown.storm_bolt               = get_cooldown( "storm_bolt" );
 
     initial_rage = 0;
-    arms_rage_mult = 1.695;
-    crit_rage_mult = 2.325;
+    arms_rage_mult = 1.7;
+    crit_rage_mult = 2.3;
     swapping = false;
     gladiator = true; //Gladiator until proven otherwise.
     base.distance = 5.0;
@@ -811,7 +811,7 @@ struct warrior_attack_t: public warrior_action_t < melee_attack_t >
   {
     // WoD: base rage gain is 3.5 * weaponspeed and half that for off-hand
     // Defensive/Gladiator stance: -100%
-    // Arms warriors get 1.695 times the rage per swing, and 2.325 times more rage on a crit.
+    // Arms warriors get 1.7 times the rage per swing, and 2.3 times more rage on a crit./3
     // They get 10 rage while in defensive stance, 20 on a crit.
 
     if ( p() -> active_stance != STANCE_BATTLE && p() -> specialization() != WARRIOR_ARMS )
@@ -1384,8 +1384,8 @@ struct bloodthirst_t: public warrior_attack_t
 
     weapon = &( p -> main_hand_weapon );
     bloodthirst_heal = new bloodthirst_heal_t( p );
-    weapon_multiplier *= 1.0 +  p -> sets.set( SET_MELEE, T14, B2 ) -> effectN( 2 ).percent();
-    weapon_multiplier *= 1.0 +  p -> sets.set( SET_MELEE, T16, B2 ) -> effectN( 1 ).percent();
+    weapon_multiplier *= 1.0 + p -> sets.set( SET_MELEE, T14, B2 ) -> effectN( 2 ).percent();
+    weapon_multiplier *= 1.0 + p -> sets.set( SET_MELEE, T16, B2 ) -> effectN( 1 ).percent();
   }
 
   double composite_crit() const
@@ -1407,15 +1407,14 @@ struct bloodthirst_t: public warrior_attack_t
   {
     warrior_attack_t::execute();
     p() -> buff.tier16_4pc_death_sentence -> trigger();
-  }
 
-  void impact( action_state_t* s )
-  {
-    warrior_attack_t::impact( s );
-
-    if ( result_is_hit( s -> result ) )
+    if ( result_is_hit( execute_state -> result ) )
     {
       bloodthirst_heal -> execute();
+
+      if ( execute_state -> result == RESULT_CRIT )
+        p() -> enrage();
+
       int bloodsurge = 0;
 
       if ( p() -> buff.bloodsurge -> check() )
@@ -1428,18 +1427,14 @@ struct bloodthirst_t: public warrior_attack_t
           {
             p() -> proc.bloodsurge_wasted -> occur();
             bloodsurge--;
-          }
-          while ( bloodsurge > 0 );
+          } while ( bloodsurge > 0 );
         }
       }
     }
 
     p() -> resource_gain( RESOURCE_RAGE,
-                          data().effectN( 3 ).resource( RESOURCE_RAGE ),
-                          p() -> gain.bloodthirst );
-
-    if ( s -> result == RESULT_CRIT)
-      p() -> enrage();
+      data().effectN( 3 ).resource( RESOURCE_RAGE ),
+      p() -> gain.bloodthirst );
   }
 };
 
@@ -1544,25 +1539,22 @@ struct colossus_smash_t: public warrior_attack_t
   {
     warrior_attack_t::execute();
 
-    if ( p() -> sets.has_set_bonus( WARRIOR_ARMS, T17, B4 ) )
+    if ( result_is_hit( execute_state -> result ) )
     {
-      p() -> resource_gain( RESOURCE_RAGE, ( p() -> dbc.ptr ? 20 : // Fix
-        p() -> sets.set( WARRIOR_ARMS, T17, B4 ) -> effectN( 1 ).trigger() -> effectN( 1 ).resource( RESOURCE_RAGE ) ),
-        p() -> gain.tier17_4pc_arms );
-    }
-    if ( p() -> sets.set( WARRIOR_ARMS, T17, B2 ) )
-      if ( p() -> buff.tier17_2pc_arms -> trigger() )
-        p() -> proc.t17_2pc_arms -> occur();
-  }
-
-  void impact( action_state_t* s )
-  {
-    warrior_attack_t::impact( s );
-
-    if ( result_is_hit( s -> result ) )
-    {
-      td( s -> target ) -> debuffs_colossus_smash -> trigger( 1, data().effectN( 2 ).percent() );
+      td( execute_state -> target ) -> debuffs_colossus_smash -> trigger( 1, data().effectN( 2 ).percent() );
       p() -> buff.colossus_smash -> trigger();
+
+      if ( p() -> sets.has_set_bonus( WARRIOR_ARMS, T17, B4 ) )
+      {
+        p() -> resource_gain( RESOURCE_RAGE, ( p() -> dbc.ptr ? 20 : // Fix
+          p() -> sets.set( WARRIOR_ARMS, T17, B4 ) -> effectN( 1 ).trigger() -> effectN( 1 ).resource( RESOURCE_RAGE ) ),
+          p() -> gain.tier17_4pc_arms );
+      }
+      if ( p() -> sets.set( WARRIOR_ARMS, T17, B2 ) )
+      {
+        if ( p() -> buff.tier17_2pc_arms -> trigger() )
+          p() -> proc.t17_2pc_arms -> occur();
+      }
     }
   }
 };
@@ -1617,15 +1609,10 @@ struct devastate_t: public warrior_attack_t
         if ( p() -> buff.unyielding_strikes -> current_stack != p() -> buff.unyielding_strikes -> max_stack() )
           p() -> buff.unyielding_strikes -> trigger( 1 );
       }
+
+      if ( execute_state -> result == RESULT_CRIT )
+        p() -> enrage();
     }
-  }
-
-  void impact( action_state_t* s )
-  {
-    warrior_attack_t::impact( s );
-
-    if ( s -> result == RESULT_CRIT )
-      p() -> enrage();
   }
 
   bool ready()
@@ -1805,12 +1792,19 @@ struct execute_t: public warrior_attack_t
 
 struct hamstring_t: public warrior_attack_t
 {
+  double anger_management_rage;
   hamstring_t( warrior_t* p, const std::string& options_str ):
     warrior_attack_t( "hamstring", p, p -> find_class_spell( "Hamstring" ) )
   {
     parse_options( options_str );
     stancemask = STANCE_BATTLE | STANCE_GLADIATOR | STANCE_DEFENSE;
     weapon = &( p -> main_hand_weapon );
+    anger_management_rage = 5.0; // Hamstring reduces AM by 5 rage, not 10.
+  }
+
+  void anger_management( double )
+  {
+    base_t::anger_management( anger_management_rage );
   }
 };
 
@@ -1977,7 +1971,10 @@ struct heroic_leap_t: public warrior_attack_t
     if ( p() -> current.distance_to_move > heroic_leap_damage -> effectN( 1 ).radius() )
       s -> result_amount = 0;
     warrior_attack_t::impact( s );
-    p() -> buff.heroic_leap_glyph -> trigger();
+    if ( result_is_hit( s -> result ) )
+    {
+      p() -> buff.heroic_leap_glyph -> trigger();
+    }
   }
 
   bool ready()
@@ -2101,20 +2098,14 @@ struct mortal_strike_t: public warrior_attack_t
     weapon_multiplier *= 1.0 + p -> sets.set( SET_MELEE, T16, B2 ) -> effectN( 1 ).percent();
   }
 
-  void impact( action_state_t* s )
-  {
-    warrior_attack_t::impact( s );
-
-    if ( result_is_hit( s -> result ) )
-    {
-      if ( sim -> overrides.mortal_wounds )
-        s -> target -> debuffs.mortal_wounds -> trigger();
-    }
-  }
-
   void execute()
   {
     warrior_attack_t::execute();
+    if ( result_is_hit( execute_state -> result ) )
+    {
+      if ( sim -> overrides.mortal_wounds )
+        execute_state -> target -> debuffs.mortal_wounds -> trigger();
+    }
     p() -> buff.tier16_4pc_death_sentence -> trigger();
   }
 
@@ -2182,11 +2173,13 @@ struct raging_blow_attack_t: public warrior_attack_t
     dual = true;
   }
 
-  void impact( action_state_t* s )
+  void execute()
   {
-    warrior_attack_t::impact( s );
+    aoe = p() -> buff.meat_cleaver -> stack();
+    if ( aoe ) ++aoe;
 
-    if ( s -> result == RESULT_CRIT )
+    warrior_attack_t::execute();
+    if ( execute_state -> result == RESULT_CRIT )
     { // Can proc off MH/OH individually from each meat cleaver hit.
       if ( rng().roll( p() -> sets.set( WARRIOR_FURY, T17, B2 ) -> proc_chance() ) )
       {
@@ -2194,14 +2187,6 @@ struct raging_blow_attack_t: public warrior_attack_t
         p() -> proc.t17_2pc_fury -> occur();
       }
     }
-  }
-
-  void execute()
-  {
-    aoe = p() -> buff.meat_cleaver -> stack();
-    if ( aoe ) ++aoe;
-
-    warrior_attack_t::execute();
   }
 };
 
@@ -2302,6 +2287,8 @@ struct revenge_t: public warrior_attack_t
           rage_gain * p() -> sets.set( SET_TANK, T15, B4 ) -> effectN( 1 ).percent(),
           p() -> gain.tier15_4pc_tank );
       }
+      if ( rng().roll( p() -> sets.set( SET_TANK, T15, B2 ) -> proc_chance() ) )
+        p() -> buff.tier15_2pc_tank -> trigger();
     }
   }
 
@@ -2313,17 +2300,6 @@ struct revenge_t: public warrior_attack_t
     {
       double original_damage = s -> result_amount;
       p() -> shield_charge_damage.add( original_damage );
-    }
-  }
-
-  void impact( action_state_t* s )
-  {
-    warrior_attack_t::impact( s );
-
-    if ( result_is_hit( s -> result ) )
-    {
-      if ( rng().roll( p() -> sets.set( SET_TANK, T15, B4 ) -> proc_chance() ) )
-        p() -> buff.tier15_2pc_tank -> trigger();
     }
   }
 
@@ -2640,38 +2616,32 @@ struct shield_slam_t: public warrior_attack_t
       if ( p() -> active_stance != STANCE_BATTLE )
       {
         p() -> resource_gain( RESOURCE_RAGE,
-                              rage_gain,
-                              p() -> gain.shield_slam );
+          rage_gain,
+          p() -> gain.shield_slam );
 
         if ( p() -> buff.sword_and_board -> up() )
         {
           rage_from_snb = p() -> buff.sword_and_board -> data().effectN( 1 ).resource( RESOURCE_RAGE );
           p() -> resource_gain( RESOURCE_RAGE,
-                                rage_from_snb,
-                                p() -> gain.sword_and_board );
+            rage_from_snb,
+            p() -> gain.sword_and_board );
         }
         p() -> buff.sword_and_board -> expire();
       }
+      if ( rng().roll( p() -> sets.set( SET_TANK, T15, B2 ) -> proc_chance() ) )
+        p() -> buff.tier15_2pc_tank -> trigger();
+
+      if ( execute_state -> result == RESULT_CRIT )
+      {
+        p() -> enrage();
+        p() -> buff.ultimatum -> trigger();
+      }
     }
 
-    if ( td( target ) -> debuffs_demoralizing_shout -> up() && p() -> sets.has_set_bonus( SET_TANK, T15, B4 ) )
+    if ( td( execute_state -> target ) -> debuffs_demoralizing_shout -> up() && p() -> sets.has_set_bonus( SET_TANK, T15, B4 ) )
       p() -> resource_gain( RESOURCE_RAGE,
       ( rage_gain + rage_from_snb ) * p() -> sets.set( SET_TANK, T15, B4 ) -> effectN( 1 ).percent(),
       p() -> gain.tier15_4pc_tank );
-  }
-
-  void impact( action_state_t* s )
-  {
-    warrior_attack_t::impact( s );
-
-    if ( rng().roll( p() -> sets.set( SET_TANK, T15, B2 ) -> proc_chance() ) )
-      p() -> buff.tier15_2pc_tank -> trigger();
-
-    if ( s -> result == RESULT_CRIT )
-    {
-      p() -> enrage();
-      p() -> buff.ultimatum -> trigger();
-    }
   }
 
   bool ready()
@@ -5508,7 +5478,7 @@ void warrior_t::assess_damage( school_e school,
     }
   }
 
-  if ( s -> result == RESULT_DODGE || s -> result == RESULT_PARRY )
+  if ( ( s -> result == RESULT_DODGE || s -> result == RESULT_PARRY ) && !s -> action -> is_aoe() ) // AoE attacks do not reset revenge.
     cooldown.revenge -> reset( true );
 
   if ( s -> result == RESULT_PARRY && buff.die_by_the_sword -> up() && glyphs.drawn_sword )

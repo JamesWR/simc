@@ -142,6 +142,7 @@ static void format_double( std::string& buffer, double d, int min_width, int pre
 
   str.reserve( 32 );
 
+#ifndef __FAST_MATH__
   if( sc_isnan( d ) )
   {
     str         = "NaN";  // reverse
@@ -156,6 +157,7 @@ static void format_double( std::string& buffer, double d, int min_width, int pre
     if( d < 0 ) negative = true;
   }
   else
+#endif /* __FAST_MATH__ */
   {
     if( min_width == -1 ) min_width = 0;  // defaults
     if( precision == -1 ) precision = 6;
@@ -212,12 +214,14 @@ static void format_double( std::string& buffer, double d, int min_width, int pre
     fraction = modf( d, &integer );
 
     // integer part (reverse order)
+    const size_t max_digits = 30;
+    size_t n_digits = 0;
     do
     {
       digit = modf( integer / 10.0, &integer );
       str += digits[ int((digit * 10.0) + 0.5) ];
     }
-    while( integer > 0.0 );
+    while( integer > 0.0 && ++n_digits < max_digits );
   }
 
   if( negative )

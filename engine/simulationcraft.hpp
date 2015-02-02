@@ -6,11 +6,10 @@
 #define SIMULATIONCRAFT_H
 
 #define SC_MAJOR_VERSION "603"
-#define SC_MINOR_VERSION "25"
+#define SC_MINOR_VERSION "26"
 #define SC_USE_PTR ( 1 )
 #define SC_BETA ( 0 )
 #define SC_BETA_STR "wod"
-
 #define SC_VERSION ( SC_MAJOR_VERSION "-" SC_MINOR_VERSION )
 
 // Platform, compiler and general configuration
@@ -4526,6 +4525,7 @@ struct player_t : public actor_t
   std::string choose_action_list;
   std::string action_list_skip;
   std::string modify_action;
+  std::string use_apl;
   bool use_default_action_list;
   auto_dispose< std::vector<dot_t*> > dot_list;
   auto_dispose< std::vector<action_priority_list_t*> > action_priority_list;
@@ -5051,6 +5051,7 @@ struct player_t : public actor_t
 
   action_priority_list_t* find_action_priority_list( const std::string& name );
   void                    clear_action_priority_lists() const;
+  void                    copy_action_priority_list( const std::string& old_list, const std::string& new_list );
 
   pet_t*    find_pet( const std::string& name ) const;
   item_t*     find_item( const std::string& );
