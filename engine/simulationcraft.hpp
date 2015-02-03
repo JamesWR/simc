@@ -6,7 +6,7 @@
 #define SIMULATIONCRAFT_H
 
 #define SC_MAJOR_VERSION "603"
-#define SC_MINOR_VERSION "26"
+#define SC_MINOR_VERSION "27"
 #define SC_USE_PTR ( 1 )
 #define SC_BETA ( 0 )
 #define SC_BETA_STR "wod"
@@ -1291,6 +1291,7 @@ bool str_prefix_ci ( const std::string& str, const std::string& prefix );
 double floor( double X, unsigned int decplaces = 0 );
 double ceil( double X, unsigned int decplaces = 0 );
 double round( double X, unsigned int decplaces = 0 );
+double get_avg_itemlvl( const player_t* p );
 
 std::string& tolower( std::string& str );
 
@@ -2775,6 +2776,7 @@ struct sim_t : private sc_thread_t
   int global_item_upgrade_level;
   bool maximize_reporting;
   std::string apikey;
+  bool ilevel_raid_report;
 
   sim_report_information_t report_information;
 
