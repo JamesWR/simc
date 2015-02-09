@@ -91,6 +91,9 @@ inline std::ostream& operator<<(std::ostream &os, const timespan_t& x )
 // String Utilities
 #include "util/str.hpp"
 
+// mutex, thread
+#include "util/concurrency.hpp"
+
 // Forward Declarations =====================================================
 
 struct absorb_buff_t;
@@ -1104,7 +1107,7 @@ struct stat_data_t
 
 // Utilities ================================================================
 
-#if defined ( SC_VS ) && SC_VS < 13 // VS 2014 adds in support for a C99-compliant snprintf
+#if defined ( SC_VS ) && SC_VS < 13 // VS 2015 adds in support for a C99-compliant snprintf
 // C99-compliant snprintf - MSVC _snprintf is NOT the same.
 
 #undef vsnprintf
@@ -1300,7 +1303,7 @@ std::string inverse_tokenize( const std::string& name );
 
 bool is_number( const std::string& s );
 
-int snprintf( char* buf, size_t size, const char* fmt, ... ) PRINTF_ATTRIBUTE( 3, 4 );
+int snformat( char* buf, size_t size, const char* fmt, ... );
 void fuzzy_stats( std::string& encoding, const std::string& description );
 
 template <class T>
@@ -2179,7 +2182,7 @@ struct expression_t
 
 struct expr_t
 {
-  expr_t( const std::string& name, token_e op=TOK_UNKNOWN ) : name_( name ), op_( op ) { id_=++unique_id; }
+  expr_t( const std::string& name, token_e op=TOK_UNKNOWN ) : name_( name ), op_( op ) { id_=get_global_id(); }
   virtual ~expr_t() {}
 
   const std::string& name() { return name_; }
@@ -2204,7 +2207,14 @@ struct expr_t
   token_e op_;
   int id_;
 
+  int get_global_id()
+  {
+    auto_lock_t lock( unique_id_mutex );
+    return ++unique_id;
+  }
+
   static int unique_id;
+  static mutex_t unique_id_mutex;
 };
 
 // Reference Expression - ref_expr_t
@@ -2312,9 +2322,6 @@ struct spell_data_expr_t
   static spell_data_expr_t* parse( sim_t* sim, const std::string& expr_str );
   static spell_data_expr_t* create_spell_expression( sim_t* sim, const std::string& name_str );
 };
-
-// mutex, thread
-#include "util/concurrency.hpp"
 
 // Iteration data entry for replayability
 struct iteration_data_entry_t
@@ -3353,7 +3360,7 @@ struct special_effect_t
   unsigned spell_id, trigger_spell_id;
   action_t* execute_action; // Allows custom action to be executed on use
   buff_t* custom_buff; // Allows custom action
-  void (*custom_init)(special_effect_t&, const item_t& );
+  void (*custom_init)(special_effect_t& );
 
 
   special_effect_t( player_t* p ) :
@@ -3364,7 +3371,6 @@ struct special_effect_t
   special_effect_t( const item_t* item );
 
   void reset();
-  bool parse_spell_data( const item_t& item, unsigned driver_id );
   std::string to_string() const;
   bool active() { return stat != STAT_NONE || school != SCHOOL_NONE || execute_action; }
 
@@ -3450,7 +3456,7 @@ struct item_t
     std::vector<stat_pair_t> addon_stats;
     std::vector<stat_pair_t> suffix_stats;
     item_data_t              data;
-    std::vector<special_effect_t> special_effects;
+    auto_dispose< std::vector<special_effect_t*> > special_effects;
     std::vector<std::string> source_list;
 
     parsed_input_t() :
@@ -3697,6 +3703,8 @@ struct set_bonus_t
   void initialize();
 
   expr_t* create_expression( const player_t*, const std::string& type );
+
+  std::vector<const item_set_bonus_t*> enabled_set_bonus_data() const;
 
   // Fast accessor to a set bonus spell, returns the spell, or spell_data_t::not_found()
   const spell_data_t* set( specialization_e spec, set_bonus_type_e set_bonus, set_bonus_e bonus ) const
@@ -4518,7 +4526,7 @@ struct player_t : public actor_t
 
   // Callbacks
   player_callbacks_t callbacks;
-  std::vector<special_effect_t> special_effects;
+  auto_dispose< std::vector<special_effect_t*> > special_effects;
   std::vector<std::function<void(void)> > callbacks_on_demise;
 
   // Action Priority List
@@ -4654,6 +4662,11 @@ struct player_t : public actor_t
     buff_t* archmages_incandescence_str;
     buff_t* archmages_incandescence_agi;
     buff_t* archmages_incandescence_int;
+
+    // T17 LFR stuf
+    buff_t* surge_of_energy;
+    buff_t* natures_fury;
+    buff_t* brute_strength;
   } buffs;
 
   struct debuffs_t
@@ -4770,7 +4783,7 @@ struct player_t : public actor_t
   virtual void init_stats();
   virtual void register_callbacks();
   // Class specific hook for first-phase initializing special effects. Returns true if the class-specific hook initialized something, false otherwise.
-  virtual bool init_special_effect( special_effect_t& /* effect */, const item_t& /* item */, unsigned /* spell_id */ ) { return false; }
+  virtual bool init_special_effect( special_effect_t& /* effect */, unsigned /* spell_id */ ) { return false; }
 
   bool init_actions();
 
@@ -6031,6 +6044,7 @@ public:
   void add_travel_event( travel_event_t* e ) { travel_events.push_back( e ); }
   void remove_travel_event( travel_event_t* e );
   bool has_travel_events() const { return ! travel_events.empty(); }
+  size_t get_num_travel_events() const { return travel_events.size(); }
   bool has_travel_events_for( const player_t* target ) const;
   const std::vector<travel_event_t*>& current_travel_events() const
   { return travel_events; }
@@ -6793,6 +6807,12 @@ struct dbc_proc_callback_t : public action_callback_t
     proc_buff( 0 ), proc_action( 0 ), weapon( 0 )
   { }
 
+  dbc_proc_callback_t( const item_t* i, const special_effect_t& e ) :
+    action_callback_t( i -> player ), item( *i ), effect( e ), cooldown( 0 ),
+    proc_chance( 0 ), ppm( 0 ),
+    proc_buff( 0 ), proc_action( 0 ), weapon( 0 )
+  { }
+
   dbc_proc_callback_t( player_t* p, const special_effect_t& e ) :
     action_callback_t( p ), item( default_item_ ), effect( e ), cooldown( 0 ),
     proc_chance( 0 ), ppm( 0 ),
@@ -6876,6 +6896,7 @@ private:
     {
       action_state_t* proc_state = proc_action -> get_state();
       proc_state -> target = state -> target;
+      proc_action -> target = state -> target;
       proc_action -> snapshot_state( proc_state, proc_action -> type == ACTION_HEAL ? HEAL_DIRECT : DMG_DIRECT );
       proc_action -> schedule_execute( proc_state );
 
@@ -7101,7 +7122,7 @@ size_t parse_tokens( std::vector<token_t>& tokens, const std::string& encoded_st
 
 namespace special_effect
 {
-  bool parse_special_effect_encoding( special_effect_t& effect, const item_t& item, const std::string& str );
+  bool parse_special_effect_encoding( special_effect_t& effect, const std::string& str );
   bool usable_proc( const special_effect_t& effect );
 }
 
@@ -7137,13 +7158,13 @@ namespace unique_gear
     unsigned    spell_id;
     const char* encoded_options;
     //const std::function<void(special_effect_t&, const item_t&, const special_effect_db_item_t&)> custom_cb;
-    void (*custom_cb)( special_effect_t&, const item_t& );
+    void (*custom_cb)( special_effect_t& );
   };
 
 void init( player_t* );
 
 const special_effect_db_item_t& find_special_effect_db_item( const special_effect_db_item_t* start, unsigned n, unsigned spell_id );
-bool initialize_special_effect( special_effect_t& effect, const item_t& item, unsigned spell_id );
+bool initialize_special_effect( special_effect_t& effect, unsigned spell_id );
 
 const item_data_t* find_consumable( const dbc_t& dbc, const std::string& name, item_subclass_consumable type );
 const item_data_t* find_item_by_spell( const dbc_t& dbc, unsigned spell_id );

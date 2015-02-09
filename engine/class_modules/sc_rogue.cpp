@@ -1523,7 +1523,9 @@ struct ambush_t : public rogue_attack_t
     requires_position = POSITION_BACK;
     requires_stealth  = true;
     if ( p -> wod_hotfix )
-      weapon_multiplier *= 1.13;
+    {
+      weapon_multiplier = 3.15;
+    }
   }
 
   double action_multiplier() const
@@ -1616,8 +1618,7 @@ struct backstab_t : public rogue_attack_t
     requires_position = POSITION_BACK;
     if ( p -> wod_hotfix )
     {
-      weapon_multiplier *= 1.13;
-      weapon_multiplier *= 1.2;
+      weapon_multiplier = 2.10;
     }
   }
 
@@ -2073,8 +2074,8 @@ struct hemorrhage_t : public rogue_attack_t
     may_multistrike = true;
     if ( p -> wod_hotfix )
     {
-      weapon_multiplier *= 1.2 * 1.3;
-      attack_power_mod.tick *= 1.2 * 1.3;
+      weapon_multiplier = 0.65;
+      attack_power_mod.tick = 0.055;
     }
   }
 
@@ -3293,9 +3294,6 @@ void rogue_t::trigger_seal_fate( const action_state_t* state )
   if ( state -> result != RESULT_CRIT )
     return;
 
-  if ( state -> target != state -> action -> target )
-    return;
-
   if ( cooldowns.seal_fate -> down() )
     return;
 
@@ -3568,7 +3566,7 @@ void rogue_t::trigger_combo_point_gain( const action_state_t* state, int cp_over
     anticipation_added = std::min( anticipation_fill, overflow );
     anticipation_overflow = overflow - anticipation_added;
     if ( anticipation_added > 0 || anticipation_overflow > 0 )
-      overflow = 0;
+      overflow = 0; // this is never used further???
   }
 
   gain_t* gain_obj = gain;
@@ -3596,11 +3594,13 @@ void rogue_t::trigger_combo_point_gain( const action_state_t* state, int cp_over
 
   if ( sim -> log )
   {
-    std::string cp_name;
-    if ( gain != 0)
+    std::string cp_name = "unknown";
+    if ( gain )
       cp_name = gain -> name_str;
-    else
+    else if ( state && state -> action )
+    {
       cp_name = state -> action -> name();
+    }
 
     if ( anticipation_added > 0 || anticipation_overflow > 0 )
       sim -> out_log.printf( "%s gains %d (%d) anticipation charges from %s (%d)",
@@ -4229,7 +4229,9 @@ struct shadow_reflection_pet_t : public pet_t
     {
       requires_position = POSITION_BACK;
       if ( p -> wod_hotfix )
-        weapon_multiplier *= 1.13;
+      {
+        weapon_multiplier = 3.15;
+      }
     }
   };
 
@@ -4243,8 +4245,8 @@ struct shadow_reflection_pet_t : public pet_t
       dot_behavior = DOT_REFRESH;
       if ( p -> wod_hotfix )
       {
-        weapon_multiplier *= 1.2 * 1.3;
-        attack_power_mod.tick *= 1.2 * 1.3;
+        weapon_multiplier = 0.65;
+        attack_power_mod.tick = 0.055;
       }
     }
   };
@@ -4257,8 +4259,7 @@ struct shadow_reflection_pet_t : public pet_t
       requires_position = POSITION_BACK;
       if ( p -> wod_hotfix )
       {
-        weapon_multiplier *= 1.13;
-        weapon_multiplier *= 1.2;
+        weapon_multiplier = 2.15;
       }
     }
   };
@@ -4820,18 +4821,18 @@ void rogue_t::init_action_list()
     def -> add_action( this, "Slice and Dice", "if=buff.slice_and_dice.remains<5" );
     def -> add_talent( this, "Marked for Death", "if=combo_points=0" );
     def -> add_action( this, "Crimson Tempest", "if=combo_points>4&active_enemies>=4&remains<8" );
-    def -> add_action( this, "Fan of Knives", "if=combo_points<5&active_enemies>=4" );
+    def -> add_action( this, "Fan of Knives", "if=(combo_points<5|(talent.anticipation.enabled&anticipation_charges<4))&active_enemies>=4" );
     def -> add_action( this, "Rupture", "if=(remains<2|(combo_points=5&remains<=(duration*0.3)))&active_enemies=1" );
-    def -> add_talent( this, "Shadow Reflection", "if=cooldown.vendetta.remains=0" );
+    def -> add_talent( this, "Shadow Reflection", "if=combo_points>4" );
     def -> add_action( this, "Vendetta", "if=buff.shadow_reflection.up|!talent.shadow_reflection.enabled" );
     def -> add_talent( this, "Death from Above", "if=combo_points>4" );
     def -> add_action( this, "Envenom", "cycle_targets=1,if=(combo_points>4&(cooldown.death_from_above.remains>2|!talent.death_from_above.enabled))&active_enemies<4&!dot.deadly_poison_dot.ticking" );
     def -> add_action( this, "Envenom", "if=(combo_points>4&(cooldown.death_from_above.remains>2|!talent.death_from_above.enabled))&active_enemies<4&(buff.envenom.remains<=1.8|energy>55)" );
     def -> add_action( this, "Fan of Knives", "cycle_targets=1,if=active_enemies>2&!dot.deadly_poison_dot.ticking&debuff.vendetta.down" );
-    def -> add_action( this, "Mutilate", "cycle_targets=1,if=target.health.pct>35&(combo_points<4|(talent.anticipation.enabled&anticipation_charges<3))&active_enemies=2&!dot.deadly_poison_dot.ticking&debuff.vendetta.down" );
-    def -> add_action( this, "Mutilate", "if=target.health.pct>35&(combo_points<4|(talent.anticipation.enabled&anticipation_charges<3))&active_enemies<5" );
     def -> add_action( this, "Dispatch", "cycle_targets=1,if=(combo_points<5|(talent.anticipation.enabled&anticipation_charges<4))&active_enemies=2&!dot.deadly_poison_dot.ticking&debuff.vendetta.down" );
     def -> add_action( this, "Dispatch", "if=(combo_points<5|(talent.anticipation.enabled&anticipation_charges<4))&active_enemies<4" );
+    def -> add_action( this, "Mutilate", "cycle_targets=1,if=target.health.pct>35&(combo_points<4|(talent.anticipation.enabled&anticipation_charges<3))&active_enemies=2&!dot.deadly_poison_dot.ticking&debuff.vendetta.down" );
+    def -> add_action( this, "Mutilate", "if=target.health.pct>35&(combo_points<4|(talent.anticipation.enabled&anticipation_charges<3))&active_enemies<5" );
     def -> add_action( this, "Mutilate", "cycle_targets=1,if=active_enemies=2&!dot.deadly_poison_dot.ticking&debuff.vendetta.down" );
     def -> add_action( this, "Mutilate", "if=active_enemies<5" );
   }
@@ -4964,7 +4965,7 @@ void rogue_t::init_action_list()
 
     // Combo point finishers
     action_priority_list_t* finisher = get_action_priority_list( "finisher", "Combo point finishers" );
-    finisher -> add_action( this, "Rupture", "cycle_targets=1,if=!ticking|remains<duration*0.3|(buff.shadow_reflection.remains>8&dot.rupture.remains<12)&target.time_to_die>=8" );
+    finisher -> add_action( this, "Rupture", "cycle_targets=1,if=(!ticking|remains<duration*0.3|(buff.shadow_reflection.remains>8&dot.rupture.remains<12))&target.time_to_die>=8" );
     finisher -> add_action( this, "Slice and Dice", "if=(buff.slice_and_dice.remains<10.8)&buff.slice_and_dice.remains<target.time_to_die" );
     finisher -> add_talent( this, "Death from Above" );
     finisher -> add_action( this, "Crimson Tempest", "if=(active_enemies>=2&debuff.find_weakness.down)|active_enemies>=3&(cooldown.death_from_above.remains>0|!talent.death_from_above.enabled)" );
@@ -5266,14 +5267,14 @@ void rogue_t::init_procs()
     for ( size_t i = 0; i < sim -> player_no_pet_list.size(); i++ )
     {
       player_t* p = sim -> player_no_pet_list[ i ];
-      special_effect_t effect( p );
-      effect.spell_id = spec.honor_among_thieves -> id();
-      effect.proc_flags2_ = PF2_CRIT;
-      effect.cooldown_ = timespan_t::zero();
+      special_effect_t* effect = new special_effect_t( p );
+      effect -> spell_id = spec.honor_among_thieves -> id();
+      effect -> proc_flags2_ = PF2_CRIT;
+      effect -> cooldown_ = timespan_t::zero();
 
       p -> special_effects.push_back( effect );
 
-      honor_among_thieves_callback_t* cb = new honor_among_thieves_callback_t( p, this, p -> special_effects.back() );
+      honor_among_thieves_callback_t* cb = new honor_among_thieves_callback_t( p, this, *p -> special_effects.back() );
       cb -> initialize();
     }
   }
@@ -5617,16 +5618,16 @@ public:
 
       os << "<tr>";
       os << "<td class=\"left\">Main hand</td>";
-      os.printf("<td class=\"right\">%.3f</td>", p.dfa_mh -> min() );
-      os.printf("<td class=\"right\">%.3f</td>", p.dfa_mh -> mean() );
-      os.printf("<td class=\"right\">%.3f</td>", p.dfa_mh -> max() );
+      os.format("<td class=\"right\">%.3f</td>", p.dfa_mh -> min() );
+      os.format("<td class=\"right\">%.3f</td>", p.dfa_mh -> mean() );
+      os.format("<td class=\"right\">%.3f</td>", p.dfa_mh -> max() );
       os << "</tr>";
 
       os << "<tr>";
       os << "<td class=\"left\">Off hand</td>";
-      os.printf("<td class=\"right\">%.3f</td>", p.dfa_oh -> min() );
-      os.printf("<td class=\"right\">%.3f</td>", p.dfa_oh -> mean() );
-      os.printf("<td class=\"right\">%.3f</td>", p.dfa_oh -> max() );
+      os.format("<td class=\"right\">%.3f</td>", p.dfa_oh -> min() );
+      os.format("<td class=\"right\">%.3f</td>", p.dfa_oh -> mean() );
+      os.format("<td class=\"right\">%.3f</td>", p.dfa_oh -> max() );
       os << "</tr>";
 
       os << "</table>";

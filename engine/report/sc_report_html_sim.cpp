@@ -76,7 +76,7 @@ void print_raw_action_damage( report::sc_html_stream& os, stats_t* s, player_t* 
       os << " class=\"odd\"";
     os << ">\n";
 
-    os.printf(
+    os.format(
       format,
       util::encode_html( p -> name() ).c_str(),
       util::encode_html( s -> player -> name() ).c_str(),
@@ -107,7 +107,7 @@ void print_raw_action_damage( report::sc_html_stream& os, stats_t* s, player_t* 
       os << " class=\"odd\"";
     os << ">\n";
 
-    os.printf(
+    os.format(
       format,
       util::encode_html( p -> name() ).c_str(),
       util::encode_html( s -> player -> name() ).c_str(),
@@ -428,7 +428,7 @@ void print_html_sim_summary( report::sc_html_stream& os, sim_t* sim, const sim_r
      << "<td>" << sim -> confidence * 100.0 << "%</td>\n"
      << "</tr>\n";
 
-  os.printf( "<tr class=\"left\">\n"
+  os.format( "<tr class=\"left\">\n"
              "<th><a href=\"#help-fight-length\" class=\"help\">Fight Length%s:</a></th>\n"
              "<td>%.0f - %.0f ( %.1f )</td>\n"
              "</tr>\n",
@@ -442,39 +442,39 @@ void print_html_sim_summary( report::sc_html_stream& os, sim_t* sim, const sim_r
      << "<td></td>\n"
      << "</tr>\n";
 
-  os.printf(
+  os.format(
     "<tr class=\"left\">\n"
     "<th>Total Events Processed:</th>\n"
     "<td>%lu</td>\n"
     "</tr>\n",
     sim -> event_mgr.total_events_processed );
 
-  os.printf(
+  os.format(
     "<tr class=\"left\">\n"
     "<th>Max Event Queue:</th>\n"
     "<td>%ld</td>\n"
     "</tr>\n",
     ( long ) sim -> event_mgr.max_events_remaining );
 
-  os.printf(
+  os.format(
     "<tr class=\"left\">\n"
     "<th>Sim Seconds:</th>\n"
     "<td>%.0f</td>\n"
     "</tr>\n",
     sim -> iterations * sim -> simulation_length.mean() );
-  os.printf(
+  os.format(
     "<tr class=\"left\">\n"
     "<th>CPU Seconds:</th>\n"
     "<td>%.4f</td>\n"
     "</tr>\n",
     sim -> elapsed_cpu );
-  os.printf(
+  os.format(
     "<tr class=\"left\">\n"
     "<th>Physical Seconds:</th>\n"
     "<td>%.4f</td>\n"
     "</tr>\n",
     sim -> elapsed_time );
-  os.printf(
+  os.format(
     "<tr class=\"left\">\n"
     "<th>Speed Up:</th>\n"
     "<td>%.0f</td>\n"
@@ -486,13 +486,13 @@ void print_html_sim_summary( report::sc_html_stream& os, sim_t* sim, const sim_r
      << "<td></td>\n"
      << "</tr>\n";
 
-  os.printf(
+  os.format(
     "<tr class=\"left\">\n"
     "<th>World Lag:</th>\n"
     "<td>%.0f ms ( stddev = %.0f ms )</td>\n"
     "</tr>\n",
     ( double )sim -> world_lag.total_millis(), ( double )sim -> world_lag_stddev.total_millis() );
-  os.printf(
+  os.format(
     "<tr class=\"left\">\n"
     "<th>Queue Lag:</th>\n"
     "<td>%.0f ms ( stddev = %.0f ms )</td>\n"
@@ -501,19 +501,19 @@ void print_html_sim_summary( report::sc_html_stream& os, sim_t* sim, const sim_r
 
   if ( sim -> strict_gcd_queue )
   {
-    os.printf(
+    os.format(
       "<tr class=\"left\">\n"
       "<th>GCD Lag:</th>\n"
       "<td>%.0f ms ( stddev = %.0f ms )</td>\n"
       "</tr>\n",
       ( double )sim -> gcd_lag.total_millis(), ( double )sim -> gcd_lag_stddev.total_millis() );
-    os.printf(
+    os.format(
       "<tr class=\"left\">\n"
       "<th>Channel Lag:</th>\n"
       "<td>%.0f ms ( stddev = %.0f ms )</td>\n"
       "</tr>\n",
       ( double )sim -> channel_lag.total_millis(), ( double )sim -> channel_lag_stddev.total_millis() );
-    os.printf(
+    os.format(
       "<tr class=\"left\">\n"
       "<th>Queue GCD Reduction:</th>\n"
       "<td>%.0f ms</td>\n"
@@ -580,18 +580,18 @@ void print_html_raid_summary( report::sc_html_stream& os, sim_t* sim, const sim_
 
   os << "<ul class=\"params\">\n";
 
-  os.printf(
+  os.format(
     "<li><b>Raid Damage:</b> %.0f</li>\n",
     sim -> total_dmg.mean() );
-  os.printf(
+  os.format(
     "<li><b>Raid DPS:</b> %.0f</li>\n",
     sim -> raid_dps.mean() );
   if ( sim -> total_heal.mean() > 0 )
   {
-    os.printf(
+    os.format(
       "<li><b>Raid Heal+Absorb:</b> %.0f</li>\n",
       sim -> total_heal.mean() + sim -> total_absorb.mean() );
-    os.printf(
+    os.format(
       "<li><b>Raid HPS+APS:</b> %.0f</li>\n",
       sim -> raid_hps.mean() + sim -> raid_aps.mean() );
   }
@@ -627,7 +627,7 @@ void print_html_raid_summary( report::sc_html_stream& os, sim_t* sim, const sim_
       }
       os << ">\n";
 
-      os.printf(
+      os.format(
         "<th class=\"right\">%d</th>\n"
         "<td class=\"left\">%s</td>\n"
         "</tr>\n",
@@ -661,7 +661,7 @@ void print_html_raid_summary( report::sc_html_stream& os, sim_t* sim, const sim_
     {
       player_t* p = sim -> players_by_name[ i ];
       double range = ( p -> collected_data.dps.percentile( 0.95 ) - p -> collected_data.dps.percentile( 0.05 ) ) / 2.0;
-      os.printf(
+      os.format(
         "<li>%s: %.1f / %.1f%%</li>\n",
         util::encode_html( p -> name() ).c_str(),
         range,
@@ -717,7 +717,7 @@ void print_html_raid_imagemap( report::sc_html_stream& os, sim_t* sim, size_t nu
   std::string imgid = str::format( "%sIMG%u", ( dps == 1 ) ? "DPS" : ( ( dps == 2 ) ? "PRIORITYDPS" : "HPS" ), as<unsigned>( num ) );
   std::string mapid = str::format( "%sMAP%u", ( dps == 1 ) ? "DPS" : ( ( dps == 2 ) ? "PRIORITYDPS" : "HPS" ), as<unsigned>( num ) );
 
-  os.printf(
+  os.format(
     "u = document.getElementById('%s').src;\n"
     "getMap(u, n, function(mapStr) {\n"
     "document.getElementById('%s').innerHTML += mapStr;\n"
@@ -848,7 +848,7 @@ void print_html_scale_factors( report::sc_html_stream& os, sim_t* sim )
       os << " class=\"odd\"";
     }
     os << ">\n";
-    os.printf(
+    os.format(
       "<td class=\"left small\">%s</td>\n",
       p -> name() );
     for ( stat_e j = STAT_NONE; j < STAT_MAX; j++ )
@@ -861,22 +861,22 @@ void print_html_scale_factors( report::sc_html_stream& os, sim_t* sim )
         }
         else
         {
-          os.printf(
+          os.format(
             "<td class=\"small\">%.*f</td>\n",
             sim -> report_precision,
             p -> scaling[ sm ].get_stat( j ) );
         }
       }
     }
-    os.printf(
+    os.format(
       "<td class=\"small\"><a href=\"%s\" class=\"ext\"> wowhead </a></td>\n",
       chart::gear_weights_wowhead( p )[sm].c_str() );
 #if LOOTRANK_ENABLED == 1
-    os.printf(
+    os.format(
       "<td class=\"small\"><a href=\"%s\"> lootrank</a></td>\n",
       p -> report_information.gear_weights_lootrank_link[ sm ].c_str() );
 #endif
-    os.printf( "</tr>\n" );
+    os.format( "</tr>\n" );
   }
   os << "</table>\n";
 
@@ -1046,7 +1046,7 @@ void print_html_masthead( report::sc_html_stream& os, sim_t* sim )
   // Begin masthead section
   os << "<div id=\"masthead\" class=\"section section-open\">\n\n";
 
-  os.printf(
+  os.format(
     "<span id=\"logo\"></span>\n"
     "<h1><a href=\"%s\">SimulationCraft %s</a></h1>\n"
     "<h2>for World of Warcraft %s %s (build level %d)</h2>\n\n",
@@ -1063,10 +1063,10 @@ void print_html_masthead( report::sc_html_stream& os, sim_t* sim )
   time( &rawtime );
 
   os << "<ul class=\"params\">\n";
-  os.printf(
+  os.format(
     "<li><b>Timestamp:</b> %s</li>\n",
     ctime( &rawtime ) );
-  os.printf(
+  os.format(
     "<li><b>Iterations:</b> %d</li>\n",
     sim -> iterations );
 
@@ -1074,18 +1074,18 @@ void print_html_masthead( report::sc_html_stream& os, sim_t* sim )
   {
     timespan_t min_length = sim -> max_time * ( 1 - sim -> vary_combat_length );
     timespan_t max_length = sim -> max_time * ( 1 + sim -> vary_combat_length );
-    os.printf(
+    os.format(
       "<li class=\"linked\"><a href=\"#help-fight-length\" class=\"help\"><b>Fight Length:</b> %.0f - %.0f</a></li>\n",
       min_length.total_seconds(),
       max_length.total_seconds() );
   }
   else
   {
-    os.printf(
+    os.format(
       "<li><b>Fight Length:</b> %.0f</li>\n",
       sim -> max_time.total_seconds() );
   }
-  os.printf(
+  os.format(
     "<li><b>Fight Style:</b> %s</li>\n",
     sim -> fight_style.c_str() );
   os << "</ul>\n"
