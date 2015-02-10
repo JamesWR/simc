@@ -1095,7 +1095,7 @@ sim_t::~sim_t()
 
 // sim_t::add_event (Please use core_event_t::add_event instead) ============
 
-void sim_t::add_event( core_event_t* e,
+void sim_t::add_event( event_t* e,
                        timespan_t delta_time )
 {
   event_mgr.add_event( e, delta_time );

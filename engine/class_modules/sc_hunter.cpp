@@ -38,7 +38,7 @@ struct hunter_td_t: public actor_pair_t
 struct hunter_t: public player_t
 {
 public:
-  core_event_t* sniper_training;
+  event_t* sniper_training;
   const spell_data_t* sniper_training_cd;
   timespan_t movement_ended;
 

@@ -113,7 +113,7 @@ struct cost_reduction_buff_t;
 class  dbc_t;
 struct debuff_t;
 struct dot_t;
-struct core_event_t;
+struct event_t;
 struct expr_t;
 struct gain_t;
 struct haste_buff_t;
@@ -1920,9 +1920,9 @@ public:
   const std::string name_str;
   const spell_data_t* s_data;
   player_t* const source;
-  core_event_t* expiration;
-  core_event_t* delay;
-  core_event_t* expiration_delay;
+  event_t* expiration;
+  event_t* delay;
+  event_t* expiration_delay;
   cooldown_t* cooldown;
   sc_timeline_t uptime_array;
 
@@ -1942,7 +1942,7 @@ public:
   timespan_t buff_duration;
   double default_chance;
   std::vector<timespan_t> stack_occurrence, stack_react_time;
-  std::vector<core_event_t*> stack_react_ready_triggers;
+  std::vector<event_t*> stack_react_ready_triggers;
 
   buff_refresh_behavior_e refresh_behavior;
   std::function<timespan_t(const buff_t*, const timespan_t&)> refresh_duration_callback;
@@ -1950,7 +1950,7 @@ public:
   // Ticking buff values
   timespan_t buff_period;
   buff_tick_behavior_e tick_behavior;
-  core_event_t* tick_event;
+  event_t* tick_event;
   std::function<void(buff_t*, int, int)> tick_callback;
 
   // tmp data collection
@@ -2535,16 +2535,16 @@ struct event_manager_t
   sim_t* sim;
   timespan_t current_time;
   uint64_t events_remaining;
-    uint64_t events_processed;
+  uint64_t events_processed;
   uint64_t total_events_processed;
   uint64_t max_events_remaining;
-    unsigned timing_slice, global_event_id;
-    std::vector<core_event_t*> timing_wheel;
-    core_event_t* recycled_event_list;
-    int    wheel_seconds, wheel_size, wheel_mask, wheel_shift;
-    double wheel_granularity;
-    timespan_t wheel_time;
-  std::vector<core_event_t*> allocated_events;
+  unsigned timing_slice, global_event_id;
+  std::vector<event_t*> timing_wheel;
+  event_t* recycled_event_list;
+  int    wheel_seconds, wheel_size, wheel_mask, wheel_shift;
+  double wheel_granularity;
+  timespan_t wheel_time;
+  std::vector<event_t*> allocated_events;
   stopwatch_t event_stopwatch;
   bool monitor_cpu;
   bool canceled;
@@ -2559,15 +2559,15 @@ struct event_manager_t
   event_manager_t( sim_t* );
  ~event_manager_t();
   void* allocate_event( std::size_t size );
-  void recycle_event( core_event_t* );
-  void add_event( core_event_t*, timespan_t delta_time );
-  void reschedule_event( core_event_t* );
-  core_event_t* next_event();
+  void recycle_event( event_t* );
+  void add_event( event_t*, timespan_t delta_time );
+  void reschedule_event( event_t* );
+  event_t* next_event();
   bool execute();
   void cancel();
   void flush();
-    void init();
-    void reset();
+  void init();
+  void reset();
   void merge( event_manager_t& other );
 };
 
@@ -2584,7 +2584,7 @@ struct sim_t : private sc_thread_t
   bool debug;
 
   // Iteration Controls
-  timespan_t  max_time, expected_iteration_time;
+  timespan_t max_time, expected_iteration_time;
   double vary_combat_length;
   int current_iteration, iterations;
   bool canceled;
@@ -2682,7 +2682,7 @@ struct sim_t : private sc_thread_t
   int convergence_scale;
 
   rng_t& rng() const { return *_rng; }
-  double    averaged_range( double min, double max );
+  double averaged_range( double min, double max );
 
   // Raid Events
   auto_dispose< std::vector<raid_event_t*> > raid_events;
@@ -2847,7 +2847,7 @@ struct sim_t : private sc_thread_t
   virtual ~sim_t();
 
   int       main( const std::vector<std::string>& args );
-  void      add_event( core_event_t*, timespan_t delta_time );
+  void      add_event( event_t*, timespan_t delta_time );
   double    iteration_time_adjust() const;
   double    expected_max_time() const;
   bool      is_canceled() const;
@@ -2893,8 +2893,8 @@ struct sim_t : private sc_thread_t
   player_t* find_player( int index ) ;
   cooldown_t* get_cooldown( const std::string& name );
   void      use_optimal_buffs_and_debuffs( int value );
-  expr_t* create_expression( action_t*, const std::string& name );
-  void       errorf( const char* format, ... ) PRINTF_ATTRIBUTE(2, 3);
+  expr_t*   create_expression( action_t*, const std::string& name );
+  void      errorf( const char* format, ... ) PRINTF_ATTRIBUTE(2, 3);
 
   timespan_t current_time() const { return event_mgr.current_time; }
 
@@ -3089,10 +3089,10 @@ struct plot_data_t
 // (2) There is 1 * sizeof( event_t ) space available to extend the sub-class
 // (3) sim_t is responsible for deleting the memory associated with allocated events
 
-struct core_event_t
+struct event_t
 {
   sim_t& _sim;
-  core_event_t*    next;
+  event_t*    next;
   timespan_t  time;
   timespan_t  reschedule_time;
   uint32_t    id;
@@ -3101,9 +3101,9 @@ struct core_event_t
 #if ACTOR_EVENT_BOOKKEEPING
   actor_t*    actor;
 #endif
-  core_event_t( sim_t& s );
-  core_event_t( sim_t& s, actor_t* p );
-  core_event_t( actor_t& p );
+  event_t( sim_t& s );
+  event_t( sim_t& s, actor_t* p );
+  event_t( actor_t& p );
 
   timespan_t occurs()  { return ( reschedule_time != timespan_t::zero() ) ? reschedule_time : time; }
   timespan_t remains() { return occurs() - _sim.event_mgr.current_time; }
@@ -3121,9 +3121,9 @@ struct core_event_t
   virtual const char* name() const
   { return "core_event_t"; }
 
-  virtual ~core_event_t() {}
+  virtual ~event_t() {}
 
-  static void cancel( core_event_t*& e );
+  static void cancel( event_t*& e );
 
   static void* operator new( std::size_t size, sim_t& sim ) { return sim.event_mgr.allocate_event( size ); }
 
@@ -3809,8 +3809,8 @@ struct cooldown_t
   timespan_t reset_react;
   int charges;
   int current_charge;
-  core_event_t* recharge_event;
-  core_event_t* ready_trigger_event;
+  event_t* recharge_event;
+  event_t* ready_trigger_event;
   timespan_t last_start, last_charged;
 
   cooldown_t( const std::string& name, player_t& );
@@ -4290,7 +4290,7 @@ private:
   struct diminishing_returns_list_t;
   struct damage_event_list_t;
   player_t& _player;
-  core_event_t* _update_event;
+  event_t* _update_event;
   bool _init;
   bool _started;
   std::shared_ptr<damage_event_list_t >_damage_list;
@@ -4532,8 +4532,8 @@ struct player_t : public actor_t
   action_t* executing;
   action_t* channeling;
   action_t* strict_sequence; // Strict sequence of actions currently being executed
-  core_event_t* readying;
-  core_event_t* off_gcd;
+  event_t* readying;
+  event_t* off_gcd;
   bool in_combat;
   bool action_queued;
   bool first_cast;
@@ -5333,18 +5333,12 @@ private:
   mutable std::vector<T> data;
 };
 
-struct event_t : public core_event_t
+struct player_event_t : public event_t
 {
   player_t* _player;
-  event_t( sim_t& s ) :
-    core_event_t( s ),
-    _player( nullptr ){}
-  event_t( player_t& p ) :
-    core_event_t( p ),
+  player_event_t( player_t& p ) :
+    event_t( p ),
     _player( &p ){}
-  event_t( sim_t& s, player_t* p ) :
-    core_event_t( s, p ),
-    _player( p ) {}
   player_t* p()
   { return player(); }
   player_t* player()
@@ -5366,7 +5360,7 @@ struct pet_t : public player_t
   bool summoned;
   bool dynamic;
   pet_e pet_type;
-  core_event_t* expiration;
+  event_t* expiration;
   timespan_t duration;
 
   struct owner_coefficients_t
@@ -5777,7 +5771,7 @@ struct action_t : public noncopyable
   double base_cooldown_reduction;
   cooldown_t* cooldown;
   stats_t* stats;
-  core_event_t* execute_event;
+  event_t* execute_event;
   timespan_t time_to_execute, time_to_travel;
   double travel_speed, resource_consumed;
   int moving, wait_on_ready, interrupt, chain, cycle_targets, cycle_players, max_cycle_targets, target_number;
@@ -6047,7 +6041,7 @@ public:
   virtual double composite_player_critical_multiplier() const
   { return player -> composite_player_critical_damage_multiplier(); }
 
-  core_event_t* start_action_execute_event( timespan_t time, action_state_t* execute_state = 0 );
+  event_t* start_action_execute_event( timespan_t time, action_state_t* execute_state = 0 );
 
   // Overridable base proc type for direct results, needed for dynamic aoe
   // stuff and such.
@@ -6502,8 +6496,8 @@ private:
   timespan_t extended_time; // Added time per extend_duration for the current dot application
   timespan_t reduced_time; // Removed time per reduce_duration for the current dot application
 public:
-  core_event_t* tick_event;
-  core_event_t* end_event;
+  event_t* tick_event;
+  event_t* end_event;
   double last_tick_factor;
 
   player_t* const target;
@@ -6556,12 +6550,12 @@ private:
 };
 
 inline dot_tick_event_t::dot_tick_event_t( dot_t* d, timespan_t time_to_tick ) :
-  event_t( *d -> source ),
+    event_t( *d -> source ),
   dot( d )
 {
   if ( sim().debug )
     sim().out_debug.printf( "New DoT Tick Event: %s %s %d-of-%d %.4f",
-                p() -> name(), dot -> name(), dot -> current_tick + 1, dot -> num_ticks, time_to_tick.total_seconds() );
+                d -> source -> name(), dot -> name(), dot -> current_tick + 1, dot -> num_ticks, time_to_tick.total_seconds() );
 
   sim().add_event( this, time_to_tick );
 }
@@ -6615,7 +6609,7 @@ inline dot_end_event_t::dot_end_event_t( dot_t* d, timespan_t time_to_end ) :
 {
   if ( sim().debug )
     sim().out_debug.printf( "New DoT End Event: %s %s %.3f",
-                p() -> name(), dot -> name(), time_to_end.total_seconds() );
+                d -> source -> name(), dot -> name(), time_to_end.total_seconds() );
 
   sim().add_event( this, time_to_end );
 }
@@ -6994,7 +6988,7 @@ struct multistrike_execute_event_t : public event_t
   action_state_t* state;
 
   multistrike_execute_event_t( action_state_t* s, int ms_count = 0 ) :
-      event_t( *s -> action -> player ), state( s )
+    event_t( *s -> action -> player ), state( s )
   {
     if ( sim().debug )
     {

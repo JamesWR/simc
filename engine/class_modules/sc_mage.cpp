@@ -63,7 +63,7 @@ public:
   // Icicles
   std::vector<icicle_tuple_t> icicles;
   action_t* icicle;
-  core_event_t* icicle_event;
+  event_t* icicle_event;
 
   // Active
   actions::ignite_t* active_ignite;
@@ -5596,7 +5596,7 @@ void mage_t::reset()
   current_target = target;
 
   icicles.clear();
-  core_event_t::cancel( icicle_event );
+  event_t::cancel( icicle_event );
   rppm_pyromaniac.reset();
   rppm_arcane_instability.reset();
   last_bomb_target = 0;
