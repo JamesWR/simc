@@ -2523,6 +2523,11 @@ struct sim_report_information_t
   sim_report_information_t() { charts_generated = false; }
 };
 
+#ifndef NDEBUG
+#define ACTOR_EVENT_BOOKKEEPING 1
+#else
+#define ACTOR_EVENT_BOOKKEEPING 0
+#endif
 // Event Manager ============================================================
 
 struct event_manager_t
@@ -2543,6 +2548,13 @@ struct event_manager_t
   stopwatch_t event_stopwatch;
   bool monitor_cpu;
   bool canceled;
+
+#ifdef EVENT_QUEUE_DEBUG
+  unsigned max_queue_depth, n_allocated_events, n_end_insert, n_requested_events;
+  uint64_t events_traversed, events_added;
+  std::vector<std::pair<unsigned, unsigned> > event_queue_depth_samples;
+  std::vector<unsigned> event_requested_size_count;
+#endif /* EVENT_QUEUE_DEBUG */
 
   event_manager_t( sim_t* );
  ~event_manager_t();
@@ -3083,22 +3095,32 @@ struct core_event_t
   core_event_t*    next;
   timespan_t  time;
   timespan_t  reschedule_time;
-  actor_t*    actor;
   uint32_t    id;
   bool        canceled;
   bool        recycled;
-  const char* name;
-  core_event_t( sim_t& s, const char* n = "unknown" );
-  core_event_t( sim_t& s, actor_t* p, const char* n = "unknown" );
-  core_event_t( actor_t& p, const char* n = "unknown" );
+#if ACTOR_EVENT_BOOKKEEPING
+  actor_t*    actor;
+#endif
+  core_event_t( sim_t& s );
+  core_event_t( sim_t& s, actor_t* p );
+  core_event_t( actor_t& p );
 
   timespan_t occurs()  { return ( reschedule_time != timespan_t::zero() ) ? reschedule_time : time; }
   timespan_t remains() { return occurs() - _sim.event_mgr.current_time; }
 
   void reschedule( timespan_t new_time );
   void add_event( timespan_t delta_time );
+  sim_t& sim()
+  { return _sim; }
+  const sim_t& sim() const
+  { return _sim; }
+  rng_t& rng() { return sim().rng(); }
+  rng_t& rng() const { return sim().rng(); }
 
   virtual void execute() = 0; // MUST BE IMPLEMENTED IN SUB-CLASS!
+  virtual const char* name() const
+  { return "core_event_t"; }
+
   virtual ~core_event_t() {}
 
   static void cancel( core_event_t*& e );
@@ -5313,23 +5335,22 @@ private:
 
 struct event_t : public core_event_t
 {
-
-  event_t( sim_t& s, const char* name = "unknown" ) :
-    core_event_t( s, name ) {}
-  event_t( player_t& p, const char* name = "unknown" ) :
-    core_event_t( p, name ) {}
-  event_t( sim_t& s, player_t* p, const char* name = "unknown" ) :
-    core_event_t( s, p, name ) {}
+  player_t* _player;
+  event_t( sim_t& s ) :
+    core_event_t( s ),
+    _player( nullptr ){}
+  event_t( player_t& p ) :
+    core_event_t( p ),
+    _player( &p ){}
+  event_t( sim_t& s, player_t* p ) :
+    core_event_t( s, p ),
+    _player( p ) {}
   player_t* p()
   { return player(); }
   player_t* player()
-  { return static_cast<player_t*>( actor ); }
-  sim_t& sim()
-  { return static_cast<sim_t&>( _sim ); }
-  const sim_t& sim() const
-  { return static_cast<sim_t&>( _sim ); }
-  rng_t& rng() { return sim().rng(); }
-  rng_t& rng() const { return sim().rng(); }
+  { return _player; }
+  virtual const char* name() const override
+  { return "event_t"; }
 };
 
 // Pet ======================================================================
@@ -6452,6 +6473,8 @@ public:
 
 private:
   virtual void execute() override;
+  virtual const char* name() const override
+  { return "Dot Tick"; }
   dot_t* dot;
 };
 
@@ -6464,7 +6487,8 @@ public:
 
 private:
   virtual void execute() override;
-
+  virtual const char* name() const override
+  { return "DoT End"; }
   dot_t* dot;
 };
 
@@ -6532,7 +6556,7 @@ private:
 };
 
 inline dot_tick_event_t::dot_tick_event_t( dot_t* d, timespan_t time_to_tick ) :
-  event_t( *d -> source, "DoT Tick" ),
+  event_t( *d -> source ),
   dot( d )
 {
   if ( sim().debug )
@@ -6586,7 +6610,7 @@ inline void dot_tick_event_t::execute()
 }
 
 inline dot_end_event_t::dot_end_event_t( dot_t* d, timespan_t time_to_end ) :
-    event_t( *d -> source, "DoT End" ),
+    event_t( *d -> source ),
     dot( d )
 {
   if ( sim().debug )
@@ -6961,6 +6985,8 @@ struct travel_event_t : public event_t
   travel_event_t( action_t* a, action_state_t* state, timespan_t time_to_travel );
   virtual ~travel_event_t() { if ( state && canceled ) action_state_t::release( state ); }
   virtual void execute();
+  virtual const char* name() const override
+  { return "Stateless Action Travel"; }
 };
 
 struct multistrike_execute_event_t : public event_t
@@ -6968,7 +6994,7 @@ struct multistrike_execute_event_t : public event_t
   action_state_t* state;
 
   multistrike_execute_event_t( action_state_t* s, int ms_count = 0 ) :
-      event_t( *s -> action -> player, "Multistrike-Execute-Event" ), state( s )
+      event_t( *s -> action -> player ), state( s )
   {
     if ( sim().debug )
     {
@@ -7022,7 +7048,8 @@ struct multistrike_execute_event_t : public event_t
       assert( 0 && "Multistrike Execute event, where state has no result_type" );
     }
   }
-
+  virtual const char* name() const override
+  { return "Multistrike-Execute-Event"; }
   // Ensure we properly release the carried execute_state even if this event
   // is never executed.
   ~multistrike_execute_event_t()

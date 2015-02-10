@@ -55,12 +55,13 @@ struct shadow_reflect_event_t : public event_t
   action_t* source_action;
 
   shadow_reflect_event_t( int cp, action_t* a ) :
-    event_t( *a -> player, "shadow_reflect_event" ),
+    event_t( *a -> player ),
     combo_points( cp ), source_action( a )
   {
     sim().add_event( this, timespan_t::from_seconds( 8 ) );
   }
-
+  virtual const char* name() const override
+  { return "shadow_reflect_event"; }
   void execute();
 };
 
@@ -2341,21 +2342,22 @@ struct premeditation_t : public rogue_attack_t
     player_t* target;
 
     premeditation_event_t( rogue_t& p, player_t* t, timespan_t duration, int cp ) :
-      event_t( p, "premeditation" ),
+      event_t( p ),
       combo_points( cp ), target( t )
     {
       add_event( duration );
     }
-
+    virtual const char* name() const override
+    { return "premeditation"; }
     void execute()
     {
-      rogue_t* p = static_cast< rogue_t* >( actor );
+      rogue_t* p = static_cast< rogue_t* >( player() );
 
       p -> resources.current[ RESOURCE_COMBO_POINT ] -= combo_points;
       if ( sim().log )
       {
         sim().out_log.printf( "%s loses %d temporary combo_points from premeditation (%d)",
-                    actor -> name(), combo_points, p -> resources.current[ RESOURCE_COMBO_POINT ] );
+                    player() -> name(), combo_points, p -> resources.current[ RESOURCE_COMBO_POINT ] );
       }
 
       assert( p -> resources.current[ RESOURCE_COMBO_POINT ] >= 0 );
@@ -3019,7 +3021,7 @@ struct honor_among_thieves_t : public action_t
     rogue_t* rogue;
 
     hat_event_t( honor_among_thieves_t* a, bool first ) :
-      event_t( *a -> player, "honor_among_thieves_event" ),
+      event_t( *a -> player ),
       action( a ), rogue( debug_cast< rogue_t* >( a -> player ) )
     {
       if ( ! first )
@@ -3039,7 +3041,8 @@ struct honor_among_thieves_t : public action_t
         add_event( timespan_t::from_millis( 100 ) );
       }
     }
-
+    virtual const char* name() const override
+    { return "honor_among_thieves_event"; }
     void execute()
     {
       rogue -> trigger_combo_point_gain( 0, 1, rogue -> gains.honor_among_thieves );

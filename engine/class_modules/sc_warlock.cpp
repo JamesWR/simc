@@ -356,14 +356,15 @@ public:
     bool initiator;
 
     demonic_calling_event_t( player_t* p, timespan_t delay, bool init = false ):
-      event_t( *p, "demonic_calling" ), initiator( init )
+      event_t( *p ), initiator( init )
     {
       add_event( delay );
     }
-
+    virtual const char* name() const override
+    { return  "demonic_calling"; }
     virtual void execute()
     {
-      warlock_t* p = static_cast<warlock_t*>( actor );
+      warlock_t* p = static_cast<warlock_t*>( player() );
       p -> demonic_calling_event = new ( sim() ) demonic_calling_event_t( p,
                                                                           timespan_t::from_seconds( ( p -> spec.wild_imps -> effectN( 1 ).period().total_seconds() + p -> spec.imp_swarm -> effectN( 3 ).base_value() ) * p -> cache.spell_speed() ) );
       if ( ! initiator ) p -> buffs.demonic_calling -> trigger();
@@ -1725,12 +1726,13 @@ public:
     resource_e resource;
 
     cost_event_t( player_t* p, warlock_spell_t* s, resource_e r = RESOURCE_NONE ):
-      event_t( *p, "cost_event" ), spell( s ), resource( r )
+      event_t( *p ), spell( s ), resource( r )
     {
       if ( resource == RESOURCE_NONE ) resource = spell -> current_resource();
       add_event( timespan_t::from_seconds( 1 ) );
     }
-
+    virtual const char* name() const override
+    { return  "cost_event"; }
     virtual void execute()
     {
       spell -> cost_event = new ( sim() ) cost_event_t( p(), spell, resource );
@@ -2513,11 +2515,12 @@ struct shadowburn_t: public warlock_spell_t
     player_t* target;
 
     resource_event_t( warlock_t* p, shadowburn_t* s, player_t* t ):
-      event_t( *p, "shadowburn_execute_gain" ), spell( s ), ember_gain( p -> gains.shadowburn_ember), target(t)
+      event_t( *p ), spell( s ), ember_gain( p -> gains.shadowburn_ember), target(t)
     {
       add_event( spell -> delay );
     }
-
+    virtual const char* name() const override
+    { return "shadowburn_execute_gain"; }
     virtual void execute()
     {
       if (target -> is_sleeping()) //if it is dead return ember, else return mana

@@ -623,6 +623,12 @@ void print_text_performance( FILE* file, sim_t* sim )
                  "  Iterations    = %d\n"
                  "  TotalEvents   = %lu\n"
                  "  MaxEventQueue = %lu\n"
+#ifdef EVENT_QUEUE_DEBUG
+                 "  AllocEvents   = %u\n"
+                 "  EndInsert     = %u (%.3f%%)\n"
+                 "  MaxQueueDepth = %u\n"
+                 "  AvgQueueDepth = %.3f\n"
+#endif
                  "  TargetHealth  = %.0f\n"
                  "  SimSeconds    = %.0f\n"
                  "  CpuSeconds    = %.3f\n"
@@ -633,6 +639,13 @@ void print_text_performance( FILE* file, sim_t* sim )
                  sim -> iterations,
                  sim -> event_mgr.total_events_processed,
                  sim -> event_mgr.max_events_remaining,
+#ifdef EVENT_QUEUE_DEBUG
+                 sim -> event_mgr.n_allocated_events,
+                 sim -> event_mgr.n_end_insert,
+                 100.0 * static_cast<double>( sim -> event_mgr.n_end_insert ) / sim -> event_mgr.events_added,
+                 sim -> event_mgr.max_queue_depth,
+                 static_cast<double>( sim -> event_mgr.events_traversed ) / sim -> event_mgr.events_added,
+#endif
                  sim -> target -> resources.base[ RESOURCE_HEALTH ],
                  sim -> iterations * sim -> simulation_length.mean(),
                  sim -> elapsed_cpu,
@@ -640,6 +653,43 @@ void print_text_performance( FILE* file, sim_t* sim )
                  sim -> iterations * sim -> simulation_length.mean() / sim -> elapsed_cpu,
                  date_str.c_str(),
                  static_cast<double>( cur_time ) );
+#ifdef EVENT_QUEUE_DEBUG
+  double total_p = 0;
+
+  for ( size_t i = 0; i < sim -> event_mgr.event_queue_depth_samples.size(); ++i )
+  {
+    if ( sim -> event_mgr.event_queue_depth_samples[ i ].first == 0 )
+    {
+      continue;
+    }
+
+    double p = 100.0 * static_cast<double>( sim -> event_mgr.event_queue_depth_samples[ i ].first ) / sim -> event_mgr.events_added;
+    double p2 = 100.0 * static_cast<double>( sim -> event_mgr.event_queue_depth_samples[ i ].second ) / sim -> event_mgr.event_queue_depth_samples[ i ].first;
+    util::fprintf( file, "Depth: %-4u Samples: %-7u (%.3f%% / %.3f%%)\n",
+        i, sim -> event_mgr.event_queue_depth_samples[ i ], p, p2 );
+
+    total_p += p;
+  }
+  util::fprintf( file, "Total: %.3f%% Samples: %llu\n", total_p, sim -> event_mgr.events_added );
+
+  util::fprintf( file, "\nEvent Queue Allocation:\n" );
+  double total_a = 0;
+  for ( size_t i = 0; i < sim -> event_mgr.event_requested_size_count.size(); ++i )
+  {
+    if ( sim -> event_mgr.event_requested_size_count[ i ] == 0 )
+    {
+      continue;
+    }
+
+    double p = 100.0 * static_cast<double>( sim -> event_mgr.event_requested_size_count[ i ] ) / sim -> event_mgr.n_requested_events;
+    util::fprintf( file, "Alloc-Size: %-4u Samples: %-7u (%.3f%%)\n",
+        i, sim -> event_mgr.event_requested_size_count[ i ], p );
+
+    total_a += p;
+  }
+
+  util::fprintf( file, "Total: %.3f%% Alloc Samples: %llu\n", total_p, sim -> event_mgr.n_requested_events );
+#endif
 }
 
 // print_text_scale_factors =================================================

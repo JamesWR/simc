@@ -15,14 +15,15 @@ struct player_ready_event_t : public event_t
 {
   player_ready_event_t( player_t& p,
                         timespan_t delta_time ) :
-                          event_t( p, "Player-Ready" )
+                          event_t( p )
   {
     if ( sim().debug )
       sim().out_debug.printf( "New Player-Ready Event: %s", p.name() );
 
     sim().add_event( this, delta_time );
   }
-
+  virtual const char* name() const override
+  { return "Player-Ready"; }
   virtual void execute()
   {
     // Player that's checking for off gcd actions to use, cancels that checking when there's a ready event firing.
@@ -55,14 +56,15 @@ struct demise_event_t : public event_t
 {
   demise_event_t( player_t& p,
                   timespan_t delta_time = timespan_t::zero() /* Instantly kill the player */ ) :
-     event_t( p, "Player-Demise" )
+     event_t( p )
   {
     if ( sim().debug )
       sim().out_debug.printf( "New Player-Demise Event: %s", p.name() );
 
     sim().add_event( this, delta_time );
   }
-
+  virtual const char* name() const override
+  { return "Player-Demise"; }
   virtual void execute()
   {
     p() -> demise();
@@ -372,7 +374,7 @@ void residual_action::trigger( action_t* residual_action, player_t* t, double am
     action_t* action;
 
     delay_event_t( player_t* t, action_t* a, double amount ) :
-      event_t( *a -> player, "residual_action_delay_event" ),
+      event_t( *a -> player ),
       additional_residual_amount( amount ), target( t ), action( a )
     {
       // Use same delay as in buff application
@@ -384,7 +386,8 @@ void residual_action::trigger( action_t* residual_action, player_t* t, double am
 
       sim().add_event( this, delay_duration );
     }
-
+    virtual const char* name() const override
+    { return "residual_action_delay_event"; }
     virtual void execute()
     {
       // Don't ignite on targets that are not active
@@ -10240,11 +10243,12 @@ struct manager_t::damage_event_list_t
 struct manager_t::update_event_t : public event_t
 {
   update_event_t( player_t& p ) :
-    event_t( p, "resolve_update_event_t" )
+    event_t( p )
   {
     sim().add_event( this, timespan_t::from_seconds( 1.0 ) ); // this is the automatic resolve update interval
   }
-
+  virtual const char* name() const override
+  { return "resolve_update_event_t"; }
   virtual void execute() override
   {
     assert( p() -> resolve_manager._update_event == this );
@@ -10389,28 +10393,35 @@ action_t* player_t::select_action( const action_priority_list_t& list )
   // call_action_list tree, with nothing to show for it.
   uint64_t _visited = visited_apls_;
   size_t attempted_random = 0;
-  size_t max_random_attempts = static_cast<size_t>( static_cast<double>( list.foreground_action_list.size() ) *
-                                             ( ( list.player -> current.skill - list.player -> current.skill_debuff ) / 2.0 ) );
 
   for ( size_t i = 0, num_actions = list.foreground_action_list.size(); i < num_actions; ++i )
   {
     visited_apls_ = _visited;
-    size_t random = i;
-
-    action_t* a = list.foreground_action_list[i];
+    action_t* a = 0;
 
     if ( list.random == 1 )
-      random = static_cast<size_t>( rng().range( 0, static_cast<double>( num_actions ) ) );
-    else if ( rng().roll( ( 1 - ( a -> player -> current.skill - a -> player -> current.skill_debuff ) ) / 2 ) )
     {
-      random = static_cast<size_t>( rng().range( 0, static_cast<double>( num_actions ) ) );
-      attempted_random++;
-      // Limit the amount of attempts to select a random action based on skill, then bail out and try again in 100 ms.
-      if ( attempted_random > max_random_attempts )
-        break;
+      size_t random = static_cast<size_t>( rng().range( 0, static_cast<double>( num_actions ) ) );
+      a = list.foreground_action_list[ random ];
     }
-
-    a = list.foreground_action_list[random];
+    else
+    {
+      double skill = list.player -> current.skill - list.player -> current.skill_debuff;
+      if ( skill != 1 && rng().roll( ( 1 - skill ) * 0.5 ) )
+      {
+        size_t max_random_attempts = static_cast<size_t>( num_actions * ( skill * 0.5 ) );
+        size_t random = static_cast<size_t>( rng().range( 0, static_cast<double>( num_actions ) ) );
+        a = list.foreground_action_list[ random ];
+        attempted_random++;
+        // Limit the amount of attempts to select a random action based on skill, then bail out and try again in 100 ms.
+        if ( attempted_random > max_random_attempts )
+          break;
+      }
+      else
+      {
+        a = list.foreground_action_list[ i ];
+      }
+    }
 
     if ( a -> background ) continue;
 

@@ -5,31 +5,32 @@
 
 #include "simulationcraft.hpp"
 
-namespace {
-#ifndef NDEBUG
-const bool ACTOR_EVENT_BOOKKEEPING = true;
-#else
-const bool ACTOR_EVENT_BOOKKEEPING = false;
-#endif
-}
-
 // ==========================================================================
 // Event
 // ==========================================================================
 
-core_event_t::core_event_t( sim_t& s, const char* n ) :
+core_event_t::core_event_t( sim_t& s ) :
   _sim( s ), next( nullptr ),  time( timespan_t::zero() ),
-  reschedule_time( timespan_t::zero() ),actor( nullptr ), id( 0 ), canceled( false ), recycled( false ), name( n )
+  reschedule_time( timespan_t::zero() ), id( 0 ), canceled( false ), recycled( false )
+#if ACTOR_EVENT_BOOKKEEPING
+  ,actor( nullptr )
+#endif
 {}
 
-core_event_t::core_event_t( sim_t& s, actor_t* a, const char* n ) :
+core_event_t::core_event_t( sim_t& s, actor_t* a ) :
   _sim( s ), next( nullptr ), time( timespan_t::zero() ),
-  reschedule_time( timespan_t::zero() ), actor( a ), id( 0 ), canceled( false ), recycled( false ), name( n )
+  reschedule_time( timespan_t::zero() ), id( 0 ), canceled( false ), recycled( false )
+#if ACTOR_EVENT_BOOKKEEPING
+  ,actor( a )
+#endif
 {}
 
-core_event_t::core_event_t( actor_t& a, const char* n ) :
+core_event_t::core_event_t( actor_t& a ) :
   _sim( *a.sim ), next( nullptr ), time( timespan_t::zero() ),
-  reschedule_time( timespan_t::zero() ), actor( &a ), id( 0 ), canceled( false ), recycled( false ), name( n )
+  reschedule_time( timespan_t::zero() ), id( 0 ), canceled( false ), recycled( false )
+#if ACTOR_EVENT_BOOKKEEPING
+  ,actor( &a )
+#endif
 {}
 
 // event_t::reschedule ======================================================
@@ -40,7 +41,7 @@ void core_event_t::reschedule( timespan_t new_delta_time )
 
   if ( _sim.debug )
     _sim.out_debug.printf( "Rescheduling event %s (%d) from %.2f to %.2f",
-                name, id, time.total_seconds(), reschedule_time.total_seconds() );
+                name(), id, time.total_seconds(), reschedule_time.total_seconds() );
 }
 
 // event_t::add_event =======================================================
@@ -56,16 +57,18 @@ void core_event_t::cancel( core_event_t*& e )
 {
   if ( ! e ) return;
 
-  if ( ACTOR_EVENT_BOOKKEEPING && e -> _sim.debug  && e -> actor && ! e -> canceled )
+#if ACTOR_EVENT_BOOKKEEPING
+  if ( e -> _sim.debug  && e -> actor && ! e -> canceled )
   {
     e -> actor -> event_counter--;
     if ( e -> actor -> event_counter < 0 )
     {
       std::cerr << "event_t::cancel assertion error: e -> player -> events < 0."
-          << "event '" << e -> name << "' from '" << e -> actor -> name() << "'.\n";
+          << "event '" << e -> name() << "' from '" << e -> actor -> name() << "'.\n";
       assert( false );
     }
   }
+#endif
 
   e -> canceled = true;
   e = 0;
@@ -94,7 +97,16 @@ event_manager_t::event_manager_t( sim_t* s ) :
   wheel_granularity( 0.0 ),
   wheel_time( timespan_t::zero() ),
   event_stopwatch( STOPWATCH_THREAD ),
+#ifdef EVENT_QUEUE_DEBUG
+  monitor_cpu( false ),
+  max_queue_depth( 0 ),
+  n_allocated_events( 0 ),
+  n_end_insert( 0 ),
+  events_traversed( 0 ),
+  events_added( 0 )
+#else
   monitor_cpu( false )
+#endif /* EVENT_QUEUE_DEBUG */
 {
   allocated_events.reserve( 100 );
 }
@@ -113,13 +125,20 @@ event_manager_t::~event_manager_t()
 
 // event_manager_t::allocate_event ==========================================
 
-void* event_manager_t::allocate_event( std::size_t size )
+void* event_manager_t::allocate_event( const std::size_t size )
 {
   static const std::size_t SIZE = 2 * sizeof( core_event_t );
   assert( SIZE > size ); ( void ) size;
 
   core_event_t* e = recycled_event_list;
-
+#ifdef EVENT_QUEUE_DEBUG
+      n_requested_events++;
+      if ( size >= event_requested_size_count.size() )
+      {
+        event_requested_size_count.resize( size );
+      }
+      event_requested_size_count[ size ]++;
+#endif
   if ( e )
   {
     recycled_event_list = e -> next;
@@ -134,6 +153,9 @@ void* event_manager_t::allocate_event( std::size_t size )
     }
     else
     {
+#ifdef EVENT_QUEUE_DEBUG
+      n_allocated_events++;
+#endif
       allocated_events.push_back( e );
     }
   }
@@ -181,8 +203,35 @@ void event_manager_t::add_event( core_event_t* e,
 
   // Insert event into the event list at the appropriate time
   core_event_t** prev = &( timing_wheel[ slice ] );
+#ifdef EVENT_QUEUE_DEBUG
+  unsigned traversed = 0;
+#endif
+
   while ( ( *prev ) && ( *prev ) -> time <= e -> time ) // Find position in the list
-  { prev = &( ( *prev ) -> next ); }
+  {
+    prev = &( ( *prev ) -> next );
+#ifdef EVENT_QUEUE_DEBUG
+    traversed++;
+#endif
+  }
+#ifdef EVENT_QUEUE_DEBUG
+  events_added++;
+  events_traversed += traversed;
+  if ( traversed > max_queue_depth )
+  {
+    max_queue_depth = traversed;
+  }
+  if ( traversed >= event_queue_depth_samples.size() )
+  {
+    event_queue_depth_samples.resize( traversed + 1 );
+  }
+  event_queue_depth_samples[ traversed ].first++;
+  if ( ! *prev && traversed )
+  {
+    event_queue_depth_samples[ traversed ].second++;
+    n_end_insert++;
+  }
+#endif
   // insert event
   e -> next = *prev;
   *prev = e;
@@ -190,24 +239,26 @@ void event_manager_t::add_event( core_event_t* e,
   if ( ++events_remaining > max_events_remaining ) max_events_remaining = events_remaining;
 
   if ( sim -> debug )
-    sim -> out_debug.printf( "Add Event: %s time=%.4f rs-time=%.4f id=%d actor=%s",
-			     e -> name, e -> time.total_seconds(),
+    sim -> out_debug.printf( "Add Event: %s time=%.4f rs-time=%.4f id=%d",
+			     e -> name(), e -> time.total_seconds(),
 			     e -> reschedule_time.total_seconds(),
-			     e -> id, e -> actor ? e -> actor -> name() : "" );
+			     e -> id );
 
-  if ( ACTOR_EVENT_BOOKKEEPING && sim -> debug && e -> actor )
+#if ACTOR_EVENT_BOOKKEEPING
+  if ( sim -> debug && e -> actor )
   {
     e -> actor -> event_counter++;
     sim -> out_debug.printf( "Actor %s has %d scheduled events",
 			     e -> actor -> name(), e -> actor -> event_counter );
   }
+#endif
 }
 
 // event_manager_t::reschedule_event ========================================
 
 void event_manager_t::reschedule_event( core_event_t* e )
 {
-  if ( sim -> debug ) sim -> out_debug.printf( "Reschedule Event: %s %d", e -> name, e -> id );
+  if ( sim -> debug ) sim -> out_debug.printf( "Reschedule Event: %s %d", e -> name(), e -> id );
 
   add_event( e, ( e -> reschedule_time - current_time ) );
 }
@@ -220,21 +271,23 @@ bool event_manager_t::execute()
   {
     current_time = e -> time;
 
-    if ( ACTOR_EVENT_BOOKKEEPING && sim -> debug && e -> actor && ! e -> canceled )
+#if ACTOR_EVENT_BOOKKEEPING
+    if ( sim -> debug && e -> actor && ! e -> canceled )
     {
       // Perform actor event bookkeeping first
       e -> actor -> event_counter--;
       if ( e -> actor -> event_counter < 0 )
       {
-        util::fprintf( stderr, "sim_t::combat assertion error! canceling event %s leaves negative event count for user %s.\n", e -> name, e -> actor -> name() );
+        util::fprintf( stderr, "sim_t::combat assertion error! canceling event %s leaves negative event count for user %s.\n", e -> name(), e -> actor -> name() );
         assert( false );
       }
     }
+#endif
 
     if ( e -> canceled )
     {
       if ( sim -> debug )
-        sim -> out_debug.printf( "Canceled event: %s", e -> name );
+        sim -> out_debug.printf( "Canceled event: %s", e -> name() );
     }
     else if ( e -> reschedule_time > e -> time )
     {
@@ -244,11 +297,16 @@ bool event_manager_t::execute()
     else
     {
       if ( sim -> debug )
-        sim -> out_debug.printf( "Executing event: %s %s", e -> name, e -> actor ? e -> actor -> name() : "" );
+        sim -> out_debug.printf( "Executing event: %s", e -> name() );
 
       if ( monitor_cpu )
       {
+#if ACTOR_EVENT_BOOKKEEPING
         stopwatch_t& sw = e -> actor ? e -> actor -> event_stopwatch : event_stopwatch;
+#else
+
+        stopwatch_t& sw = event_stopwatch;
+#endif
         sw.mark();
         e -> execute();
         sw.accumulate();
@@ -368,4 +426,31 @@ void event_manager_t::merge( event_manager_t& other )
 {
   max_events_remaining = std::max( max_events_remaining, other.max_events_remaining );
   total_events_processed += other.total_events_processed;
+#ifdef EVENT_QUEUE_DEBUG
+  events_traversed += other.events_traversed;
+  events_added += other.events_added;
+  n_allocated_events += other.n_allocated_events;
+  n_end_insert += other.n_end_insert;
+  n_requested_events += other.n_requested_events;
+  if ( other.max_queue_depth > max_queue_depth )
+  {
+    max_queue_depth = other.max_queue_depth;
+  }
+
+  if ( other.event_queue_depth_samples.size() > event_queue_depth_samples.size() )
+  {
+    event_queue_depth_samples.resize( other.event_queue_depth_samples.size() );
+  }
+
+  for ( size_t i = 0; i < other.event_queue_depth_samples.size(); ++i )
+  {
+    event_queue_depth_samples[ i ].first += other.event_queue_depth_samples[ i ].first;
+    event_queue_depth_samples[ i ].second += other.event_queue_depth_samples[ i ].second;
+  }
+  for ( size_t i = 0; i < other.event_requested_size_count.size(); ++i )
+  {
+    event_requested_size_count[ i ] += other.event_requested_size_count[ i ];
+  }
+
+#endif
 }
