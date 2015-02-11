@@ -333,14 +333,6 @@ void chart_t::add_simple_series( const std::string& type,
   add( "series", obj );
 }
 
-time_series_t::time_series_t( const std::string& id_str, const sim_t* sim ) :
-  chart_t( id_str, sim )
-{
-  set( "chart.type", "area" );
-
-  set_xaxis_title( "Time (seconds)" );
-}
-
 /**
  * Add y-axis plotline to the chart at value_ height. If name is given, a
  * subtitle will be added to the chart, stating name_=value_. Both the line and
@@ -348,10 +340,10 @@ time_series_t::time_series_t( const std::string& id_str, const sim_t* sim ) :
  * there are multiple plotlines defined, the subtitle text will be concatenated
  * at the end.
  */
-time_series_t& time_series_t::add_yplotline( double value_,
-                                             const std::string& name_,
-                                             double line_width_,
-                                             const std::string& color_ )
+chart_t& chart_t::add_yplotline( double value_,
+                                 const std::string& name_,
+                                 double line_width_,
+                                 const std::string& color_ )
 {
   if ( rapidjson::Value* obj = path_value( "yAxis.plotLines" ) )
   {
@@ -390,13 +382,22 @@ time_series_t& time_series_t::add_yplotline( double value_,
   return *this;
 }
 
+time_series_t::time_series_t( const std::string& id_str, const sim_t* sim ) :
+  chart_t( id_str, sim )
+{
+  set( "chart.type", "area" );
+
+  set_xaxis_title( "Time (seconds)" );
+}
+
 time_series_t& time_series_t::set_mean( double value_, const std::string& color )
 {
   std::string mean_color = color;
   if ( mean_color.empty() )
     mean_color = TEXT_MEAN_COLOR;
 
-  return add_yplotline( value_, "mean", 1.25, mean_color );
+  add_yplotline( value_, "mean", 1.25, mean_color );
+  return *this;
 }
 
 time_series_t& time_series_t::set_max( double value_, const std::string& color )
@@ -405,7 +406,8 @@ time_series_t& time_series_t::set_max( double value_, const std::string& color )
   if ( max_color.empty() )
     max_color = TEXT_MAX_COLOR;
 
-  return add_yplotline( value_, "max", 1.25, max_color );
+  add_yplotline( value_, "max", 1.25, max_color );
+  return *this;
 }
 
 bar_chart_t::bar_chart_t( const std::string& id_str, const sim_t* sim ) :

@@ -51,6 +51,11 @@ struct chart_t : public js::sc_js_t
   void add_data_series( const std::string& type, const std::string& name, const std::vector<data_entry_t>& d );
   void add_data_series( const std::vector<data_entry_t>& d );
 
+  chart_t& add_yplotline( double value_,
+                          const std::string& name_,
+                          double line_width_ = 1.25,
+                          const std::string& color_ = std::string() );
+
   virtual std::string to_string() const;
   virtual std::string to_aggregate_string( bool on_click = true ) const;
   virtual std::string to_target_div() const;
@@ -65,10 +70,6 @@ struct time_series_t : public chart_t
   time_series_t& set_max( double value_, const std::string& color = std::string() );
 
 
-  time_series_t& add_yplotline( double value_,
-                                const std::string& name_,
-                                double line_width_ = 1.25,
-                                const std::string& color_ = std::string() );
 };
 
 struct bar_chart_t : public chart_t

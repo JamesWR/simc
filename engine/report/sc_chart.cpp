@@ -1542,6 +1542,69 @@ std::string chart::scaling_dps( player_t* p )
   return s;
 }
 
+bool chart::generate_reforge_plot( highchart::chart_t& ac, const player_t* p )
+{
+  const std::vector< std::vector<plot_data_t> >& pd = p -> reforge_plot_data;
+  if ( pd.empty() )
+  {
+    return false;
+  }
+
+  double max_dps = 0, min_dps = std::numeric_limits<double>::max(), baseline = 0;
+  size_t num_stats = pd[ 0 ].size() - 1;
+
+  for ( size_t i = 0; i < pd.size(); i++ )
+  {
+    assert( num_stats < pd[ i ].size() );
+    if ( pd[ i ][ num_stats ].value < min_dps )
+      min_dps = pd[ i ][ num_stats ].value;
+    if ( pd[ i ][ num_stats ].value > max_dps )
+      max_dps = pd[ i ][ num_stats ].value;
+
+    if ( pd[ i ][ 0 ].value == 0 && pd[ i ][ 1 ].value == 0 )
+    {
+      baseline = pd[ i ][ num_stats ].value;
+    }
+  }
+
+  double yrange = std::max( std::fabs( baseline - min_dps ), std::fabs( max_dps - baseline ) );
+
+  std::cerr << "baseline=" << baseline << " min-dps=" << min_dps << " max_dps=" << max_dps << " max-y-range=" << yrange << std::endl;
+
+  ac.set_title( "Reforge Plot" );
+  ac.set_yaxis_title( "Damage Per Second" );
+  ac.set_xaxis_title( "\u0394 Stat" );
+  ac.set( "yAxis.min", baseline - yrange );
+  ac.set( "yAxis.max", baseline + yrange );
+  ac.set( "yaxis.minPadding", 0.01 );
+  ac.set( "yaxis.maxPadding", 0.01 );
+
+  ac.add_yplotline( baseline, "Baseline", 1.25, "#FF8866" );
+
+  std::vector<double> mean;
+  std::vector<std::pair<double, double> > range;
+
+  for ( size_t i = 0; i < pd.size(); i++ )
+  {
+    double v = pd[ i ][ 2 ].value;
+    double e = pd[ i ][ 2 ].error / 2;
+    mean.push_back( v );
+    range.push_back(std::pair<double, double>( v + e, v - e ) );
+  }
+
+  ac.add_simple_series( "line", chart::stat_color( p -> sim -> reforge_plot -> reforge_plot_stat_indices[ 0 ] ), "Mean", mean );
+  ac.add_simple_series( "arearange", chart::stat_color( p -> sim -> reforge_plot -> reforge_plot_stat_indices[ 1 ] ), "Range", range );
+
+  ac.set( "series.0.zIndex", 1 );
+  ac.set( "series.0.marker.radius", 0 );
+  ac.set( "series.0.lineWidth", 1.5 );
+  ac.set( "series.1.fillOpacity", 0.5 );
+  ac.set( "series.1.lineWidth", 0 );
+  ac.set( "series.1.linkedTo", ":previous" );
+
+  return true;
+}
+
 // chart::reforge_dps =======================================================
 
 std::string chart::reforge_dps( player_t* p )

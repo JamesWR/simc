@@ -2648,35 +2648,11 @@ void print_html_player_charts( report::sc_html_stream& os, sim_t* sim, player_t*
   os << "</div>\n"
      << "<div class=\"charts\">\n";
 
-  if ( ! ri.reforge_dps_chart.empty() )
+  highchart::chart_t ac( highchart::build_id( p, "reforge_plot" ), p -> sim );
+  if ( chart::generate_reforge_plot( ac, p ) )
   {
-    std::string chart_str;
-    if ( p -> sim -> reforge_plot -> reforge_plot_stat_indices.size() == 2 )
-    {
-      if ( ri.reforge_dps_chart.length() < 2000 )
-      {
-        if ( num_players == 1 )
-          chart_str = "<img src=\"" + ri.reforge_dps_chart + "\" alt=\"Reforge DPS Chart\" />\n";
-        else
-          chart_str = "<span class=\"chart-reforge-dps\" title=\"Reforge DPS Chart\">" + ri.reforge_dps_chart + "</span>\n";
-      }
-      else
-        os << "<p> Reforge Chart: Can't display charts with more than 2000 characters.</p>\n";
-    }
-    else
-    {
-      if ( true )
-        chart_str = "" + ri.reforge_dps_chart;
-      else
-      {
-        if ( num_players == 1 )
-          chart_str = "<iframe>" + ri.reforge_dps_chart + "</iframe>\n";
-        else
-          chart_str = "<span class=\"chart-reforge-dps\" title=\"Reforge DPS Chart\">" + ri.reforge_dps_chart + "</span>\n";
-      }
-    }
-    if ( ! chart_str.empty() )
-      os << chart_str;
+    os << ac.to_target_div();
+    p -> sim -> highcharts_str += ac.to_aggregate_string( p -> sim -> player_no_pet_list.size() > 1 );
   }
 
   scaling_metric_data_t scaling_data = p -> scaling_for_metric( p -> sim -> scaling -> scaling_metric );
