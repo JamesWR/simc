@@ -1573,7 +1573,11 @@ bool chart::generate_reforge_plot( highchart::chart_t& ac, const player_t* p )
 
   ac.set_title( "Reforge Plot" );
   ac.set_yaxis_title( "Damage Per Second" );
-  ac.set_xaxis_title( "\u0394 Stat" );
+  std::string title;
+  title += util::stat_type_abbrev( p -> sim -> reforge_plot -> reforge_plot_stat_indices[ 0 ] );
+  title += " \u2b04 ";
+  title += util::stat_type_abbrev( p -> sim -> reforge_plot -> reforge_plot_stat_indices[ 1 ] );
+  ac.set_xaxis_title( title );
   ac.set( "yAxis.min", baseline - yrange );
   ac.set( "yAxis.max", baseline + yrange );
   ac.set( "yaxis.minPadding", 0.01 );
