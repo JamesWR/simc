@@ -169,6 +169,25 @@ protected:
 			stream_.Put(buffer[i]);
 	}
 
+	bool isJavascriptFunction( const Ch* str, SizeType length) const {
+		bool isFunction = false;
+
+		// Figure out if the string is actually a javascript function, in a very bad way
+		if (length >= 8 &&
+			str[0] == 'f' && str[1] == 'u' && str[2] == 'n' && str[3] == 'c' &&
+			str[4] == 't' && str[5] == 'i' && str[6] == 'o' && str[7] == 'n') {
+			SizeType offset = 8;
+			while (offset < length && (str[offset] == ' ' || str[offset] == '\t' || str[offset] == '\n' || str[offset] == '\r')) {
+				++offset;
+			}
+			if (offset < length && str[offset] == '(') {
+				isFunction = true;
+			}
+		}
+
+		return isFunction;
+	}
+
 	void WriteString(const Ch* str, SizeType length)  {
 		static const char hexDigits[] = "0123456789ABCDEF";
 		static const char escape[256] = {
@@ -182,8 +201,11 @@ protected:
 			Z16, Z16, Z16, Z16, Z16, Z16, Z16, Z16, Z16, Z16								// 60~FF
 #undef Z16
 		};
+		bool isFunction = isJavascriptFunction(str, length);
 
-		stream_.Put('\"');
+		if (!isFunction) {
+			stream_.Put('\"');
+		}
 		for (const Ch* p = str; p != str + length; ++p) {
 			if ((sizeof(Ch) == 1 || *p < 256) && escape[(unsigned char)*p])  {
 				stream_.Put('\\');
@@ -198,7 +220,9 @@ protected:
 			else
 				stream_.Put(*p);
 		}
-		stream_.Put('\"');
+		if (!isFunction) {
+			stream_.Put('\"');
+		}
 	}
 
 	void WriteStartObject()	{ stream_.Put('{'); }
