@@ -41,6 +41,32 @@ struct HtmlOutputFunctor
 } // UNNAMED NAMESPACE
 
 // ==========================================================================
+// SC_PATHS
+// ==========================================================================
+
+QString SC_PATHS::getDataPath()
+{
+#if defined( Q_OS_WIN )
+    return QCoreApplication::applicationDirPath();
+#elif defined( Q_OS_MAC )
+    return QCoreApplication::applicationDirPath() + "/../Resources";
+#else
+    QString shared_path;
+    QStringList appdatalocation =  QStandardPaths::standardLocations( QStandardPaths::DataLocation );
+    for( int i = 0; i < appdatalocation.size(); ++i )
+    {
+      QDir dir( appdatalocation[ i ]);
+        if ( dir.exists() )
+        {
+          shared_path = dir.path();
+            break;
+        }
+    }
+    return shared_path;
+#endif
+}
+
+// ==========================================================================
 // SC_MainWindow
 // ==========================================================================
 
@@ -219,8 +245,8 @@ void SC_MainWindow::saveHistory()
 SC_MainWindow::SC_MainWindow( QWidget *parent )
   : QWidget( parent ),
   visibleWebView( 0 ),
-  cmdLine( nullptr ), // segfault in updateWebView() if not null
-  recentlyClosedTabModel( nullptr ),
+  cmdLine( 0 ), // segfault in updateWebView() if not null
+  recentlyClosedTabModel( 0 ),
   sim( 0 ),
   import_sim( 0 ),
   paperdoll_sim( 0 ),
@@ -240,42 +266,23 @@ SC_MainWindow::SC_MainWindow( QWidget *parent )
 
 #if defined( Q_OS_MAC )
   QDir::home().mkpath( "Library/Application Support/SimulationCraft" );
-  AppDataDir = ResultsDestDir = TmpDir = QDir::home().absoluteFilePath( "Library/Application Support/SimulationCraft" );
+  AppDataDir = QDir::home().absoluteFilePath( "Library/Application Support/SimulationCraft" );
+#elif defined( Q_OS_WIN )
+  AppDataDir = QCoreApplication::applicationDirPath();
+#else
+  QStringList q = QStandardPaths::standardLocations( QStandardPaths::CacheLocation );
+  assert( !q.isEmpty() );
+  AppDataDir = q.first();
 #endif
 
   QStringList s = QStandardPaths::standardLocations( QStandardPaths::CacheLocation );
-  if ( !s.empty() )
-  {
-    TmpDir = s.first();
-  }
-  else
-  {
-    s = QStandardPaths::standardLocations( QStandardPaths::TempLocation ); // Fallback
-    if ( !s.empty() )
-    {
-      TmpDir = s.first();
-    }
-  }
+  assert( !s.isEmpty() );
+  TmpDir = s.first();
+
   // Set ResultsDestDir
   s = QStandardPaths::standardLocations( QStandardPaths::DocumentsLocation );
-  if ( !s.empty() )
-  {
-    ResultsDestDir = s.first();
-  }
-  else
-  {
-    s = QStandardPaths::standardLocations( QStandardPaths::HomeLocation ); // Fallback, just use home path
-    if ( !s.empty() )
-    {
-      ResultsDestDir = s.first();
-    }
-  }
-
-#if defined( SC_LINUX_PACKAGING )
-  s = QStandardPaths::standardLocations( QStandardPaths::CacheLocation );
-  AppDataDir = ResultsDestDir = TmpDir = s.first() + "/SimulationCraft";
-  QDir::root().mkpath( AppDataDir );
-#endif
+  assert( !s.isEmpty() );
+  ResultsDestDir = s.first();
 
   logFileText = AppDataDir + "/" + "log.txt";
   resultsFileText = AppDataDir + "/" + "results.html";
@@ -384,21 +391,8 @@ void SC_WelcomeTabWidget::welcomeLoadSlot()
 SC_WelcomeTabWidget::SC_WelcomeTabWidget( SC_MainWindow* parent ) :
   SC_WebEngineView( parent )
 {
-  QString welcomeFile = QDir::currentPath() + "/Welcome.html";
+  QString welcomeFile = SC_PATHS::getDataPath() + "/Welcome.html";
 
-#if defined( Q_OS_MAC )
-  CFURLRef fileRef    = CFBundleCopyResourceURL( CFBundleGetMainBundle(), CFSTR( "Welcome" ), CFSTR( "html" ), 0 );
-  if ( fileRef )
-  {
-    CFStringRef macPath = CFURLCopyFileSystemPath( fileRef, kCFURLPOSIXPathStyle );
-    welcomeFile         = CFStringGetCStringPtr( macPath, CFStringGetSystemEncoding() );
-
-    CFRelease( fileRef );
-    CFRelease( macPath );
-  }
-#elif defined( SC_LINUX_PACKAGING )
-  welcomeFile = SC_LINUX_PACKAGING "/Welcome.html";
-#endif
 #ifndef SC_USE_WEBKIT
   welcome_uri = "file:///" + welcomeFile;
   welcome_timer = new QTimer( this );
@@ -448,85 +442,6 @@ void SC_MainWindow::createImportTab()
   // createCustomTab();
 }
 
-QDir build_profiledir(  QString profiledir, QString subdir )
-{
-#if defined( Q_OS_WINDOWS )
-    QString appdata = QStandardPaths::findExecutable( "simulationcraft", appdatalocation );
-    if ( appdata.isEmpty() )
-    {
-      appdata = QStandardPaths::findExecutable( "simulationcraft64", appdatalocation );
-      appdata.replace( QString( "/simulationcraft64.exe" ), QString( "" ), Qt::CaseInsensitive );
-    }
-    else
-    {
-      appdata.replace( QString( "/simulationcraft.exe" ), QString( "" ), Qt::CaseInsensitive );
-    }
-    appdata += "/profiles" );
-    if ( !subdir.isEmpty() )
-    {
-        appdata += "/";
-        appdata += subdir;
-    }
-    return QDir( appdata );
-#elif defined( Q_OS_MAC )
-
-        CFURLRef fileRef;
-        if ( !subdir.isEmpty() )
-        {
-        fileRef = CFBundleCopyResourceURL( CFBundleGetMainBundle(),
-                                                    CFStringCreateWithCString( NULL,
-                                                    subdir.toUtf8().constData(),
-                                                    kCFStringEncodingUTF8 ),
-                                                    0,
-                                           CFStringCreateWithCString( NULL,
-                                           profiledir.toUtf8().constData(),
-                                           kCFStringEncodingUTF8 ) );
-        }
-        else
-        {
-            fileRef = CFBundleCopyResourceURL( CFBundleGetMainBundle(), CFStringCreateWithCString( NULL,
-                                                                                                   profiledir.toUtf8().constData(),
-                                                                                                   kCFStringEncodingUTF8 ), 0, 0 );
-        }
-
-        QDir dir;
-        if ( fileRef )
-        {
-          CFStringRef macPath = CFURLCopyFileSystemPath( fileRef, kCFURLPOSIXPathStyle );
-          dir            = QString( CFStringGetCStringPtr( macPath, CFStringGetSystemEncoding() ) );
-
-          CFRelease( fileRef );
-          CFRelease( macPath );
-        }
-        return dir;
-    }
-#else
-
-    QDir out;
-    QStringList appdatalocation =  QStandardPaths::standardLocations( QStandardPaths::DataLocation );
-    //qDebug() << "linux appdatalocation: " << appdatalocation;
-    for( int i = 0; i < appdatalocation.size(); ++i )
-    {
-        QString path = appdatalocation[ i ];
-
-        path += "/";
-        path += profiledir;
-        if ( !subdir.isEmpty() )
-        {
-            path += "/";
-            path += subdir;
-        }
-        QDir dir( path );
-        if ( dir.exists() )
-        {
-            out = dir;
-            break;
-        }
-    }
-    return out;
-#endif
-}
-
 void SC_MainWindow::createBestInSlotTab()
 {
   // Create BiS Tree ( table with profiles )
@@ -549,7 +464,7 @@ void SC_MainWindow::createBestInSlotTab()
 
 
 
-  QDir tdir = build_profiledir( "profiles", "" );
+  QDir tdir = SC_PATHS::getDataPath() + "/profiles";
   tdir.setFilter( QDir::Dirs );
 
   QStringList tprofileList = tdir.entryList();
@@ -557,7 +472,7 @@ void SC_MainWindow::createBestInSlotTab()
   // Main loop through all subfolders of ./profiles/
   for ( int i = 0; i < tnumProfiles; i++ )
   {
-    QDir dir = build_profiledir( "profiles", tprofileList[ i ] );
+    QDir dir = SC_PATHS::getDataPath() + "/profiles" + "/" + tprofileList[ i ];
     dir.setSorting( QDir::Name );
     dir.setFilter( QDir::Files );
     dir.setNameFilters( QStringList( "*.simc" ) );
@@ -784,7 +699,7 @@ void SC_MainWindow::updateWebView( SC_WebView* wv )
 {
   assert( wv );
   visibleWebView = wv;
-  if ( cmdLine != nullptr ) // can be called before widget is setup
+  if ( cmdLine != 0 ) // can be called before widget is setup
   {
     if ( visibleWebView == battleNetView )
     {
@@ -832,7 +747,7 @@ void SC_MainWindow::deleteSim( sim_t* sim, SC_TextEdit* append_error_message )
 
     delete sim -> pause_mutex;
     delete sim;
-    sim = nullptr;
+    sim = 0;
 
     QString contents;
     bool logFileOpenedSuccessfully = false;
@@ -984,7 +899,7 @@ void SC_MainWindow::stopImport()
 
 bool SC_MainWindow::importRunning()
 {
-  return ( import_sim != nullptr );
+  return ( import_sim != 0 );
 }
 
 void SC_MainWindow::itemWasEnqueuedTryToSim()
@@ -1016,6 +931,7 @@ void SC_MainWindow::importFinished()
 {
   importSimPhase = "%p%";
   simProgress = 100;
+  importSimProgress = 100;
   cmdLine -> setImportingProgress( importSimProgress, importSimPhase.c_str(), "" );
   if ( importThread -> player )
   {
@@ -1121,7 +1037,7 @@ void SC_MainWindow::stopAllSim()
 
 bool SC_MainWindow::simRunning()
 {
-  return ( sim != nullptr );
+  return ( sim != 0 );
 }
 
 #ifdef SC_PAPERDOLL
@@ -1617,11 +1533,11 @@ void SC_MainWindow::importTabChanged( int index )
        index == TAB_RECENT )
   {
     cmdLine -> setTab( static_cast<import_tabs_e>( index ) );
-    visibleWebView = 0;
   }
   else
   {
     updateWebView( debug_cast<SC_WebView*>( importTab -> widget( index ) ) );
+    cmdLine -> setTab( static_cast<import_tabs_e>( index ) );
   }
 }
 
@@ -1702,7 +1618,7 @@ void SC_MainWindow::simulateTabRestored( QWidget*, const QString&, const QString
 
 void SC_MainWindow::switchToASubTab( int direction )
 {
-  QTabWidget* tabWidget = nullptr;
+  QTabWidget* tabWidget = 0;
   switch ( mainTab -> currentTab() )
   {
   case TAB_SIMULATE:

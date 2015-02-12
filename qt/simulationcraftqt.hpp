@@ -84,6 +84,11 @@ typedef QWebView SC_WebEngineView;
 typedef QWebPage SC_WebEnginePage;
 #endif
 
+struct SC_PATHS
+{
+    static QString getDataPath();
+};
+
 // ============================================================================
 // SC_StringHistory
 // ============================================================================
@@ -242,7 +247,7 @@ class SC_QueueItemModel : public QStandardItemModel
 {
   Q_OBJECT
 public:
-  SC_QueueItemModel( QObject* parent = nullptr ) :
+  SC_QueueItemModel( QObject* parent = 0 ) :
     QStandardItemModel( parent )
   {
     connect( this, SIGNAL( rowsRemoved( const QModelIndex&, int, int ) ),  this, SLOT( rowsRemovedSlot( const QModelIndex&, int, int ) ) );
@@ -305,9 +310,9 @@ class SC_QueueListView : public QWidget
 public:
   SC_QueueListView( SC_QueueItemModel* model,
       int minimumItemsToShowWidget = 1,
-      QWidget* parent = nullptr ) :
+      QWidget* parent = 0 ) :
     QWidget( parent ),
-    listView( nullptr ),
+    listView( 0 ),
     model( model ),
     minimumItemsToShow( minimumItemsToShowWidget )
   {
@@ -344,7 +349,7 @@ protected:
   }
   QListView* initListView()
   {
-    if ( listView != nullptr )
+    if ( listView != 0 )
     {
       delete listView;
     }
@@ -354,7 +359,7 @@ protected:
     listView -> setSelectionMode( QListView::SingleSelection );
     listView -> setModel( model );
 
-    if ( model != nullptr )
+    if ( model != 0 )
     {
       connect( model, SIGNAL( rowsInserted( const QModelIndex&, int, int ) ), this, SLOT( rowsInserted() ) );
       connect( model, SIGNAL( rowsRemoved( const QModelIndex&, int, int ) ),  this, SLOT( rowsRemoved() ) );
@@ -370,7 +375,7 @@ protected:
   }
   void tryHide()
   {
-    if ( model != nullptr ) // gcc gave a weird error when making this one if
+    if ( model != 0 ) // gcc gave a weird error when making this one if
     {
       if ( model -> rowCount() < minimumItemsToShow &&
            minimumItemsToShow >= 0 )
@@ -384,7 +389,7 @@ protected:
   }
   void tryShow()
   {
-    if ( model != nullptr )
+    if ( model != 0 )
     {
       if ( model -> rowCount() >= minimumItemsToShow )
       {
@@ -420,7 +425,7 @@ class SC_CommandLine : public QLineEdit
 {
   Q_OBJECT
 public:
-  SC_CommandLine( QWidget* parent = nullptr );
+  SC_CommandLine( QWidget* parent = 0 );
 signals:
   void switchToLeftSubTab();
   void switchToRightSubTab();
@@ -454,7 +459,7 @@ class SC_WelcomeTabWidget: public SC_WebEngineView
 {
   Q_OBJECT
   public:
-  SC_WelcomeTabWidget( SC_MainWindow* parent = nullptr );
+  SC_WelcomeTabWidget( SC_MainWindow* parent = 0 );
 
 private slots:
 #if defined ( SC_USE_WEBENGINE )
@@ -623,7 +628,7 @@ class SC_SimulateTab: public SC_RecentlyClosedTab
     QWidget* addTabWidget;
   int lastSimulateTabIndexOffset;
   public:
-  SC_SimulateTab( QWidget* parent = nullptr, SC_RecentlyClosedTabItemModel* modelToUse = nullptr ):
+  SC_SimulateTab( QWidget* parent = 0, SC_RecentlyClosedTabItemModel* modelToUse = 0 ):
     SC_RecentlyClosedTab( parent, modelToUse ),
     addTabWidget( new QWidget( this ) ),
     lastSimulateTabIndexOffset( -2 )
@@ -634,8 +639,8 @@ class SC_SimulateTab: public SC_RecentlyClosedTab
     setCloseAllTabsBodyText( tr( "Do you really want to close ALL simulation profiles?" ) );
     QIcon addTabIcon( ":/icon/addtab.png" );
     int i = addTab( addTabWidget, addTabIcon, addTabIcon.pixmap( QSize( 64, 64 ) ).isNull() ? "+" : "" );
-    tabBar() -> setTabButton( i, QTabBar::LeftSide, nullptr );
-    tabBar() -> setTabButton( i, QTabBar::RightSide, nullptr );
+    tabBar() -> setTabButton( i, QTabBar::LeftSide, 0 );
+    tabBar() -> setTabButton( i, QTabBar::RightSide, 0 );
     addCloseAllExclude( addTabWidget );
 
     enableDragHoveredOverTabSignal( true );
@@ -828,7 +833,7 @@ class SC_SimulateTab: public SC_RecentlyClosedTab
   virtual void showEvent( QShowEvent* e )
   {
     QWidget* currentWidget = widget( currentIndex() );
-    if ( currentWidget != nullptr )
+    if ( currentWidget != 0 )
     {
       if ( !currentWidget -> hasFocus() )
       {
@@ -931,26 +936,26 @@ class SC_ComboBoxIntegerValidator: public QValidator
     upperBoundDigitCount = util::numDigits( upperBoundInclusive );
   }
 
-  static SC_ComboBoxIntegerValidator* CreateBoundlessValidator( QComboBox* parent = nullptr )
+  static SC_ComboBoxIntegerValidator* CreateBoundlessValidator( QComboBox* parent = 0 )
   {
     return new SC_ComboBoxIntegerValidator( std::numeric_limits<int>::min(), std::numeric_limits<int>::max(), parent );
   }
 
-  static SC_ComboBoxIntegerValidator* CreateUpperBoundValidator( int upperBound, QComboBox* parent = nullptr )
+  static SC_ComboBoxIntegerValidator* CreateUpperBoundValidator( int upperBound, QComboBox* parent = 0 )
   {
     return new SC_ComboBoxIntegerValidator( std::numeric_limits<int>::min(), upperBound, parent );
   }
 
-  static SC_ComboBoxIntegerValidator* CreateLowerBoundValidator( int lowerBound, QComboBox* parent = nullptr )
+  static SC_ComboBoxIntegerValidator* CreateLowerBoundValidator( int lowerBound, QComboBox* parent = 0 )
   {
     return new SC_ComboBoxIntegerValidator( lowerBound, std::numeric_limits<int>::max(), parent );
   }
 
   static QComboBox* ApplyValidatorToComboBox( QValidator* validator, QComboBox* comboBox )
   {
-    if ( comboBox != nullptr )
+    if ( comboBox != 0 )
     {
-      if ( validator != nullptr )
+      if ( validator != 0 )
       {
         comboBox -> setEditable( true );
         comboBox -> setValidator( validator );
@@ -1097,9 +1102,9 @@ public:
   int soloimport;
   int simResults;
 
-  QString AppDataDir;
-  QString ResultsDestDir;
-  QString TmpDir;
+  QString AppDataDir; // output goes here
+  QString ResultsDestDir; // user documents dir, default location offered to persitently save reports
+  QString TmpDir; // application specific temporary dir
 
   QString cmdLineText;
   QString logFileText;
@@ -1228,7 +1233,7 @@ protected:
   {
     return extension == QWebPage::ErrorPageExtension;
   }
-  virtual bool extension( Extension extension, const ExtensionOption* option = nullptr, ExtensionReturn* output = nullptr )
+  virtual bool extension( Extension extension, const ExtensionOption* option = 0, ExtensionReturn* output = 0 )
   {
     if ( extension != SC_WebPage::ErrorPageExtension )
     {
@@ -1313,7 +1318,7 @@ public:
 
   SC_WebView( SC_MainWindow* mw, QWidget* parent = 0, const QString& h = QString() ) :
     SC_WebEngineView( parent ),
-    searchBox( nullptr ),
+    searchBox( 0 ),
     previousSearch( "" ),
     allow_mouse_navigation( false ),
     allow_keyboard_navigation( false ),
