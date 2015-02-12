@@ -155,6 +155,6 @@ inline sc_js_t& sc_js_t::set( rapidjson::Value& obj, const std::string& name_, r
   do_set( obj, name_.c_str(), value_ );
   return *this;
 }
-}
+} /* namespace js */
 
 #endif /* SC_JS_HPP */

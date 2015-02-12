@@ -1571,33 +1571,52 @@ bool chart::generate_reforge_plot( highchart::chart_t& ac, const player_t* p )
 
   std::cerr << "baseline=" << baseline << " min-dps=" << min_dps << " max_dps=" << max_dps << " max-y-range=" << yrange << std::endl;
 
-  ac.set_title( "Reforge Plot" );
+  ac.set_title( p -> name_str + " Reforge Plot" );
   ac.set_yaxis_title( "Damage Per Second" );
-  std::string title;
-  title += util::stat_type_abbrev( p -> sim -> reforge_plot -> reforge_plot_stat_indices[ 0 ] );
-  title += " \u2b04 ";
-  title += util::stat_type_abbrev( p -> sim -> reforge_plot -> reforge_plot_stat_indices[ 1 ] );
-  ac.set_xaxis_title( title );
+  std::string from_stat, to_stat, from_color, to_color;
+  from_stat = util::stat_type_abbrev( p -> sim -> reforge_plot -> reforge_plot_stat_indices[ 0 ] );
+  to_stat = util::stat_type_abbrev( p -> sim -> reforge_plot -> reforge_plot_stat_indices[ 1 ] );
+  from_color = chart::stat_color( p -> sim -> reforge_plot -> reforge_plot_stat_indices[ 0 ] );
+  to_color = chart::stat_color( p -> sim -> reforge_plot -> reforge_plot_stat_indices[ 1 ] );
+
+  std::string span_from_stat = "<span style=\"color:#" + from_color + ";font-weight:bold;\">" + from_stat + "</span>";
+  std::string span_from_stat_abbrev = "<span style=\"color:#" + from_color + ";font-weight:bold;\">" + from_stat.substr( 0, 2 ) + "</span>";
+  std::string span_to_stat = "<span style=\"color:#" + to_color + ";font-weight:bold;\">" + to_stat + "</span>";
+  std::string span_to_stat_abbrev = "<span style=\"color:#" + to_color + ";font-weight:bold;\">" + to_stat.substr( 0, 2 ) + "</span>";
+
+
   ac.set( "yAxis.min", baseline - yrange );
   ac.set( "yAxis.max", baseline + yrange );
   ac.set( "yaxis.minPadding", 0.01 );
   ac.set( "yaxis.maxPadding", 0.01 );
+  ac.set( "xAxis.labels.overflow", "justify" );
+  ac.set_xaxis_title( "Reforging between " + span_from_stat + " \u2194 " + span_to_stat );
 
-  ac.add_yplotline( baseline, "Baseline", 1.25, "#FF8866" );
+  std::string formatter_function = "function() {";
+  formatter_function += "if (this.value == 0) { return 'Baseline'; } ";
+  formatter_function += "else if (this.value < 0) { return Math.abs(this.value) + '<br/>" + span_from_stat_abbrev + "\u2192" + span_to_stat_abbrev + "'; } ";
+  formatter_function += "else { return Math.abs(this.value) + '<br/>" + span_to_stat_abbrev + "\u2192" + span_from_stat_abbrev + "'; } ";
+  formatter_function += "}";
 
-  std::vector<double> mean;
-  std::vector<std::pair<double, double> > range;
+  ac.set( "xAxis.labels.formatter", formatter_function );
+
+  ac.add_yplotline( baseline, "baseline", 1.25, "#FF8866" );
+
+  std::vector<std::pair<double, double> > mean;
+  std::vector<highchart::data_triple_t> range;
 
   for ( size_t i = 0; i < pd.size(); i++ )
   {
+    double x = pd[ i ][ 0 ].value;
+
     double v = pd[ i ][ 2 ].value;
     double e = pd[ i ][ 2 ].error / 2;
-    mean.push_back( v );
-    range.push_back(std::pair<double, double>( v + e, v - e ) );
+    mean.push_back( std::make_pair( x, v ) );
+    range.push_back( highchart::data_triple_t( x, v + e, v - e ) );
   }
 
-  ac.add_simple_series( "line", chart::stat_color( p -> sim -> reforge_plot -> reforge_plot_stat_indices[ 0 ] ), "Mean", mean );
-  ac.add_simple_series( "arearange", chart::stat_color( p -> sim -> reforge_plot -> reforge_plot_stat_indices[ 1 ] ), "Range", range );
+  ac.add_simple_series( "line", from_color, "Mean", mean );
+  ac.add_simple_series( "arearange", to_color, "Range", range );
 
   ac.set( "series.0.zIndex", 1 );
   ac.set( "series.0.marker.radius", 0 );

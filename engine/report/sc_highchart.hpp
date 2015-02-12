@@ -29,6 +29,17 @@ struct data_entry_t
   double value;
 };
 
+struct data_triple_t
+{
+  double x_;
+  double v1_;
+  double v2_;
+
+  data_triple_t( double x, double v1, double v2 ) :
+    x_( x ), v1_( v1 ), v2_( v2 )
+  { }
+};
+
 struct chart_t : public js::sc_js_t
 {
   std::string id_str_;
@@ -48,6 +59,7 @@ struct chart_t : public js::sc_js_t
 
   void add_simple_series( const std::string& type, const std::string& color, const std::string& name, const std::vector<std::pair<double, double> >& series );
   void add_simple_series( const std::string& type, const std::string& color, const std::string& name, const std::vector<double>& series );
+  void add_simple_series( const std::string& type, const std::string& color, const std::string& name, const std::vector<data_triple_t>& series );
   void add_data_series( const std::string& type, const std::string& name, const std::vector<data_entry_t>& d );
   void add_data_series( const std::vector<data_entry_t>& d );
 
