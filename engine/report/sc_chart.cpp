@@ -1589,13 +1589,13 @@ bool chart::generate_reforge_plot( highchart::chart_t& ac, const player_t* p )
   ac.set( "yAxis.max", baseline + yrange );
   ac.set( "yaxis.minPadding", 0.01 );
   ac.set( "yaxis.maxPadding", 0.01 );
-  ac.set( "xAxis.labels.overflow", "justify" );
-  ac.set_xaxis_title( "Reforging between " + span_from_stat + " \u2194 " + span_to_stat );
+  ac.set( "xAxis.labels.overflow", "false" );
+  ac.set_xaxis_title( "Reforging between " + span_from_stat + " and " + span_to_stat );
 
   std::string formatter_function = "function() {";
   formatter_function += "if (this.value == 0) { return 'Baseline'; } ";
-  formatter_function += "else if (this.value < 0) { return Math.abs(this.value) + '<br/>" + span_from_stat_abbrev + "\u2192" + span_to_stat_abbrev + "'; } ";
-  formatter_function += "else { return Math.abs(this.value) + '<br/>" + span_to_stat_abbrev + "\u2192" + span_from_stat_abbrev + "'; } ";
+  formatter_function += "else if (this.value < 0) { return Math.abs(this.value) + '<br/>" + span_from_stat_abbrev + " to " + span_to_stat_abbrev + "'; } ";
+  formatter_function += "else { return Math.abs(this.value) + '<br/>" + span_to_stat_abbrev + " to " + span_from_stat_abbrev + "'; } ";
   formatter_function += "}";
 
   ac.set( "xAxis.labels.formatter", formatter_function );

@@ -121,7 +121,7 @@ std::string chart_t::to_target_div() const
   std::string str_ = "<div id=\"" + id_str_ + "\"";
   str_ += " style=\"min-width: " + util::to_string( width_ ) + "px;";
   if ( height_ > 0 )
-    str_ += " height: " + util::to_string( height_ ) + "px;";
+    str_ += " min-height: " + util::to_string( height_ ) + "px;";
   str_ += "margin: 5px;\"></div>\n";
 
   return str_;
