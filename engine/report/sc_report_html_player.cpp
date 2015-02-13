@@ -2467,14 +2467,18 @@ void print_html_player_resources( report::sc_html_stream& os, player_t* p, playe
     // hack hack. don't display RESOURCE_RUNE_<TYPE> yet. only shown in tabular data.  WiP
     if ( r == RESOURCE_RUNE_BLOOD || r == RESOURCE_RUNE_UNHOLY || r == RESOURCE_RUNE_FROST ) continue;
     double total_gain = 0;
+    size_t n_gains = 0;
     for ( size_t i = 0; i < p -> gain_list.size(); ++i )
     {
       gain_t* g = p -> gain_list[ i ];
       if ( g -> actual[ r ] > 0 )
+      {
         total_gain += g -> actual[ r ];
+        ++n_gains;
+      }
     }
 
-    if ( total_gain > 0 )
+    if ( n_gains > 1 && total_gain > 0 )
     {
       highchart::pie_chart_t pc( highchart::build_id( p, std::string("resource_gain_") + util::resource_type_string( r ) ), p -> sim );
       chart::generate_gains( pc, p, r );
