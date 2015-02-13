@@ -139,7 +139,7 @@ std::string chart_t::to_aggregate_string( bool on_click ) const
     if ( on_click )
     {
       assert( ! toggle_id_str_.empty() );
-      str_ += "$('#" + toggle_id_str_ + "').on('click', function() {\n";
+      str_ += "$('#" + toggle_id_str_ + "').one('click', function() {\n";
       //str_ += "console.log(\"Loading " + id_str_ + ": " + toggle_id_str_ + " ...\" );\n";
     }
     str_ += "$('#" + id_str_ + "').highcharts(";
