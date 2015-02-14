@@ -51,7 +51,7 @@ hands=soul_priests_gloves,id=115562
 waist=deckhands_rope_belt,id=113967
 legs=leggings_of_the_molten_torrent,id=113914
 feet=inferno_breath_sandals,id=113942
-finger1=epicenter_loop,id=113947,enchant=gift_of_multistrike
+finger1=timeless_solium_band_of_the_archmage,id=118296,enchant=gift_of_multistrike
 finger2=signet_of_crystalline_barrage,id=113651,enchant=gift_of_multistrike
 trinket1=darmacs_unstable_talisman,id=113948
 trinket2=goren_soul_repository,id=119194
@@ -59,12 +59,13 @@ main_hand=franzoks_headsmasher,id=113904,enchant=mark_of_the_frostwolf
 off_hand=enginestokers_lantern,id=113960
 
 # Gear Summary
-# gear_stamina=3388
-# gear_intellect=2797
+# gear_stamina=3417
+# gear_intellect=2817
 # gear_spell_power=1328
-# gear_crit_rating=900
+# gear_crit_rating=822
 # gear_haste_rating=882
+# gear_mastery_rating=113
 # gear_armor=700
 # gear_multistrike_rating=1108
-# gear_versatility_rating=327
+# gear_versatility_rating=313
 # set_bonus=tier17_2pc=1

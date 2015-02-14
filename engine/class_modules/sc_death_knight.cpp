@@ -1940,6 +1940,11 @@ struct ghoul_pet_t : public death_knight_pet_t
       if ( p -> o() -> buffs.dark_transformation -> up() )
       {
         double dtb = p -> o() -> buffs.dark_transformation -> data().effectN( 1 ).percent();
+
+        if ( p -> o() -> wod_hotfix && p -> o() -> sets.has_set_bonus( DEATH_KNIGHT_UNHOLY, T17, B2 ) )
+        {
+          dtb += 0.4;
+        }
         if ( maybe_ptr( p -> dbc.ptr ) )
         {
           dtb += p -> o() -> sets.set( DEATH_KNIGHT_UNHOLY, T17, B2 ) -> effectN( 2 ).percent();
@@ -4797,7 +4802,7 @@ struct blood_boil_spread_t : public death_knight_spell_t
 
         // Bugged Blood Boil spreads diseases for Frost/Unholy so that the
         // target dot actually resets the tick timer, but keeps the duration.
-        if ( player -> bugs )
+        if ( player -> bugs && ! maybe_ptr( player -> dbc.ptr ) )
         {
           dot_t* d = tdata -> dots_blood_plague;
 
@@ -4821,7 +4826,7 @@ struct blood_boil_spread_t : public death_knight_spell_t
 
         // Bugged Blood Boil spreads diseases for Frost/Unholy so that the
         // target dot actually resets the tick timer, but keeps the duration.
-        if ( player -> bugs )
+        if ( player -> bugs && ! maybe_ptr( player -> dbc.ptr ) )
         {
           dot_t* d = tdata -> dots_frost_fever;
 
@@ -4853,7 +4858,7 @@ struct blood_boil_spread_t : public death_knight_spell_t
 
         // Bugged Blood Boil spreads diseases for Frost/Unholy so that the
         // target dot actually resets the tick timer, but keeps the duration.
-        if ( player -> bugs )
+        if ( player -> bugs && ! maybe_ptr( player -> dbc.ptr ) )
         {
           dot_t* d = tdata -> dots_necrotic_plague;
 

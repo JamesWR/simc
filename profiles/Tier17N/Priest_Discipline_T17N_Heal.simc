@@ -51,20 +51,20 @@ hands=soul_priests_gloves,id=115562
 waist=seeking_ember_girdle,id=113941
 legs=soul_priests_leggings,id=115564
 feet=cavedwellers_climbers,id=113864
-finger1=sixeyed_band,id=113901,enchant=gift_of_critical_strike
+finger1=timeless_solium_band_of_lifegiving,id=118299,enchant=gift_of_critical_strike
 finger2=firemenders_smoldering_signet,id=113957,enchant=gift_of_critical_strike
 trinket1=autorepairing_autoclave,id=113986
 trinket2=ironspike_chew_toy,id=119192
 main_hand=blackhand_doomstaff,id=113988,enchant=mark_of_shadowmoon
 
 # Gear Summary
-# gear_stamina=3408
-# gear_intellect=2460
+# gear_stamina=3437
+# gear_intellect=2480
 # gear_spell_power=1325
 # gear_crit_rating=1335
-# gear_haste_rating=597
+# gear_haste_rating=680
 # gear_mastery_rating=657
 # gear_armor=700
-# gear_multistrike_rating=339
+# gear_multistrike_rating=248
 # set_bonus=tier17_2pc=1
 # set_bonus=tier17_4pc=1
