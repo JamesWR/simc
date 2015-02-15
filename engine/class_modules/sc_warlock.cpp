@@ -2286,6 +2286,8 @@ struct demonbolt_t: public warlock_spell_t
   {
     if ( p -> wod_hotfix )
       base_multiplier *= 0.77;
+    if ( p -> dbc.ptr )
+      base_multiplier *= 0.75;
   }
 
   virtual double cost() const
@@ -2357,7 +2359,7 @@ struct shadowflame_t: public warlock_spell_t
     background = true;
     may_miss = false;
     generate_fury = 2;
-    if ( p -> wod_hotfix )
+    if ( p -> wod_hotfix || p -> dbc.ptr )
       spell_power_mod.tick *= 0.8;
   }
 
