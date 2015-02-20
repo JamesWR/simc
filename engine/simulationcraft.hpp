@@ -6,7 +6,7 @@
 #define SIMULATIONCRAFT_H
 
 #define SC_MAJOR_VERSION "603"
-#define SC_MINOR_VERSION "27"
+#define SC_MINOR_VERSION "28"
 #define SC_USE_PTR ( 1 )
 #define SC_BETA ( 0 )
 #define SC_BETA_STR "wod"
@@ -4882,6 +4882,10 @@ struct player_t : public actor_t
 
   virtual double composite_player_critical_damage_multiplier() const;
   virtual double composite_player_critical_healing_multiplier() const;
+  virtual double composite_player_multistrike_damage_multiplier() const 
+  { return 0.30; };
+  virtual double composite_player_multistrike_healing_multiplier() const 
+  { return 0.30; };
 
   virtual double composite_mitigation_multiplier( school_e ) const;
 
@@ -5410,6 +5414,11 @@ public:
   // http://us.battle.net/wow/en/forum/topic/5889309137?page=58#1143
 
   double hit_exp() const;
+  
+  virtual double composite_player_multistrike_damage_multiplier() const
+  { return owner -> composite_player_multistrike_damage_multiplier(); }
+  virtual double composite_player_multistrike_healing_multiplier() const
+  { return owner -> composite_player_multistrike_healing_multiplier(); }
 
   virtual double composite_movement_speed() const
   { return owner -> composite_movement_speed(); }
@@ -5975,8 +5984,12 @@ public:
   { snapshot_internal( s, update_flags, rt ); }
   virtual void consolidate_snapshot_flags();
 
-  virtual double composite_multistrike_multiplier( const action_state_t* ) const
-  { return 0.3; }
+  virtual double composite_multistrike_multiplier( const action_state_t* t ) const
+  { return ( t -> result_type == DMG_DIRECT || t -> result_type == DMG_OVER_TIME ) 
+      ? player -> composite_player_multistrike_damage_multiplier()
+      : player -> composite_player_multistrike_healing_multiplier();
+  }
+
   virtual timespan_t composite_dot_duration( const action_state_t* ) const;
   virtual double attack_direct_power_coefficient( const action_state_t* ) const
   { return attack_power_mod.direct; }

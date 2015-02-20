@@ -233,6 +233,7 @@ public:
     buff_t* combo_breaker_bok;
     buff_t* combo_breaker_ce;
     buff_t* combo_breaker_tp;
+    buff_t* cranes_zeal;
     buff_t* dampen_harm;
     buff_t* death_note;
     buff_t* diffuse_magic;
@@ -521,8 +522,11 @@ public:
     cooldown.touch_of_death   = get_cooldown( "touch_of_death" );
 
     regen_type = REGEN_DYNAMIC;
-    regen_caches[CACHE_HASTE] = true;
-    regen_caches[CACHE_ATTACK_HASTE] = true;
+    if ( specialization() != MONK_MISTWEAVER )
+    {
+      regen_caches[CACHE_HASTE] = true;
+      regen_caches[CACHE_ATTACK_HASTE] = true;
+    }
   }
 
   // player_t overrides
@@ -542,6 +546,7 @@ public:
   virtual double    composite_crit_avoidance() const;
   virtual double    composite_rating_multiplier( rating_e rating ) const;
   virtual double    composite_multistrike() const;
+  virtual double    composite_player_multistrike_damage_multiplier() const;
   virtual pet_t*    create_pet( const std::string& name, const std::string& type = std::string() );
   virtual void      create_pets();
   virtual void      init_spells();
@@ -731,7 +736,7 @@ struct storm_earth_and_fire_pet_t : public pet_t
 
       const sef_td_t* tdata = td( t );
       if ( tdata -> rising_sun_kick -> check() )
-        m *= 1.0 + ( !this -> player -> dbc.ptr ? 0.10 : tdata -> rising_sun_kick -> data().effectN( 1 ).percent() ); // Hotfix nerf to 10% (down from 20%) on 2014/12/08
+        m *= 1.0 + ( !this -> player -> dbc.ptr ? 0.10 : tdata -> rising_sun_kick -> data().effectN( 1 ).percent() );
 
       return m;
     }
@@ -1675,7 +1680,7 @@ public:
     main_hand_weapon.max_dmg = dbc.spell_scaling( o() -> type, level );
     main_hand_weapon.damage = ( main_hand_weapon.min_dmg + main_hand_weapon.max_dmg ) / 2;
     main_hand_weapon.swing_time = timespan_t::from_seconds( 1.0 );
-    owner_coeff.ap_from_ap = 0.60; // Hotfix applied on Oct 17, 2014
+    owner_coeff.ap_from_ap = 0.60;
   }
 
   monk_t* o()
@@ -1804,16 +1809,6 @@ public:
       return ab::current_resource();
 
     return resource_by_stance;
-  }
-
-  virtual double composite_multistrike_multiplier( const action_state_t* s ) const
-  {
-    double m = ab::composite_multistrike_multiplier( s );
-
-    if ( p() -> buff.forceful_winds -> up() )
-      m *= 1 + p() -> buff.forceful_winds -> value();
-
-    return m;
   }
 
   void trigger_brew( double base_stacks )
@@ -1958,7 +1953,7 @@ struct monk_spell_t: public monk_action_t < spell_t >
     double m = base_t::composite_target_multiplier( t );
 
     if ( td( t ) -> debuff.rising_sun_kick -> check() )
-      m *= 1.0 + ( !p() -> dbc.ptr ? 0.10 : 0.20 ); //td( t ) -> debuff.rising_sun_kick -> data().effectN( 1 ).percent() ); // Hotfix to 10% (down from 20%) on Dec 08, 2014
+      m *= 1.0 + ( !p() -> dbc.ptr ? 0.10 : td( t ) -> debuff.rising_sun_kick -> data().effectN( 1 ).percent() );
 
     return m;
   }
@@ -2064,7 +2059,7 @@ struct monk_melee_attack_t: public monk_action_t < melee_attack_t >
     double m = base_t::composite_target_multiplier( t );
 
     if ( td( t ) -> debuff.rising_sun_kick -> check() && special )
-      m *= 1.0 + ( !p() -> dbc.ptr ? 0.10 : 0.20 );// td( t ) -> debuff.rising_sun_kick -> data().effectN( 1 ).percent() ); // Hotfix to 10% (down from 20%) on Dec 08, 2014
+      m *= 1.0 + ( !p() -> dbc.ptr ? 0.10 : td( t ) -> debuff.rising_sun_kick -> data().effectN( 1 ).percent() );
 
     return m;
   }
@@ -2177,16 +2172,14 @@ struct tiger_palm_t: public monk_melee_attack_t
     base_multiplier = 3.6; // hardcoded into tooltip
     if ( p -> dbc.ptr )
       base_multiplier = 3;
-    if ( p -> specialization() == MONK_MISTWEAVER && !p -> dbc.ptr)
-      base_multiplier *= 2;
+    if ( p -> specialization() == MONK_MISTWEAVER )
+      base_multiplier *= 1.0 + p -> spec.teachings_of_the_monastery -> effectN( 5 ).percent();
     base_costs[RESOURCE_CHI] *= 1.0 + p -> spec.brewmaster_training -> effectN( 2 ).percent();
   }
 
   double action_multiplier() const
   {
     double m = monk_melee_attack_t::action_multiplier();
-
-    m *= 1.0 + p() -> spec.teachings_of_the_monastery -> effectN( 5 ).percent();
 
     if ( p() -> sets.has_set_bonus( SET_MELEE, T16, B2 ) && p() -> buff.combo_breaker_tp -> check() )
       m *= 1.0 + ( p() -> sets.set( SET_MELEE, T16, B2 ) -> effectN( 1 ).base_value() / 100 );
@@ -2284,6 +2277,13 @@ struct blackout_kick_t: public monk_melee_attack_t
       aoe = 1 + p -> spec.teachings_of_the_monastery -> effectN( 4 ).base_value();
 
     sef_ability = SEF_BLACKOUT_KICK;
+  }
+
+  void execute()
+  {
+    monk_melee_attack_t::execute();
+    if ( p() -> spec.teachings_of_the_monastery )
+      p() -> buff.cranes_zeal -> trigger();
   }
 
   virtual void impact( action_state_t* s )
@@ -2401,14 +2401,28 @@ struct dot_chi_explosion_t: public residual_action::residual_periodic_action_t <
 struct chi_explosion_t: public monk_melee_attack_t
 {
   const spell_data_t* windwalker_chi_explosion_dot;
+  const spell_data_t* spirited_crane_chi_explosion;
   chi_explosion_t( monk_t* p, const std::string& options_str ):
     monk_melee_attack_t( "chi_explosion", p, p -> talent.chi_explosion ),
-    windwalker_chi_explosion_dot( p -> find_spell( 157680 ) )
+    windwalker_chi_explosion_dot( p -> find_spell( 157680 ) ),
+    spirited_crane_chi_explosion( p -> find_spell( 159620 ) )
   {
     parse_options( options_str );
     sef_ability = SEF_CHI_EXPLOSION;
   }
 
+  double spell_direct_power_coefficient( const action_state_t* state ) const
+  {
+    if ( p() -> specialization() == MONK_MISTWEAVER )
+    {
+      if ( p() -> current_stance() == SPIRITED_CRANE )
+        return spirited_crane_chi_explosion -> effectN( 1 ).sp_coeff();
+      else
+        return spell_power_mod.direct;
+    }
+    else
+      return 0.0;
+  }
 
   int n_targets() const
   {
@@ -2426,7 +2440,7 @@ struct chi_explosion_t: public monk_melee_attack_t
 
   void execute()
   {
-    monk_melee_attack_t::execute(); 
+    monk_melee_attack_t::execute();
 
     if ( p() -> specialization() == MONK_BREWMASTER )
     {
@@ -2443,29 +2457,34 @@ struct chi_explosion_t: public monk_melee_attack_t
       }
       if ( resource_consumed >= 3 && p() -> has_stagger() )
       {
-          double stagger_pct = p() -> current_stagger_tick_dmg_percent();
-          double stagger_dmg = p() -> clear_stagger();
+        double stagger_pct = p() -> current_stagger_tick_dmg_percent();
+        double stagger_dmg = p() -> clear_stagger();
 
-          // Tier 17 4 pieces Brewmaster: 3 stacks of Chi Explosion generates 1 stacks of Elusive Brew.
-          // Hotfix Jan 13, 2014 - Only procs on Moderate or Heavy Stagger
-          if ( p() -> sets.has_set_bonus( MONK_BREWMASTER, T17, B4 ) && ( stagger_pct > p() -> moderate_stagger_threshold) )
-            trigger_brew( p() -> sets.set( MONK_BREWMASTER, T17, B4 ) -> effectN( 1 ).base_value() );
+        // Tier 17 4 pieces Brewmaster: 3 stacks of Chi Explosion generates 1 stacks of Elusive Brew.
+        // Hotfix Jan 13, 2014 - Only procs on Moderate or Heavy Stagger
+        if ( p() -> sets.has_set_bonus( MONK_BREWMASTER, T17, B4 ) && ( stagger_pct > p() -> moderate_stagger_threshold ) )
+          trigger_brew( p() -> sets.set( MONK_BREWMASTER, T17, B4 ) -> effectN( 1 ).base_value() );
 
-          // Optional addition: Track and report amount of damage cleared
-          if ( stagger_pct > p() -> heavy_stagger_threshold )
-            p() -> sample_datas.heavy_stagger_total_damage -> add( stagger_dmg );
-          else if ( stagger_pct > p() -> moderate_stagger_threshold )
-            p() -> sample_datas.moderate_stagger_total_damage -> add( stagger_dmg );
-          else
-            p() -> sample_datas.light_stagger_total_damage -> add( stagger_dmg );
+        // Optional addition: Track and report amount of damage cleared
+        if ( stagger_pct > p() -> heavy_stagger_threshold )
+          p() -> sample_datas.heavy_stagger_total_damage -> add( stagger_dmg );
+        else if ( stagger_pct > p() -> moderate_stagger_threshold )
+          p() -> sample_datas.moderate_stagger_total_damage -> add( stagger_dmg );
+        else
+          p() -> sample_datas.light_stagger_total_damage -> add( stagger_dmg );
 
-          p() -> sample_datas.purified_damage -> add( stagger_dmg );
+        p() -> sample_datas.purified_damage -> add( stagger_dmg );
       }
     }
     else if ( p() -> specialization() == MONK_WINDWALKER )
     {
       if ( resource_consumed >= 3 )
         trigger_brew( 1 );
+    }
+    else if ( p() -> current_stance() == SPIRITED_CRANE )
+    {
+      if ( resource_consumed >= 2 )
+        p() -> buff.cranes_zeal -> trigger();
     }
   }
 
@@ -2572,7 +2591,7 @@ struct rising_sun_kick_t: public monk_melee_attack_t
     cooldown -> duration = data().charge_cooldown();
     cooldown -> charges = data().charges();
     parse_options( options_str );
-    stancemask = FIERCE_TIGER;
+    stancemask = FIERCE_TIGER | SPIRITED_CRANE;
     mh = &( player -> main_hand_weapon );
     oh = &( player -> off_hand_weapon );
     base_multiplier *= 10.56; // hardcoded into tooltip
@@ -3965,17 +3984,17 @@ regardless of if the glyph is actually present.
 struct mana_tea_t: public monk_spell_t
 {
   mana_tea_t( monk_t& p, const std::string& options_str ):
-    monk_spell_t( "mana_tea", &p, p.spec.mana_tea )
+    monk_spell_t( "mana_tea", &p, p.find_spell( 123761 ) )
   {
     parse_options( options_str );
 
-    stancemask = WISE_SERPENT;
+    stancemask = WISE_SERPENT | SPIRITED_CRANE;
     harmful = false;
   }
 
   virtual bool ready()
   {
-    if ( p() -> buff.mana_tea -> stack() == 0 )
+    if ( p() -> buff.mana_tea -> current_stack == 0 )
       return false;
 
     return monk_spell_t::ready();
@@ -3992,6 +4011,8 @@ struct mana_tea_t: public monk_spell_t
     }
 
     int max_stacks_consumable = 2;
+    int stacks_to_consume = 0;
+    stacks_to_consume = std::min( p() -> buff.mana_tea -> current_stack, max_stacks_consumable );
 
     double mana_gain = 0;
     if ( p() -> dbc.ptr )
@@ -3999,16 +4020,16 @@ struct mana_tea_t: public monk_spell_t
       // TODO Make sure this is getting the Buffed but not Temporary Proc SPIRIT amount
       mana_gain = player -> resources.initial[STAT_SPIRIT]
         * 0.03    // Hardcode for now.
-        * std::min( p() -> buff.mana_tea -> stack(), max_stacks_consumable );
+        * stacks_to_consume;
     }
     else
     {
       mana_gain = player -> resources.max[RESOURCE_MANA]
         * data().effectN( 1 ).percent()
-        * std::min( p() -> buff.mana_tea -> stack(), max_stacks_consumable );
+        * stacks_to_consume;
     }
     player -> resource_gain( RESOURCE_MANA, mana_gain, p() -> gain.mana_tea, this );
-    p() -> buff.mana_tea -> decrement( max_stacks_consumable );
+    p() -> buff.mana_tea -> decrement( stacks_to_consume );
   }
 };
 
@@ -5229,7 +5250,10 @@ void monk_t::create_buffs()
   // Mistweaver
   buff.channeling_soothing_mist = buff_creator_t( this, "channeling_soothing_mist", spell_data_t::nil() );
 
-  buff.mana_tea = buff_creator_t( this, "mana_tea", spec.mana_tea );
+  buff.cranes_zeal = buff_creator_t( this, "cranes_zeal", find_spell( 127722 ) )
+    .add_invalidate( CACHE_CRIT );
+
+  buff.mana_tea = buff_creator_t( this, "mana_tea", find_spell( 115867 ) );
 
   // Windwalker
   buff.chi_sphere = buff_creator_t( this, "chi_sphere" ).max_stack( 5 );
@@ -5398,6 +5422,11 @@ double monk_t::composite_melee_crit() const
 
   crit += spec.critical_strikes -> effectN( 1 ).percent();
 
+  if ( buff.cranes_zeal -> check() )
+  {
+    crit += buff.cranes_zeal -> data().effectN( 1 ).percent();
+  }
+
   return crit;
 }
 
@@ -5408,6 +5437,11 @@ double monk_t::composite_spell_crit() const
   double crit = player_t::composite_spell_crit();
 
   crit += spec.critical_strikes -> effectN( 1 ).percent();
+
+  if ( buff.cranes_zeal -> check() )
+  {
+    crit += buff.cranes_zeal -> data().effectN( 1 ).percent();
+  }
 
   return crit;
 }
@@ -5476,7 +5510,7 @@ double monk_t::composite_melee_expertise( weapon_t* weapon ) const
 double monk_t::composite_melee_attack_power() const
 {
   if ( current_stance() == SPIRITED_CRANE )
-    return composite_spell_power( SCHOOL_MAX ) * static_stance_data( SPIRITED_CRANE ).effectN( 3 ).percent();
+    return composite_spell_power( SCHOOL_MAX );
 
   double ap = player_t::composite_melee_attack_power();
 
@@ -5572,6 +5606,17 @@ double monk_t::composite_multistrike() const
   return m;
 }
 
+// monk_t::composite_player_multistrike_damage_multiplier ====================
+
+double monk_t::composite_player_multistrike_damage_multiplier() const
+{
+  double m = player_t::composite_player_multistrike_damage_multiplier();
+  if ( buff.forceful_winds -> up() )
+    m *= 1 + buff.forceful_winds -> value();
+
+  return m;
+}
+
 // monk_t::composite_armor_multiplier ===================================
 
 double monk_t::composite_armor_multiplier() const
@@ -5628,7 +5673,7 @@ void monk_t::copy_from( player_t* source )
 
 resource_e monk_t::primary_resource() const
 {
-  if ( current_stance() == WISE_SERPENT )
+  if ( current_stance() == WISE_SERPENT || current_stance() == SPIRITED_CRANE )
     return RESOURCE_MANA;
 
   return RESOURCE_ENERGY;
@@ -6057,7 +6102,6 @@ void monk_t::apl_combat_brewmaster()
   tod -> add_action( this, "Expel Harm", "if=chi<3&(cooldown.keg_smash.remains>target.time_to_die|((energy+(energy.regen*(cooldown.keg_smash.remains)))>=80)&cooldown.keg_smash.remains>=gcd)" );
   tod -> add_action( this, "Jab", "if=chi<3&(cooldown.keg_smash.remains>target.time_to_die|((energy+(energy.regen*(cooldown.keg_smash.remains)))>=80)&cooldown.keg_smash.remains>=gcd&cooldown.expel_harm.remains>=gcd)" );
   tod -> add_action( this, "Tiger Palm", "if=talent.chi_brew.enabled&chi<3" ); 
-  
   
   st -> add_action( this, "Purifying Brew", "if=!talent.chi_explosion.enabled&stagger.heavy" );
   st -> add_action( this, "Blackout Kick", "if=buff.shuffle.down" );

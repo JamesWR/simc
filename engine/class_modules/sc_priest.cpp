@@ -411,6 +411,8 @@ public:
   virtual double    composite_spell_power_multiplier() const override;
   virtual double    composite_spell_crit() const override;
   virtual double    composite_melee_crit() const override;
+  virtual double    composite_player_multistrike_damage_multiplier() const override;
+  virtual double    composite_player_multistrike_healing_multiplier() const override;
   virtual double    spirit() const;
   virtual double    composite_player_multiplier( school_e school ) const override;
   virtual double    composite_player_absorb_multiplier( const action_state_t* s ) const override;
@@ -1437,17 +1439,6 @@ struct priest_heal_t : public priest_action_t<heal_t>
     priest.buffs.surge_of_light -> up();
     priest.buffs.surge_of_light -> expire();
   }
-
-  // action::composite_multistrike_multiplier ==========================================
-
-  double composite_multistrike_multiplier( const action_state_t* state ) const
-  {
-    double m = base_t::composite_multistrike_multiplier( state );
-
-    m *= 1.0 + priest.specs.divine_providence -> effectN( 2 ).percent();
-
-    return m;
-  }
 };
 
 // Shadow Orb State ===================================================
@@ -1674,18 +1665,6 @@ struct priest_spell_t : public priest_action_t<spell_t>
       return true;
     }
     return false;
-  }
-
-
-  // action::composite_multistrike_multiplier ==========================================
-
-  double composite_multistrike_multiplier( const action_state_t* state ) const
-  {
-    double m = base_t::composite_multistrike_multiplier( state );
-
-    m *= 1.0 + priest.specs.divine_providence -> effectN( 2 ).percent();
-
-    return m;
   }
 };
 
@@ -5308,6 +5287,9 @@ stat_e priest_t::convert_hybrid_stat( stat_e s ) const
   case STAT_STR_AGI:
     return STAT_NONE;
   case STAT_SPIRIT:
+    if ( specialization() != PRIEST_SHADOW )
+      return s;
+    else
       return STAT_NONE;
   case STAT_BONUS_ARMOR:
       return STAT_NONE;
@@ -5536,6 +5518,22 @@ double priest_t::composite_melee_crit() const
     cmc *= 1.0 + sets.set( SET_HEALER, T16, B2 ) -> effectN( 2 ).percent();
 
   return cmc;
+}
+
+// Multistrike Effect Multipliers ====================
+
+double priest_t::composite_player_multistrike_damage_multiplier() const
+{
+  double m = player_t::composite_player_multistrike_damage_multiplier();
+  m *= 1.0 + specs.divine_providence -> effectN( 2 ).percent();
+  return m;
+}
+
+double priest_t::composite_player_multistrike_healing_multiplier() const
+{
+  double m = player_t::composite_player_multistrike_healing_multiplier();
+  m *= 1.0 + specs.divine_providence -> effectN( 2 ).percent();
+  return m;
 }
 
 // priest_t::composite_player_multiplier ====================================

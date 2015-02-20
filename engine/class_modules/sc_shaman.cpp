@@ -473,7 +473,8 @@ public:
   virtual double    composite_spell_power_multiplier() const;
   virtual double    composite_player_multiplier( school_e school ) const;
   virtual double    composite_rating_multiplier( rating_e rating ) const;
-  virtual double    composite_multistrike() const;
+  virtual double    composite_multistrike() const;  
+  virtual double    composite_player_multistrike_damage_multiplier() const override;
   virtual void      target_mitigation( school_e, dmg_e, action_state_t* );
   virtual double    matching_gear_multiplier( attribute_e attr ) const;
   virtual void      create_options();
@@ -1068,17 +1069,6 @@ struct shaman_spell_t : public shaman_spell_base_t<spell_t>
 
     if ( uses_elemental_fusion )
       m *= 1.0 + p() -> buff.elemental_fusion -> stack() * p() -> buff.elemental_fusion -> data().effectN( 1 ).percent();
-
-    return m;
-  }
-
-  double composite_multistrike_multiplier( const action_state_t* state ) const
-  {
-    double m = base_t::composite_multistrike_multiplier( state );
-
-    m *= 1.0 + p() -> spec.elemental_overload -> effectN( 3 ).percent();
-
-    m *= 1.0 + p() -> buff.focus_of_the_elements -> value();
 
     return m;
   }
@@ -5607,10 +5597,10 @@ void shaman_t::init_action_list()
     aoe -> add_action( this, spec.maelstrom_weapon, "chain_lightning", "if=buff.maelstrom_weapon.react=5&((glyph.chain_lightning.enabled&active_enemies>=3)|(!glyph.chain_lightning.enabled&active_enemies>=2))" );
     aoe -> add_action( this, "Unleash Elements", "if=active_enemies<4" );
     aoe -> add_action( this, "Flame Shock", "if=dot.flame_shock.remains<=9|!ticking" );
-    aoe -> add_action( this, find_specialization_spell( "Ascendance" ), "Windstrike", "target=1,if=!debuff.stormstrike.up" );
-    aoe -> add_action( this, find_specialization_spell( "Ascendance" ), "Windstrike", "target=2,if=!debuff.stormstrike.up" );
-    aoe -> add_action( this, find_specialization_spell( "Ascendance" ), "Windstrike", "target=3,if=!debuff.stormstrike.up" );
-    aoe -> add_action( this, find_specialization_spell( "Ascendance" ), "Windstrike" );
+    aoe -> add_action( this, find_specialization_spell( "Ascendance" ), "windstrike", "target=1,if=!debuff.stormstrike.up" );
+    aoe -> add_action( this, find_specialization_spell( "Ascendance" ), "windstrike", "target=2,if=!debuff.stormstrike.up" );
+    aoe -> add_action( this, find_specialization_spell( "Ascendance" ), "windstrike", "target=3,if=!debuff.stormstrike.up" );
+    aoe -> add_action( this, find_specialization_spell( "Ascendance" ), "windstrike" );
     aoe -> add_talent( this, "Elemental Blast", "if=!buff.unleash_flame.up&buff.maelstrom_weapon.react>=3" );
     aoe -> add_action( this, spec.maelstrom_weapon, "chain_lightning", "if=(buff.maelstrom_weapon.react>=3|buff.ancestral_swiftness.up)&((glyph.chain_lightning.enabled&active_enemies>=4)|(!glyph.chain_lightning.enabled&active_enemies>=3))" );
     aoe -> add_action( this, "Magma Totem", "if=pet.magma_totem.remains<=20&!pet.fire_elemental_totem.active&!buff.liquid_magma.up" );
@@ -5950,6 +5940,16 @@ double shaman_t::composite_rating_multiplier( rating_e rating ) const
     default: break;
   }
 
+  return m;
+}
+
+// Multistrike Effect Multipliers ====================
+
+double shaman_t::composite_player_multistrike_damage_multiplier() const
+{
+  double m = player_t::composite_player_multistrike_damage_multiplier();
+  m *= 1.0 + spec.elemental_overload -> effectN( 3 ).percent();
+  m *= 1.0 + buff.focus_of_the_elements -> value();
   return m;
 }
 

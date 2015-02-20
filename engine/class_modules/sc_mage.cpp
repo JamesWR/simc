@@ -779,7 +779,12 @@ struct prismatic_crystal_t : public pet_t
       // execute with a state
       const prismatic_crystal_aoe_state_t* st = debug_cast<const prismatic_crystal_aoe_state_t*>( pre_execute_state );
 
-      assert( p() -> proxy_stats[ st -> owner_action -> internal_id ] != 0 );
+      if ( p() -> proxy_stats.size() <= st -> owner_action -> internal_id ||
+           ! p() -> proxy_stats[ st -> owner_action -> internal_id ] )
+      {
+        p() -> add_proxy_stats( st -> owner_action );
+      }
+
       stats = p() -> proxy_stats[ st -> owner_action -> internal_id ];
 
       spell_t::execute();
@@ -5404,8 +5409,6 @@ void mage_t::apl_frost()
                                "if=(!talent.prismatic_crystal.enabled|(charges=1&cooldown.prismatic_crystal.remains>recharge_time&(buff.incanters_flow.stack>3|!talent.ice_nova.enabled)))&(buff.icy_veins.up|(charges=1&cooldown.icy_veins.remains>recharge_time))" );
   single_target -> add_action( this, "Frostfire Bolt",
                                "if=buff.brain_freeze.react" );
-  single_target -> add_action( this, "Ice Lance",
-                               "if=set_bonus.tier17_4pc&talent.thermal_void.enabled&talent.mirror_image.enabled&dot.frozen_orb.ticking" );
   single_target -> add_action( this, "Ice Lance",
                                "if=talent.frost_bomb.enabled&buff.fingers_of_frost.react&debuff.frost_bomb.remains>travel_time&(!talent.thermal_void.enabled|cooldown.icy_veins.remains>8)" );
   single_target -> add_action( this, "Frostbolt",
