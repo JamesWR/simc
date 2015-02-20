@@ -347,6 +347,303 @@ std::string tooltip_parser_t::parse()
 
 } // UNNAMED NAMESPACE ======================================================
 
+namespace color
+{
+rgb::rgb() : r_( 0 ), g_( 0 ), b_( 0 )
+{ }
+
+rgb::rgb( unsigned char r, unsigned char g, unsigned char b ) :
+  r_( r ), g_( g ), b_( b )
+{ }
+
+rgb::rgb( double r, double g, double b ) :
+  r_( static_cast<unsigned char>( r * 255 ) ),
+  g_( static_cast<unsigned char>( g * 255 ) ),
+  b_( static_cast<unsigned char>( b * 255 ) )
+{ }
+
+rgb::rgb( const std::string& color ) :
+  r_( 0 ), g_( 0 ), b_( 0 )
+{
+  parse_color( color );
+}
+
+rgb::rgb( const char* color ) :
+  r_( 0 ), g_( 0 ), b_( 0 )
+{
+  parse_color( color );
+}
+
+std::string rgb::rgb_str() const
+{
+  std::stringstream s;
+
+  s << "rgb(" << static_cast<unsigned>( r_ ) << ", "
+              << static_cast<unsigned>( g_ ) << ", "
+              << static_cast<unsigned>( b_ ) << ")";
+
+  return s.str();
+}
+
+std::string rgb::str() const
+{ return *this; }
+
+rgb& rgb::adjust( double v )
+{
+  if ( v < 0 || v > 1 )
+  {
+    return *this;
+  }
+
+  r_ *= v; g_ *= v; b_ *= v;
+  return *this;
+}
+
+rgb rgb::adjust( double v ) const
+{ return rgb( *this ).adjust( v ); }
+
+rgb rgb::dark( double pct ) const
+{ return rgb( *this ).adjust( 1.0 - pct ); }
+
+rgb rgb::light( double pct ) const
+{ return rgb( *this ).adjust( 1.0 + pct ); }
+
+rgb& rgb::operator=( const std::string& color_str )
+{
+  parse_color( color_str );
+  return *this;
+}
+
+std::ostream& rgb::operator<<( std::ostream& os ) const
+{
+  std::stringstream s;
+  s << '#';
+  s << std::setfill('0') << std::internal << std::uppercase << std::hex;
+  s << std::setw( 2 ) << static_cast<unsigned>( r_ )
+    << std::setw( 2 ) << static_cast<unsigned>( g_ )
+    << std::setw( 2 ) << static_cast<unsigned>( b_ );
+  os << s.str();
+  return os;
+}
+
+rgb& rgb::operator+=( const rgb& other )
+{
+  if ( this == &( other ) )
+  {
+    return *this;
+  }
+
+  unsigned mix_r = ( r_ + other.r_ ) / 2;
+  unsigned mix_g = ( g_ + other.g_ ) / 2;
+  unsigned mix_b = ( b_ + other.b_ ) / 2;
+
+  r_ = static_cast<unsigned char>( mix_r );
+  g_ = static_cast<unsigned char>( mix_g );
+  b_ = static_cast<unsigned char>( mix_b );
+
+  return *this;
+}
+
+rgb rgb::operator+( const rgb& other ) const
+{
+  rgb new_color( *this );
+  new_color += other;
+  return new_color;
+}
+
+rgb::operator std::string() const
+{
+  std::stringstream s;
+  operator<<( s );
+  return s.str();
+}
+
+bool rgb::parse_color( const std::string& color_str )
+{
+  std::stringstream i( color_str );
+
+  if ( color_str.size() < 6 || color_str.size() > 7 )
+  {
+    return false;
+  }
+
+  if ( i.peek() == '#' )
+  {
+    i.get();
+  }
+
+  unsigned v = 0;
+  i >> std::hex >> v;
+  if ( i.fail() )
+  {
+    return false;
+  }
+
+  r_ = static_cast<unsigned char>( v / 0x10000 );
+  g_ = static_cast<unsigned char>( ( v / 0x100 ) % 0x100 );
+  b_ = static_cast<unsigned char>( v % 0x100 );
+
+  return true;
+}
+
+std::ostream& operator<<( std::ostream& s, const rgb& r )
+{
+  s << r;
+  return s;
+}
+
+rgb class_color( player_e type )
+{
+  switch ( type )
+  {
+    case PLAYER_NONE:     return color::GREY;
+    case PLAYER_GUARDIAN: return color::GREY;
+    case DEATH_KNIGHT:    return color::COLOR_DEATH_KNIGHT;
+    case DRUID:           return color::COLOR_DRUID;
+    case HUNTER:          return color::COLOR_HUNTER;
+    case MAGE:            return color::COLOR_MAGE;
+    case MONK:            return color::COLOR_MONK;
+    case PALADIN:         return color::COLOR_PALADIN;
+    case PRIEST:          return color::COLOR_PRIEST;
+    case ROGUE:           return color::COLOR_ROGUE;
+    case SHAMAN:          return color::COLOR_SHAMAN;
+    case WARLOCK:         return color::COLOR_WARLOCK;
+    case WARRIOR:         return color::COLOR_WARRIOR;
+    case ENEMY:           return color::GREY;
+    case ENEMY_ADD:       return color::GREY;
+    case HEALING_ENEMY:   return color::GREY;
+    case TMI_BOSS:        return color::GREY;
+    case TANK_DUMMY:      return color::GREY;
+    default:              return color::GREY2;
+  }
+}
+
+rgb resource_color( resource_e type )
+{
+  switch ( type )
+  {
+    case RESOURCE_HEALTH:
+    case RESOURCE_RUNE_UNHOLY:   return class_color( HUNTER );
+
+    case RESOURCE_RUNE_FROST:
+    case RESOURCE_MANA:          return class_color( SHAMAN );
+
+    case RESOURCE_ENERGY:
+    case RESOURCE_FOCUS:
+    case RESOURCE_COMBO_POINT:   return class_color( ROGUE );
+
+    case RESOURCE_RAGE:
+    case RESOURCE_RUNIC_POWER:
+    case RESOURCE_RUNE:
+    case RESOURCE_RUNE_BLOOD:    return class_color( DEATH_KNIGHT );
+
+    case RESOURCE_HOLY_POWER:    return class_color( PALADIN );
+
+    case RESOURCE_SOUL_SHARD:
+    case RESOURCE_BURNING_EMBER:
+    case RESOURCE_DEMONIC_FURY:  return class_color( WARLOCK );
+
+    case RESOURCE_ECLIPSE:       return class_color( DRUID );
+
+    case RESOURCE_CHI:           return class_color( MONK );
+
+    case RESOURCE_NONE:
+    default:                     return GREY2;
+  }
+}
+
+rgb stat_color( stat_e type )
+{
+  switch ( type )
+  {
+    case STAT_STRENGTH:                 return COLOR_WARRIOR;
+    case STAT_AGILITY:                  return COLOR_HUNTER;
+    case STAT_INTELLECT:                return COLOR_MAGE;
+    case STAT_SPIRIT:                   return GREY3;
+    case STAT_ATTACK_POWER:             return COLOR_ROGUE;
+    case STAT_SPELL_POWER:              return COLOR_WARLOCK;
+    case STAT_READINESS_RATING:         return COLOR_DEATH_KNIGHT;
+    case STAT_CRIT_RATING:              return COLOR_PALADIN;
+    case STAT_HASTE_RATING:             return COLOR_SHAMAN;
+    case STAT_MASTERY_RATING:           return COLOR_ROGUE.dark();
+    case STAT_MULTISTRIKE_RATING:       return COLOR_DEATH_KNIGHT + COLOR_WARRIOR;
+    case STAT_DODGE_RATING:             return COLOR_MONK;
+    case STAT_PARRY_RATING:             return TEAL;
+    case STAT_ARMOR:                    return COLOR_PRIEST;
+    case STAT_BONUS_ARMOR:              return COLOR_PRIEST;
+    case STAT_VERSATILITY_RATING:       return PURPLE.dark();
+    default:                            return GREY2;
+  }
+}
+
+/* Blizzard shool colors:
+ * http://wowprogramming.com/utils/xmlbrowser/live/AddOns/Blizzard_CombatLog/Blizzard_CombatLog.lua
+ * search for: SchoolStringTable
+ */
+// These colors are picked to sort of line up with classes, but match the "feel" of the spell class' color
+rgb school_color( school_e type )
+{
+  switch ( type )
+  {
+    // -- Single Schools
+    case SCHOOL_NONE:         return color::COLOR_NONE;
+    case SCHOOL_PHYSICAL:     return color::PHYSICAL;
+    case SCHOOL_HOLY:         return color::HOLY;
+    case SCHOOL_FIRE:         return color::FIRE;
+    case SCHOOL_NATURE:       return color::NATURE;
+    case SCHOOL_FROST:        return color::FROST;
+    case SCHOOL_SHADOW:       return color::SHADOW;
+    case SCHOOL_ARCANE:       return color::ARCANE;
+    // -- Physical and a Magical
+    case SCHOOL_FLAMESTRIKE:  return school_color( SCHOOL_PHYSICAL ) + school_color( SCHOOL_FIRE );
+    case SCHOOL_FROSTSTRIKE:  return school_color( SCHOOL_PHYSICAL ) + school_color( SCHOOL_FROST );
+    case SCHOOL_SPELLSTRIKE:  return school_color( SCHOOL_PHYSICAL ) + school_color( SCHOOL_ARCANE );
+    case SCHOOL_STORMSTRIKE:  return school_color( SCHOOL_PHYSICAL ) + school_color( SCHOOL_NATURE );
+    case SCHOOL_SHADOWSTRIKE: return school_color( SCHOOL_PHYSICAL ) + school_color( SCHOOL_SHADOW );
+    case SCHOOL_HOLYSTRIKE:   return school_color( SCHOOL_PHYSICAL ) + school_color( SCHOOL_HOLY );
+      // -- Two Magical Schools
+    case SCHOOL_FROSTFIRE:    return color::FROSTFIRE;
+    case SCHOOL_SPELLFIRE:    return school_color( SCHOOL_ARCANE ) + school_color( SCHOOL_FIRE );
+    case SCHOOL_FIRESTORM:    return school_color( SCHOOL_FIRE ) + school_color( SCHOOL_NATURE );
+    case SCHOOL_SHADOWFLAME:  return school_color( SCHOOL_SHADOW ) + school_color( SCHOOL_FIRE );
+    case SCHOOL_HOLYFIRE:     return school_color( SCHOOL_HOLY ) + school_color( SCHOOL_FIRE );
+    case SCHOOL_SPELLFROST:   return school_color( SCHOOL_ARCANE ) + school_color( SCHOOL_FROST );
+    case SCHOOL_FROSTSTORM:   return school_color( SCHOOL_FROST ) + school_color( SCHOOL_NATURE );
+    case SCHOOL_SHADOWFROST:  return school_color( SCHOOL_SHADOW ) + school_color( SCHOOL_FROST );
+    case SCHOOL_HOLYFROST:    return school_color( SCHOOL_HOLY ) + school_color( SCHOOL_FROST );
+    case SCHOOL_SPELLSTORM:   return school_color( SCHOOL_ARCANE ) + school_color( SCHOOL_NATURE );
+    case SCHOOL_SPELLSHADOW:  return school_color( SCHOOL_ARCANE ) + school_color( SCHOOL_SHADOW );
+    case SCHOOL_DIVINE:       return school_color( SCHOOL_ARCANE ) + school_color( SCHOOL_HOLY );
+    case SCHOOL_SHADOWSTORM:  return school_color( SCHOOL_SHADOW ) + school_color( SCHOOL_NATURE );
+    case SCHOOL_HOLYSTORM:    return school_color( SCHOOL_HOLY ) + school_color( SCHOOL_NATURE );
+    case SCHOOL_SHADOWLIGHT:  return school_color( SCHOOL_SHADOW ) + school_color( SCHOOL_HOLY );
+      //-- Three or more schools
+    case SCHOOL_ELEMENTAL:    return color::ELEMENTAL;
+    case SCHOOL_CHROMATIC:    return school_color( SCHOOL_FIRE ) +
+                                       school_color( SCHOOL_FROST ) +
+                                       school_color( SCHOOL_ARCANE ) +
+                                       school_color( SCHOOL_NATURE ) +
+                                       school_color( SCHOOL_SHADOW );
+    case SCHOOL_MAGIC:    return school_color( SCHOOL_FIRE ) +
+                                   school_color( SCHOOL_FROST ) +
+                                   school_color( SCHOOL_ARCANE ) +
+                                   school_color( SCHOOL_NATURE ) +
+                                   school_color( SCHOOL_SHADOW ) +
+                                   school_color( SCHOOL_HOLY );
+    case SCHOOL_CHAOS:    return school_color( SCHOOL_PHYSICAL ) +
+                                   school_color( SCHOOL_FIRE ) +
+                                   school_color( SCHOOL_FROST ) +
+                                   school_color( SCHOOL_ARCANE ) +
+                                   school_color( SCHOOL_NATURE ) +
+                                   school_color( SCHOOL_SHADOW ) +
+                                   school_color( SCHOOL_HOLY );
+
+    default:
+                          return GREY2;
+  }
+}
+} /* namespace color */
+
 std::string pretty_spell_text( const spell_data_t& default_spell, const std::string& text, const player_t& p )
 { return tooltip_parser_t( p, default_spell, text ).parse(); }
 
@@ -1241,25 +1538,12 @@ void report::generate_player_charts( player_t* p, player_processed_report_inform
   if ( ri.charts_generated )
     return;
 
-  const player_collected_data_t& cd = p -> collected_data;
-
-  // Pet Chart Adjustment ===================================================
-  size_t max_buckets = player_chart_length( p );
-
-  // Player Charts
-  ri.scaling_dps_chart    = chart::scaling_dps  ( p );
-  ri.reforge_dps_chart    = chart::reforge_dps  ( p );
-
-  std::string encoded_name = util::google_image_chart_encode( p -> name_str );
-  util::urlencode( encoded_name );
-
-
   // Scaling charts
   if ( ! ( ( p -> sim -> scaling -> num_scaling_stats <= 0 ) || p -> quiet || p -> is_pet() || p -> is_enemy() || p -> is_add() || p -> type == HEALING_ENEMY ) )
   {
-    ri.gear_weights_lootrank_link        = chart::gear_weights_lootrank   ( p );
-    ri.gear_weights_wowhead_std_link     = chart::gear_weights_wowhead    ( p );
-    ri.gear_weights_askmrrobot_link      = chart::gear_weights_askmrrobot ( p );
+    ri.gear_weights_lootrank_link        = gear_weights_lootrank   ( p );
+    ri.gear_weights_wowhead_std_link     = gear_weights_wowhead    ( p );
+    ri.gear_weights_askmrrobot_link      = gear_weights_askmrrobot ( p );
   }
 
   // Create html profile str
@@ -1268,24 +1552,464 @@ void report::generate_player_charts( player_t* p, player_processed_report_inform
   ri.charts_generated = true;
 }
 
-void report::generate_sim_report_information( sim_t* s , sim_report_information_t& ri )
+/* Lootrank generators */
+
+// chart::gear_weights_lootrank =============================================
+
+std::array<std::string, SCALE_METRIC_MAX> report::gear_weights_lootrank( player_t* p )
 {
-  if ( ri.charts_generated )
-    return;
+  std::array<std::string, SCALE_METRIC_MAX> sa;
 
-/*
-  ri.downtime_chart = chart::raid_downtime( s -> players_by_name, s -> print_styles );
-  
-  chart::raid_aps     ( ri.dps_charts, s, s -> players_by_dps, "dps" );
-  chart::raid_aps     ( ri.priority_dps_charts, s, s -> players_by_priority_dps, "prioritydps" );
-  chart::raid_aps     ( ri.hps_charts, s, s -> players_by_hps_plus_aps, "hps" );
-  chart::raid_aps     ( ri.dtps_charts, s, s -> players_by_dtps, "dtps" );
-  chart::raid_aps     ( ri.tmi_charts, s, s -> players_by_tmi, "tmi" );
-  chart::raid_dpet    ( ri.dpet_charts, s );
-*/
-  chart::raid_gear    ( ri.gear_charts, s, s -> print_styles );
+  for ( scale_metric_e sm = SCALE_METRIC_NONE; sm < SCALE_METRIC_MAX; sm++ )
+  {
+    std::string s = "http://www.guildox.com/go/wr.asp?";
 
-  ri.charts_generated = true;
+    switch ( p -> type )
+    {
+    case DEATH_KNIGHT: s += "Cla=2048"; break;
+    case DRUID:        s += "Cla=1024"; break;
+    case HUNTER:       s += "Cla=4";    break;
+    case MAGE:         s += "Cla=128";  break;
+    case MONK:         s += "Cla=4096"; break;
+    case PALADIN:      s += "Cla=2";    break;
+    case PRIEST:       s += "Cla=16";   break;
+    case ROGUE:        s += "Cla=8";    break;
+    case SHAMAN:       s += "Cla=64";   break;
+    case WARLOCK:      s += "Cla=256";  break;
+    case WARRIOR:      s += "Cla=1";    break;
+    default: p -> sim -> errorf( "%s", util::player_type_string( p -> type ) ); assert( 0 ); break;
+    }
+
+    switch ( p -> type )
+    {
+    case WARRIOR:
+    case PALADIN:
+    case DEATH_KNIGHT:
+      s += "&Art=1";
+      break;
+    case HUNTER:
+    case SHAMAN:
+      s += "&Art=2";
+      break;
+    case DRUID:
+    case ROGUE:
+    case MONK:
+      s += "&Art=4";
+      break;
+    case MAGE:
+    case PRIEST:
+    case WARLOCK:
+      s += "&Art=8";
+      break;
+    default:
+      break;
+    }
+
+    /* FIXME: Commenting this out since this won't currently work the way we handle pandaren, and we don't currently care what faction people are anyway
+    switch ( p -> race )
+    {
+    case RACE_PANDAREN_ALLIANCE:
+    case RACE_NIGHT_ELF:
+    case RACE_HUMAN:
+    case RACE_GNOME:
+    case RACE_DWARF:
+    case RACE_WORGEN:
+    case RACE_DRAENEI: s += "&F=A"; break;
+
+    case RACE_PANDAREN_HORDE:
+    case RACE_ORC:
+    case RACE_TROLL:
+    case RACE_UNDEAD:
+    case RACE_BLOOD_ELF:
+    case RACE_GOBLIN:
+    case RACE_TAUREN: s += "&F=H"; break;
+
+    case RACE_PANDAREN:
+    default: break;
+    }
+    */
+    bool positive_normalizing_value = p -> scaling[ sm ].get_stat( p -> normalize_by() ) >= 0;
+    for ( stat_e i = STAT_NONE; i < STAT_MAX; i++ )
+    {
+      double value = positive_normalizing_value ? p -> scaling[ sm ].get_stat( i ) : -p -> scaling[ sm ].get_stat( i );
+      if ( value == 0 ) continue;
+
+      const char* name;
+      switch ( i )
+      {
+      case STAT_STRENGTH:                 name = "Str";  break;
+      case STAT_AGILITY:                  name = "Agi";  break;
+      case STAT_STAMINA:                  name = "Sta";  break;
+      case STAT_INTELLECT:                name = "Int";  break;
+      case STAT_SPIRIT:                   name = "Spi";  break;
+      case STAT_SPELL_POWER:              name = "spd";  break;
+      case STAT_ATTACK_POWER:             name = "map";  break;
+      case STAT_EXPERTISE_RATING:         name = "Exp";  break;
+      case STAT_HIT_RATING:               name = "mhit"; break;
+      case STAT_CRIT_RATING:              name = "mcr";  break;
+      case STAT_HASTE_RATING:             name = "mh";   break;
+      case STAT_MASTERY_RATING:           name = "Mr";   break;
+      case STAT_ARMOR:                    name = "Arm";  break;
+      case STAT_BONUS_ARMOR:              name = "bar";  break;
+      case STAT_WEAPON_DPS:
+        if ( HUNTER == p -> type ) name = "rdps"; else name = "dps";  break;
+      case STAT_WEAPON_OFFHAND_DPS:       name = "odps"; break;
+      default: name = 0; break;
+      }
+
+      if ( name )
+      {
+	str::format( s, "&%s=%.*f", name, p -> sim -> report_precision, value );
+      }
+    }
+
+    // Set the trinket style choice
+    switch ( p -> specialization() )
+    {
+    case DEATH_KNIGHT_BLOOD:
+    case DRUID_GUARDIAN:
+    case MONK_BREWMASTER:
+    case PALADIN_PROTECTION:
+    case WARRIOR_PROTECTION:
+      // Tank
+      s += "&TF=1";
+      break;
+
+    case DEATH_KNIGHT_FROST:
+    case DEATH_KNIGHT_UNHOLY:
+    case DRUID_FERAL:
+    case MONK_WINDWALKER:
+    case PALADIN_RETRIBUTION:
+    case ROGUE_ASSASSINATION:
+    case ROGUE_COMBAT:
+    case ROGUE_SUBTLETY:
+    case SHAMAN_ENHANCEMENT:
+    case WARRIOR_ARMS:
+    case WARRIOR_FURY:
+      // Melee DPS
+      s += "&TF=2";
+      break;
+
+    case HUNTER_BEAST_MASTERY:
+    case HUNTER_MARKSMANSHIP:
+    case HUNTER_SURVIVAL:
+      // Ranged DPS
+      s += "&TF=4";
+      break;
+
+    case DRUID_BALANCE:
+    case MAGE_ARCANE:
+    case MAGE_FIRE:
+    case MAGE_FROST:
+    case PRIEST_SHADOW:
+    case SHAMAN_ELEMENTAL:
+    case WARLOCK_AFFLICTION:
+    case WARLOCK_DEMONOLOGY:
+    case WARLOCK_DESTRUCTION:
+      // Caster DPS
+      s += "&TF=8";
+      break;
+
+      // Healer
+    case DRUID_RESTORATION:
+    case MONK_MISTWEAVER:
+    case PALADIN_HOLY:
+    case PRIEST_DISCIPLINE:
+    case PRIEST_HOLY:
+    case SHAMAN_RESTORATION:
+      s += "&TF=16";
+      break;
+
+    default: break;
+    }
+
+    s += "&Gem=3"; // FIXME: Remove this when epic gems become available
+    s += "&Ver=7";
+    str::format( s, "&maxlv=%d", p -> level );
+
+    if ( p -> items[ 0 ].parsed.data.id ) s += "&t1=" + util::to_string( p -> items[ 0 ].parsed.data.id );
+    if ( p -> items[ 1 ].parsed.data.id ) s += "&t2=" + util::to_string( p -> items[ 1 ].parsed.data.id );
+    if ( p -> items[ 2 ].parsed.data.id ) s += "&t3=" + util::to_string( p -> items[ 2 ].parsed.data.id );
+    if ( p -> items[ 4 ].parsed.data.id ) s += "&t5=" + util::to_string( p -> items[ 4 ].parsed.data.id );
+    if ( p -> items[ 5 ].parsed.data.id ) s += "&t8=" + util::to_string( p -> items[ 5 ].parsed.data.id );
+    if ( p -> items[ 6 ].parsed.data.id ) s += "&t9=" + util::to_string( p -> items[ 6 ].parsed.data.id );
+    if ( p -> items[ 7 ].parsed.data.id ) s += "&t10=" + util::to_string( p -> items[ 7 ].parsed.data.id );
+    if ( p -> items[ 8 ].parsed.data.id ) s += "&t6=" + util::to_string( p -> items[ 8 ].parsed.data.id );
+    if ( p -> items[ 9 ].parsed.data.id ) s += "&t7=" + util::to_string( p -> items[ 9 ].parsed.data.id );
+    if ( p -> items[ 10 ].parsed.data.id ) s += "&t11=" + util::to_string( p -> items[ 10 ].parsed.data.id );
+    if ( p -> items[ 11 ].parsed.data.id ) s += "&t31=" + util::to_string( p -> items[ 11 ].parsed.data.id );
+    if ( p -> items[ 12 ].parsed.data.id ) s += "&t12=" + util::to_string( p -> items[ 12 ].parsed.data.id );
+    if ( p -> items[ 13 ].parsed.data.id ) s += "&t32=" + util::to_string( p -> items[ 13 ].parsed.data.id );
+    if ( p -> items[ 14 ].parsed.data.id ) s += "&t4=" + util::to_string( p -> items[ 14 ].parsed.data.id );
+    if ( p -> items[ 15 ].parsed.data.id ) s += "&t14=" + util::to_string( p -> items[ 15 ].parsed.data.id );
+    if ( p -> items[ 16 ].parsed.data.id ) s += "&t15=" + util::to_string( p -> items[ 16 ].parsed.data.id );
+
+    util::urlencode( s );
+
+    sa[ sm ] = s;
+  }
+  return sa;
 }
 
+// chart::gear_weights_wowhead ==============================================
+
+std::array<std::string, SCALE_METRIC_MAX> report::gear_weights_wowhead( player_t* p )
+{
+  std::array<std::string, SCALE_METRIC_MAX> sa;
+
+  for ( scale_metric_e sm = SCALE_METRIC_NONE; sm < SCALE_METRIC_MAX; sm++ )
+  {
+    bool first = true;
+
+    std::string s = "http://www.wowhead.com/?items&amp;filter=";
+
+    switch ( p -> type )
+    {
+    case DEATH_KNIGHT: s += "ub=6;";  break;
+    case DRUID:        s += "ub=11;"; break;
+    case HUNTER:       s += "ub=3;";  break;
+    case MAGE:         s += "ub=8;";  break;
+    case PALADIN:      s += "ub=2;";  break;
+    case PRIEST:       s += "ub=5;";  break;
+    case ROGUE:        s += "ub=4;";  break;
+    case SHAMAN:       s += "ub=7;";  break;
+    case WARLOCK:      s += "ub=9;";  break;
+    case WARRIOR:      s += "ub=1;";  break;
+    case MONK:         s += "ub=10;"; break;
+    default: assert( 0 ); break;
+    }
+
+    // Restrict wowhead to rare gems. When epic gems become available:"gm=4;gb=1;"
+    s += "gm=3;gb=1;";
+
+    // Min ilvl of 600 (sensible for current raid tier).
+    s += "minle=600;";
+
+    std::string    id_string = "";
+    std::string value_string = "";
+
+    bool positive_normalizing_value = p -> scaling[ sm ].get_stat( p -> normalize_by() ) >= 0;
+
+    for ( stat_e i = STAT_NONE; i < STAT_MAX; i++ )
+    {
+      double value = positive_normalizing_value ? p -> scaling[ sm ].get_stat( i ) : -p -> scaling[ sm ].get_stat( i );
+      if ( value == 0 ) continue;
+
+      int id = 0;
+      switch ( i )
+      {
+      case STAT_STRENGTH:                 id = 20;  break;
+      case STAT_AGILITY:                  id = 21;  break;
+      case STAT_STAMINA:                  id = 22;  break;
+      case STAT_INTELLECT:                id = 23;  break;
+      case STAT_SPIRIT:                   id = 24;  break;
+      case STAT_SPELL_POWER:              id = 123; break;
+      case STAT_ATTACK_POWER:             id = 77;  break;
+      case STAT_CRIT_RATING:              id = 96;  break;
+      case STAT_HASTE_RATING:             id = 103; break;
+      case STAT_ARMOR:                    id = 41;  break;
+      case STAT_BONUS_ARMOR:              id = 109; break;
+      case STAT_MASTERY_RATING:           id = 170; break;
+      case STAT_VERSATILITY_RATING:       id = 215; break;
+      case STAT_MULTISTRIKE_RATING:       id = 200; break;
+      case STAT_WEAPON_DPS:
+        if ( HUNTER == p -> type ) id = 138; else id = 32;  break;
+      default: break;
+      }
+
+      if ( id )
+      {
+        if ( !first )
+        {
+          id_string += ":";
+          value_string += ":";
+        }
+        first = false;
+
+        str::format( id_string, "%d", id );
+        str::format( value_string, "%.*f", p -> sim -> report_precision, value );
+      }
+    }
+
+    s += "wt=" + id_string + ";";
+    s += "wtv=" + value_string + ";";
+
+    sa[ sm ] = s;
+  }
+  return sa;
+}
+
+// chart::gear_weights_askmrrobot ===========================================
+
+std::array<std::string, SCALE_METRIC_MAX> report::gear_weights_askmrrobot( player_t* p )
+{
+  std::array<std::string, SCALE_METRIC_MAX> sa;
+
+  for ( scale_metric_e sm = SCALE_METRIC_NONE; sm < SCALE_METRIC_MAX; sm++ )
+  {
+    bool use_generic = false;
+    std::stringstream ss;
+    // AMR's origin_str provided from their SimC export is a valid base for appending stat weights.
+    // If the origin has askmrrobot in it, just use that, but replace wow/player/ with wow/optimize/
+    if ( util::str_in_str_ci( p -> origin_str, "askmrrobot" ) )
+    {
+      std::string origin = p -> origin_str;
+      util::replace_all( origin, "wow/player", "wow/optimize" );
+      ss << origin;
+    }
+    // otherwise, we need to construct it from whatever information we have available
+    else
+    {
+      // format is base (below) /region/server/name#spec=[spec];[weightsHash]
+      ss << "http://www.askmrrobot.com/wow";
+
+      // Use valid names if we are provided those
+      if ( ! p -> region_str.empty() && ! p -> server_str.empty() && ! p -> name_str.empty() )
+        ss << "/optimize/" << p -> region_str << '/' << p -> server_str << '/' << p -> name_str;
+
+      // otherwise try to reconstruct it from the origin string
+      else
+      {
+        std::string region_str, server_str, name_str;
+        if ( util::parse_origin( region_str, server_str, name_str, p -> origin_str ) )
+          ss << "/optimize/" << region_str << '/' << server_str << '/' << name_str;
+        // if we can't reconstruct, default to a generic character
+        // this uses the base followed by /[spec]#[weightsHash]
+        else
+        {
+          use_generic = true;
+          ss << "/best-in-slot/generic/";
+        }
+      }
+    }
+
+    // This next section is sort of unwieldly, I may move this to external functions
+    std::string spec;
+
+    // Player type
+    switch ( p -> type )
+    {
+    case DEATH_KNIGHT: spec += "DeathKnight";  break;
+    case DRUID:        spec += "Druid"; break;
+    case HUNTER:       spec += "Hunter";  break;
+    case MAGE:         spec += "Mage";  break;
+    case PALADIN:      spec += "Paladin";  break;
+    case PRIEST:       spec += "Priest";  break;
+    case ROGUE:        spec += "Rogue";  break;
+    case SHAMAN:       spec += "Shaman";  break;
+    case WARLOCK:      spec += "Warlock";  break;
+    case WARRIOR:      spec += "Warrior";  break;
+    case MONK:         spec += "Monk"; break;
+      // if this isn't a player, the AMR link is useless
+    default: assert( 0 ); break;
+    }
+    // Player spec
+    switch ( p -> specialization() )
+    {
+    case DEATH_KNIGHT_BLOOD:    spec += "Blood"; break;
+    case DEATH_KNIGHT_FROST:
+    {
+      if ( p -> main_hand_weapon.type == WEAPON_2H ) { spec += "Frost2H"; break; }
+      else { spec += "FrostDw"; break; }
+    }
+    case DEATH_KNIGHT_UNHOLY:   spec += "Unholy"; break;
+    case DRUID_BALANCE:         spec += "Balance"; break;
+    case DRUID_FERAL:           spec += "Feral"; break;
+    case DRUID_GUARDIAN:        spec += "Guardian"; break;
+    case DRUID_RESTORATION:     spec += "Restoration"; break;
+    case HUNTER_BEAST_MASTERY:  spec += "BeastMastery"; break;
+    case HUNTER_MARKSMANSHIP:   spec += "Marksmanship"; break;
+    case HUNTER_SURVIVAL:       spec += "Survival"; break;
+    case MAGE_ARCANE:           spec += "Arcane"; break;
+    case MAGE_FIRE:             spec += "Fire"; break;
+    case MAGE_FROST:            spec += "Frost"; break;
+    case MONK_BREWMASTER:
+    {
+      if ( p -> main_hand_weapon.type == WEAPON_STAFF || p -> main_hand_weapon.type == WEAPON_POLEARM ) { spec += "Brewmaster2h"; break; }
+      else { spec += "BrewmasterDw"; break; }
+    }
+    case MONK_MISTWEAVER:       spec += "Mistweaver"; break;
+    case MONK_WINDWALKER:
+    {
+      if ( p -> main_hand_weapon.type == WEAPON_STAFF || p -> main_hand_weapon.type == WEAPON_POLEARM ) { spec += "Windwalker2h"; break; }
+      else { spec += "WindwalkerDw"; break; }
+    }
+    case PALADIN_HOLY:          spec += "Holy"; break;
+    case PALADIN_PROTECTION:    spec += "Protection"; break;
+    case PALADIN_RETRIBUTION:   spec += "Retribution"; break;
+    case PRIEST_DISCIPLINE:     spec += "Discipline"; break;
+    case PRIEST_HOLY:           spec += "Holy"; break;
+    case PRIEST_SHADOW:         spec += "Shadow"; break;
+    case ROGUE_ASSASSINATION:   spec += "Assassination"; break;
+    case ROGUE_COMBAT:          spec += "Combat"; break;
+    case ROGUE_SUBTLETY:        spec += "Subtlety"; break;
+    case SHAMAN_ELEMENTAL:      spec += "Elemental"; break;
+    case SHAMAN_ENHANCEMENT:    spec += "Enhancement"; break;
+    case SHAMAN_RESTORATION:    spec += "Restoration"; break;
+    case WARLOCK_AFFLICTION:    spec += "Affliction"; break;
+    case WARLOCK_DEMONOLOGY:    spec += "Demonology"; break;
+    case WARLOCK_DESTRUCTION:   spec += "Destruction"; break;
+    case WARRIOR_ARMS:          spec += "Arms"; break;
+    case WARRIOR_FURY:
+    {
+      if ( p -> main_hand_weapon.type == WEAPON_SWORD_2H || p -> main_hand_weapon.type == WEAPON_AXE_2H || p -> main_hand_weapon.type == WEAPON_MACE_2H || p -> main_hand_weapon.type == WEAPON_POLEARM )
+      {
+        spec += "Fury2H"; break;
+      }
+      else { spec += "Fury"; break; }
+    }
+    case WARRIOR_PROTECTION:    spec += "Protection"; break;
+
+      // if this is a pet or an unknown spec, the AMR link is pointless anyway
+    default: assert( 0 ); break;
+    }
+
+    // if we're using a generic character, need spec
+    if ( use_generic )
+      ss << util::tolower( spec );
+
+    ss << "#spec=" << spec << ";";
+
+    // add weights
+    ss << "weights=";
+
+    // check for negative normalizer
+    bool positive_normalizing_value = p -> scaling_normalized[ sm ].get_stat( p -> normalize_by() ) >= 0;
+
+    // AMR accepts a max precision of 2 decimal places
+    ss.precision( std::min( p -> sim -> report_precision + 1, 2 ) );
+
+    // flag for skipping the first comma
+    bool skipFirstComma = false;
+
+    // loop through stats and append the relevant ones to the URL
+    for ( stat_e i = STAT_NONE; i < STAT_MAX; ++i )
+    {
+      // get stat weight value
+      double value = positive_normalizing_value ? p -> scaling_normalized[ sm ].get_stat( i ) : -p -> scaling_normalized[ sm ].get_stat( i );
+
+      // if the weight is negative or AMR won't recognize the stat type string, skip this stat
+      if ( value <= 0 || util::str_compare_ci( util::stat_type_askmrrobot( i ), "unknown" ) ) continue;
+
+      // skip the first comma
+      if ( skipFirstComma )
+        ss << ',';
+      skipFirstComma = true;
+
+      // AMR enforces certain bounds on stats, cap at 9.99 for regular and 99.99 for weapon DPS
+      if ( ( i == STAT_WEAPON_DPS || i == STAT_WEAPON_OFFHAND_DPS ) && value > 99.99 )
+        value = 99.99;
+      else if ( value > 9.99 )
+        value = 9.99;
+
+      // append the stat weight to the URL
+      ss << util::stat_type_askmrrobot( i ) << ':' << std::fixed << value;
+    }
+
+    // softweights, softcaps, hardcaps would go here if we supported them
+
+    sa[ sm ] = util::encode_html( ss.str() );
+  }
+  return sa;
+}
 

@@ -23,8 +23,6 @@ namespace chart
 {
 enum chart_e { HORIZONTAL_BAR_STACKED, HORIZONTAL_BAR, VERTICAL_BAR, PIE, LINE, XY_LINE };
 
-std::string stat_color( stat_e type );
-std::string resource_color( int type );
 std::string raid_downtime ( std::vector<player_t*> &players_by_name, int print_styles = 0 );
 size_t raid_aps ( std::vector<std::string>& images, sim_t*, std::vector<player_t*>&, std::string type );
 size_t raid_dpet( std::vector<std::string>& images, sim_t* );
@@ -41,10 +39,6 @@ std::string time_spent( player_t* );
 std::string gains( player_t*, resource_e );
 std::string normal_distribution(  double mean, double std_dev, double confidence, double tolerance_interval = 0, int print_styles = 0  );
 
-std::array<std::string, SCALE_METRIC_MAX> gear_weights_lootrank  ( player_t* );
-std::array<std::string, SCALE_METRIC_MAX> gear_weights_wowhead   ( player_t* );
-std::array<std::string, SCALE_METRIC_MAX> gear_weights_askmrrobot( player_t* );
-
 bool generate_raid_aps( highchart::bar_chart_t&, sim_t*, const std::string& type );
 bool generate_distribution( highchart::histogram_chart_t&, const player_t* p,
                                  const std::vector<size_t>& dist_data,
@@ -58,25 +52,100 @@ bool generate_heal_stats_sources( highchart::pie_chart_t&, const player_t* );
 highchart::bar_chart_t& generate_raid_dpet( highchart::bar_chart_t&, sim_t* );
 highchart::bar_chart_t& generate_player_waiting_time( highchart::bar_chart_t&, sim_t* );
 bool generate_action_dpet( highchart::bar_chart_t&, const player_t* );
-highchart::bar_chart_t& generate_dpet( highchart::bar_chart_t&, sim_t*, const std::vector<stats_t*>& );
+bool generate_apet( highchart::bar_chart_t&, sim_t*, const std::vector<stats_t*>& );
 highchart::time_series_t& generate_stats_timeline( highchart::time_series_t&, const stats_t* );
 highchart::time_series_t& generate_actor_timeline( highchart::time_series_t&,
                                                    const player_t*      p,
                                                    const std::string&   attribute,
                                                    const std::string&   series_color,
                                                    const sc_timeline_t& data );
-highchart::time_series_t& generate_actor_dps_series( highchart::time_series_t& series, const player_t* p );
+bool generate_actor_dps_series( highchart::time_series_t& series, const player_t* p );
 bool generate_scale_factors( highchart::bar_chart_t& bc, const player_t* p, scale_metric_e metric );
 bool generate_scaling_plot( highchart::chart_t& bc, const player_t* p, scale_metric_e metric );
 bool generate_reforge_plot( highchart::chart_t& bc, const player_t* p );
 
 } // end namespace sc_chart
 
+namespace color
+{
+struct rgb
+{
+  unsigned char r_, g_, b_;
+
+  rgb();
+
+  rgb( unsigned char r, unsigned char g, unsigned char b );
+  rgb( double r, double g, double b );
+  rgb( const std::string& color );
+  rgb( const char* color );
+
+  std::string rgb_str() const;
+  std::string str() const;
+
+  rgb& adjust( double v );
+  rgb adjust( double v ) const;
+  rgb dark( double pct = 0.25 ) const;
+  rgb light( double pct = 0.25 ) const;
+
+  rgb& operator=( const std::string& color_str );
+  std::ostream& operator<<( std::ostream& os ) const;
+  rgb& operator+=( const rgb& other );
+  rgb operator+( const rgb& other ) const;
+  operator std::string() const;
+
+private:
+  bool parse_color( const std::string& color_str );
+};
+
+std::ostream& operator<<( std::ostream& s, const rgb& r );
+
+rgb mix( const rgb& c0, const rgb& c1 );
+
+rgb class_color( player_e type );
+rgb resource_color( resource_e type );
+rgb stat_color( stat_e type );
+rgb school_color( school_e school );
+
+// Class colors
+const rgb COLOR_DEATH_KNIGHT = "C41F3B";
+const rgb COLOR_DRUID        = "FF7D0A";
+const rgb COLOR_HUNTER       = "ABD473";
+const rgb COLOR_MAGE         = "69CCF0";
+const rgb COLOR_MONK         = "00FF96";
+const rgb COLOR_PALADIN      = "F58CBA";
+const rgb COLOR_PRIEST       = "FFFFFF";
+const rgb COLOR_ROGUE        = "FFF569";
+const rgb COLOR_SHAMAN       = "0070DE";
+const rgb COLOR_WARLOCK      = "9482C9";
+const rgb COLOR_WARRIOR      = "C79C6E";
+
+const rgb WHITE              = "FFFFFF";
+const rgb GREY               = "333333";
+const rgb GREY2              = "666666";
+const rgb GREY3              = "8A8A8A";
+const rgb YELLOW             = COLOR_ROGUE;
+const rgb PURPLE             = "9482C9";
+const rgb RED                = COLOR_DEATH_KNIGHT;
+const rgb TEAL               = "009090";
+const rgb BLACK              = "000000";
+
+// School colors
+const rgb COLOR_NONE         = WHITE;
+const rgb PHYSICAL           = COLOR_WARRIOR;
+const rgb HOLY               = "FFCC00";
+const rgb FIRE               = COLOR_DEATH_KNIGHT;
+const rgb NATURE             = COLOR_HUNTER;
+const rgb FROST              = COLOR_SHAMAN;
+const rgb SHADOW             = PURPLE;
+const rgb ARCANE             = COLOR_MAGE;
+const rgb ELEMENTAL          = COLOR_MONK;
+const rgb FROSTFIRE          = "9900CC";
+} /* namespace color */
+
 namespace report
 {
 
 typedef io::ofstream sc_html_stream;
-
 
 void generate_player_charts         ( player_t*, player_processed_report_information_t& );
 void generate_player_buff_lists     ( player_t*, player_processed_report_information_t& );
@@ -108,6 +177,10 @@ static const char* const beta_warnings[] =
   "Beta! Beta! Beta! Beta! Beta! Beta!",
 };
 #endif // SC_BETA
+
+std::array<std::string, SCALE_METRIC_MAX> gear_weights_lootrank  ( player_t* );
+std::array<std::string, SCALE_METRIC_MAX> gear_weights_wowhead   ( player_t* );
+std::array<std::string, SCALE_METRIC_MAX> gear_weights_askmrrobot( player_t* );
 
 } // reort
 

@@ -29,16 +29,6 @@ bool has_multistrike( const std::vector<stats_t::stats_results_t>& s)
   return ( s[ RESULT_MULTISTRIKE ].count.mean() + s[ RESULT_MULTISTRIKE_CRIT ].count.mean() ) > 0;
 }
 
-bool has_amount_results( const std::vector<stats_t::stats_results_t>& res )
-{
-  return (
-      res[ RESULT_HIT ].actual_amount.mean() > 0 ||
-      res[ RESULT_CRIT ].actual_amount.mean() > 0 ||
-      res[ RESULT_MULTISTRIKE ].actual_amount.mean() > 0 ||
-      res[ RESULT_MULTISTRIKE_CRIT ].actual_amount.mean() > 0
-  );
-}
-
 bool has_block( const std::vector<stats_t::stats_results_t>& s )
 {
   return ( s[ FULLTYPE_HIT_BLOCK ].count.mean() +
@@ -2523,7 +2513,7 @@ void print_html_player_resources( report::sc_html_stream& os, player_t* p, playe
     std::string resource_str = util::resource_type_string( timeline.type );
 
     highchart::time_series_t ts = highchart::time_series_t( highchart::build_id( p, "resource_" + resource_str ), p -> sim );
-    chart::generate_actor_timeline( ts, p, resource_str, chart::resource_color( timeline.type ), timeline.timeline );
+    chart::generate_actor_timeline( ts, p, resource_str, color::resource_color( timeline.type ), timeline.timeline );
     ts.set_mean( timeline.timeline.mean() );
 
     os << ts.to_target_div();
@@ -2534,7 +2524,7 @@ void print_html_player_resources( report::sc_html_stream& os, player_t* p, playe
   if ( p -> primary_role() == ROLE_TANK && ! p -> is_enemy() ) // Experimental, restrict to tanks for now
   {
     highchart::time_series_t chart = highchart::time_series_t( highchart::build_id( p, "health_change" ), p -> sim );
-    chart::generate_actor_timeline( chart, p, "Health Change", chart::resource_color( RESOURCE_HEALTH ), p -> collected_data.health_changes.merged_timeline );
+    chart::generate_actor_timeline( chart, p, "Health Change", color::resource_color( RESOURCE_HEALTH ), p -> collected_data.health_changes.merged_timeline );
     chart.set_mean( p -> collected_data.health_changes.merged_timeline.mean() );
 
     os << chart.to_target_div();
@@ -2545,7 +2535,7 @@ void print_html_player_resources( report::sc_html_stream& os, player_t* p, playe
     sc_timeline_t sliding_average_tl;
     p -> collected_data.health_changes.merged_timeline.build_sliding_average_timeline( sliding_average_tl, 6 );
     highchart::time_series_t chart2( highchart::build_id( p, "health_change_ma" ), p -> sim );
-    chart::generate_actor_timeline( chart2, p, "Health Change (moving average, 6s window)", chart::resource_color( RESOURCE_HEALTH ), sliding_average_tl );
+    chart::generate_actor_timeline( chart2, p, "Health Change (moving average, 6s window)", color::resource_color( RESOURCE_HEALTH ), sliding_average_tl );
     chart2.set_mean( sliding_average_tl.mean() );
 
     os << chart2.to_target_div();
@@ -2574,10 +2564,8 @@ void print_html_player_resources( report::sc_html_stream& os, player_t* p, playe
 
 // print_html_player_charts =================================================
 
-void print_html_player_charts( report::sc_html_stream& os, sim_t* sim, player_t* p, player_processed_report_information_t& ri )
+void print_html_player_charts( report::sc_html_stream& os, player_t* p )
 {
-  size_t num_players = sim -> players_by_name.size();
-
   os << "<div class=\"player-section\">\n"
      << "<h3 class=\"toggle open\">Charts</h3>\n"
      << "<div class=\"toggle-content\">\n"
@@ -2669,11 +2657,9 @@ void print_html_player_charts( report::sc_html_stream& os, sim_t* sim, player_t*
     p -> sim -> highcharts_str += bc.to_aggregate_string( p -> sim -> player_no_pet_list.size() > 1 );
   }
 
-  if ( p -> collected_data.dps.mean() > 0 )
+  highchart::time_series_t ts( highchart::build_id( p, "dps" ), p -> sim );
+  if ( chart::generate_actor_dps_series( ts, p ) )
   {
-    highchart::time_series_t ts( highchart::build_id( p, "dps" ), p -> sim );
-    chart::generate_actor_dps_series( ts, p );
-
     os << ts.to_target_div();
     p -> sim -> highcharts_str += ts.to_aggregate_string( p -> sim -> player_no_pet_list.size() > 1 );
 
@@ -2697,19 +2683,16 @@ void print_html_player_charts( report::sc_html_stream& os, sim_t* sim, player_t*
     //os << resolve.to_string();
   }
 
-  if ( p -> collected_data.dps.mean() > 0 )
+  highchart::histogram_chart_t chart( highchart::build_id( p, "dps_dist" ), p -> sim );
+  if ( chart::generate_distribution( chart, p, p -> collected_data.dps.distribution, p -> name_str + " DPS",
+      p -> collected_data.dps.mean(),
+      p -> collected_data.dps.min(),
+      p -> collected_data.dps.max() ) )
   {
-    highchart::histogram_chart_t chart( highchart::build_id( p, "dps_dist" ), p -> sim );
-    if ( chart::generate_distribution( chart, p, p -> collected_data.dps.distribution, p -> name_str + " DPS",
-        p -> collected_data.dps.mean(),
-        p -> collected_data.dps.min(),
-        p -> collected_data.dps.max() ) )
-    {
-      os << chart.to_target_div();
-      p -> sim -> highcharts_str += chart.to_aggregate_string( p -> sim -> player_no_pet_list.size() > 1 );
+    os << chart.to_target_div();
+    p -> sim -> highcharts_str += chart.to_aggregate_string( p -> sim -> player_no_pet_list.size() > 1 );
 
-      //os <<  chart.to_string();
-    }
+    //os <<  chart.to_string();
   }
 
   if ( p -> collected_data.hps.mean() > 0 || p -> collected_data.aps.mean() > 0 )
@@ -2743,7 +2726,7 @@ void print_html_player_charts( report::sc_html_stream& os, sim_t* sim, player_t*
 
     std::string stat_str = util::stat_type_string( p -> collected_data.stat_timelines[ i ].type );
     highchart::time_series_t ts( highchart::build_id( p, "stat_" + stat_str ), p -> sim );
-    chart::generate_actor_timeline( ts, p, stat_str, chart::stat_color( p -> collected_data.stat_timelines[ i ].type ), p -> collected_data.stat_timelines[ i ].timeline );
+    chart::generate_actor_timeline( ts, p, stat_str, color::stat_color( p -> collected_data.stat_timelines[ i ].type ), p -> collected_data.stat_timelines[ i ].timeline );
     ts.set_mean( p -> collected_data.stat_timelines[ i ].timeline.mean() );
 
     os << ts.to_target_div();
@@ -4013,7 +3996,7 @@ void print_html_player_procs( report::sc_html_stream& os, std::vector<proc_t*> p
 
 // print_html_player_deaths =================================================
 
-void print_html_player_deaths( report::sc_html_stream& os, player_t* p, player_processed_report_information_t& ri )
+void print_html_player_deaths( report::sc_html_stream& os, player_t* p )
 {
   // Death Analysis
 
@@ -4097,7 +4080,7 @@ void print_html_player_( report::sc_html_stream& os, sim_t* sim, player_t* p, in
 
   print_html_player_scale_factors( os, sim, p, p -> report_information );
 
-  print_html_player_charts( os, sim, p, p -> report_information );
+  print_html_player_charts( os, p );
 
   print_html_player_abilities( os, p );
 
@@ -4111,7 +4094,7 @@ void print_html_player_( report::sc_html_stream& os, sim_t* sim, player_t* p, in
 
   print_html_player_procs( os, p -> proc_list );
 
-  print_html_player_deaths( os, p, p -> report_information );
+  print_html_player_deaths( os, p );
 
   print_html_player_statistics( os, p, p -> report_information );
 

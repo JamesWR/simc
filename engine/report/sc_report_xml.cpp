@@ -1307,8 +1307,6 @@ void print_xml( sim_t* sim )
     return;
   }
 
-  report::generate_sim_report_information( sim, sim->report_information );
-
   writer.init_document( sim -> xml_stylesheet_file_str );
   writer.begin_tag( "simulationcraft" );
 
