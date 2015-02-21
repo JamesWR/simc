@@ -10,7 +10,7 @@ set /p revision=<bla.txt
 :: Hacky hack because windows command prompt is annoying.
 del bla.txt
 
-set simcversion=603-28
+set simcversion=610-01
 set install=simc-%simcversion%-source
 cd>bla.txt
 set /p download=<bla.txt
@@ -30,11 +30,7 @@ iscc.exe "setup32.iss"
 cd ..
 call start winscp /command "open downloads" "put %download%\SimcSetup-%simcversion%-win32.exe -nopreservetime -nopermissions -transfer=binary" "exit"
 7z a -r %install% %install% -mx9 -md=32m
-RD /s /q %install%
-robocopy . %install% %install%.7z
-robocopy .\winreleasescripts\ %install% config.txt 7zsd.sfx
-copy /b %install%\7ZSD.sfx + %install%\config.txt + %install%\%install%.7z %install%.exe
-call start winscp /command "open downloads" "put %download%\%install%.exe -nopreservetime -nopermissions -transfer=binary" "exit"
+call start winscp /command "open downloads" "put %download%\%install%.7z -nopreservetime -nopermissions -transfer=binary" "exit"
 
 set install=simc-%simcversion%-win64
 cd winreleasescripts
@@ -43,9 +39,5 @@ iscc.exe "setup64.iss"
 cd ..
 call start winscp /command "open downloads" "put %download%\SimcSetup-%simcversion%-win64.exe  -nopreservetime -nopermissions -transfer=binary" "exit"
 7z a -r %install% %install% -mx9 -md=32m
-RD /s /q %install%
-robocopy . %install% %install%.7z
-robocopy .\winreleasescripts\ %install% config.txt 7zsd.sfx
-copy /b %install%\7ZSD.sfx + %install%\config.txt + %install%\%install%.7z %install%.exe
-winscp /command "open downloads" "put %download%\%install%.exe -nopreservetime -nopermissions -transfer=binary" "exit"
+winscp /command "open downloads" "put %download%\%install%.7z -nopreservetime -nopermissions -transfer=binary" "exit"
 pause

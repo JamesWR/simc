@@ -835,12 +835,10 @@ struct fiend_melee_t : public priest_pet_melee_t
 struct lightwell_renew_t : public heal_t
 {
   lightwell_renew_t( lightwell_pet_t& p ) :
-    heal_t( "lightwell_renew", &p, p.find_spell( 7001 ) )
+    heal_t( "lightwell_renew", &p, p.find_spell( 126154 ) )
   {
     may_crit = false;
     tick_may_crit = true;
-
-    spell_power_mod.direct = 0.308;
   }
 
   lightwell_pet_t& p()
@@ -2058,13 +2056,9 @@ struct shadowy_apparition_spell_t : public priest_spell_t
 
     trigger_gcd       = timespan_t::zero();
     travel_speed      = 6.0;
+    const spell_data_t* dmg_data = p.find_spell( 148859 ); // Hardcoded into tooltip 2014/06/01
 
-    if ( !priest.talents.auspicious_spirits -> ok() || priest.dbc.ptr )
-    {
-      const spell_data_t* dmg_data = p.find_spell( 148859 ); // Hardcoded into tooltip 2014/06/01
-
-      parse_effect_data( dmg_data -> effectN( 1 ) );
-    }
+    parse_effect_data( dmg_data -> effectN( 1 ) );
     school            = SCHOOL_SHADOW;
   }
 
@@ -2102,10 +2096,7 @@ struct shadowy_apparition_spell_t : public priest_spell_t
   {
     double d = priest_spell_t::composite_da_multiplier( state );
 
-    if ( priest.dbc.ptr && priest.talents.auspicious_spirits -> ok() )
-    {
-      d *= 1.0 + priest.talents.auspicious_spirits -> effectN( 1 ).percent();
-    }
+    d *= 1.0 + priest.talents.auspicious_spirits -> effectN( 1 ).percent();
 
     return d;
   }
@@ -2256,14 +2247,10 @@ struct mind_blast_t : public priest_spell_t
 
     if ( priest.mastery_spells.mental_anguish -> ok() )
     {
-      d *= 1.0 + priest.cache.mastery_value() * ( priest.wod_hotfix ? 1.25 : 1 ); // Increases damage by 3.125% per point, rather than 2.5%.
+      d *= 1.0 + priest.cache.mastery_value();
     }
 
     d *= 1.0 + priest.sets.set( SET_CASTER, T16, B2 ) -> effectN( 1 ).percent();
-
-    // Hotfix, via -- http://blue.mmo-champion.com/topic/318876-warlords-of-draenor-theorycraft-discussion/#post636 -- 2014/10/13
-    if ( player -> wod_hotfix )
-      d *= 1.1;
 
     return d;
   }
@@ -2470,7 +2457,7 @@ struct mind_spike_t : public priest_spell_t
 
     if ( priest.mastery_spells.mental_anguish -> ok() )
     {
-      d *= 1.0 + priest.cache.mastery_value() * ( priest.wod_hotfix ? 1.25 : 1 ); // Increases damage by 3.125% per point, rather than 2.5%.
+      d *= 1.0 + priest.cache.mastery_value();
     }
 
     if ( priest.buffs.empowered_shadows -> check() )
@@ -2479,10 +2466,6 @@ struct mind_spike_t : public priest_spell_t
     priest_td_t& td = get_td( target );
     if ( priest.talents.clarity_of_power -> ok() && !td.dots.shadow_word_pain -> is_ticking() && !td.dots.vampiric_touch -> is_ticking() )
       d *= 1.0 + priest.talents.clarity_of_power -> effectN( 1 ).percent();
-
-    // Hotfix, via -- http://blue.mmo-champion.com/topic/318876-warlords-of-draenor-theorycraft-discussion/#post636 -- 2014/10/13
-    if ( player -> wod_hotfix )
-      d *= 1.1;
 
     return d;
   }
@@ -2526,9 +2509,6 @@ struct mind_sear_tick_t : public priest_spell_t
     direct_tick = true;
     instant_multistrike = false;
     use_off_gcd  = true;
-
-    if ( p.wod_hotfix )
-      spell_power_mod.direct *= 1.1;
   }
 };
 
@@ -2660,13 +2640,13 @@ struct shadow_word_death_t : public priest_spell_t
   shadow_word_death_backlash_t* backlash;
 
   shadow_word_death_t( priest_t& p, const std::string& options_str ) :
-    priest_spell_t( "shadow_word_death", p, p.find_class_spell( "Shadow Word: Death" ) ),
+    priest_spell_t( "shadow_word_death", p, p.find_specialization_spell( "Shadow Word: Death" ) ),
     backlash( new shadow_word_death_backlash_t( p ) )
   {
     parse_options( options_str );
     instant_multistrike = false;
 
-    spell_power_mod.direct = 2.7; // Is really 270% SP, tooltip value is incorrect. -- Twintop 2014/10/22
+    spell_power_mod.direct = data().effectN( 2 ).sp_coeff();
     base_multiplier *= 1.0 + p.sets.set( SET_CASTER, T13, B2 ) -> effectN( 1 ).percent();
   }
 
@@ -3106,12 +3086,8 @@ struct mind_flay_base_t : public priest_spell_t
 
     if ( priest.mastery_spells.mental_anguish -> ok() )
     {
-      am *= 1.0 + priest.cache.mastery_value() * ( priest.wod_hotfix ? 1.25 : 1 ); // Increases damage by 3.125% per point, rather than 2.5%.
+      am *= 1.0 + priest.cache.mastery_value();
     }
-
-    // Hotfix, via -- http://blue.mmo-champion.com/topic/318876-warlords-of-draenor-theorycraft-discussion/#post636 -- 2014/10/13
-    if ( player -> wod_hotfix )
-      am *= 1.1;
 
     return am;
   }
@@ -3417,8 +3393,6 @@ struct penance_t : public priest_spell_t
       can_trigger_atonement = priest.specs.atonement -> ok();
 
       this -> stats = stats;
-      if ( p.wod_hotfix )
-        base_multiplier *= 1.2;
     }
 
     void init() override
@@ -3758,14 +3732,14 @@ struct cascade_t : public cascade_base_t<priest_spell_t>
       {
         targets.push_back( t );
 
-        if ( priest.dbc.ptr && _target_list_source.size() > 1)
+        if ( _target_list_source.size() > 1)
         {
           targets.push_back( t );
         }
       }
     }
 
-    if ( priest.dbc.ptr && priest.specialization() != PRIEST_SHADOW )
+    if ( priest.specialization() != PRIEST_SHADOW )
     {
       targets.push_back( target );
     }
@@ -4636,11 +4610,6 @@ struct power_word_shield_t : public priest_absorb_t
     void trigger( action_state_t* s )
     {
       base_dd_min = base_dd_max = priest.glyphs.power_word_shield -> effectN( 1 ).percent() * s -> result_amount;
-      if ( priest.wod_hotfix )
-      {
-        base_dd_min *= 0.85;
-        base_dd_max = base_dd_min;
-      }
       target = s -> target;
       execute();
     }
@@ -4657,12 +4626,7 @@ struct power_word_shield_t : public priest_absorb_t
     add_option( opt_bool( "ignore_debuff", ignore_debuff ) );
     parse_options( options_str );
 
-    spell_power_mod.direct = 5.0; // hardcoded into tooltip 15/02/14
-    if ( p.wod_hotfix )
-    {
-      base_multiplier *= 1.0 + 0.20; // 2014/11/12 Power Word: Shield now absorbs 20% more damage.
-      base_multiplier *= 1.0 - 0.15; // 2015/01/12 Power Word: Shield’s absorption has been reduced by 15%.
-    }
+    spell_power_mod.direct = 4.59; // last checked 2015/02/21
 
     if ( p.glyphs.power_word_shield -> ok() )
     {
@@ -4778,7 +4742,7 @@ struct prayer_of_mending_t : public priest_heal_t
     add_option( opt_bool( "single", single ) );
     parse_options( options_str );
 
-    spell_power_mod.direct = 0.442787; // hardcoded into tooltip 14/12/03
+    spell_power_mod.direct = 0.666; // last checked 2015/02/21
     base_dd_min = base_dd_max = data().effectN( 1 ).min( &p );
 
     aoe = 5;
@@ -4910,10 +4874,7 @@ struct clarity_of_will_t : public priest_absorb_t
   {
     parse_options( options_str );
 
-    spell_power_mod.direct = 6.0; // hardcoded into tooltip 15/02/14
-
-    if ( p.wod_hotfix )
-      base_multiplier *= 1.1; // Seems to match relative to PW:S. 14/12/03
+    spell_power_mod.direct = 6.6; // Last checked 2015/02/21
 
     // TODO: implement buff value overflow of 75% of casting priest health. 15/02/14
   }
@@ -5551,14 +5512,7 @@ double priest_t::composite_player_multiplier( school_e school ) const
   {
     if ( buffs.chakra_chastise -> check() )
     {
-      if ( dbc.ptr )
-      {
-        m *= 1.0 + 0.8;
-      }
-      else
-      {
-        m *= 1.0 + buffs.chakra_chastise -> data().effectN( 1 ).percent();
-      }
+      m *= 1.0 + 0.8;
     }
   }
 
@@ -6201,21 +6155,21 @@ void priest_t::apl_precombat()
       {
         case PRIEST_DISCIPLINE:
           if ( primary_role() != ROLE_HEAL )
-            food_action += "calamari_crepes";
+            food_action += "salty_squid_roll";
           else
-            food_action += "blackrock_barbecue";
+            food_action += "pickled_eel";
           break;
         case PRIEST_HOLY:
-          food_action += "calamari_crepes";
+          food_action += "salty_squid_roll";
           break;
         case PRIEST_SHADOW:
         default:
           if ( talents.clarity_of_power -> ok() )
-            food_action += "sleeper_surprise";
+            food_action += "sleeper_sushi";
           else if ( talents.auspicious_spirits -> ok() )
-            food_action += "blackrock_barbecue";
+            food_action += "pickled_eel";
           else
-            food_action += "frosty_stew";
+            food_action += "buttered_sturgeon";
           break;
       }
     }

@@ -557,7 +557,7 @@ public:
 
     if ( weapons_master )
     {
-      am *= 1.0 + ( ab::player -> cache.mastery_value() * ( !p() -> dbc.ptr ? 1.2857 : 1.0 ) );
+      am *= 1.0 + ab::player -> cache.mastery_value();
     }
 
     return am;
@@ -1349,8 +1349,6 @@ struct bloodthirst_t: public warrior_attack_t
     stancemask = STANCE_BATTLE | STANCE_DEFENSE;
 
     crit_chance = data().effectN( 4 ).percent();
-    if ( !p -> dbc.ptr )
-      crit_chance += 0.1;
 
     if ( p -> talents.unquenchable_thirst -> ok() )
       cooldown -> duration = timespan_t::zero();
@@ -1564,7 +1562,6 @@ struct devastate_t: public warrior_attack_t
     parse_options( options_str );
     stancemask = STANCE_GLADIATOR | STANCE_DEFENSE | STANCE_BATTLE;
     weapon = &( p -> main_hand_weapon );
-    weapon_multiplier = 2.5; // Fix
   }
 
   void execute()
@@ -1636,11 +1633,6 @@ struct execute_off_hand_t: public warrior_attack_t
          p -> off_hand_weapon.group() == WEAPON_1H )
          weapon_multiplier *= 1.0 + p -> spec.singleminded_fury -> effectN( 3 ).percent();
 
-    if ( !p -> dbc.ptr )
-    {
-      weapon_multiplier *= 1.1; // I guess Blizzard messed up and applied this hotfix to all executes.
-    }
-
     weapon_multiplier *= 1.0 + p -> perk.empowered_execute -> effectN( 1 ).percent();
   }
 };
@@ -1666,15 +1658,10 @@ struct execute_t: public warrior_attack_t
            p -> off_hand_weapon.group() == WEAPON_1H )
            weapon_multiplier *= 1.0 + p -> spec.singleminded_fury -> effectN( 3 ).percent();
     }
-    else if ( p -> specialization() == WARRIOR_ARMS ) // There is no hotfix or blue post about this, but execute is definitely hitting for 150% weapon damage instead of 160% for arms.
+    else if ( p -> specialization() == WARRIOR_ARMS )
     {
-      weapon_multiplier -= 0.1;
+      weapon_multiplier = 1.5; // Hurray for inaccurate spell data.
       sudden_death_rage = 10;
-    }
-
-    if ( !p -> dbc.ptr )
-    {
-      weapon_multiplier *= 1.1; // I guess Blizzard messed up and applied this hotfix to all executes.
     }
 
     weapon_multiplier *= 1.0 + p -> perk.empowered_execute -> effectN( 1 ).percent();
@@ -2334,7 +2321,6 @@ struct revenge_t: public warrior_attack_t
     base_add_multiplier = data().effectN( 3 ).percent();
     aoe = 3;
     rage_gain = data().effectN( 2 ).resource( RESOURCE_RAGE );
-    attack_power_mod.direct = 3.528; //Fix
   }
 
   double action_multiplier() const
@@ -2716,10 +2702,6 @@ struct slam_t: public warrior_attack_t
     stancemask = STANCE_BATTLE | STANCE_DEFENSE;
     weapon = &( p -> main_hand_weapon );
     base_costs[RESOURCE_RAGE] = 10;
-    if ( !p -> dbc.ptr )
-    {
-      weapon_multiplier *= 0.7;
-    }
   }
 
   void execute()
@@ -2854,10 +2836,6 @@ struct thunder_clap_t: public warrior_attack_t
     cooldown -> duration = data().cooldown();
     cooldown -> duration *= 1 + p -> glyphs.resonating_power -> effectN( 2 ).percent();
     attack_power_mod.direct *= 1.0 + p -> glyphs.resonating_power -> effectN( 1 ).percent();
-    if ( !p -> dbc.ptr )
-    {
-      attack_power_mod.direct *= 1.4;
-    }
   }
 
   void impact( action_state_t* s )
@@ -2944,10 +2922,6 @@ struct whirlwind_off_hand_t: public warrior_attack_t
     range += p -> glyphs.wind_and_thunder -> effectN( 1 ).base_value(); // Increased by the glyph.
     weapon_multiplier *= 1.0 + p -> spec.crazed_berserker -> effectN( 4 ).percent();
     weapon = &( p -> off_hand_weapon );
-    if ( !p -> dbc.ptr )
-    {
-      weapon_multiplier *= 0.7;
-    }
   }
 
   double action_multiplier() const
@@ -2987,11 +2961,6 @@ struct whirlwind_t: public warrior_attack_t
     else
     {
       weapon_multiplier *= 2;
-    }
-
-    if ( !p -> dbc.ptr )
-    {
-      weapon_multiplier *= 0.7;
     }
 
     weapon = &( p -> main_hand_weapon );
@@ -3210,10 +3179,6 @@ struct deep_wounds_t: public warrior_spell_t
   {
     background = tick_may_crit = true;
     hasted_ticks = false;
-    if ( !p -> dbc.ptr )
-    {
-      attack_power_mod.tick *= 1.4;
-    }
   }
 };
 
@@ -3327,10 +3292,6 @@ struct ravager_tick_t: public warrior_spell_t
   {
     aoe = -1;
     dual = may_crit = true;
-    if ( !p -> dbc.ptr )
-    {
-      attack_power_mod.direct *= 0.75;
-    }
   }
 };
 
@@ -3410,11 +3371,7 @@ struct shield_barrier_t: public warrior_action_t < absorb_t >
     may_crit = false;
     range = -1;
     target = player;
-    attack_power_mod.direct = 1.125; // No spell data.
-    if ( p -> dbc.ptr )
-    {
-      attack_power_mod.direct = 1.4;
-    }
+    attack_power_mod.direct = 1.4; // No spell data.
   }
 
   double cost() const
@@ -4055,21 +4012,21 @@ void warrior_t::apl_precombat()
     if ( specialization() == WARRIOR_FURY )
     {
       if ( level > 90 )
-        food_action += "blackrock_barbecue";
+        food_action += "pickled_eel";
       else
         food_action += "black_pepper_ribs_and_shrimp";
     }
     else if ( specialization() == WARRIOR_ARMS )
     {
       if ( level > 90 )
-        food_action += "sleeper_surprise";
+        food_action += "sleeper_sushi";
       else
         food_action += "black_pepper_ribs_and_shrimp";
     }
     else
     {
       if ( level > 90 )
-        food_action += "blackrock_barbecue";
+        food_action += "pickled_eel";
       else
         food_action += "chun_tian_spring_rolls";
     }
@@ -5220,7 +5177,7 @@ double warrior_t::composite_player_multiplier( school_e school ) const
   {
     if ( dbc::is_school( school, SCHOOL_PHYSICAL ) )
     {
-      m *= 1.0 + 0.05; //Fix
+      m *= 1.0 + buff.gladiator_stance -> data().effectN( 1 ).percent();
     }
   }
 

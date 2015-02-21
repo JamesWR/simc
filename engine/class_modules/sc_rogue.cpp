@@ -735,14 +735,7 @@ struct rogue_attack_t : public melee_attack_t
 
     if ( p() -> spec.sanguinary_vein -> ok() && tdata -> sanguinary_veins() )
     {
-      if ( p() -> wod_hotfix )
-      {
-        m *= 1.25;
-      }
-      else
-      {
-        m *= 1.0 + p() -> spec.sanguinary_vein -> effectN( 2 ).percent();
-      }
+      m *= 1.0 + p() -> spec.sanguinary_vein -> effectN( 2 ).percent();
     }
 
     return m;
@@ -855,8 +848,6 @@ struct venomous_wound_t : public rogue_poison_t
   {
     background       = true;
     proc             = true;
-    if ( p -> wod_hotfix )
-      base_multiplier *= 1.2;
   }
 
   double composite_da_multiplier( const action_state_t* state ) const
@@ -1523,10 +1514,6 @@ struct ambush_t : public rogue_attack_t
     ability_type      = AMBUSH;
     requires_position = POSITION_BACK;
     requires_stealth  = true;
-    if ( p -> wod_hotfix )
-    {
-      weapon_multiplier = 3.15;
-    }
   }
 
   double action_multiplier() const
@@ -1617,10 +1604,6 @@ struct backstab_t : public rogue_attack_t
     ability_type      = BACKSTAB;
     requires_weapon   = WEAPON_DAGGER;
     requires_position = POSITION_BACK;
-    if ( p -> wod_hotfix )
-    {
-      weapon_multiplier = 2.10;
-    }
   }
 
   virtual double cost() const
@@ -1837,7 +1820,7 @@ struct envenom_t : public rogue_attack_t
 
     p() -> buffs.envenom -> trigger( 1, buff_t::DEFAULT_VALUE(), -1.0, envenom_duration );
 
-    if ( p() -> buffs.death_from_above -> check() && maybe_ptr( p() -> dbc.ptr ) )
+    if ( p() -> buffs.death_from_above -> check() )
     {
       timespan_t extend_increase = p() -> buffs.envenom -> remains() * p() -> buffs.death_from_above -> data().effectN( 4 ).percent();
       p() -> buffs.envenom -> extend_duration( player, extend_increase );
@@ -2003,11 +1986,9 @@ struct crimson_tempest_t : public rogue_attack_t
     ability_type = CRIMSON_TEMPEST;
     aoe = -1;
     base_costs[ RESOURCE_COMBO_POINT ] = 1;
-    attack_power_mod.direct = 0.0602;
+    attack_power_mod.direct = 0.09;
     weapon = &( p -> main_hand_weapon );
     weapon_power_mod = weapon_multiplier = 0;
-    // Hard-coded tooltip.
-    attack_power_mod.direct *= 1.5;
     ct_dot = new crimson_tempest_dot_t( p );
     base_dd_min = base_dd_max = 0;
   }
@@ -2046,7 +2027,6 @@ struct garrote_t : public rogue_attack_t
   {
     may_crit          = false;
     requires_stealth  = true;
-    attack_power_mod.tick    = 0.078;
   }
 
   void impact( action_state_t* state )
@@ -2073,11 +2053,6 @@ struct hemorrhage_t : public rogue_attack_t
     weapon = &( p -> main_hand_weapon );
     tick_may_crit = true;
     may_multistrike = true;
-    if ( p -> wod_hotfix )
-    {
-      weapon_multiplier = 0.65;
-      attack_power_mod.tick = 0.055;
-    }
   }
 
   double action_da_multiplier() const
@@ -3151,12 +3126,7 @@ struct blade_flurry_attack_t : public rogue_attack_t
 
   double composite_da_multiplier( const action_state_t* ) const
   {
-    double cleave_damage = p() -> spec.blade_flurry -> effectN( 3 ).percent();
-
-    if ( p() -> wod_hotfix )
-      cleave_damage += 0.05;
-
-    return cleave_damage;
+    return p() -> spec.blade_flurry -> effectN( 3 ).percent();
   }
 
   size_t available_targets( std::vector< player_t* >& tl ) const
@@ -4207,6 +4177,7 @@ struct shadow_reflection_pet_t : public pet_t
     {
       base_costs[ RESOURCE_COMBO_POINT ] = 1;
       attack_power_mod.direct = 0.577;
+      attack_power_mod.direct *= 0.88;
       weapon_multiplier = 0;
     }
   };
@@ -4231,10 +4202,6 @@ struct shadow_reflection_pet_t : public pet_t
       shadow_reflection_attack_t( "ambush", p, p -> find_spell( 8676 ) )
     {
       requires_position = POSITION_BACK;
-      if ( p -> wod_hotfix )
-      {
-        weapon_multiplier = 3.15;
-      }
     }
   };
 
@@ -4246,11 +4213,6 @@ struct shadow_reflection_pet_t : public pet_t
       tick_may_crit = true;
       may_multistrike = true;
       dot_behavior = DOT_REFRESH;
-      if ( p -> wod_hotfix )
-      {
-        weapon_multiplier = 0.65;
-        attack_power_mod.tick = 0.055;
-      }
     }
   };
 
@@ -4260,10 +4222,6 @@ struct shadow_reflection_pet_t : public pet_t
       shadow_reflection_attack_t( "backstab", p, p -> find_spell( 53 ) )
     {
       requires_position = POSITION_BACK;
-      if ( p -> wod_hotfix )
-      {
-        weapon_multiplier = 2.15;
-      }
     }
   };
 
@@ -4400,7 +4358,7 @@ struct shadow_reflection_pet_t : public pet_t
     {
       aoe = -1;
       base_costs[ RESOURCE_COMBO_POINT ] = 1;
-      attack_power_mod.direct = 0.0602;
+      attack_power_mod.direct = 0.09;
       weapon_multiplier = 0;
       add_child( dot );
     }
@@ -4658,16 +4616,8 @@ double rogue_t::composite_attack_power_multiplier() const
 
   if ( spec.vitality -> ok() )
   {
-    if ( wod_hotfix )
-    {
-      m *= 1.5;
-    }
-    else
-    {
-      m *= 1.0 + spec.vitality -> effectN( 2 ).percent();
-    }
+    m *= 1.0 + spec.vitality -> effectN( 2 ).percent();
   }
-
 
   return m;
 }
@@ -4692,10 +4642,7 @@ double rogue_t::composite_player_multiplier( school_e school ) const
 
     if ( main_hand_weapon.type == WEAPON_DAGGER && off_hand_weapon.type == WEAPON_DAGGER && spec.assassins_resolve -> ok() )
     {
-      if ( wod_hotfix )
-        m *= 1.17;
-      else
-        m *= 1.0 + spec.assassins_resolve -> effectN( 2 ).percent();
+      m *= 1.0 + spec.assassins_resolve -> effectN( 2 ).percent();
     }
   }
 
@@ -4746,11 +4693,11 @@ void rogue_t::init_action_list()
   {
     std::string food_action = "food,type=";
     if ( specialization() == ROGUE_ASSASSINATION )
-      food_action += ( ( level >= 100 ) ? "sleeper_surprise" : ( level > 85 ) ? "sea_mist_rice_noodles" : ( level > 80 ) ? "seafood_magnifique_feast" : "" );
+      food_action += ( ( level >= 100 ) ? "sleeper_sushi" : ( level > 85 ) ? "sea_mist_rice_noodles" : ( level > 80 ) ? "seafood_magnifique_feast" : "" );
     else if ( specialization() == ROGUE_COMBAT )
-      food_action += ( ( level >= 100 ) ? "frosty_stew" : ( level > 85 ) ? "sea_mist_rice_noodles" : ( level > 80 ) ? "seafood_magnifique_feast" : "" );
+      food_action += ( ( level >= 100 ) ? "buttered_sturgeon" : ( level > 85 ) ? "sea_mist_rice_noodles" : ( level > 80 ) ? "seafood_magnifique_feast" : "" );
     else if ( specialization() == ROGUE_SUBTLETY )
-      food_action += ( ( level >= 100 ) ? "calamari_crepes" : ( level > 85 ) ? "sea_mist_rice_noodles" : ( level > 80 ) ? "seafood_magnifique_feast" : "" );
+      food_action += ( ( level >= 100 ) ? "salty_squid_roll" : ( level > 85 ) ? "sea_mist_rice_noodles" : ( level > 80 ) ? "seafood_magnifique_feast" : "" );
 
     precombat -> add_action( food_action );
   }

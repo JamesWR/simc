@@ -1404,11 +1404,6 @@ struct dancing_rune_weapon_pet_t : public pet_t
       drw_spell_t( "blood_boil", p, p -> owner -> find_class_spell( "Blood Boil" ) )
     {
       aoe = -1;
-
-      if ( p -> wod_hotfix )
-      {
-        base_multiplier *= 0.667;
-      }
     }
 
     virtual void impact( action_state_t* s )
@@ -1941,14 +1936,7 @@ struct ghoul_pet_t : public death_knight_pet_t
       {
         double dtb = p -> o() -> buffs.dark_transformation -> data().effectN( 1 ).percent();
 
-        if ( p -> o() -> wod_hotfix && p -> o() -> sets.has_set_bonus( DEATH_KNIGHT_UNHOLY, T17, B2 ) )
-        {
-          dtb += 0.4;
-        }
-        if ( maybe_ptr( p -> dbc.ptr ) )
-        {
-          dtb += p -> o() -> sets.set( DEATH_KNIGHT_UNHOLY, T17, B2 ) -> effectN( 2 ).percent();
-        }
+        dtb += p -> o() -> sets.set( DEATH_KNIGHT_UNHOLY, T17, B2 ) -> effectN( 2 ).percent();
 
         am *= 1.0 + dtb;
       }
@@ -2491,10 +2479,7 @@ struct death_knight_action_t : public Base
   bool reap_runes( const rune_t& consumed_rune,
                    const rune_consume_data_t& use_data )
   {
-    if ( ! p() -> bugs || maybe_ptr( p() -> dbc.ptr ) )
-    {
-      return false;
-    }
+    return false; // Fixed in 6.1, leaving code here just in case it comes back... maybe?
 
     if ( ! p() -> spec.reaping -> ok() )
     {
@@ -3128,8 +3113,6 @@ struct necrotic_plague_t : public death_knight_spell_t
     background = tick_may_crit = true;
     base_multiplier *= 1.0 + p -> spec.ebon_plaguebringer -> effectN( 2 ).percent();
     dot_behavior = DOT_REFRESH;
-    if ( p -> wod_hotfix )
-      base_multiplier *= 1.2;
   }
 
   double composite_target_multiplier( player_t* target ) const
@@ -3198,10 +3181,6 @@ struct necrosis_t : public death_knight_spell_t
     death_knight_spell_t( "necrosis", player, player -> spec.necrosis -> effectN( 2 ).trigger() )
   {
     background = true;
-    if ( player -> wod_hotfix )
-    { 
-      base_multiplier *= 1.67;
-    }
   }
 };
 
@@ -3459,12 +3438,6 @@ struct conversion_t : public death_knight_heal_t
         break;
       }
     }
-
-    if ( p -> wod_hotfix && p -> specialization() == DEATH_KNIGHT_FROST )
-    {
-      base_costs[ RESOURCE_RUNIC_POWER ] = 15;
-    }
-
     target = p;
   }
 
@@ -3715,8 +3688,6 @@ struct death_and_decay_t : public death_knight_spell_t
     dot_duration = data().duration(); // 11 with tick_zero
     tick_may_crit = tick_zero = true;
     hasted_ticks     = false;
-    if ( p -> wod_hotfix )
-      attack_power_mod.tick *= 1.2;
     ignore_false_positive = true;
   }
 
@@ -3789,8 +3760,6 @@ struct defile_t : public death_knight_spell_t
     dot_duration = data().duration();
     tick_may_crit = true;
     hasted_ticks = tick_zero = false;
-    if ( p -> wod_hotfix )
-      attack_power_mod.tick *= 1.2;
     ignore_false_positive = true;
   }
 
@@ -3871,10 +3840,7 @@ struct death_coil_t : public death_knight_spell_t
   {
     parse_options( options_str );
 
-    attack_power_mod.direct = 0.85;
-
-    if ( p -> wod_hotfix )
-      attack_power_mod.direct *= 0.95;
+    attack_power_mod.direct = 0.80;
   }
 
   virtual double cost() const
@@ -4052,9 +4018,6 @@ struct death_strike_t : public death_knight_melee_attack_t
     may_parry = false;
     base_multiplier = 1.0 + p -> spec.veteran_of_the_third_war -> effectN( 7 ).percent();
 
-    if ( p -> wod_hotfix )
-      weapon_multiplier *= 1.20;
-
     always_consume = true; // Death Strike always consumes runes, even if doesn't hit
 
     if ( p -> spec.blood_rites -> ok() )
@@ -4160,13 +4123,6 @@ struct festering_strike_t : public death_knight_melee_attack_t
     death_knight_melee_attack_t( "festering_strike", p, p -> find_specialization_spell( "Festering Strike" ) )
   {
     parse_options( options_str );
-
-    if ( p -> wod_hotfix )
-    {
-      weapon_multiplier -= 0.1;
-      weapon_multiplier *= 1.28;
-    }
-
     if ( p -> spec.reaping -> ok() )
       convert_runes = 1.0;
   }
@@ -4202,10 +4158,6 @@ struct frost_strike_offhand_t : public death_knight_melee_attack_t
     special          = true;
     base_multiplier *= 1.0 + p -> spec.threat_of_thassarian -> effectN( 3 ).percent();
     base_multiplier *= 1.0 + p -> sets.set( SET_MELEE, T14, B2 ) -> effectN( 1 ).percent();
-    if ( p -> wod_hotfix )
-    {
-      weapon_multiplier += 0.05;
-    }
 
     rp_gain = 0; // Incorrectly set to 10 in the DBC
   }
@@ -4230,10 +4182,6 @@ struct frost_strike_t : public death_knight_melee_attack_t
   {
     special = true;
     base_multiplier *= 1.0 + p -> sets.set( SET_MELEE, T14, B2 ) -> effectN( 1 ).percent();
-    if ( p -> wod_hotfix )
-    {
-      weapon_multiplier += 0.05;
-    }
 
     parse_options( options_str );
 
@@ -4322,14 +4270,8 @@ struct howling_blast_t : public death_knight_spell_t
 
     aoe                 = -1;
     base_aoe_multiplier = data().effectN( 1 ).percent();
-    //attack_power_mod.direct    = 1.207;
 
     assert( p -> active_spells.frost_fever );
-
-    if ( p -> wod_hotfix )
-    {
-      base_multiplier *= 1.07;
-    }
   }
 
   virtual double action_multiplier() const
@@ -4559,11 +4501,6 @@ struct obliterate_offhand_t : public death_knight_melee_attack_t
     weapon           = &( p -> off_hand_weapon );
     special          = true;
     base_multiplier *= 1.0 + p -> sets.set( SET_MELEE, T14, B2 ) -> effectN( 1 ).percent();
-
-    if ( p -> wod_hotfix )
-    {
-      weapon_multiplier += 0.3;
-    }
   }
 
   virtual double composite_crit() const
@@ -4584,14 +4521,8 @@ struct obliterate_t : public death_knight_melee_attack_t
     death_knight_melee_attack_t( "obliterate", p, p -> find_class_spell( "Obliterate" ) ), oh_attack( 0 )
   {
     parse_options( options_str );
-
     special = true;
     base_multiplier *= 1.0 + p -> sets.set( SET_MELEE, T14, B2 ) -> effectN( 1 ).percent();
-
-    if ( p -> wod_hotfix )
-    {
-      weapon_multiplier += 0.3;
-    }
 
     weapon = &( p -> main_hand_weapon );
 
@@ -4799,19 +4730,6 @@ struct blood_boil_spread_t : public death_knight_spell_t
         if ( tdata -> dots_blood_plague -> is_ticking() )
           tdata -> dots_blood_plague -> cancel();
         bp -> copy( s -> target, DOT_COPY_CLONE );
-
-        // Bugged Blood Boil spreads diseases for Frost/Unholy so that the
-        // target dot actually resets the tick timer, but keeps the duration.
-        if ( player -> bugs && ! maybe_ptr( player -> dbc.ptr ) )
-        {
-          dot_t* d = tdata -> dots_blood_plague;
-
-          event_t::cancel( d -> tick_event );
-          d -> tick_event = new ( *sim ) dot_tick_event_t( d, d -> current_action -> base_tick_time );
-          // Recalculate last_tick_factor. This will be relevant, if spreading
-          // occurs on the last ongoing tick.
-          d -> last_tick_factor = std::min( 1.0, d -> end_event -> remains() / d -> current_action -> base_tick_time );
-        }
       }
 
       // Spread Frost Fever
@@ -4823,19 +4741,6 @@ struct blood_boil_spread_t : public death_knight_spell_t
         if ( tdata -> dots_frost_fever -> is_ticking() )
           tdata -> dots_frost_fever -> cancel();
         ff -> copy( s -> target, DOT_COPY_CLONE );
-
-        // Bugged Blood Boil spreads diseases for Frost/Unholy so that the
-        // target dot actually resets the tick timer, but keeps the duration.
-        if ( player -> bugs && ! maybe_ptr( player -> dbc.ptr ) )
-        {
-          dot_t* d = tdata -> dots_frost_fever;
-
-          event_t::cancel( d -> tick_event );
-          d -> tick_event = new ( *sim ) dot_tick_event_t( d, d -> current_action -> base_tick_time );
-          // Recalculate last_tick_factor. This will be relevant, if spreading
-          // occurs on the last ongoing tick.
-          d -> last_tick_factor = std::min( 1.0, d -> end_event -> remains() / d -> current_action -> base_tick_time );
-        }
       }
 
       // Spread Necrotic Plague
@@ -4855,19 +4760,6 @@ struct blood_boil_spread_t : public death_knight_spell_t
 
         int orig_stacks = tdata2 -> debuffs_necrotic_plague -> check();
         tdata -> debuffs_necrotic_plague -> trigger( orig_stacks );
-
-        // Bugged Blood Boil spreads diseases for Frost/Unholy so that the
-        // target dot actually resets the tick timer, but keeps the duration.
-        if ( player -> bugs && ! maybe_ptr( player -> dbc.ptr ) )
-        {
-          dot_t* d = tdata -> dots_necrotic_plague;
-
-          event_t::cancel( d -> tick_event );
-          d -> tick_event = new ( *sim ) dot_tick_event_t( d, d -> current_action -> base_tick_time );
-          // Recalculate last_tick_factor. This will be relevant, if spreading
-          // occurs on the last ongoing tick.
-          d -> last_tick_factor = std::min( 1.0, d -> end_event -> remains() / d -> current_action -> base_tick_time );
-        }
       }
     }
   }
@@ -4887,13 +4779,6 @@ struct blood_boil_t : public death_knight_spell_t
       convert_runes = 1.0;
 
     base_multiplier *= 1.0 + p -> spec.crimson_scourge -> effectN( 1 ).percent();
-
-    if ( p -> wod_hotfix )
-    {
-      attack_power_mod.direct *= 1.20;
-      attack_power_mod.direct *= 0.667;
-    }
-
     rp_gain = data().effectN( 2 ).resource( RESOURCE_RUNIC_POWER );
 
     aoe = -1;
@@ -5234,13 +5119,6 @@ struct scourge_strike_t : public death_knight_melee_attack_t
       weapon = &( player -> main_hand_weapon );
       dual = true;
       school = SCHOOL_SHADOW;
-
-      if ( p -> wod_hotfix )
-      {
-        weapon_multiplier -= 0.04;
-        weapon_multiplier *= 1.5;
-        weapon_multiplier *= 1.28;
-      }
     }
 
     void impact( action_state_t* state )
@@ -5261,13 +5139,6 @@ struct scourge_strike_t : public death_knight_melee_attack_t
 
     special = true;
     base_multiplier *= 1.0 + p -> sets.set( SET_MELEE, T14, B2 ) -> effectN( 1 ).percent();
-
-    if ( p -> wod_hotfix )
-    {
-      weapon_multiplier -= 0.02;
-      weapon_multiplier *= 1.5;
-      weapon_multiplier *= 1.28;
-    }
 
     // TODO-WOD: Do we need to inherit damage or is it a separate roll in WoD?
     add_child( scourge_strike_shadow );
@@ -5426,14 +5297,6 @@ struct breath_of_sindragosa_tick_t: public death_knight_spell_t
     resource_current = RESOURCE_RUNIC_POWER;
   }
 
-  void consume_resource()
-  {
-    if ( maybe_ptr( p() -> dbc.ptr ) || td( target ) -> dots_breath_of_sindragosa -> current_tick > 0 )
-    {
-      death_knight_spell_t::consume_resource();
-    }
-  }
-
   void execute()
   {
     death_knight_spell_t::execute();
@@ -5478,14 +5341,7 @@ struct breath_of_sindragosa_t : public death_knight_spell_t
     tick_zero = true;
 
     tick_action = new breath_of_sindragosa_tick_t( p, this );
-    if ( ! maybe_ptr( p -> dbc.ptr ) )
-    {
-      tick_action -> base_costs[ RESOURCE_RUNIC_POWER ] = base_costs[ RESOURCE_RUNIC_POWER ];
-    }
-    else
-    {
-      tick_action -> base_costs[ RESOURCE_RUNIC_POWER ] = data().powerN( 1 ).cost_per_second();
-    }
+    tick_action -> base_costs[ RESOURCE_RUNIC_POWER ] = data().powerN( 1 ).cost_per_second();
     school = tick_action -> school;
   }
 
@@ -6239,14 +6095,7 @@ void death_knight_t::init_base_stats()
 {
   player_t::init_base_stats();
 
-  if ( wod_hotfix && spec.unholy_might -> ok() )
-  {
-    base.attribute_multiplier[ATTR_STRENGTH] *= 1.05;
-  }
-  else
-  {
-    base.attribute_multiplier[ATTR_STRENGTH] *= 1.0 + spec.unholy_might -> effectN( 1 ).percent();
-  }
+  base.attribute_multiplier[ATTR_STRENGTH] *= 1.0 + spec.unholy_might -> effectN( 1 ).percent();
 
   base.attack_power_per_strength = 1.0;
   base.attack_power_per_agility = 0.0;
@@ -6429,13 +6278,13 @@ void death_knight_t::default_apl_blood()
   {
     potion_str += ( level > 90 ) ? "draenic_armor" : ( level >= 85 ) ? "mountains" : "earthen";
     flask_str += ( level > 90 ) ? "greater_draenic_stamina_flask" : ( level >= 85 ) ? "earth" : "steelskin";
-    food_str += ( level > 90 ) ? "talador_surf_and_turf" : ( level >= 85 ) ? "chun_tian_spring_rolls" : "beer_basted_crocolisk";
+    food_str += ( level > 90 ) ? "whiptail_fillet" : ( level >= 85 ) ? "chun_tian_spring_rolls" : "beer_basted_crocolisk";
   }
   else
   {
     potion_str += ( level > 90 ) ? "draenic_strength" : ( level >= 85 ) ? "mogu_power" : "golemblood";
     flask_str += ( level > 90 ) ? "greater_draenic_strength_flask" : ( level >= 85 ) ? "winters_bite" : "titanic_strength";
-    food_str += ( level > 90 ) ? "calamari_crepes" : ( level >= 85 ) ? "black_pepper_ribs_and_shrimp" : "beer_basted_crocolisk";
+    food_str += ( level > 90 ) ? "salty_squid_roll" : ( level >= 85 ) ? "black_pepper_ribs_and_shrimp" : "beer_basted_crocolisk";
   }
 
   // Precombat actions
@@ -6591,8 +6440,8 @@ void death_knight_t::init_action_list()
   std::string soul_reaper_pct = (perk.improved_soul_reaper -> ok() || sets.has_set_bonus( SET_MELEE, T15, B4 )) ? "45" : "35";
   std::string flask_str = "flask,type=";
   std::string food_str = "food,type=";
-  std::string food_mastery = "food,type=sleeper_surprise";
-  std::string food_ms = "food,type=calamari_crepes";
+  std::string food_mastery = "food,type=sleeper_sushi";
+  std::string food_ms = "food,type=salty_squid_roll";
   std::string potion_str = "potion,name=";
   potion_str += (level > 90) ? "draenic_strength" : ((level >= 85) ? "mogu_power" : "golemblood");
   food_str += (level >= 85) ? "black_pepper_ribs_and_shrimp" : "beer_basted_crocolisk";
@@ -7024,7 +6873,7 @@ void runeforge::fallen_crusader( special_effect_t& effect )
 
   effect.ppm_ = -1.0 * dk -> fallen_crusader_rppm;
   // TODO: Check in 6.1
-  effect.rppm_scale = ( effect.item -> player -> bugs && ! maybe_ptr( dk -> dbc.ptr ) ) ? RPPM_HASTE_SPEED : RPPM_HASTE;
+  effect.rppm_scale = RPPM_HASTE;
   effect.custom_buff = b;
   effect.execute_action = heal;
 
@@ -7554,7 +7403,7 @@ double death_knight_t::composite_rating_multiplier( rating_e rating ) const
     case RATING_SPELL_HASTE:
     case RATING_MELEE_HASTE:
     case RATING_RANGED_HASTE:
-      m *= 1.0 + ( wod_hotfix && specialization() == DEATH_KNIGHT_FROST ? 0.2 : spec.icy_talons -> effectN( 3 ).percent() );
+      m *= 1.0 + spec.icy_talons -> effectN( 3 ).percent();
       break;
     default:
       break;

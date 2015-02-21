@@ -3,7 +3,7 @@ level=100
 race=orc
 role=attack
 position=ranged_back
-talents=0001133
+talents=0002333
 spec=beast_mastery
 
 # This default action priority list is automatically created based on your character.
@@ -15,7 +15,7 @@ spec=beast_mastery
 # Executed before combat begins. Accepts non-harmful actions only.
 
 actions.precombat=flask,type=greater_draenic_agility_flask
-actions.precombat+=/food,type=calamari_crepes
+actions.precombat+=/food,type=salty_squid_roll
 actions.precombat+=/summon_pet
 # Snapshot raid buffed stats before combat begins and pre-potting is done.
 actions.precombat+=/snapshot_stats

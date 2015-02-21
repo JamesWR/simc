@@ -75,9 +75,6 @@ public:
 };
 spelltoken_t tokens;
 
-
-
-
 dbc_index_t<spell_data_t> spell_data_index;
 dbc_index_t<spelleffect_data_t> spelleffect_data_index;
 dbc_index_t<talent_data_t> talent_data_index;
@@ -89,11 +86,11 @@ std::vector< std::vector< const spell_data_t* > > ptr_class_family_index;
 
 int dbc::build_level( bool ptr )
 {
-  return maybe_ptr( ptr ) ? 19658 : 19342;
+  return maybe_ptr( ptr ) ? 19658 : 19658;
 }
 
 const char* dbc::wow_version( bool ptr )
-{ return maybe_ptr( ptr ) ? "6.1.0" : "6.0.3"; }
+{ return maybe_ptr( ptr ) ? "6.1.0" : "6.1.0"; }
 
 const char* dbc::wow_ptr_status( bool ptr )
 { return ( maybe_ptr( ptr ) ?
@@ -208,23 +205,7 @@ void dbc::apply_hotfixes()
 
   // Enchants
 
-  // https://twitter.com/WarcraftDevs/status/543261642599845889
-  s = spell_data_t::find( 159239, false ); // Shattered bleed
-  assert( s -> _rppm == 3.5 && "Shattered Hand enchant RPPM fixed" );
-  s -> _rppm = 2.5;
-
-  s = spell_data_t::find( 159685, false ); // Mark of Blackrock
-  assert( s -> _proc_chance == 30 && "Mark of Blackrock proc chance fixed" );
-  s -> _proc_chance = 100;
-
   // Item hotfixes
-
-  e = spelleffect_data_t::find(254387, false);
-  assert(e -> _m_avg == 3.3333330154 && "Copeland's Clarity proc has been fixed");
-  e -> _m_avg = 2.5;
-  e = spelleffect_data_t::find(254388, false);
-  assert(e -> _m_avg == 3.3333330154 && "Copeland's Clarity proc has been fixed");
-  e -> _m_avg = 2.5;
 }
 
 static void generate_class_flags_index( bool ptr = false )
