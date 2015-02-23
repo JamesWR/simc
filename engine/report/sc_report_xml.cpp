@@ -869,10 +869,13 @@ void print_xml_player_charts( xml_writer_t & writer, player_processed_report_inf
   if ( p -> collected_data.dps.mean() > 0 )
   {
     highchart::time_series_t ts( highchart::build_id( p, "dps" ), p -> sim );
-    writer.begin_tag( "chart" );
-    writer.print_attribute( "type", "timeline_dps" );
-    writer.print_text( chart::generate_actor_dps_series( ts, p ).to_xml() );
-    writer.end_tag( "chart" );
+    if ( chart::generate_actor_dps_series( ts, p ) )
+    {
+      writer.begin_tag( "chart" );
+      writer.print_attribute( "type", "timeline_dps" );
+      writer.print_text( ts.to_xml() );
+      writer.end_tag( "chart" );
+    }
   }
 
   {
