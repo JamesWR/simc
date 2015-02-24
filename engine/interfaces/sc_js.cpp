@@ -65,6 +65,11 @@ rapidjson::Value* sc_js_t::path_value( const std::string& path_str )
   return v;
 }
 
+rapidjson::Value& sc_js_t::value( const std::string& path )
+{
+  return *path_value( path );
+}
+
 sc_js_t& sc_js_t::set( const std::string& path, const char* value_ )
 {
   if ( rapidjson::Value* obj = path_value( path ) )
