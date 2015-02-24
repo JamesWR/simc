@@ -76,15 +76,15 @@ public:
     bool Uint64(uint64_t u64)   { PrettyPrefix(kNumberType); return Base::WriteUint64(u64);  }
     bool Double(double d)       { PrettyPrefix(kNumberType); return Base::WriteDouble(d); }
 
-    bool String(const Ch* str, SizeType length, bool copy = false) {
+    bool String(const Ch* str, SizeType length, bool copy = false, bool raw = false) {
         (void)copy;
         PrettyPrefix(kStringType);
-        return Base::WriteString(str, length);
+        return Base::WriteString(str, length, raw);
     }
 
 #if RAPIDJSON_HAS_STDSTRING
-    bool String(const std::basic_string<Ch>& str) {
-      return String(str.data(), SizeType(str.size()));
+    bool String(const std::basic_string<Ch>& str, bool raw = false) {
+      return String(str.data(), SizeType(str.size()), false, raw);
     }
 #endif
 

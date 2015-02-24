@@ -1383,6 +1383,8 @@ public:
     GenericValue& SetString(const std::basic_string<Ch>& s, Allocator& allocator) { return SetString(s.data(), s.size(), allocator); }
 #endif
 
+    GenericValue& SetRawOutput(bool state) { state ? flags_ |= kRawOutputStrFlag : flags_ &= ~kRawOutputStrFlag; return *this; }
+
     //@}
 
     //! Generate events of this value to a Handler.
@@ -1420,7 +1422,7 @@ public:
             return handler.EndArray(data_.a.size);
     
         case kStringType:
-            return handler.String(GetString(), GetStringLength(), (flags_ & kCopyFlag) != 0);
+            return handler.String(GetString(), GetStringLength(), (flags_ & kCopyFlag) != 0, (flags_ & kRawOutputStrFlag) != 0);
     
         case kNumberType:
             if (IsInt())            return handler.Int(data_.n.i.i);
@@ -1450,6 +1452,7 @@ private:
         kStringFlag = 0x100000,
         kCopyFlag = 0x200000,
         kInlineStrFlag = 0x400000,
+        kRawOutputStrFlag = 0x800000,
 
         // Initial flags of different types.
         kNullFlag = kNullType,
@@ -1840,17 +1843,19 @@ private:
     bool Uint64(uint64_t i) { new (stack_.template Push<ValueType>()) ValueType(i); return true; }
     bool Double(double d) { new (stack_.template Push<ValueType>()) ValueType(d); return true; }
 
-    bool String(const Ch* str, SizeType length, bool copy) { 
+    bool String(const Ch* str, SizeType length, bool copy, bool raw) { 
+        ValueType* v;
         if (copy) 
-            new (stack_.template Push<ValueType>()) ValueType(str, length, GetAllocator());
+            v = new (stack_.template Push<ValueType>()) ValueType(str, length, GetAllocator());
         else
-            new (stack_.template Push<ValueType>()) ValueType(str, length);
+            v = new (stack_.template Push<ValueType>()) ValueType(str, length);
+        v->SetRawOutput(raw);
         return true;
     }
 
     bool StartObject() { new (stack_.template Push<ValueType>()) ValueType(kObjectType); return true; }
     
-    bool Key(const Ch* str, SizeType length, bool copy) { return String(str, length, copy); }
+    bool Key(const Ch* str, SizeType length, bool copy) { return String(str, length, copy, false); }
 
     bool EndObject(SizeType memberCount) {
         typename ValueType::Member* members = stack_.template Pop<typename ValueType::Member>(memberCount);

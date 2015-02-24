@@ -652,7 +652,7 @@ private:
             size_t length = s.PutEnd(head) - 1;
             RAPIDJSON_ASSERT(length <= 0xFFFFFFFF);
             const typename TargetEncoding::Ch* const str = (typename TargetEncoding::Ch*)head;
-            success = (isKey ? handler.Key(str, SizeType(length), false) : handler.String(str, SizeType(length), false));
+            success = (isKey ? handler.Key(str, SizeType(length), false) : handler.String(str, SizeType(length), false, false));
         }
         else {
             StackStream<typename TargetEncoding::Ch> stackStream(stack_);
@@ -660,7 +660,7 @@ private:
             RAPIDJSON_PARSE_ERROR_EARLY_RETURN_VOID;
             SizeType length = static_cast<SizeType>(stackStream.Length()) - 1;
             const typename TargetEncoding::Ch* const str = stackStream.Pop();
-            success = (isKey ? handler.Key(str, length, true) : handler.String(str, length, true));
+            success = (isKey ? handler.Key(str, length, true) : handler.String(str, length, true, false));
         }
         if (!success)
             RAPIDJSON_PARSE_ERROR(kParseErrorTermination, s.Tell());

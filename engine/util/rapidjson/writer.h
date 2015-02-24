@@ -125,15 +125,15 @@ public:
     */
     bool Double(double d)       { Prefix(kNumberType); return WriteDouble(d); }
 
-    bool String(const Ch* str, SizeType length, bool copy = false) {
+    bool String(const Ch* str, SizeType length, bool copy = false, bool raw = false) {
         (void)copy;
         Prefix(kStringType);
-        return WriteString(str, length);
+        return WriteString(str, length, raw);
     }
 
 #if RAPIDJSON_HAS_STDSTRING
-    bool String(const std::basic_string<Ch>& str) {
-      return String(str.data(), SizeType(str.size()));
+    bool String(const std::basic_string<Ch>& str, bool raw = false) {
+      return String(str.data(), SizeType(str.size()), false, raw);
     }
 #endif
 
@@ -247,7 +247,7 @@ protected:
         return true;
     }
 
-    bool WriteString(const Ch* str, SizeType length)  {
+    bool WriteString(const Ch* str, SizeType length, bool raw)  {
         static const char hexDigits[16] = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F' };
         static const char escape[256] = {
 #define Z16 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
@@ -261,7 +261,8 @@ protected:
 #undef Z16
         };
 
-        os_->Put('\"');
+        if (!raw)
+            os_->Put('\"');
         GenericStringStream<SourceEncoding> is(str);
         while (is.Tell() < length) {
             const Ch c = is.Peek();
@@ -297,7 +298,7 @@ protected:
                 else
                     return false;   // invalid code point
             }
-            else if ((sizeof(Ch) == 1 || (unsigned)c < 256) && escape[(unsigned char)c])  {
+            else if ((sizeof(Ch) == 1 || (unsigned)c < 256) && !raw && escape[(unsigned char)c])  {
                 is.Take();
                 os_->Put('\\');
                 os_->Put(escape[(unsigned char)c]);
@@ -311,7 +312,8 @@ protected:
             else
                 Transcoder<SourceEncoding, TargetEncoding>::Transcode(is, *os_);
         }
-        os_->Put('\"');
+        if (!raw)
+            os_->Put('\"');
         return true;
     }
 
