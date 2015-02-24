@@ -70,9 +70,9 @@ endif
 
 # Force use of old libstdc++ on OS X + Clang so paths to tr/* work
 ifeq (${FLAVOR},Darwin)
-ifneq ($(findstring clang,$(shell ${CXX} -v 2>&1)),)
-OPTS += -stdlib=libstdc++
-endif
+#ifneq ($(findstring clang,$(shell ${CXX} -v 2>&1)),)
+#OPTS += -stdlib=libstdc++
+#endif
 ifeq (${OPENSSL},)
   LINK_LIBS += -framework Security -framework CoreFoundation
 endif
