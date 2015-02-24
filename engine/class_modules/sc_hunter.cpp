@@ -2402,6 +2402,7 @@ struct chimaera_shot_t: public hunter_ranged_attack_t
 struct cobra_shot_t: public hunter_ranged_attack_t
 {
   double focus_gain;
+  proc_t* cast_in_BW;
 
   cobra_shot_t( hunter_t* player, const std::string& options_str ):
     hunter_ranged_attack_t( "cobra_shot", player, player -> find_specialization_spell( "Cobra Shot" ) )
@@ -2413,6 +2414,8 @@ struct cobra_shot_t: public hunter_ranged_attack_t
 
     if ( p() -> sets.has_set_bonus( SET_MELEE, T13, B2 ) )
       focus_gain *= 2.0;
+
+    cast_in_BW = player -> get_proc( "cobra_shot during bestial_wrath" );
   }
 
   virtual void try_steady_focus()
@@ -2423,6 +2426,9 @@ struct cobra_shot_t: public hunter_ranged_attack_t
   virtual void execute()
   {
     hunter_ranged_attack_t::execute();
+
+    if (p() -> buffs.bestial_wrath -> check() )
+      cast_in_BW -> occur();
 
     if ( result_is_hit( execute_state -> result ) )
       trigger_tier15_2pc_melee();
@@ -2716,12 +2722,15 @@ struct multi_shot_t: public hunter_ranged_attack_t
 
 struct focusing_shot_t: public hunter_ranged_attack_t
 {
-  double focus_gain;
+  double focus_gain;;
+  proc_t* cast_in_BW;
+
   focusing_shot_t( hunter_t* player, const std::string& options_str ):
     hunter_ranged_attack_t( "focusing_shot", player, player -> talents.focusing_shot )
   {
     parse_options( options_str );
     focus_gain = data().effectN( 2 ).base_value();
+    cast_in_BW = player -> get_proc( "focusing_shot during bestial_wrath" );
   }
 
   bool usable_moving() const
@@ -2746,6 +2755,9 @@ struct focusing_shot_t: public hunter_ranged_attack_t
   virtual void execute()
   {
     hunter_ranged_attack_t::execute();
+
+    if (p() -> buffs.bestial_wrath -> check() )
+      cast_in_BW -> occur();
 
     if ( result_is_hit( execute_state -> result ) )
       p() -> resource_gain( RESOURCE_FOCUS, focus_gain, p() -> gains.focusing_shot );
@@ -3858,26 +3870,28 @@ void hunter_t::apl_bm()
    "if=!talent.stampede.enabled&buff.bestial_wrath.up&target.health.pct<=20|target.time_to_die<=20" );
   add_potion_action( default_list, "draenic_agility", "virmens_bite",
    "if=talent.stampede.enabled&cooldown.stampede.remains<1&(buff.bloodlust.up|buff.focus_fire.up)|target.time_to_die<=25" );
-  default_list -> add_talent( this, "Stampede", "if=buff.bloodlust.up|buff.focus_fire.up|target.time_to_die<=25");
+  default_list -> add_talent( this, "Stampede", "if=buff.bloodlust.up|buff.focus_fire.up|target.time_to_die<=25" );
 
-  default_list -> add_talent( this, "Dire Beast");
+  default_list -> add_talent( this, "Dire Beast" );
   default_list -> add_action( this, "Explosive Trap", "if=active_enemies>1" );
-  default_list -> add_action( this, "Bestial Wrath", "if=focus>60&!buff.bestial_wrath.up");
+  default_list -> add_action( this, "Focus Fire", "if=buff.focus_fire.down&(cooldown.bestial_wrath.remains<1|(talent.stampede.enabled&buff.stampede.remains))" );
+  default_list -> add_action( this, "Bestial Wrath", "if=focus>30&!buff.bestial_wrath.up" );
+  default_list -> add_action( this, "Multi-Shot", "if=active_enemies>1&pet.cat.buff.beast_cleave.down" );
   default_list -> add_talent( this, "Barrage", "if=active_enemies>1" );
-  default_list -> add_action( this, "Multi-Shot", "if=active_enemies>5|(active_enemies>1&pet.cat.buff.beast_cleave.down)");
-  default_list -> add_action( this, "Focus Fire", "five_stacks=1");
-  default_list -> add_talent( this, "Barrage", "if=active_enemies>1");
-  default_list -> add_talent( this, "A Murder of Crows");
-  default_list -> add_action( this, "Kill Shot","if=focus.time_to_max>gcd");
-  default_list -> add_action( this, "Kill Command");
-  default_list -> add_talent( this, "Focusing Shot", "if=focus<50");
+  default_list -> add_action( this, "Multi-Shot", "if=active_enemies>5" );
+  default_list -> add_action( this, "Focus Fire", "five_stacks=1" );
+  default_list -> add_talent( this, "Barrage", "if=active_enemies>1" );
+  default_list -> add_action( this, "Kill Command" );
+  default_list -> add_talent( this, "A Murder of Crows" );
+  default_list -> add_action( this, "Kill Shot","if=focus.time_to_max>gcd" );
+  default_list -> add_talent( this, "Focusing Shot", "if=focus<50" );
   default_list -> add_action( this, "Cobra Shot", "if=buff.pre_steady_focus.up&(14+cast_regen)<=focus.deficit", "Cast a second shot for steady focus if that won't cap us." );
-  default_list -> add_talent( this, "Glaive Toss");
-  default_list -> add_talent( this, "Barrage");
-  default_list -> add_talent( this, "Powershot", "if=focus.time_to_max>cast_time");
-  default_list -> add_action( this, "Cobra Shot", "if=active_enemies>5");
-  default_list -> add_action( this, "Arcane Shot", "if=(buff.thrill_of_the_hunt.react&focus>35)|buff.bestial_wrath.up");
-  default_list -> add_action( this, "Arcane Shot", "if=focus>=64");
+  default_list -> add_talent( this, "Glaive Toss" );
+  default_list -> add_talent( this, "Barrage" );
+  default_list -> add_talent( this, "Powershot", "if=focus.time_to_max>cast_time" );
+  default_list -> add_action( this, "Cobra Shot", "if=active_enemies>5" );
+  default_list -> add_action( this, "Arcane Shot", "if=(buff.thrill_of_the_hunt.react&focus>35)|buff.bestial_wrath.up" );
+  default_list -> add_action( this, "Arcane Shot", "if=focus>=75" );
   if ( level >= 81 )
     default_list -> add_action( this, "Cobra Shot");
   else

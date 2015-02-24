@@ -3,8 +3,8 @@ level=100
 race=blood_elf
 role=hybrid
 position=back
-talents=0130023
-glyphs=touch_of_death
+talents=0230023
+glyphs=touch_of_death,blackout_kick
 spec=windwalker
 
 # This default action priority list is automatically created based on your character.

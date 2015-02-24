@@ -3,7 +3,7 @@ level=100
 race=orc
 role=attack
 position=ranged_back
-talents=0002333
+talents=0001333
 spec=beast_mastery
 
 # This default action priority list is automatically created based on your character.
@@ -36,14 +36,16 @@ actions+=/potion,name=draenic_agility,if=talent.stampede.enabled&cooldown.stampe
 actions+=/stampede,if=buff.bloodlust.up|buff.focus_fire.up|target.time_to_die<=25
 actions+=/dire_beast
 actions+=/explosive_trap,if=active_enemies>1
-actions+=/bestial_wrath,if=focus>60&!buff.bestial_wrath.up
+actions+=/focus_fire,if=buff.focus_fire.down&(cooldown.bestial_wrath.remains<1|(talent.stampede.enabled&buff.stampede.remains))
+actions+=/bestial_wrath,if=focus>30&!buff.bestial_wrath.up
+actions+=/multishot,if=active_enemies>1&pet.cat.buff.beast_cleave.down
 actions+=/barrage,if=active_enemies>1
-actions+=/multishot,if=active_enemies>5|(active_enemies>1&pet.cat.buff.beast_cleave.down)
+actions+=/multishot,if=active_enemies>5
 actions+=/focus_fire,five_stacks=1
 actions+=/barrage,if=active_enemies>1
+actions+=/kill_command
 actions+=/a_murder_of_crows
 actions+=/kill_shot,if=focus.time_to_max>gcd
-actions+=/kill_command
 actions+=/focusing_shot,if=focus<50
 # Cast a second shot for steady focus if that won't cap us.
 actions+=/cobra_shot,if=buff.pre_steady_focus.up&(14+cast_regen)<=focus.deficit
@@ -52,7 +54,7 @@ actions+=/barrage
 actions+=/powershot,if=focus.time_to_max>cast_time
 actions+=/cobra_shot,if=active_enemies>5
 actions+=/arcane_shot,if=(buff.thrill_of_the_hunt.react&focus>35)|buff.bestial_wrath.up
-actions+=/arcane_shot,if=focus>=64
+actions+=/arcane_shot,if=focus>=75
 actions+=/cobra_shot
 
 head=rylakstalkers_headguard,id=115545,bonus_id=41/562/565/567,gem_id=115812
@@ -65,19 +67,21 @@ hands=rylakstalkers_gloves,id=115549,bonus_id=41/562/565/567,gem_id=115812
 waist=grenadiers_belt,id=113955,bonus_id=41/562/565/567,gem_id=115812
 legs=rylakstalkers_legguards,id=115546,bonus_id=41/562/565/567,gem_id=115812
 feet=railwalkers_ratcheted_boots,id=113954,bonus_id=41/562/565/567,gem_id=115812
+finger1=spellbound_runic_band_of_unrelenting_slaughter,id=118307,bonus_id=524,enchant_id=5326
 finger2=unexploded_explosive_shard,id=113877,bonus_id=41/562/565/567,gem_id=115812,enchant_id=5326
 trinket1=meaty_dragonspine_trophy,id=118114,bonus_id=41/562/565/567,gem_id=115812
 trinket2=humming_blackiron_trigger,id=113985,bonus_id=41/562/565/567,gem_id=115812
 main_hand=garans_brutal_spearlauncher,id=113966,bonus_id=41/562/565/567,gem_id=115812,enchant_id=5383
 
 # Gear Summary
-# gear_agility=3812
-# gear_stamina=4488
-# gear_crit_rating=690
+# gear_agility=4010
+# gear_stamina=4785
+# gear_crit_rating=828
 # gear_haste_rating=337
-# gear_mastery_rating=2409
+# gear_mastery_rating=2459
 # gear_armor=1503
 # gear_multistrike_rating=1418
+# gear_versatility_rating=122
 # gear_leech_rating=1984
 # set_bonus=tier17_2pc=1
 # set_bonus=tier17_4pc=1

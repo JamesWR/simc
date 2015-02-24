@@ -1854,6 +1854,9 @@ public:
   {
     double c = spell_t::cost();
 
+    if ( current_resource() == RESOURCE_MANA && p() -> glyphs.life_pact -> ok() )
+      c *= ( 1 - p() -> glyphs.life_pact -> effectN( 2 ).percent() );
+
     if ( current_resource() == RESOURCE_DEMONIC_FURY && p() -> buffs.dark_soul -> check() )
       c *= 1.0 + p() -> sets.set( SET_CASTER, T15, B2 ) -> effectN( 3 ).percent();
 
@@ -3146,6 +3149,7 @@ struct incinerate_t: public warlock_spell_t
       m *= p() -> buffs.fire_and_brimstone -> data().effectN( 5 ).percent();
     }
 
+    if ( !p() -> buffs.fire_and_brimstone -> check() )
       m *= 1.0 + p() -> talents.grimoire_of_sacrifice -> effectN( 4 ).percent() * p() -> buffs.grimoire_of_sacrifice -> stack();
 
     m *= 1.0 + p() -> mastery_spells.emberstorm -> effectN( 3 ).percent() + p() -> composite_mastery() * p() -> mastery_spells.emberstorm -> effectN( 3 ).mastery_value();
@@ -3377,6 +3381,7 @@ struct chaos_bolt_t: public warlock_spell_t
 
     m *= 1.0 + p() -> cache.spell_crit();
 
+    if ( !p() -> buffs.fire_and_brimstone -> check() )
       m *= 1.0 + p() -> talents.grimoire_of_sacrifice -> effectN( 4 ).percent() * p() -> buffs.grimoire_of_sacrifice -> stack();
 
     return m;
@@ -3387,6 +3392,8 @@ struct chaos_bolt_t: public warlock_spell_t
     warlock_spell_t::execute();
 
     if ( !result_is_hit( execute_state -> result ) ) refund_embers( p() );
+
+    p() -> buffs.chaotic_infusion -> expire();
   }
 
   //overwrite MS behavior for the T17 4pc buff
@@ -3403,7 +3410,8 @@ struct chaos_bolt_t: public warlock_spell_t
 
     int n_strikes = 0;
 
-    if ( p() -> buffs.chaotic_infusion -> up() )
+    // Only first two targets get the T17 4PC bonus
+    if ( p() -> buffs.chaotic_infusion -> up() && state -> chain_target <= 1 )
     {
       int extra_ms = static_cast<int>( p() -> buffs.chaotic_infusion -> value() );
       for ( int i = 0; i < extra_ms; i++ )
@@ -3425,7 +3433,6 @@ struct chaos_bolt_t: public warlock_spell_t
 
         n_strikes++;
       }
-      p() -> buffs.chaotic_infusion -> expire();
     }
 
     return n_strikes + action_t::schedule_multistrike( state, type, tick_multiplier );
@@ -3437,6 +3444,8 @@ struct life_tap_t: public warlock_spell_t
   life_tap_t( warlock_t* p ):
     warlock_spell_t( p, "Life Tap" )
   {
+    if ( p -> glyphs.life_pact -> ok() )
+      background = true;
     harmful = false;
     ignore_false_positive = true;
   }
@@ -5520,8 +5529,8 @@ void warlock_t::apl_precombat()
 
   precombat_list += "/summon_pet,if=!talent.demonic_servitude.enabled&(!talent.grimoire_of_sacrifice.enabled|buff.grimoire_of_sacrifice.down)";
 
-  precombat_list += "/summon_doomguard,if=talent.demonic_servitude.enabled&active_enemies<5";    
-  precombat_list += "/summon_infernal,if=talent.demonic_servitude.enabled&active_enemies>=5";
+  precombat_list += "/summon_doomguard,if=talent.demonic_servitude.enabled&active_enemies<9";    
+  precombat_list += "/summon_infernal,if=talent.demonic_servitude.enabled&active_enemies>=9";
   precombat_list += "/snapshot_stats";
 
   if ( specialization() != WARLOCK_DEMONOLOGY )
@@ -5600,8 +5609,8 @@ void warlock_t::apl_precombat()
 
   action_list_str += "/service_pet,if=talent.grimoire_of_service.enabled&(target.time_to_die>120|target.time_to_die<20|(buff.dark_soul.remains&target.health.pct<20))";
 
-  add_action( "Summon Doomguard", "if=!talent.demonic_servitude.enabled&active_enemies<5" );
-  add_action( "Summon Infernal", "if=!talent.demonic_servitude.enabled&active_enemies>=5" );
+  add_action( "Summon Doomguard", "if=!talent.demonic_servitude.enabled&active_enemies<9" );
+  add_action( "Summon Infernal", "if=!talent.demonic_servitude.enabled&active_enemies>=9" );
 }
 
 void warlock_t::apl_global_filler()
@@ -5619,13 +5628,17 @@ void warlock_t::apl_affliction()
   action_list_str += "/kiljaedens_cunning,moving=1,if=!talent.cataclysm.enabled";
   action_list_str += "/cataclysm";
 
+  add_action( "Soulburn", "cycle_targets=1,if=!talent.soulburn_haunt.enabled&active_enemies>2&dot.corruption.remains<=dot.corruption.duration*0.3" );
+  add_action( "Seed of Corruption", "cycle_targets=1,if=!talent.soulburn_haunt.enabled&active_enemies>2&!dot.seed_of_corruption.remains&buff.soulburn.remains" );
   add_action( "Haunt", "if=shard_react&!talent.soulburn_haunt.enabled&!in_flight_to_target&(dot.haunt.remains<duration*0.3+cast_time+travel_time|soul_shard=4)&(trinket.proc.any.react|trinket.stacking_proc.any.react>6|buff.dark_soul.up|soul_shard>2|soul_shard*14<=target.time_to_die)" );
   add_action( "Soulburn", "if=shard_react&talent.soulburn_haunt.enabled&buff.soulburn.down&(buff.haunting_spirits.remains<=buff.haunting_spirits.duration*0.3)" );
   add_action( "Haunt", "if=shard_react&talent.soulburn_haunt.enabled&!in_flight_to_target&((buff.soulburn.up&((buff.haunting_spirits.remains<=buff.haunting_spirits.duration*0.3&dot.haunt.remains<=dot.haunt.duration*0.3)|buff.haunting_spirits.down)))" );
   add_action( "Haunt", "if=shard_react&talent.soulburn_haunt.enabled&!in_flight_to_target&buff.haunting_spirits.remains>=buff.haunting_spirits.duration*0.5&(dot.haunt.remains<duration*0.3+cast_time+travel_time|soul_shard=4)&(trinket.proc.any.react|trinket.stacking_proc.any.react>6|buff.dark_soul.up|soul_shard>2|soul_shard*14<=target.time_to_die)" );
   add_action( "Agony", "cycle_targets=1,if=target.time_to_die>16&remains<=(duration*0.3)&((talent.cataclysm.enabled&remains<=(cooldown.cataclysm.remains+action.cataclysm.cast_time))|!talent.cataclysm.enabled)" );
   add_action( "Unstable Affliction", "cycle_targets=1,if=target.time_to_die>10&remains<=(duration*0.3)" );
+  add_action( "Seed of Corruption", "cycle_targets=1,if=!talent.soulburn_haunt.enabled&active_enemies>3&!dot.seed_of_corruption.ticking" );
   add_action( "Corruption", "cycle_targets=1,if=target.time_to_die>12&remains<=(duration*0.3)" );
+  add_action( "Seed of Corruption", "cycle_targets=1,if=active_enemies>3&!dot.seed_of_corruption.ticking" );
   add_action( "Life Tap", "if=mana.pct<40&buff.dark_soul.down" );
   add_action( "Drain Soul", "interrupt=1,chain=1" );
   add_action( "Agony", "cycle_targets=1,moving=1,if=mana.pct>50");
@@ -5712,8 +5725,8 @@ void warlock_t::apl_destruction()
   action_priority_list_t* single_target       = get_action_priority_list( "single_target" );    
   action_priority_list_t* aoe                 = get_action_priority_list( "aoe" );
 
-  action_list_str +="/run_action_list,name=single_target,if=active_enemies<6";
-  action_list_str +="/run_action_list,name=aoe,if=active_enemies>=6";
+  action_list_str +="/run_action_list,name=single_target,if=active_enemies<6&(!talent.charred_remains.enabled|active_enemies<4)";
+  action_list_str +="/run_action_list,name=aoe,if=active_enemies>=6|(talent.charred_remains.enabled&active_enemies>=4)";
 
   single_target -> action_list_str += "/havoc,target=2";
   single_target -> action_list_str += "/shadowburn,if=talent.charred_remains.enabled&(burning_ember>=2.5|buff.dark_soul.up|target.time_to_die<10)";
@@ -5749,10 +5762,10 @@ void warlock_t::apl_destruction()
   single_target -> action_list_str += "/conflagrate";
   single_target -> action_list_str += "/incinerate";
 
-  aoe -> action_list_str += "/rain_of_fire,if=remains<=tick_time";
-  aoe -> action_list_str += "/havoc,target=2";
-  aoe -> action_list_str += "/shadowburn,if=buff.havoc.remains";
-  aoe -> action_list_str += "/chaos_bolt,if=buff.havoc.remains>cast_time&buff.havoc.stack>=3";
+  aoe -> action_list_str += "/rain_of_fire,if=!talent.charred_remains.enabled&remains<=tick_time";
+  aoe -> action_list_str += "/havoc,target=2,if=(!talent.charred_remains.enabled|buff.fire_and_brimstone.down)";
+  aoe -> action_list_str += "/shadowburn,if=!talent.charred_remains.enabled&buff.havoc.remains";
+  aoe -> action_list_str += "/chaos_bolt,if=!talent.charred_remains.enabled&buff.havoc.remains>cast_time&buff.havoc.stack>=3";
   aoe -> action_list_str += "/kiljaedens_cunning,if=(talent.cataclysm.enabled&!cooldown.cataclysm.remains)";
   aoe -> action_list_str += "/kiljaedens_cunning,moving=1,if=!talent.cataclysm.enabled";
   aoe -> action_list_str += "/cataclysm";
@@ -5760,7 +5773,7 @@ void warlock_t::apl_destruction()
   aoe -> action_list_str += "/immolate,if=buff.fire_and_brimstone.up&!dot.immolate.ticking";
   aoe -> action_list_str += "/conflagrate,if=buff.fire_and_brimstone.up&charges=2";
   aoe -> action_list_str += "/immolate,if=buff.fire_and_brimstone.up&dot.immolate.remains<=(dot.immolate.duration*0.3)";
-  aoe -> action_list_str += "/chaos_bolt,if=talent.charred_remains.enabled&buff.fire_and_brimstone.up&burning_ember>=2.5";
+  aoe -> action_list_str += "/chaos_bolt,if=talent.charred_remains.enabled&buff.fire_and_brimstone.up";
   aoe -> action_list_str += "/incinerate";
 
 }

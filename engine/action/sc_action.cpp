@@ -241,7 +241,7 @@ action_t::action_t( action_e       ty,
   aoe(),
   pre_combat( 0 ),
   may_multistrike( -1 ),
-  instant_multistrike( true ),
+  instant_multistrike( 1 ),
   dual(),
   callbacks( true ),
   special(),
@@ -1405,6 +1405,11 @@ void action_t::last_tick( dot_t* d )
     buff_t* b = d -> state -> target -> debuffs.bleeding;
     if ( b -> current_value > 0 ) b -> current_value -= 1.0;
     if ( b -> current_value == 0 ) b -> expire();
+  }
+
+  if ( channeled && player -> channeling == this )
+  {
+    player -> channeling = 0;
   }
 }
 

@@ -472,6 +472,7 @@ public:
     const spell_data_t* surging_mist;
     const spell_data_t* shuffle;
     const spell_data_t* tier15_2pc_melee;
+    const spell_data_t* tier17_2pc_tank;
     const spell_data_t* forceful_winds;
 
     // 6.0.2 Hotfixes consolidated into a single spell in build 19057
@@ -1187,14 +1188,13 @@ struct storm_earth_and_fire_pet_t : public pet_t
     sef_fists_of_fury_t( storm_earth_and_fire_pet_t* player ) :
       sef_melee_attack_t( "fists_of_fury", player, player -> o() -> find_specialization_spell( "Fists of Fury" ) )
     {
-      channeled = tick_zero = true;
+      channeled = tick_zero = interrupt_auto_attack = true;
       may_crit = may_miss = may_block = may_dodge = may_parry = callbacks = false;
 
       weapon_power_mod = 0;
 
       tick_action = new sef_fists_of_fury_tick_t( player );
     }
-
   };
 
   struct sef_spinning_crane_kick_t : public sef_melee_attack_t
@@ -1859,6 +1859,8 @@ public:
   {
     ab::consume_resource();
 
+    if ( !ab::execute_state ) // Fixes rare crashes at combat_end.
+      return;
     // Handle Tigereye Brew and Mana Tea
     if ( ab::result_is_hit( ab::execute_state -> result ) )
     {
@@ -3015,6 +3017,7 @@ struct melee_t: public monk_melee_attack_t
         else
           trigger_brew( p() -> active_stance_data( STURDY_OX ).effectN( 11 ).base_value() * weapon -> swing_time.total_seconds() / 3.6);
       }
+      // TODO: Add BLOCK_RESULT_MULTISTRIKE and BLOCK_RESULT_MULTISTRIKE_CRIT
       if ( result_is_multistrike( s -> result ) )
         p() -> buff.gift_of_the_ox -> trigger();
     }
@@ -3094,7 +3097,9 @@ struct keg_smash_t: public monk_melee_attack_t
     oh = &( player -> off_hand_weapon );
     cooldown -> duration = data().charge_cooldown();
 
-    base_multiplier *= 14.5; // hardcoded into tooltip
+    base_multiplier = 14.5; // hardcoded into tooltip
+    // Hotfix nerf by 20% on Feb 24, 2015
+    base_multiplier *= 0.80;
   }
 
   virtual void execute()
@@ -3984,22 +3989,45 @@ struct elusive_brew_t: public monk_spell_t
 // ==========================================================================
 // Mana Tea
 // ==========================================================================
-/*
-FIX ME: Current behavior resembles the glyphed ability
-regardless of if the glyph is actually present.
-*/
+
 struct mana_tea_t: public monk_spell_t
 {
+  bool glyphed;
+  int mana_percent_return;
   mana_tea_t( monk_t& p, const std::string& options_str ):
-    monk_spell_t( "mana_tea", &p, p.find_spell( 123761 ) )
+    monk_spell_t( "mana_tea", &p, ( p.glyph.mana_tea -> ok() ? p.find_spell( 123761 ) : p.find_specialization_spell( "Mana Tea" ) )),
+    glyphed( p.glyph.mana_tea -> ok() ),
+    mana_percent_return( data().effectN( 1 ).base_value() )
   {
     parse_options( options_str );
+
+    if ( !glyphed )
+    {
+      channeled = true;
+      hasted_ticks = false;
+    }
 
     stancemask = WISE_SERPENT | SPIRITED_CRANE;
     harmful = false;
   }
 
-  virtual bool ready()
+  timespan_t composite_dot_duration( const action_state_t*s ) const
+  {
+    if ( glyphed )
+      return timespan_t::zero();
+    else
+      return data().effectN( 1 ).period() * std::min( p() -> buff.mana_tea -> current_stack, 6 ) ;
+  }
+
+  void tick( dot_t* d )
+  {
+    monk_spell_t::tick( d );
+
+    player -> resource_gain( RESOURCE_MANA, p() -> initial.stats.attribute[STAT_SPIRIT] * mana_percent_return, p() -> gain.mana_tea, this );
+    p() -> buff.mana_tea -> decrement( 1 );
+  }
+
+  bool ready()
   {
     if ( p() -> buff.mana_tea -> current_stack == 0 )
       return false;
@@ -4007,7 +4035,7 @@ struct mana_tea_t: public monk_spell_t
     return monk_spell_t::ready();
   }
 
-  virtual void execute()
+  void execute()
   {
     monk_spell_t::execute();
 
@@ -4017,18 +4045,19 @@ struct mana_tea_t: public monk_spell_t
         p() -> active_actions.healing_elixir -> execute();
     }
 
-    int max_stacks_consumable = 2;
-    int stacks_to_consume = 0;
-    stacks_to_consume = std::min( p() -> buff.mana_tea -> current_stack, max_stacks_consumable );
+    if ( glyphed )
+    {
+      int max_stacks_consumable = 2;
+      int stacks_to_consume = 0;
+      stacks_to_consume = std::min( p() -> buff.mana_tea -> current_stack, max_stacks_consumable );
 
-    double mana_gain = 0;
-    // TODO Make sure this is getting the Buffed but not Temporary Proc SPIRIT amount
-    // Meh, there are no spirit procs yet. 
-    mana_gain = p() -> cache.spirit()
-      * data().effectN( 1 ).base_value()
-      * stacks_to_consume;
-    player -> resource_gain( RESOURCE_MANA, mana_gain, p() -> gain.mana_tea, this );
-    p() -> buff.mana_tea -> decrement( stacks_to_consume );
+      double mana_gain = 0;
+      mana_gain = p() -> initial.stats.attribute[STAT_SPIRIT]
+        * mana_percent_return
+        * stacks_to_consume;
+      player -> resource_gain( RESOURCE_MANA, mana_gain, p() -> gain.mana_tea, this );
+      p() -> buff.mana_tea -> decrement( stacks_to_consume );
+    }
   }
 };
 
@@ -5076,6 +5105,7 @@ void monk_t::init_spells()
   stance_data.spirited_crane         = find_specialization_spell( "Stance of the Spirited Crane" );
 
   passives.tier15_2pc_melee          = find_spell( 138311 );
+  passives.tier17_2pc_tank           = find_spell( 165356 );
   passives.enveloping_mist           = find_class_spell( "Enveloping Mist" );
   passives.surging_mist              = find_class_spell( "Surging Mist" );
   passives.healing_elixirs           = find_spell( 122281 );
@@ -5194,12 +5224,11 @@ void monk_t::create_buffs()
 
   buff.power_strikes = buff_creator_t( this, "power_strikes", talent.power_strikes -> effectN( 1 ).trigger() );
 
-  double ts_proc_chance = ( ( main_hand_weapon.group() == WEAPON_1H ) ) 
-    ? ( ( spec.tiger_strikes -> proc_chance() / 8 ) * 5 ) : spec.tiger_strikes -> proc_chance();
+  double ts_proc_chance = spec.tiger_strikes -> proc_chance() * ( main_hand_weapon.group() == WEAPON_1H ? 0.5 : 1 ); // Tooltips are wrong....
   buff.tiger_strikes = buff_creator_t( this, "tiger_strikes", spec.tiger_strikes -> effectN( 1 ).trigger() )
     .chance( ts_proc_chance )
     .refresh_behavior( BUFF_REFRESH_DURATION )
-    .cd( timespan_t::from_seconds( 0.5 ) )
+    .cd( timespan_t::from_seconds( 0.2 ) )
     .add_invalidate( CACHE_MULTISTRIKE );
 
   buff.tiger_power = buff_creator_t( this, "tiger_power", find_class_spell( "Tiger Palm" ) -> effectN( 2 ).trigger() )
@@ -5237,11 +5266,15 @@ void monk_t::create_buffs()
     .refresh_behavior( BUFF_REFRESH_EXTEND )
     .add_invalidate( CACHE_PARRY );
 
+  // 1-Handers have a 62.5% chance to proc while 2-Handers have 100% chance to proc
+  double goto_chance = main_hand_weapon.group() == WEAPON_1H  ? 0.625 : 1.0;
   // Players don't pick up ALL of the gift of the ox orbs, mostly due to fight mechanics. 
   // Defaulting to 60% pickup, but users can adjust as needed
-  double goto_chance = ( user_options.goto_throttle > 0 ? user_options.goto_throttle / 100 : 0.60 );
-  buff.gift_of_the_ox = buff_creator_t( this, "gift_of_the_ox" )
+  goto_chance *= ( user_options.goto_throttle > 0 ? user_options.goto_throttle / 100 : 0.60 );
+  buff.gift_of_the_ox = buff_creator_t( this, "gift_of_the_ox" ) //, find_spell( 124503 ) Until the Spell ID is regenerated, I'll keep this like this
     .chance( goto_chance )
+    .duration( timespan_t::from_seconds( 30 ) )
+    .refresh_behavior( BUFF_REFRESH_NONE )
     .max_stack( 99 );
 
   // Mistweaver
@@ -5825,10 +5858,10 @@ void monk_t::assess_damage(school_e school,
     }
 
     if ( s -> result == RESULT_DODGE && sets.set( MONK_BREWMASTER, T17, B2 ) )
-      resource_gain( RESOURCE_ENERGY, sets.set( MONK_BREWMASTER, T17, B2 ) -> effectN( 1 ).base_value(), gain.energy_refund );
+      resource_gain( RESOURCE_ENERGY, passives.tier17_2pc_tank -> effectN( 1 ).base_value(), gain.energy_refund );
   }
 
-  if ( health_percentage() < glyph.fortuitous_spheres-> effectN( 1 ).base_value() && glyph.fortuitous_spheres -> ok() )
+  if ( health_percentage() < glyph.fortuitous_spheres -> effectN( 1 ).base_value() && glyph.fortuitous_spheres -> ok() )
   {
     if ( cooldown.healing_sphere -> up() )
       active_actions.healing_sphere -> execute();
@@ -6071,7 +6104,12 @@ void monk_t::apl_combat_brewmaster()
   def -> add_action( "auto_attack" );
 
   for ( size_t i = 0; i < racial_actions.size(); i++ )
-    def -> add_action( racial_actions[i] + ",if=energy<=40" );
+  {
+    if ( racial_actions[i] == "arcane_torrent" )
+      def -> add_action( racial_actions[i] + ",if=chi.max-chi>=1&energy<=40" );
+    else
+      def -> add_action( racial_actions[i] + ",if=energy<=40" );
+  }
 
   def -> add_action( "chi_sphere,if=talent.power_strikes.enabled&buff.chi_sphere.react&chi<4" );
   def -> add_talent( this, "Chi Brew", "if=talent.chi_brew.enabled&chi.max-chi>=2&buff.elusive_brew_stacks.stack<=10&((charges=1&recharge_time<5)|charges=2|(target.time_to_die<15&(cooldown.touch_of_death.remains>target.time_to_die|glyph.touch_of_death.enabled)))" );
@@ -6080,6 +6118,14 @@ void monk_t::apl_combat_brewmaster()
   def -> add_talent( this, "Diffuse Magic", "if=incoming_damage_1500ms&buff.fortifying_brew.down" );
   def -> add_talent( this, "Dampen Harm", "if=incoming_damage_1500ms&buff.fortifying_brew.down&buff.elusive_brew_activated.down" );
   def -> add_action( this, "Fortifying Brew", "if=incoming_damage_1500ms&(buff.dampen_harm.down|buff.diffuse_magic.down)&buff.elusive_brew_activated.down" );
+
+  int num_items = (int)items.size();
+  for ( int i = 0; i < num_items; i++ )
+  {
+    if ( items[i].has_special_effect( SPECIAL_EFFECT_SOURCE_NONE, SPECIAL_EFFECT_USE ) )
+      def -> add_action( "use_item,name=" + items[i].name_str + ",if=incoming_damage_1500ms&(buff.dampen_harm.down|buff.diffuse_magic.down)&buff.fortifying_brew.down&buff.elusive_brew_activated.down" );
+  }
+
   def -> add_action( this, "Elusive Brew", "if=buff.elusive_brew_stacks.react>=9&(buff.dampen_harm.down|buff.diffuse_magic.down)&buff.elusive_brew_activated.down" );
   def -> add_action( "invoke_xuen,if=talent.invoke_xuen.enabled&target.time_to_die>15&buff.shuffle.remains>=3&buff.serenity.down" );
   def -> add_talent( this, "Serenity", "if=talent.serenity.enabled&cooldown.keg_smash.remains>6" );
@@ -6288,8 +6334,8 @@ void monk_t::apl_combat_windwalker()
   opener -> add_action( this, "Tiger Palm", "if=buff.tiger_power.remains<2" );
   for (int i = 0; i < num_items; i++)
   {
-    if (items[i].has_special_effect(SPECIAL_EFFECT_SOURCE_NONE, SPECIAL_EFFECT_USE))
-      opener->add_action("use_item,name=" + items[i].name_str);
+    if ( items[i].has_special_effect( SPECIAL_EFFECT_SOURCE_NONE, SPECIAL_EFFECT_USE ) )
+      opener -> add_action( "use_item,name=" + items[i].name_str );
   }
   opener -> add_action( this, "Rising Sun Kick" );
   opener -> add_action( this, "Blackout Kick", "if=chi.max-chi<=1&cooldown.chi_brew.up|buff.serenity.up" );
