@@ -605,8 +605,13 @@ void print_html_raid_summary( report::sc_html_stream& os, sim_t* sim )
     os << raid_dps.to_string();
 
   highchart::bar_chart_t raid_dtps( "raid_dtps", sim );
-  if ( chart::generate_raid_aps( raid_dtps, sim, "dtps" ) )
-    os << raid_dtps.to_string();
+  bool dtps_chart_printed = false;
+  if ( sim -> num_enemies > 1 || ( ( ( sim -> num_tanks * 2 ) >= sim -> num_players ) && sim -> num_enemies == 1 ) )
+  {
+    dtps_chart_printed = true;
+    if ( chart::generate_raid_aps( raid_dtps, sim, "dtps" ) )
+      os << raid_dtps.to_string();
+  }
 
   if ( ! sim -> raid_events_str.empty() )
   {
@@ -643,6 +648,11 @@ void print_html_raid_summary( report::sc_html_stream& os, sim_t* sim )
   highchart::bar_chart_t priority_dps( "priority_dps", sim );
   if ( chart::generate_raid_aps( priority_dps, sim, "prioritydps" ) )
     os << priority_dps.to_string();
+  else if ( !dtps_chart_printed )
+  {
+    if ( chart::generate_raid_aps( raid_dtps, sim, "dtps" ) )
+      os << raid_dtps.to_string();
+  }
 
   highchart::bar_chart_t raid_hps( "raid_hps", sim );
   if ( chart::generate_raid_aps( raid_hps, sim, "hps" ) )
