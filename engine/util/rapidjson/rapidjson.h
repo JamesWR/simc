@@ -412,7 +412,7 @@ RAPIDJSON_NAMESPACE_END
 // C++11 features
 
 #ifndef RAPIDJSON_HAS_CXX11_RVALUE_REFS
-#if defined(__clang__)
+#if defined(__clang__) && (!defined(__APPLE__) || defined(_LIBCPP_VERSION))
 #define RAPIDJSON_HAS_CXX11_RVALUE_REFS __has_feature(cxx_rvalue_references)
 #elif (defined(RAPIDJSON_GNUC) && (RAPIDJSON_GNUC >= RAPIDJSON_VERSION_CODE(4,3,0)) && defined(__GXX_EXPERIMENTAL_CXX0X__)) || \
       (defined(_MSC_VER) && _MSC_VER >= 1600)
