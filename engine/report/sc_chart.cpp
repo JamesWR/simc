@@ -18,7 +18,7 @@ const std::string amp = "&amp;";
 
 struct compare_downtime
 {
-  bool operator()( player_t* l, player_t* r ) const
+  bool operator()( const player_t* l, const player_t* r ) const
   {
     return l -> collected_data.waiting_time.mean() < r -> collected_data.waiting_time.mean();
   }
@@ -118,6 +118,47 @@ struct filter_waiting_time
 
 } // anonymous namespace ====================================================
 
+bool chart::generate_raid_downtime( highchart::bar_chart_t& bc, sim_t* sim )
+{
+  std::vector<const player_t*> players;
+  for ( size_t i = 0; i < sim -> players_by_name.size(); ++i )
+  {
+    const player_t* p = sim -> players_by_name[ i ];
+    if ( ( p -> collected_data.waiting_time.mean() / p -> collected_data.fight_length.mean() ) > 0.01 )
+    {
+      players.push_back( p );
+    }
+  }
+
+  if ( sim -> players_by_name.empty() )
+  {
+    return false;
+  }
+
+  range::sort( players, compare_downtime() );
+
+  for ( size_t i = 0; i < players.size(); ++i )
+  {
+    const player_t* p = players[ i ];
+    const color::rgb& c = color::class_color( p -> type );
+    double waiting_pct = ( 100.0 * p -> collected_data.waiting_time.mean() / p -> collected_data.fight_length.mean() );
+    sc_js_t e;
+    e.set( "name", report::decorate_html_string( p -> name_str, c ) );
+    e.set( "color", c.str() );
+    e.set( "y", waiting_pct );
+
+    bc.add( "series.0.data", e );
+  }
+
+  bc.set( "series.0.name", "Downtime" );
+  bc.set( "series.0.tooltip.pointFormat", "<span style=\"color:{point.color}\">\u25CF</span> {series.name}: <b>{point.y}</b>%<br/>" );
+
+  bc.set_title( "Raid downtime" );
+  bc.set_yaxis_title( "Downtime% (of total fight length)" );
+  bc.height_ = 92 + players.size() * 20;
+
+  return true;
+}
 // ==========================================================================
 // Chart
 // ==========================================================================
@@ -682,39 +723,6 @@ bool chart::generate_heal_stats_sources( highchart::pie_chart_t& chart, const pl
   return true;
 }
 
-highchart::bar_chart_t& chart::generate_player_waiting_time( highchart::bar_chart_t& bc, sim_t* s )
-{
-  bc.set_title( "Player Waiting Time" );
-
-  // Build List
-  std::vector<player_t*> waiting_list;
-  range::remove_copy_if( s -> players_by_name, back_inserter( waiting_list ), filter_waiting_time() );
-  range::sort( waiting_list, compare_downtime() );
-
-  // Create Data
-  for ( size_t i = 0; i < waiting_list.size(); ++i )
-  {
-    const player_t* p = waiting_list[ i ];
-    std::string color = color::class_color( p -> type );
-    if ( color.empty() )
-    {
-      s -> errorf( "%s Player class color unknown. Type %s\n",
-          p -> name(), util::player_type_string( p -> type ) );
-      assert( 0 );
-    }
-
-    sc_js_t e;
-    e.set( "color", color );
-    e.set( "name", p -> name_str );
-    e.set( "y", p -> collected_data.waiting_time.mean() );
-
-    bc.add( "series.0.data", e );
-  }
-
-  return bc;
-
-}
-
 bool chart::generate_raid_aps( highchart::bar_chart_t& bc,
                                                 sim_t* s,
                                     const std::string& type )
@@ -756,17 +764,11 @@ bool chart::generate_raid_aps( highchart::bar_chart_t& bc,
   for ( size_t i = 0; i < player_list.size(); ++i )
   {
     const player_t* p = player_list[ i ];
-    std::string color = color::class_color( p -> type );
-    if ( color.empty() )
-    {
-      s -> errorf( "%s Player class color unknown. Type %s\n",
-          p -> name(), util::player_type_string( p -> type ) );
-      assert( 0 );
-    }
+    const color::rgb& c = color::class_color( p -> type );
 
     sc_js_t e;
-    e.set( "color", color );
-    e.set( "name", p -> name_str );
+    e.set( "color", c.str() );
+    e.set( "name", report::decorate_html_string( p -> name_str, c ) );
     double value = 0;
     if ( util::str_compare_ci( type, "dps" ) )
       value = p -> collected_data.dps.mean();
@@ -779,11 +781,16 @@ bool chart::generate_raid_aps( highchart::bar_chart_t& bc,
     else if ( util::str_compare_ci( type, "tmi" ) )
       value = p -> collected_data.theck_meloree_index.mean();
 
-    e.set( "y", value );
+    std::string aid = "#player";
+    aid += util::to_string( p -> index );
+    aid += "toggle";
+
+    e.set( "y", util::round( value, 1 ) );
+    e.set( "id", aid );
     bc.add( "series.0.data", e );
   }
 
-  bc.height_ = 92 + player_list.size() * 20;
+  bc.height_ = 95 + player_list.size() * 20;
   bc.set_title( long_type + " Ranking" );
   bc.set( "yAxis.title.text", long_type.c_str() );
   // Make the Y-axis a bit longer, so we can put in all numbers on the right
@@ -794,6 +801,16 @@ bool chart::generate_raid_aps( highchart::bar_chart_t& bc,
   bc.set( "plotOptions.bar.dataLabels.y", -1 );
   bc.set( "plotOptions.bar.dataLabels.enabled", true );
   bc.set( "plotOptions.bar.dataLabels.verticalAlign", "middle" );
+  bc.set( "plotOptions.bar.dataLabels.format", "{y:.1f}" );
+  bc.set( "tooltip.enabled", false );
+
+  std::string js = "function(event) {";
+  js += "var anchor = jQuery(event.point.id);";
+  js += "anchor.click();";
+  js += "jQuery('html, body').animate({ scrollTop: anchor.offset().top }, 'slow');";
+  js += "}";
+  bc.set( "plotOptions.bar.events.click", js );
+  bc.value( "plotOptions.bar.events.click" ).SetRawOutput( true );
 
   return true;
 }

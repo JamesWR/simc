@@ -39,6 +39,7 @@ std::string time_spent( player_t* );
 std::string gains( player_t*, resource_e );
 std::string normal_distribution(  double mean, double std_dev, double confidence, double tolerance_interval = 0, int print_styles = 0  );
 
+bool generate_raid_downtime( highchart::bar_chart_t&, sim_t* );
 bool generate_raid_aps( highchart::bar_chart_t&, sim_t*, const std::string& type );
 bool generate_distribution( highchart::histogram_chart_t&, const player_t* p,
                                  const std::vector<size_t>& dist_data,
@@ -50,7 +51,6 @@ bool generate_stats_sources( highchart::pie_chart_t&, const player_t*, const std
 bool generate_damage_stats_sources( highchart::pie_chart_t&, const player_t* );
 bool generate_heal_stats_sources( highchart::pie_chart_t&, const player_t* );
 highchart::bar_chart_t& generate_raid_dpet( highchart::bar_chart_t&, sim_t* );
-highchart::bar_chart_t& generate_player_waiting_time( highchart::bar_chart_t&, sim_t* );
 bool generate_action_dpet( highchart::bar_chart_t&, const player_t* );
 bool generate_apet( highchart::bar_chart_t&, const std::vector<stats_t*>& );
 highchart::time_series_t& generate_stats_timeline( highchart::time_series_t&, const stats_t* );

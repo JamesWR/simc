@@ -547,8 +547,13 @@ void print_html_sim_summary( report::sc_html_stream& os, sim_t* sim, const sim_r
   }
 
   // Raid Downtime Chart
-  highchart::bar_chart_t waiting( "player_waiting", sim );
-  os <<  chart::generate_player_waiting_time( waiting, sim ).to_string();
+  highchart::bar_chart_t waiting( "raid_waiting", sim );
+  if ( chart::generate_raid_downtime( waiting, sim ) )
+  {
+    waiting.set_toggle_id( "sim-info" );
+    os << waiting.to_target_div();
+    sim -> highcharts_str += waiting.to_aggregate_string();
+  }
 
   os << "</div>\n";
 
