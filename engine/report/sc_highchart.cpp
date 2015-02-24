@@ -78,6 +78,8 @@ sc_js_t& highchart::theme( sc_js_t& json, highchart_theme_e theme )
   json.set( "plotOptions.area.states.hover.lineWidth", 1 );
   json.set( "plotOptions.area.fillOpacity", 0.2 );
 
+  json.set( "tooltip.valueDecimals", 1 );
+
   return json;
 }
 
@@ -215,7 +217,7 @@ void chart_t::set_title( const std::string& title )
 
 void chart_t::add_data_series( const std::string& type,
                                const std::string& name,
-                               const std::vector<data_entry_t>& d )
+                               std::vector<sc_js_t>& d )
 {
 
   rapidjson::Value obj( rapidjson::kObjectType );
@@ -230,44 +232,14 @@ void chart_t::add_data_series( const std::string& type,
 
   for ( size_t i = 0; i < d.size(); ++i )
   {
-    const data_entry_t& entry = d[ i ];
-
-    rapidjson::Value dataKeys;
-    dataKeys.SetObject();
-
-    std::string formatted_name;
-
-    if ( ! entry.color.empty() )
-    {
-      rapidjson::Value color(entry.color.c_str(), js_.GetAllocator());
-      dataKeys.AddMember( "color", js_.GetAllocator(), color, js_.GetAllocator() );
-
-      if ( ! entry.name.empty() )
-      {
-        formatted_name = "<span style=\"color:" + entry.color;
-        formatted_name += "\">" + entry.name + "</span>";
-      }
-    }
-    else if ( ! entry.name.empty() )
-      formatted_name = entry.name;
-
-    rapidjson::Value val( entry.value );
-    dataKeys.AddMember( "y", js_.GetAllocator(), val, js_.GetAllocator() );
-
-    if ( ! formatted_name.empty() )
-    {
-      rapidjson::Value name( formatted_name.c_str(), js_.GetAllocator() );
-      dataKeys.AddMember( "name", js_.GetAllocator(), name, js_.GetAllocator() );
-    }
-
-    data.PushBack(dataKeys, js_.GetAllocator() );
+    data.PushBack( static_cast<rapidjson::Value&>( d[ i ].js_ ), js_.GetAllocator() );
   }
 
-  obj.AddMember("data", js_.GetAllocator(), data, js_.GetAllocator() );
+  obj.AddMember( "data", data, js_.GetAllocator() );
   add("series", obj);
 }
 
-void chart_t::add_data_series( const std::vector<data_entry_t>& d )
+void chart_t::add_data_series( std::vector<sc_js_t>& d )
 { add_data_series( "", "", d ); }
 
 void chart_t::add_simple_series( const std::string& type,

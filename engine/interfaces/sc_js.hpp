@@ -19,7 +19,7 @@ struct sc_js_t
 
   virtual std::string to_json() const;
 
-  sc_js_t& set( rapidjson::Value& obj, const std::string& name_, rapidjson::Value& value_ );
+  sc_js_t& set( rapidjson::Value& obj, const std::string& name_, const rapidjson::Value& value_ );
 
   // Set the value of JSON object indicated by path to value_
   template <typename T>
@@ -33,6 +33,8 @@ struct sc_js_t
   // Set the JSON object property name_ to a JSON array value_
   template<typename T>
   sc_js_t& set( rapidjson::Value& obj, const std::string& name_, const std::vector<T>& value_ );
+
+  sc_js_t& set( const std::string& path, const sc_js_t& value_ );
 
   // Specializations for const char* (we need copies), and std::string
   sc_js_t& set( const std::string& path, const char* value );
@@ -48,7 +50,8 @@ struct sc_js_t
   sc_js_t& add( const std::string& path, const std::vector<T>& data );
 
   // Specializations for adding elements to a JSON array for various types
-  sc_js_t& add( const std::string& path, rapidjson::Value& obj );
+  sc_js_t& add( const std::string& path, const rapidjson::Value& obj );
+  sc_js_t& add( const std::string& path, const sc_js_t& obj );
   sc_js_t& add( const std::string& path, const std::string& value_ );
   sc_js_t& add( const std::string& path, const char* value_ );
   sc_js_t& add( const std::string& path, double x, double low, double high );
@@ -57,11 +60,15 @@ struct sc_js_t
 protected:
   // Find the Value object given by a path, and construct any missing objects along the way
   rapidjson::Value* path_value( const std::string& path );
+
+  // Note, value_ will transfer ownership to this object after the call.
   rapidjson::Value& do_set( rapidjson::Value& obj, const char* name_, rapidjson::Value& value_ )
   {
     assert( obj.GetType() == rapidjson::kObjectType );
 
-    return obj.AddMember( name_, js_.GetAllocator(), value_, js_.GetAllocator() );
+    rapidjson::Value name_value( name_, js_.GetAllocator() );
+
+    return obj.AddMember( name_value, value_, js_.GetAllocator() );
   }
 
   template <typename T>
@@ -148,11 +155,13 @@ sc_js_t& sc_js_t::set( rapidjson::Value& obj, const std::string& name_, const st
   return *this;
 }
 
-inline sc_js_t& sc_js_t::set( rapidjson::Value& obj, const std::string& name_, rapidjson::Value& value_ )
+inline sc_js_t& sc_js_t::set( rapidjson::Value& obj, const std::string& name_, const rapidjson::Value& value_ )
 {
   assert( obj.GetType() == rapidjson::kObjectType );
 
-  do_set( obj, name_.c_str(), value_ );
+  rapidjson::Value new_value( value_, js_.GetAllocator() );
+
+  do_set( obj, name_.c_str(), new_value );
   return *this;
 }
 } /* namespace js */

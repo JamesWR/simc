@@ -18,59 +18,42 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-#ifndef RAPIDJSON_STRINGBUFFER_H_
-#define RAPIDJSON_STRINGBUFFER_H_
+#ifndef RAPIDJSON_MEMORYBUFFER_H_
+#define RAPIDJSON_MEMORYBUFFER_H_
 
 #include "rapidjson.h"
-
-#if RAPIDJSON_HAS_CXX11_RVALUE_REFS
-#include <utility> // std::move
-#endif
-
 #include "internal/stack.h"
 
 RAPIDJSON_NAMESPACE_BEGIN
 
-//! Represents an in-memory output stream.
+//! Represents an in-memory output byte stream.
 /*!
-    \tparam Encoding Encoding of the stream.
+    This class is mainly for being wrapped by EncodedOutputStream or AutoUTFOutputStream.
+
+    It is similar to FileWriteBuffer but the destination is an in-memory buffer instead of a file.
+
+    Differences between MemoryBuffer and StringBuffer:
+    1. StringBuffer has Encoding but MemoryBuffer is only a byte buffer. 
+    2. StringBuffer::GetString() returns a null-terminated string. MemoryBuffer::GetBuffer() returns a buffer without terminator.
+
     \tparam Allocator type for allocating memory buffer.
     \note implements Stream concept
 */
-template <typename Encoding, typename Allocator = CrtAllocator>
-class GenericStringBuffer {
-public:
-    typedef typename Encoding::Ch Ch;
+template <typename Allocator = CrtAllocator>
+struct GenericMemoryBuffer {
+    typedef char Ch; // byte
 
-    GenericStringBuffer(Allocator* allocator = 0, size_t capacity = kDefaultCapacity) : stack_(allocator, capacity) {}
-
-#if RAPIDJSON_HAS_CXX11_RVALUE_REFS
-    GenericStringBuffer(GenericStringBuffer&& rhs) : stack_(std::move(rhs.stack_)) {}
-    GenericStringBuffer& operator=(GenericStringBuffer&& rhs) {
-        if (&rhs != this)
-            stack_ = std::move(rhs.stack_);
-        return *this;
-    }
-#endif
+    GenericMemoryBuffer(Allocator* allocator = 0, size_t capacity = kDefaultCapacity) : stack_(allocator, capacity) {}
 
     void Put(Ch c) { *stack_.template Push<Ch>() = c; }
     void Flush() {}
 
     void Clear() { stack_.Clear(); }
-    void ShrinkToFit() {
-        // Push and pop a null terminator. This is safe.
-        *stack_.template Push<Ch>() = '\0';
-        stack_.ShrinkToFit();
-        stack_.template Pop<Ch>(1);
-    }
+    void ShrinkToFit() { stack_.ShrinkToFit(); }
     Ch* Push(size_t count) { return stack_.template Push<Ch>(count); }
     void Pop(size_t count) { stack_.template Pop<Ch>(count); }
 
-    const Ch* GetString() const {
-        // Push and pop a null terminator. This is safe.
-        *stack_.template Push<Ch>() = '\0';
-        stack_.template Pop<Ch>(1);
-
+    const Ch* GetBuffer() const {
         return stack_.template Bottom<Ch>();
     }
 
@@ -78,22 +61,16 @@ public:
 
     static const size_t kDefaultCapacity = 256;
     mutable internal::Stack<Allocator> stack_;
-
-private:
-    // Prohibit copy constructor & assignment operator.
-    GenericStringBuffer(const GenericStringBuffer&);
-    GenericStringBuffer& operator=(const GenericStringBuffer&);
 };
 
-//! String buffer with UTF8 encoding
-typedef GenericStringBuffer<UTF8<> > StringBuffer;
+typedef GenericMemoryBuffer<> MemoryBuffer;
 
 //! Implement specialized version of PutN() with memset() for better performance.
 template<>
-inline void PutN(GenericStringBuffer<UTF8<> >& stream, char c, size_t n) {
-    std::memset(stream.stack_.Push<char>(n), c, n * sizeof(c));
+inline void PutN(MemoryBuffer& memoryBuffer, char c, size_t n) {
+    std::memset(memoryBuffer.stack_.Push<char>(n), c, n * sizeof(c));
 }
 
 RAPIDJSON_NAMESPACE_END
 
-#endif // RAPIDJSON_STRINGBUFFER_H_
+#endif // RAPIDJSON_MEMORYBUFFER_H_

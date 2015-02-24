@@ -2512,7 +2512,7 @@ void print_html_player_resources( report::sc_html_stream& os, player_t* p, playe
 
     std::string resource_str = util::resource_type_string( timeline.type );
 
-    highchart::time_series_t ts = highchart::time_series_t( highchart::build_id( p, "resource_" + resource_str ), p -> sim );
+    highchart::time_series_t ts( highchart::build_id( p, "resource_" + resource_str ), p -> sim );
     chart::generate_actor_timeline( ts, p, resource_str, color::resource_color( timeline.type ), timeline.timeline );
     ts.set_mean( timeline.timeline.mean() );
 
@@ -2523,7 +2523,7 @@ void print_html_player_resources( report::sc_html_stream& os, player_t* p, playe
 
   if ( p -> primary_role() == ROLE_TANK && ! p -> is_enemy() ) // Experimental, restrict to tanks for now
   {
-    highchart::time_series_t chart = highchart::time_series_t( highchart::build_id( p, "health_change" ), p -> sim );
+    highchart::time_series_t chart( highchart::build_id( p, "health_change" ), p -> sim );
     chart::generate_actor_timeline( chart, p, "Health Change", color::resource_color( RESOURCE_HEALTH ), p -> collected_data.health_changes.merged_timeline );
     chart.set_mean( p -> collected_data.health_changes.merged_timeline.mean() );
 

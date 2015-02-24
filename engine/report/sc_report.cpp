@@ -414,18 +414,6 @@ rgb& rgb::operator=( const std::string& color_str )
   return *this;
 }
 
-std::ostream& rgb::operator<<( std::ostream& os ) const
-{
-  std::stringstream s;
-  s << '#';
-  s << std::setfill('0') << std::internal << std::uppercase << std::hex;
-  s << std::setw( 2 ) << static_cast<unsigned>( r_ )
-    << std::setw( 2 ) << static_cast<unsigned>( g_ )
-    << std::setw( 2 ) << static_cast<unsigned>( b_ );
-  os << s.str();
-  return os;
-}
-
 rgb& rgb::operator+=( const rgb& other )
 {
   if ( this == &( other ) )
@@ -454,7 +442,7 @@ rgb rgb::operator+( const rgb& other ) const
 rgb::operator std::string() const
 {
   std::stringstream s;
-  operator<<( s );
+  operator<<( s, *this );
   return s.str();
 }
 
@@ -488,7 +476,11 @@ bool rgb::parse_color( const std::string& color_str )
 
 std::ostream& operator<<( std::ostream& s, const rgb& r )
 {
-  s << r;
+  s << '#';
+  s << std::setfill('0') << std::internal << std::uppercase << std::hex;
+  s << std::setw( 2 ) << static_cast<unsigned>( r.r_ )
+    << std::setw( 2 ) << static_cast<unsigned>( r.g_ )
+    << std::setw( 2 ) << static_cast<unsigned>( r.b_ );
   return s;
 }
 
@@ -2013,3 +2005,12 @@ std::array<std::string, SCALE_METRIC_MAX> report::gear_weights_askmrrobot( playe
   return sa;
 }
 
+std::string report::decorate_html_string( const std::string& value, const color::rgb& color )
+{
+  std::stringstream s;
+
+  s << "<span style=\"color:" << color;
+  s << "\">" << value << "</span>";
+
+  return s.str();
+}

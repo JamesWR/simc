@@ -20,9 +20,9 @@ rapidjson::Value* sc_js_t::path_value( const std::string& path_str )
 
   if ( ! js_.HasMember( path[ 0 ].c_str() ) )
   {
+    rapidjson::Value nn( path[ 0 ].c_str(), js_.GetAllocator() );
     rapidjson::Value nv;
-    js_.AddMember( path[ 0 ].c_str(), js_.GetAllocator(),
-                   nv,                js_.GetAllocator() );
+    js_.AddMember( nn, nv, js_.GetAllocator() );
   }
 
   v = &( js_[ path[ 0 ].c_str() ] );
@@ -53,9 +53,9 @@ rapidjson::Value* sc_js_t::path_value( const std::string& path_str )
 
       if ( ! v -> HasMember( path[ i ].c_str() ) )
       {
+        rapidjson::Value nn( path[ i ].c_str(), js_.GetAllocator() );
         rapidjson::Value nv;
-        v -> AddMember( path[ i ].c_str(), js_.GetAllocator(),
-                        nv,                js_.GetAllocator() );
+        v -> AddMember( nn, nv, js_.GetAllocator() );
       }
 
       v = &( (*v)[ path[ i ].c_str() ] );
@@ -80,6 +80,15 @@ sc_js_t& sc_js_t::set( const std::string& path, const std::string& value_ )
   return set( path, value_.c_str() );
 }
 
+sc_js_t& sc_js_t::set( const std::string& path, const sc_js_t& value_ )
+{
+  if ( rapidjson::Value* obj = path_value( path ) )
+  {
+    obj -> CopyFrom( value_.js_, js_.GetAllocator() );
+  }
+  return *this;
+}
+
 sc_js_t& sc_js_t::add( const std::string& path, const char* value_ )
 {
   if ( rapidjson::Value* obj = path_value( path ) )
@@ -98,14 +107,30 @@ sc_js_t& sc_js_t::add( const std::string& path, const std::string& value_ )
   return add( path, value_.c_str() );
 }
 
-sc_js_t& sc_js_t::add( const std::string& path, rapidjson::Value& value_ )
+sc_js_t& sc_js_t::add( const std::string& path, const rapidjson::Value& value_ )
 {
   if ( rapidjson::Value* obj = path_value( path ) )
   {
     if ( obj -> GetType() != rapidjson::kArrayType )
       obj -> SetArray();
 
-    obj -> PushBack( value_, js_.GetAllocator() );
+    rapidjson::Value new_value( value_, js_.GetAllocator() );
+
+    obj -> PushBack( new_value, js_.GetAllocator() );
+  }
+  return *this;
+}
+
+sc_js_t& sc_js_t::add( const std::string& path, const sc_js_t& value_ )
+{
+  if ( rapidjson::Value* obj = path_value( path ) )
+  {
+    if ( obj -> GetType() != rapidjson::kArrayType )
+      obj -> SetArray();
+
+    rapidjson::Value new_value( value_.js_, js_.GetAllocator() );
+
+    obj -> PushBack( new_value, js_.GetAllocator() );
   }
   return *this;
 }

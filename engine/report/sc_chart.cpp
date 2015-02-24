@@ -10,6 +10,8 @@
 #include <cmath>
 #include <clocale>
 
+using namespace js;
+
 namespace { // anonymous namespace ==========================================
 
 const std::string amp = "&amp;";
@@ -471,23 +473,24 @@ bool chart::generate_distribution( highchart::histogram_chart_t& hc,
 
   std::vector<int> tick_indices;
 
-  std::vector<highchart::data_entry_t> data;
+  std::vector<sc_js_t> data;
   for ( int i = 0; i < max_buckets; i++ )
   {
-    highchart::data_entry_t e;
-    e.value = static_cast<double>( dist_data[ i ] );
+    sc_js_t e;
+
+    e.set( "y", static_cast<double>( dist_data[ i ] ) );
     if ( i == 0 )
     {
       tick_indices.push_back( i );
-      e.name = util::to_string( static_cast<unsigned>( min ) );
-      e.color = color::YELLOW.dark();
+      e.set( "name", util::to_string( static_cast<unsigned>( min ) ) );
+      e.set( "color", color::YELLOW.dark().str() );
     }
 
-    data.push_back( e );
+    hc.add( "series.0.data", e );
   }
+
   for ( size_t i = 0; i < tick_indices.size(); i++ )
     hc.add( "xAxis.tickPositions", tick_indices[ i ] );
-  hc.add_data_series( data );
 
   return true;
 }
@@ -510,8 +513,6 @@ highchart::pie_chart_t& chart::generate_gains( highchart::pie_chart_t& pc, const
   range::sort( gains_list, compare_gain() );
 
 
-  // Build Data
-  std::vector<highchart::data_entry_t> data;
   if ( ! gains_list.empty() )
   {
     for ( size_t i = 0; i < gains_list.size(); ++i )
@@ -519,16 +520,14 @@ highchart::pie_chart_t& chart::generate_gains( highchart::pie_chart_t& pc, const
       const gain_t* gain = gains_list[ i ];
       std::string color_hex = color::resource_color( type );
 
-      highchart::data_entry_t e;
-      e.color = color_hex;
-      e.value = gain -> actual[ type ];
-      e.name = gain -> name_str;
-      data.push_back( e );
+      sc_js_t e;
+      e.set( "color", color::resource_color( type ).str() );
+      e.set( "y", gain -> actual[ type ] );
+      e.set( "name", gain -> name_str );
+
+      pc.add( "series.0.data", e );
     }
   }
-
-  // Add Data to Chart
-  pc.add_data_series( data );
 
   return pc;
 }
@@ -551,7 +550,6 @@ bool chart::generate_spent_time( highchart::pie_chart_t& pc, const player_t* p )
   range::sort( filtered_waiting_stats, compare_stats_time() );
 
   // Build Data
-  std::vector<highchart::data_entry_t> data;
    if ( ! filtered_waiting_stats.empty() )
    {
      for ( size_t i = 0; i < filtered_waiting_stats.size(); ++i )
@@ -565,64 +563,53 @@ bool chart::generate_spent_time( highchart::pie_chart_t& pc, const player_t* p )
          assert( 0 );
        }
 
-       highchart::data_entry_t e;
-       e.color = color;
-       e.value = stats -> total_time.total_seconds();
-       e.name = stats -> name_str;
-       data.push_back( e );
+       sc_js_t e;
+       e.set( "color", color );
+       e.set( "y", stats -> total_time.total_seconds() );
+       e.set( "name", stats -> name_str );
+
+       pc.add( "series.0.data", e );
      }
    }
 
    if ( p -> collected_data.waiting_time.mean() > 0 )
    {
-     highchart::data_entry_t e;
-     e.color = "#FFFFFF";
-     e.value = p -> collected_data.waiting_time.mean();
-     e.name = "waiting_time";
-     data.push_back( e );
+     sc_js_t e;
+     e.set( "color", color::WHITE.str() );
+     e.set( "y", p -> collected_data.waiting_time.mean() );
+     e.set( "name", "waiting_time" );
+     pc.add( "series.0.data", e );
    }
-
-   // Add Data to Chart
-   pc.add_data_series( data );
 
   return true;
 }
 
-highchart::pie_chart_t& chart::generate_stats_sources( highchart::pie_chart_t& pc, const player_t* p, const std::string title, const std::vector<stats_t*>& stats_list )
+bool chart::generate_stats_sources( highchart::pie_chart_t& pc, const player_t* p, const std::string title, const std::vector<stats_t*>& stats_list )
 {
+  if ( stats_list.empty() )
+  {
+    return false;
+  }
+
   pc.set_title( title );
-  pc.set( "plotOptions.pie.dataLabels.format", "<b>{point.name}</b>: {point.percentage:.1f} %" );
+  pc.set( "plotOptions.pie.dataLabels.format", "<b>{point.name}</b>: {point.percentage:.1f}%" );
   pc.set_toggle_id( "player" + util::to_string( p -> index ) + "toggle" );
 
-  // Build Data
-  std::vector<highchart::data_entry_t> data;
-   if ( ! stats_list.empty() )
-   {
-     for ( size_t i = 0; i < stats_list.size(); ++i )
-     {
-       const stats_t* stats = stats_list[ i ];
-       std::string color = color::school_color( stats -> school );
-       if ( color.empty() )
-       {
-         p -> sim -> errorf( "chart::generate_stats_sources assertion error! School color unknown, stats %s from %s. School %s\n",
-                             stats -> name_str.c_str(), p -> name(), util::school_type_string( stats -> school ) );
-         assert( 0 );
-       }
+  for ( size_t i = 0; i < stats_list.size(); ++i )
+  {
+    const stats_t* stats = stats_list[ i ];
+    const color::rgb& c = color::school_color( stats -> school );
 
-       highchart::data_entry_t e;
-       e.color = color;
-       e.value = stats -> portion_amount;
-       e.name = stats -> name_str;
-       data.push_back( e );
-     }
-   }
+    sc_js_t e;
+    e.set( "color", c.str() );
+    e.set( "y", util::round( 100.0 * stats -> portion_amount, 1 ) );
+    e.set( "name", report::decorate_html_string( stats -> name_str, c ) );
 
-   // Add Data to Chart
-   pc.add_data_series( data );
+    pc.add( "series.0.data", e );
+  }
 
-  return pc;
+  return true;
 }
-
 
 bool chart::generate_damage_stats_sources( highchart::pie_chart_t& chart, const player_t* p )
 {
@@ -656,6 +643,8 @@ bool chart::generate_damage_stats_sources( highchart::pie_chart_t& chart, const 
     return false;
 
   generate_stats_sources( chart, p, p -> name_str + " Damage Sources", stats_list );
+  chart.set( "series.0.name", "Damage" );
+  chart.set( "plotOptions.pie.tooltip.pointFormat", "<span style=\"color:{point.color}\">\u25CF</span> {series.name}: <b>{point.y}</b>%<br/>" );
   return true;
 }
 
@@ -705,7 +694,6 @@ highchart::bar_chart_t& chart::generate_player_waiting_time( highchart::bar_char
   range::sort( waiting_list, compare_downtime() );
 
   // Create Data
-  std::vector<highchart::data_entry_t> data;
   for ( size_t i = 0; i < waiting_list.size(); ++i )
   {
     const player_t* p = waiting_list[ i ];
@@ -716,14 +704,14 @@ highchart::bar_chart_t& chart::generate_player_waiting_time( highchart::bar_char
           p -> name(), util::player_type_string( p -> type ) );
       assert( 0 );
     }
-    highchart::data_entry_t e;
-    e.color = "#" + color;
-    e.name = p -> name_str;
-    e.value = p -> collected_data.waiting_time.mean();
-    data.push_back( e );
-  }
 
-  bc.add_data_series( data );
+    sc_js_t e;
+    e.set( "color", color );
+    e.set( "name", p -> name_str );
+    e.set( "y", p -> collected_data.waiting_time.mean() );
+
+    bc.add( "series.0.data", e );
+  }
 
   return bc;
 
@@ -767,8 +755,6 @@ bool chart::generate_raid_aps( highchart::bar_chart_t& bc,
   if ( player_list.size() == 0 )
     return false;
 
-  std::vector<highchart::data_entry_t> data;
-
   for ( size_t i = 0; i < player_list.size(); ++i )
   {
     const player_t* p = player_list[ i ];
@@ -780,21 +766,23 @@ bool chart::generate_raid_aps( highchart::bar_chart_t& bc,
       assert( 0 );
     }
 
-    highchart::data_entry_t e;
-    e.color = color;
-    e.name = p -> name_str;
+    sc_js_t e;
+    e.set( "color", color );
+    e.set( "name", p -> name_str );
+    double value = 0;
     if ( util::str_compare_ci( type, "dps" ) )
-      e.value = p -> collected_data.dps.mean();
+      value = p -> collected_data.dps.mean();
     else if ( util::str_compare_ci( type, "prioritydps" ) )
-      e.value = p -> collected_data.prioritydps.mean();
+      value = p -> collected_data.prioritydps.mean();
     else if ( util::str_compare_ci( type, "hps" ) )
-      e.value = p -> collected_data.hps.mean() + p -> collected_data.aps.mean();
+      value = p -> collected_data.hps.mean() + p -> collected_data.aps.mean();
     else if ( util::str_compare_ci( type, "dtps" ) )
-      e.value = p -> collected_data.dtps.mean();
+      value = p -> collected_data.dtps.mean();
     else if ( util::str_compare_ci( type, "tmi" ) )
-      e.value = p -> collected_data.theck_meloree_index.mean();
+      value = p -> collected_data.theck_meloree_index.mean();
 
-    data.push_back( e );
+    e.set( "y", value );
+    bc.add( "series.0.data", e );
   }
 
   bc.height_ = 92 + player_list.size() * 20;
@@ -808,8 +796,6 @@ bool chart::generate_raid_aps( highchart::bar_chart_t& bc,
   bc.set( "plotOptions.bar.dataLabels.y", -1 );
   bc.set( "plotOptions.bar.dataLabels.enabled", true );
   bc.set( "plotOptions.bar.dataLabels.verticalAlign", "middle" );
-
-  bc.add_data_series( data );
 
   return true;
 }
@@ -829,13 +815,13 @@ highchart::bar_chart_t& chart::generate_raid_dpet( highchart::bar_chart_t& bc, s
   }
   range::sort( stats_list, compare_apet() );
 
-  generate_apet( bc, s, stats_list );
+  generate_apet( bc, stats_list );
 
   return bc;
 
 }
 
-bool chart::generate_apet( highchart::bar_chart_t& bc , sim_t* s, const std::vector<stats_t*>& stats_list )
+bool chart::generate_apet( highchart::bar_chart_t& bc, const std::vector<stats_t*>& stats_list )
 {
   if ( stats_list.empty() )
   {
@@ -862,41 +848,33 @@ bool chart::generate_apet( highchart::bar_chart_t& bc , sim_t* s, const std::vec
 
   bc.height_ = 92 + num_stats * 20;
 
-  std::vector<highchart::data_entry_t> data;
   for ( size_t i = 0; i < num_stats; ++i )
   {
     const stats_t* stats = stats_list[ i ];
-    std::string color = color::school_color( stats_list[ i ] -> school );
-    if ( color.empty() )
-    {
-      s -> errorf( "chart_t::action_dpet assertion error! School color unknown, stats %s from %s. School %s\n",
-          stats -> name_str.c_str(), stats -> player-> name(), util::school_type_string( stats -> school ) );
-      assert( 0 );
-    }
-    highchart::data_entry_t e;
-    e.color = color;
-    e.name = stats -> name_str;
+    const color::rgb& c = color::school_color( stats_list[ i ] -> school );
+
+    sc_js_t e;
+    e.set( "color", c.str() );
+    std::string name_str = report::decorate_html_string( stats -> name_str, c );
     if ( players.size() > 1 )
     {
-      e.name += "<br/>(";
-      e.name += stats -> player -> name();
-      e.name += ")";
+      name_str += "<br/>(";
+      name_str += stats -> player -> name();
+      name_str += ")";
     }
-    e.value = stats -> apet;
-    data.push_back( e );
+    e.set( "name", name_str );
+    e.set( "y", util::round( stats -> apet, 1 ) );
+
+    bc.add( "series.0.data", e );
   }
 
-  bc.add_data_series( "bar", "Damage per Execute Time",data );
+  bc.set( "series.0.name", "Damage per Execute Time" );
 
   return true;
 }
 
 bool chart::generate_action_dpet( highchart::bar_chart_t& bc, const player_t* p )
 {
-  bc.set_title( p -> name_str + " Damage per Execute Time" );
-  bc.set_yaxis_title( "Damage per Execute Time" );
-  bc.set_toggle_id( "player" + util::to_string( p -> index ) + "toggle" );
-
   std::vector<stats_t*> stats_list;
 
   // Copy all stats* from p -> stats_list to stats_list, which satisfy the filter
@@ -906,7 +884,11 @@ bool chart::generate_action_dpet( highchart::bar_chart_t& bc, const player_t* p 
   if ( stats_list.size() == 0 )
     return false;
 
-  generate_apet( bc, p -> sim, stats_list );
+  bc.set_title( p -> name_str + " Damage per Execute Time" );
+  bc.set_yaxis_title( "Damage per Execute Time" );
+  bc.set_toggle_id( "player" + util::to_string( p -> index ) + "toggle" );
+
+  generate_apet( bc, stats_list );
 
   return true;
 }
