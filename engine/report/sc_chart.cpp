@@ -130,7 +130,7 @@ bool chart::generate_raid_downtime( highchart::bar_chart_t& bc, sim_t* sim )
     }
   }
 
-  if ( sim -> players_by_name.empty() )
+  if ( players.empty() )
   {
     return false;
   }
@@ -163,105 +163,6 @@ bool chart::generate_raid_downtime( highchart::bar_chart_t& bc, sim_t* sim )
 // Chart
 // ==========================================================================
 /*
-std::string chart::raid_downtime( std::vector<player_t*>& players_by_name, int print_styles )
-{
-  // chart option overview: http://code.google.com/intl/de-DE/apis/chart/image/docs/chart_params.html
-
-  if ( players_by_name.empty() )
-    return std::string();
-
-  std::vector<player_t*> waiting_list;
-  for ( size_t i = 0; i < players_by_name.size(); i++ )
-  {
-    player_t* p = players_by_name[ i ];
-    if ( ( p -> collected_data.waiting_time.mean() / p -> collected_data.fight_length.mean() ) > 0.01 )
-    {
-      waiting_list.push_back( p );
-    }
-  }
-
-  if ( waiting_list.empty() )
-    return std::string();
-
-  range::sort( waiting_list, compare_downtime() );
-
-  // Check if any player name contains non-ascii characters.
-  // If true, add a special char ("\xE4\xB8\x80")  to the title, which fixes a weird bug with google image charts.
-  // See Issue 834
-  bool player_names_non_ascii = false;
-  for ( size_t i = 0; i < waiting_list.size(); i++ )
-  {
-    if ( util::contains_non_ascii( waiting_list[ i ] -> name_str ) )
-    {
-      player_names_non_ascii = true;
-      break;
-    }
-  }
-
-  // Set up chart
-  sc_chart chart( std::string( player_names_non_ascii ? "\xE4\xB8\x80" : "" ) + "Player Waiting Time", HORIZONTAL_BAR, print_styles );
-  chart.set_height( as<unsigned>( waiting_list.size() ) * 30 + 30 );
-
-  std::ostringstream s;
-  s.setf( std::ios_base::fixed ); // Set fixed flag for floating point numbers
-
-  // Create Chart
-  s << chart.create();
-
-  // Fill in data
-  s << "chd=t:";
-  double max_waiting = 0;
-  for ( size_t i = 0; i < waiting_list.size(); i++ )
-  {
-    player_t* p = waiting_list[ i ];
-    double waiting = 100.0 * p -> collected_data.waiting_time.mean() / p -> collected_data.fight_length.mean();
-    if ( waiting > max_waiting ) max_waiting = waiting;
-    s << ( i ? "|" : "" );
-    s << std::setprecision( 2 ) << waiting;
-  }
-  s << amp;
-
-  // Custom chart data scaling
-  s << "chds=0," << ( max_waiting * 1.9 );
-  s << amp;
-
-  // Fill in color series
-  s << "chco=";
-  for ( size_t i = 0; i < waiting_list.size(); i++ )
-  {
-    if ( i ) s << ",";
-    s << class_color( get_player_or_owner_type( waiting_list[ i ] ) );
-  }
-  s << amp;
-
-  // Text Data
-  s << "chm=";
-  for ( size_t i = 0; i < waiting_list.size(); i++ )
-  {
-    player_t* p = waiting_list[ i ];
-
-    std::string formatted_name = p -> name_str;
-    util::urlencode( formatted_name );
-
-    double waiting_pct = ( 100.0 * p -> collected_data.waiting_time.mean() / p -> collected_data.fight_length.mean() );
-
-    s << ( i ? "|" : "" )  << "t++" << std::setprecision( p -> sim -> report_precision / 2 ) << waiting_pct; // Insert waiting percent
-
-    s << "%25++" << formatted_name.c_str(); // Insert player name
-
-    s << "," << get_color( p ); // Insert player class text color
-
-    s << "," << i; // Series Index
-
-    s << ",0"; // <opt_which_points> 0 == draw markers for all points
-
-    s << ",15"; // size
-  }
-  s << amp;
-
-  return s.str();
-}
-
 // chart::raid_gear =========================================================
 
 size_t chart::raid_gear( std::vector<std::string>& images,

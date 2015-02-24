@@ -401,6 +401,7 @@ time_series_t::time_series_t( const std::string& id_str, const sim_t* sim ) :
 {
   set( "chart.type", "area" );
 
+  set( "tooltip.headerFormat", "Second: {point.key}<br/>" );
   set_xaxis_title( "Time (seconds)" );
 }
 
