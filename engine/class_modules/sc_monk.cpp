@@ -2427,7 +2427,7 @@ struct chi_explosion_t: public monk_melee_attack_t
     sef_ability = SEF_CHI_EXPLOSION;
   }
 
-  double spell_direct_power_coefficient( const action_state_t* state ) const
+  double spell_direct_power_coefficient( const action_state_t* ) const
   {
     if ( p() -> specialization() == MONK_MISTWEAVER )
     {
@@ -4011,7 +4011,7 @@ struct mana_tea_t: public monk_spell_t
     harmful = false;
   }
 
-  timespan_t composite_dot_duration( const action_state_t*s ) const
+  timespan_t composite_dot_duration( const action_state_t* ) const
   {
     if ( glyphed )
       return timespan_t::zero();
@@ -5224,7 +5224,7 @@ void monk_t::create_buffs()
 
   buff.power_strikes = buff_creator_t( this, "power_strikes", talent.power_strikes -> effectN( 1 ).trigger() );
 
-  double ts_proc_chance = spec.tiger_strikes -> proc_chance() * ( main_hand_weapon.group() == WEAPON_1H ? 0.5 : 1 ); // Tooltips are wrong....
+  double ts_proc_chance = spec.tiger_strikes -> proc_chance() * ( ( main_hand_weapon.group() == WEAPON_1H && specialization() != MONK_MISTWEAVER ) ? 0.5 : 1 ); // Tooltips are wrong....
   buff.tiger_strikes = buff_creator_t( this, "tiger_strikes", spec.tiger_strikes -> effectN( 1 ).trigger() )
     .chance( ts_proc_chance )
     .refresh_behavior( BUFF_REFRESH_DURATION )
