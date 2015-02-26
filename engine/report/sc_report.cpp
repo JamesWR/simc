@@ -846,6 +846,7 @@ void report::print_suite( sim_t* sim )
   report::print_text( sim, sim -> report_details != 0 );
 
   report::print_html( sim );
+  report::print_json( *sim );
   report::print_xml( sim );
   report::print_profiles( sim );
   report::print_csv_data( sim );

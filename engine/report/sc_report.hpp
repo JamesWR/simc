@@ -159,6 +159,7 @@ void print_spell_query ( xml_node_t* out, FILE* file, dbc_t& dbc, const spell_da
 void print_profiles    ( sim_t* );
 void print_text        ( sim_t*, bool detail );
 void print_html        ( sim_t* );
+void print_json        ( sim_t& );
 void print_html_player ( report::sc_html_stream&, player_t*, int );
 void print_xml         ( sim_t* );
 void print_suite       ( sim_t* );
