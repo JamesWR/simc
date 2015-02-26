@@ -540,10 +540,13 @@ void print_html_sim_summary( report::sc_html_stream& os, sim_t* sim, const sim_r
     os << "<a href=\"#help-timeline-distribution\" class=\"help\">" << chart.to_string() << "</a>\n";
   }
 
-  // Gear Charts
-  for ( size_t i = 0; i < ri.gear_charts.size(); i++ )
+  // Gear Chart
+  highchart::bar_chart_t gear( "raid_gear", sim );
+  if ( chart::generate_raid_gear( gear, sim ) )
   {
-    os << "<img src=\"" << ri.gear_charts[ i ] << "\" alt=\"Gear Chart\" />\n";
+    gear.set_toggle_id( "sim-info" );
+    os << gear.to_target_div();
+    sim -> highcharts_str += gear.to_aggregate_string();
   }
 
   // Raid Downtime Chart

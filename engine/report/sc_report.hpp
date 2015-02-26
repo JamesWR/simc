@@ -39,13 +39,14 @@ std::string time_spent( player_t* );
 std::string gains( player_t*, resource_e );
 std::string normal_distribution(  double mean, double std_dev, double confidence, double tolerance_interval = 0, int print_styles = 0  );
 
+bool generate_raid_gear( highchart::bar_chart_t&, sim_t* );
 bool generate_raid_downtime( highchart::bar_chart_t&, sim_t* );
 bool generate_raid_aps( highchart::bar_chart_t&, sim_t*, const std::string& type );
 bool generate_distribution( highchart::histogram_chart_t&, const player_t* p,
                                  const std::vector<size_t>& dist_data,
                                  const std::string& distribution_name,
                                  double avg, double min, double max );
-highchart::pie_chart_t& generate_gains( highchart::pie_chart_t&, const player_t*, const resource_e );
+bool generate_gains( highchart::pie_chart_t&, const player_t*, resource_e );
 bool generate_spent_time( highchart::pie_chart_t&, const player_t* );
 bool generate_stats_sources( highchart::pie_chart_t&, const player_t*, const std::string title, const std::vector<stats_t*>& stats_list );
 bool generate_damage_stats_sources( highchart::pie_chart_t&, const player_t* );

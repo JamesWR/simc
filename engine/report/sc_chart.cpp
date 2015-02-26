@@ -162,146 +162,78 @@ bool chart::generate_raid_downtime( highchart::bar_chart_t& bc, sim_t* sim )
 // ==========================================================================
 // Chart
 // ==========================================================================
-/*
-// chart::raid_gear =========================================================
 
-size_t chart::raid_gear( std::vector<std::string>& images,
-                         sim_t* sim,
-                         int print_styles )
+bool chart::generate_raid_gear( highchart::bar_chart_t& bc, sim_t* sim )
 {
-  size_t num_players = sim -> players_by_dps.size();
-
-  if ( ! num_players )
-    return 0;
+  if ( sim -> players_by_name.size() == 0 )
+  {
+    return false;
+  }
 
   std::vector<double> data_points[ STAT_MAX ];
-
+  std::vector<bool> has_stat( STAT_MAX );
+  size_t n_stats = 0;
   for ( stat_e i = STAT_NONE; i < STAT_MAX; i++ )
   {
-    data_points[ i ].reserve( num_players );
-    for ( size_t j = 0; j < num_players; j++ )
+    data_points[ i ].reserve( sim -> players_by_name.size() + 1 );
+    for ( size_t j = 0; j < sim -> players_by_name.size(); j++ )
     {
-      player_t* p = sim -> players_by_dps[ j ];
+      player_t* p = sim -> players_by_name[ j ];
+
+      if ( p -> gear.get_stat( i ) + p -> enchant.get_stat( i ) > 0 )
+      {
+        has_stat[ i ] = true;
+      }
 
       data_points[ i ].push_back( ( p -> gear.   get_stat( i ) +
                                     p -> enchant.get_stat( i ) ) * gear_stats_t::stat_mod( i ) );
+      bc.add( "xAxis.categories", report::decorate_html_string( p -> name_str, color::class_color( p -> type ) ) );
+    }
+
+    if ( has_stat[ i ] )
+    {
+      n_stats++;
     }
   }
 
-  double max_total = 0;
-  for ( size_t i = 0; i < num_players; i++ )
+  for ( size_t i = 0; i < has_stat.size(); ++i )
   {
-    double total = 0;
-    for ( stat_e j = STAT_NONE; j < STAT_MAX; j++ )
+    if ( has_stat[ i ] )
     {
-      if ( stat_color( j ).empty() )
-        continue;
-
-      total += data_points[ j ][ i ];
+      stat_e stat = static_cast<stat_e>( i );
+      bc.add( "colors", color::stat_color( stat ).str() );
     }
-    if ( total > max_total ) max_total = total;
   }
 
-  std::string s;
-
-  std::vector<player_t*> player_list = sim -> players_by_dps;
-  static const size_t max_players = MAX_PLAYERS_PER_CHART;
-
-  while ( true )
+  size_t series_idx = 0;
+  for ( stat_e i = STAT_NONE; i < STAT_MAX; i++ )
   {
-    if ( num_players > max_players ) num_players = max_players;
-
-    unsigned height = as<unsigned>( num_players ) * 20 + 30;
-
-    if ( num_players <= 12 ) height += 70;
-
-    sc_chart chart( "Gear Overview", HORIZONTAL_BAR_STACKED, print_styles, 1 );
-    chart.set_height( height );
-
-    s = chart.create();
-
-    s += "chbh=15";
-    s += amp;
-    s += "chd=t:";
-    bool first = true;
-    for ( stat_e i = STAT_NONE; i < STAT_MAX; i++ )
+    if ( ! has_stat[ i ] )
     {
-      if ( stat_color( i ).empty() )
-        continue;
-
-      if ( ! first ) s += "|";
-      first = false;
-      for ( size_t j = 0; j < num_players; j++ )
-      {
-	str::format( s, "%s%.0f", ( j ? "," : "" ), data_points[ i ][ j ] );
-      }
-    }
-    s += amp;
-    str::format( s, "chds=0,%.0f", max_total );
-    s += amp;
-    s += "chco=";
-    first = true;
-    for ( stat_e i = STAT_NONE; i < STAT_MAX; i++ )
-    {
-      if ( stat_color( i ).empty() )
-        continue;
-
-      if ( ! first ) s += ",";
-      first = false;
-      s += stat_color( i );
-    }
-    s += amp;
-    s += "chxt=y";
-    s += amp;
-    s += "chxl=0:";
-    for ( size_t i = 0; i < num_players; ++i )
-    {
-      std::string formatted_name = player_list[ i ] -> name_str;
-      util::urlencode( formatted_name );
-
-      s += "|";
-      s += formatted_name.c_str();
-    }
-    s += amp;
-    s += "chdl=";
-    first = true;
-    for ( stat_e i = STAT_NONE; i < STAT_MAX; i++ )
-    {
-      if ( stat_color( i ).empty() )
-        continue;
-
-      if ( ! first ) s += "|";
-      first = false;
-      s += util::stat_type_abbrev( i );
-    }
-    s += amp;
-    if ( num_players <= 12 )
-    {
-      s += "chdlp=t";
-      s += amp;
-    }
-    if ( ! ( sim -> print_styles == 1 ) )
-    {
-      s += "chdls=dddddd,12";
-      s += amp;
+      continue;
     }
 
-    images.push_back( s );
-
-    for ( stat_e i = STAT_NONE; i < STAT_MAX; i++ )
+    std::string series_str = "series." + util::to_string( series_idx );
+    bc.add( series_str + ".name", util::stat_type_abbrev( i ) );
+    for ( size_t j = 0; j < data_points[ i ].size(); j++ )
     {
-      std::vector<double>& c = data_points[ i ];
-      c.erase( c.begin(), c.begin() + num_players );
+      bc.add( series_str + ".data", data_points[ i ][ j ] );
     }
 
-    player_list.erase( player_list.begin(), player_list.begin() + num_players );
-    num_players = ( int ) player_list.size();
-    if ( num_players == 0 ) break;
+    series_idx++;
   }
 
-  return images.size();
+  bc.height_ = 95 + sim -> players_by_name.size() * 24 + 55;
+
+  bc.set_title( "Raid Gear" );
+  bc.set_yaxis_title( "Cumulative stat amount" );
+  bc.set( "legend.enabled", true );
+  bc.set( "legend.layout", "horizontal" );
+  bc.set( "plotOptions.series.stacking", "normal" );
+  bc.set( "tooltip.pointFormat", "<b>{series.name}</b>: {point.y:.0f}" );
+
+  return true;
 }
-*/
 
 bool chart::generate_reforge_plot( highchart::chart_t& ac, const player_t* p )
 {
@@ -435,12 +367,9 @@ bool chart::generate_distribution( highchart::histogram_chart_t& hc,
   return true;
 }
 
-highchart::pie_chart_t& chart::generate_gains( highchart::pie_chart_t& pc, const player_t* p, const resource_e type )
+bool chart::generate_gains( highchart::pie_chart_t& pc, const player_t* p, resource_e type )
 {
   std::string resource_name = util::inverse_tokenize( util::resource_type_string( type ) );
-  pc.set_title( p -> name_str + " " + resource_name + " Gains" );
-  pc.set( "plotOptions.pie.dataLabels.format", "<b>{point.name}</b>: {point.y:.1f}" );
-  pc.set_toggle_id( "player" + util::to_string( p -> index ) + "toggle" );
 
   // Build gains List
   std::vector<gain_t*> gains_list;
@@ -452,24 +381,28 @@ highchart::pie_chart_t& chart::generate_gains( highchart::pie_chart_t& pc, const
   }
   range::sort( gains_list, compare_gain() );
 
-
-  if ( ! gains_list.empty() )
+  if ( gains_list.empty() )
   {
-    for ( size_t i = 0; i < gains_list.size(); ++i )
-    {
-      const gain_t* gain = gains_list[ i ];
-      std::string color_hex = color::resource_color( type );
-
-      sc_js_t e;
-      e.set( "color", color::resource_color( type ).str() );
-      e.set( "y", gain -> actual[ type ] );
-      e.set( "name", gain -> name_str );
-
-      pc.add( "series.0.data", e );
-    }
+    return false;
   }
 
-  return pc;
+  pc.set_title( p -> name_str + " " + resource_name + " Gains" );
+  pc.set( "plotOptions.pie.dataLabels.format", "<b>{point.name}</b>: {point.y:.1f}" );
+  pc.set_toggle_id( "player" + util::to_string( p -> index ) + "toggle" );
+
+  for ( size_t i = 0; i < gains_list.size(); ++i )
+  {
+    const gain_t* gain = gains_list[ i ];
+
+    sc_js_t e;
+    e.set( "color", color::resource_color( type ).str() );
+    e.set( "y", gain -> actual[ type ] );
+    e.set( "name", gain -> name_str );
+
+    pc.add( "series.0.data", e );
+  }
+
+  return true;
 }
 
 bool chart::generate_spent_time( highchart::pie_chart_t& pc, const player_t* p )
@@ -691,7 +624,7 @@ bool chart::generate_raid_aps( highchart::bar_chart_t& bc,
     bc.add( "series.0.data", e );
   }
 
-  bc.height_ = 95 + player_list.size() * 20;
+  bc.height_ = 95 + player_list.size() * 24;
   bc.set_title( long_type + " Ranking" );
   bc.set( "yAxis.title.text", long_type.c_str() );
   // Make the Y-axis a bit longer, so we can put in all numbers on the right

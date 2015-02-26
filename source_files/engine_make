@@ -14,6 +14,7 @@ SRC += \
     util$(PATHSEP)cache.hpp \
     dbc$(PATHSEP)specialization.hpp \
     dbc$(PATHSEP)dbc.hpp \
+    report$(PATHSEP)sc_highchart.hpp \
     simulationcraft.hpp \
     sc_timespan.hpp \
     config.hpp \
@@ -45,6 +46,7 @@ SRC += \
     report$(PATHSEP)sc_report_html_player.cpp \
     report$(PATHSEP)sc_report_csv_data.cpp \
     report$(PATHSEP)sc_report.cpp \
+    report$(PATHSEP)sc_highchart.cpp \
     report$(PATHSEP)sc_chart.cpp \
     player$(PATHSEP)sc_unique_gear.cpp \
     player$(PATHSEP)sc_set_bonus.cpp \
@@ -57,6 +59,7 @@ SRC += \
     interfaces$(PATHSEP)sc_wowhead.cpp \
     interfaces$(PATHSEP)sc_http.cpp \
     interfaces$(PATHSEP)sc_bcp_api.cpp \
+    interfaces$(PATHSEP)sc_js.cpp \
     dbc$(PATHSEP)sc_spell_info.cpp \
     dbc$(PATHSEP)sc_spell_data.cpp \
     dbc$(PATHSEP)sc_item_data.cpp \
