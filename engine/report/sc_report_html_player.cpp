@@ -2689,6 +2689,7 @@ void print_html_player_charts( report::sc_html_stream& os, player_t* p )
       p -> collected_data.dps.min(),
       p -> collected_data.dps.max() ) )
   {
+    chart.set( "tooltip.headerFormat", "<b>{point.key}</b> DPS<br/>" );
     os << chart.to_target_div();
     p -> sim -> highcharts_str += chart.to_aggregate_string( p -> sim -> player_no_pet_list.size() > 1 );
 

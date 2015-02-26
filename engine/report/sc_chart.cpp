@@ -340,26 +340,47 @@ bool chart::generate_distribution( highchart::histogram_chart_t& hc,
   hc.set( "xAxis.tickInterval", 25 );
   hc.set( "xAxis.tickAtEnd", true );
   hc.set( "yAxis.title.text", "# Iterations" );
+  hc.set( "tooltip.headerFormat", "Values: <b>{point.key}</b><br/>" );
 
   double step = ( max - min ) / dist_data.size();
 
   std::vector<int> tick_indices;
 
-  std::vector<sc_js_t> data;
   for ( int i = 0; i < max_buckets; i++ )
   {
+    double begin = min + i * step;
+    double end = min + ( i + 1 ) * step;
+
     sc_js_t e;
 
     e.set( "y", static_cast<double>( dist_data[ i ] ) );
     if ( i == 0 )
     {
       tick_indices.push_back( i );
-      e.set( "name", util::to_string( static_cast<unsigned>( min ) ) );
+      e.set( "name", "min=" + util::to_string( static_cast<unsigned>( min ) ) );
       e.set( "color", color::YELLOW.dark().str() );
+    }
+    else if ( avg >= begin && avg <= end )
+    {
+      tick_indices.push_back( i );
+      e.set( "name", "mean=" + util::to_string( static_cast<unsigned>( avg ) ) );
+      e.set( "color", color::YELLOW.dark().str() );
+    }
+    else if ( i == max_buckets - 1 )
+    {
+      tick_indices.push_back( i );
+      e.set( "name", "max=" + util::to_string( static_cast<unsigned>( max ) ) );
+      e.set( "color", color::YELLOW.dark().str() );
+    }
+    else
+    {
+      e.set( "name", util::to_string( util::round( begin, 0 ) ) + " to " + util::to_string( util::round( end, 0 ) ) );
     }
 
     hc.add( "series.0.data", e );
   }
+
+  hc.set( "series.0.name", "Iterations" );
 
   for ( size_t i = 0; i < tick_indices.size(); i++ )
     hc.add( "xAxis.tickPositions", tick_indices[ i ] );
