@@ -47,6 +47,7 @@
  SOURCES += engine/report/sc_report_html_player.cpp
  SOURCES += engine/report/sc_report_csv_data.cpp
  SOURCES += engine/report/sc_report.cpp
+ SOURCES += engine/report/sc_highchart.cpp
  SOURCES += engine/report/sc_chart.cpp
  SOURCES += engine/player/sc_unique_gear.cpp
  SOURCES += engine/player/sc_set_bonus.cpp
@@ -57,6 +58,7 @@
  SOURCES += engine/player/sc_enchant.cpp
  SOURCES += engine/player/sc_consumable.cpp
  SOURCES += engine/interfaces/sc_wowhead.cpp
+ SOURCES += engine/interfaces/sc_js.cpp
  SOURCES += engine/interfaces/sc_http.cpp
  SOURCES += engine/interfaces/sc_bcp_api.cpp
  SOURCES += engine/dbc/sc_spell_info.cpp

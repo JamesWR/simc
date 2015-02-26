@@ -46,6 +46,7 @@ SRC += \
     report$(PATHSEP)sc_report_html_player.cpp \
     report$(PATHSEP)sc_report_csv_data.cpp \
     report$(PATHSEP)sc_report.cpp \
+    report$(PATHSEP)sc_highchart.cpp \
     report$(PATHSEP)sc_chart.cpp \
     player$(PATHSEP)sc_unique_gear.cpp \
     player$(PATHSEP)sc_set_bonus.cpp \
@@ -56,6 +57,7 @@ SRC += \
     player$(PATHSEP)sc_enchant.cpp \
     player$(PATHSEP)sc_consumable.cpp \
     interfaces$(PATHSEP)sc_wowhead.cpp \
+    interfaces$(PATHSEP)sc_js.cpp \
     interfaces$(PATHSEP)sc_http.cpp \
     interfaces$(PATHSEP)sc_bcp_api.cpp \
     dbc$(PATHSEP)sc_spell_info.cpp \

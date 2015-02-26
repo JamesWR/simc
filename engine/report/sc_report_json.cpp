@@ -13,6 +13,12 @@ void to_json( js::sc_js_t& node, const extended_sample_data_t& sd )
 {
   node.set( "name", sd.name_str );
   node.set( "mean", sd.mean() );
+  node.set( "variance", sd.variance );
+  node.set( "std_dev", sd.std_dev );
+  node.set( "mean_variance", sd.mean_variance );
+  node.set( "mean_std_dev", sd.mean_std_dev );
+  node.set( "data", sd.data() );
+  node.set( "distribution", sd.distribution );
 }
 void to_json( js::sc_js_t& node, const player_collected_data_t& cd )
 {
