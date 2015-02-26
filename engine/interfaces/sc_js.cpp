@@ -9,6 +9,12 @@ sc_js_t::sc_js_t()
   js_.SetObject();
 }
 
+sc_js_t::sc_js_t( const sc_js_t& o )
+{
+  js_.CopyFrom( o.js_, js_.GetAllocator() );
+  std::cout << "\n\nSC_JS_T:: COPY CONSTRUCTOR USED!!!\n";
+}
+
 rapidjson::Value* sc_js_t::path_value( const std::string& path_str )
 {
   std::vector<std::string> path = util::string_split( path_str, "." );

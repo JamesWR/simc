@@ -16,6 +16,7 @@ struct sc_js_t
   rapidjson::Document js_;
 
   sc_js_t();
+  sc_js_t( const sc_js_t& );
 
   virtual std::string to_json() const;
 
