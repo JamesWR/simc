@@ -89,6 +89,8 @@ std::string highchart::build_id( const stats_t* stats, const std::string& suffix
 
   s += "actor" + util::to_string( stats -> player -> index );
   s += "_" + stats -> name_str;
+  s += "_";
+  s += util::stats_type_string( stats -> type );
   s += suffix;
 
   return s;

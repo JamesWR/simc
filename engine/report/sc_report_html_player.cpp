@@ -772,9 +772,7 @@ void print_html_action_info( report::sc_html_stream& os, unsigned stats_mask, st
 
     if ( s -> has_direct_amount_results() || s -> has_tick_amount_results() )
     {
-      std::string stats_type = util::stats_type_string( s -> type );
       highchart::time_series_t ts( highchart::build_id( s ), s -> player -> sim );
-      ts.set_toggle_id( "actor" + util::to_string( s -> player -> index ) + "_" + s -> name_str + "_" + stats_type + "_toggle" );
       chart::generate_stats_timeline( ts, s );
       //os << ts.to_string();
       os << ts.to_target_div();

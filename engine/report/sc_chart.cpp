@@ -890,7 +890,8 @@ highchart::time_series_t& chart::generate_stats_timeline( highchart::time_series
 {
   sc_timeline_t timeline_aps;
   s -> timeline_amount.build_derivative_timeline( timeline_aps );
-  ts.set_toggle_id( "actor" + util::to_string( s -> player -> index ) + "_" + s -> name_str + "_toggle" );
+  std::string stats_type = util::stats_type_string( s -> type );
+  ts.set_toggle_id( "actor" + util::to_string( s -> player -> index ) + "_" + s -> name_str + "_" + stats_type + "_toggle" );
 
   ts.height_ = 200;
   ts.set( "yAxis.min", 0 );
