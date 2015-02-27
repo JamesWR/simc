@@ -854,6 +854,9 @@ void report::print_suite( sim_t* sim )
 
 void report::print_html_sample_data( report::sc_html_stream& os, const player_t* p, const extended_sample_data_t& data, const std::string& name, int& td_counter, int columns )
 {
+  std::string tokenized_name = name;
+  util::tokenize( tokenized_name );
+
   // Print Statistics of a Sample Data Container
   os << "\t\t\t\t\t\t\t<tr";
   if ( td_counter & 1 )
@@ -864,7 +867,7 @@ void report::print_html_sample_data( report::sc_html_stream& os, const player_t*
   os << ">\n";
   os << "\t\t\t\t\t\t\t\t<td class=\"left small\" colspan=\"" << columns << "\">";
   os.format( "<a id=\"actor%d_%s_stats_toggle\" class=\"toggle-details\">%s</a></td>\n",
-             p -> index, name.c_str(), name.c_str() );
+             p -> index, tokenized_name.c_str(), name.c_str() );
 
   os << "\t\t\t\t\t\t\t\t</tr>\n";
 
@@ -1164,7 +1167,7 @@ void report::print_html_sample_data( report::sc_html_stream& os, const player_t*
     util::tokenize( tokenized_div_name );
 
     highchart::histogram_chart_t chart( tokenized_div_name, p -> sim );
-    chart.set_toggle_id( "actor" + util::to_string( p -> index ) + "_" + name + "_stats_toggle" );
+    chart.set_toggle_id( "actor" + util::to_string( p -> index ) + "_" + tokenized_div_name + "_stats_toggle" );
     if ( chart::generate_distribution( chart, 0, data.distribution, name, data.mean(), data.min(), data.max() ) )
     {
       os << chart.to_target_div();
@@ -1486,7 +1489,9 @@ void report::print_html_sample_data( report::sc_html_stream& os, const sim_t* si
 
   if ( ! data.simple )
   {
-    highchart::histogram_chart_t chart( data.name_str + "_dist", sim );
+    std::string name_tokenized = data.name_str;
+    util::tokenize( name_tokenized );
+    highchart::histogram_chart_t chart( name_tokenized + "_dist", sim );
     chart::generate_distribution( chart, 0, data.distribution, name, data.mean(), data.min(), data.max() );
     os << chart.to_string();
   }

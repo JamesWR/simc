@@ -39,6 +39,7 @@ struct sc_js_t
   sc_js_t& set( rapidjson::Value& obj, const std::string& name_, const std::vector<T>& value_ );
 
   sc_js_t& set( const std::string& path, const sc_js_t& value_ );
+  sc_js_t& set( const std::string& path, const size_t& value_ );
 
   // Specializations for const char* (we need copies), and std::string
   sc_js_t& set( const std::string& path, const char* value );
@@ -168,6 +169,7 @@ inline sc_js_t& sc_js_t::set( rapidjson::Value& obj, const std::string& name_, c
   do_set( obj, name_.c_str(), new_value );
   return *this;
 }
+
 } /* namespace js */
 
 #endif /* SC_JS_HPP */

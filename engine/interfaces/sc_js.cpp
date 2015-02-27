@@ -100,6 +100,16 @@ sc_js_t& sc_js_t::set( const std::string& path, const sc_js_t& value_ )
   return *this;
 }
 
+sc_js_t& sc_js_t::set( const std::string& path, const size_t& value_ )
+{
+  if ( rapidjson::Value* obj = path_value( path ) )
+  {
+    rapidjson::Value v( static_cast<const uint64_t&>( value_ ) );
+    *obj = v;
+  }
+  return *this;
+}
+
 sc_js_t& sc_js_t::add( const std::string& path, const char* value_ )
 {
   if ( rapidjson::Value* obj = path_value( path ) )
