@@ -2456,6 +2456,9 @@ public:
   std::vector<T>& data()
   { return _data; }
 
+  const std::vector<T>& data() const
+  { return _data; }
+
   player_t* operator[]( size_t i ) const
   { return _data[ i ]; }
 
