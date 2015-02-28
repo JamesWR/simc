@@ -315,6 +315,7 @@ bool chart::generate_reforge_plot( highchart::chart_t& ac, const player_t* p )
   ac.set( "series.1.fillOpacity", 0.5 );
   ac.set( "series.1.lineWidth", 0 );
   ac.set( "series.1.linkedTo", ":previous" );
+  ac.height_ = 500;
 
   return true;
 }
