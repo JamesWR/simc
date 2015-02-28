@@ -27,20 +27,13 @@ struct sc_js_t
   // Direct data access to a rapidjson value.
   rapidjson::Value& value( const std::string& path );
 
+
+  template<class ...>
+  using void_t = void;
+
   // Set the value of JSON object indicated by path to value_
-  template <typename T, class = void>
+  template <typename T>
   sc_js_t& set( const std::string& path, const T& value_ );
-
-  /*
-  // Implicit constructor: anything with a to_json() function.
-  template <class T>
-  typename std::enable_if<!std::is_void<decltype( to_json( std::declval<T>() ) )>::value, sc_js_t&>
-  set( const std::string& path, const T& value_ )
-  {
-    this->set( path, to_json( value_ ) );
-    return *this;
-  }*/
-
   // Set the value of JSON object indicated by path to an array of values_
   template <typename T>
   sc_js_t& set( const std::string& path, const std::vector<T>& values_ );
@@ -101,16 +94,13 @@ protected:
   }
 };
 
-template <typename T, class >
+template <typename T>
 sc_js_t& sc_js_t::set( const std::string& path, const T& value_ )
 {
   if ( rapidjson::Value* obj = path_value( path ) )
     *obj = value_;
   return *this;
 }
-
-
-
 
 template<typename T>
 sc_js_t& sc_js_t::set( const std::string& path, const std::vector<T>& values )
