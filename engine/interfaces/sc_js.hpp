@@ -27,10 +27,6 @@ struct sc_js_t
   // Direct data access to a rapidjson value.
   rapidjson::Value& value( const std::string& path );
 
-
-  template<class ...>
-  using void_t = void;
-
   // Set the value of JSON object indicated by path to value_
   template <typename T>
   sc_js_t& set( const std::string& path, const T& value_ );

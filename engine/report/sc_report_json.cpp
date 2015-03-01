@@ -91,7 +91,10 @@ js::sc_js_t to_json(const player_collected_data_t::stat_timeline_t& stl)
 js::sc_js_t to_json(const player_collected_data_t::health_changes_timeline_t& hctl)
 {
   js::sc_js_t node;
-  // TODO
+  if ( hctl.collect )
+  {
+    node.set( "timeline", to_json(hctl.merged_timeline) );
+  }
   return node;
 }
 
@@ -322,6 +325,7 @@ js::sc_js_t to_json( const sim_t& )
   return node;
 }
 #endif
+
 void print_json_( FILE* o, const sim_t& sim )
 {
   js::sc_js_t root;
