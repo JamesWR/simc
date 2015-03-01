@@ -5,12 +5,12 @@
 
 #include "concurrency.hpp"
 #include <iostream>
-// OS X 10.6 (our minimum supported target) does not have <thread>. We need to
-// use alternate means to fetch the number of concurrent threads on the system
-// (systemctl).
-#if defined( SC_STD_THREAD ) && ! defined( SC_OSX )
-#include <thread>
-#elif ! defined( SC_MINGW )
+
+// CPU thread detection
+#if defined( SC_WINDOWS )
+// Need sysinfoapi.h, but MSVC may complain. windows.h works for all compliers
+#include <windows.h>
+#else
 #include <sys/types.h>
 #include <sys/sysctl.h>
 #endif
@@ -140,6 +140,7 @@ private:
   }
 };
 
+
 #elif defined( _LIBCPP_VERSION ) || ( defined( _POSIX_THREADS ) && _POSIX_THREADS > 0 ) || defined( _GLIBCXX_HAVE_GTHR_DEFAULT ) || defined( _GLIBCXX__PTHREADS ) || defined( _GLIBCXX_HAS_GTHREADS )
 // POSIX
 #include <pthread.h>
@@ -238,6 +239,64 @@ private:
   }
 };
 
+#elif __cplusplus >= 201103L
+#include <thread>
+#include <mutex>
+#include <chrono>
+
+class mutex_t::native_t : public nonmoveable
+{
+  std::mutex m;
+
+public:
+  native_t() : m() {}
+
+  void lock()   { m.lock(); }
+  void unlock() { m.unlock(); }
+  std::mutex::native_handle_type primitive() { return m.native_handle(); }
+};
+
+class sc_thread_t::native_t
+{
+  std::unique_ptr<std::thread> t;
+  static void* execute( sc_thread_t* t )
+  {
+    t -> run();
+    return NULL;
+  }
+
+public:
+  native_t() :
+  t()
+  {
+
+  }
+  void launch( sc_thread_t* thr, priority_e prio )
+  {
+    t = std::unique_ptr<std::thread>( new std::thread( &sc_thread_t::native_t::execute, thr ) );
+  }
+
+  void join() {
+    if ( t ) {
+      t -> join();
+    }
+  }
+
+  void set_priority( priority_e prio )
+  {
+    // not implemented
+  }
+
+  static void set_calling_thread_priority( priority_e prio )
+  {
+    // not implemented
+  }
+
+  static void sleep_seconds( double t )
+  { std::this_thread::sleep_for( std::chrono::duration<double>( t ) ); }
+
+private:
+};
 #else
 #error "Unable to detect thread API."
 #endif
@@ -297,9 +356,10 @@ void sc_thread_t::sleep_seconds( double t )
  */
 int sc_thread_t::cpu_thread_count()
 {
-// Use std::thread to determine logical thread count
-#if defined( SC_STD_THREAD ) && ! defined( SC_MINGW )
-  return std::thread::hardware_concurrency();
+#if defined( SC_WINDOWS )
+  SYSTEM_INFO sysinfo;
+  GetSystemInfo(&sysinfo);
+  return sysinfo.dwNumberOfProcessors;
 // OS X uses systemctl() to fetch the thread count for the CPU. This returns 8
 // (i.e., the logical thread count) on Hyperthreading enabled machines.
 #elif defined( SC_OSX )
@@ -320,6 +380,6 @@ int sc_thread_t::cpu_thread_count()
   {
     return n_threads;
   }
-#endif // SC_STD_THREAD
+#endif // SC_WINDOWS
   return 0;
 }
