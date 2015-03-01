@@ -63,9 +63,11 @@ LINK_LIBS  =
 # Include build setting from user configuration file
 -include ../build.conf
 
-# Force on SSE2 to avoid problems with older GCC versions
-ifeq (${CXX},g++)
-OPTS += -msse2 -mfpmath=sse
+# Enable SSE2
+DUMPMACHINE =$(shell $(CXX) -dumpmachine)
+# SSE2 is explicitly disabled for 32bit MINGW.
+ifeq ($(findstring i686-w64-mingw32,${DUMPMACHINE}),)
+  OPTS += -msse2 -mfpmath=sse
 endif
 
 # Force use of old libstdc++ on OS X + Clang so paths to tr/* work
