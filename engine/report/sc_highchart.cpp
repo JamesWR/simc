@@ -133,62 +133,62 @@ std::string chart_t::to_target_div() const
 
 std::string chart_t::to_aggregate_string( bool on_click ) const
 {
-    rapidjson::StringBuffer b;
-    rapidjson::Writer< rapidjson::StringBuffer > writer( b );
+  rapidjson::StringBuffer b;
+  rapidjson::Writer< rapidjson::StringBuffer > writer( b );
 
-    js_.Accept( writer );
-    std::string javascript = b.GetString();
+  js_.Accept( writer );
+  std::string javascript = b.GetString();
 
-    std::string str_;
-    if ( on_click )
-    {
-      assert( ! toggle_id_str_.empty() );
-      str_ += "$('#" + toggle_id_str_ + "').one('click', function() {\n";
-      //str_ += "console.log(\"Loading " + id_str_ + ": " + toggle_id_str_ + " ...\" );\n";
-    }
-    str_ += "$('#" + id_str_ + "').highcharts(";
-    str_ += javascript;
-    str_ += ");\n";
-    if ( on_click )
-    {
-      str_ += "});\n";
-    }
+  std::string str_;
+  if ( on_click )
+  {
+    assert( ! toggle_id_str_.empty() );
+    str_ += "$('#" + toggle_id_str_ + "').one('click', function() {\n";
+    //str_ += "console.log(\"Loading " + id_str_ + ": " + toggle_id_str_ + " ...\" );\n";
+  }
+  str_ += "$('#" + id_str_ + "').highcharts(";
+  str_ += javascript;
+  str_ += ");\n";
+  if ( on_click )
+  {
+    str_ += "});\n";
+  }
 
-    return str_;
+  return str_;
 }
 
 std::string chart_t::to_string() const
 {
-    rapidjson::StringBuffer b;
-    rapidjson::Writer< rapidjson::StringBuffer > writer( b );
+  rapidjson::StringBuffer b;
+  rapidjson::Writer< rapidjson::StringBuffer > writer( b );
 
-    js_.Accept( writer );
-    std::string javascript = b.GetString();
-    javascript.erase(std::remove(javascript.begin(),javascript.end(), '\n'), javascript.end());
-    std::string str_ = "<div id=\"" + id_str_ + "\"";
-    str_ += " style=\"min-width: " + util::to_string( width_ ) + "px;";
-    if ( height_ > 0 )
-      str_ += " height: " + util::to_string( height_ ) + "px;";
-    str_ += "margin: 5px;\"></div>\n";
-    str_ += "<script>\n";
-    if ( ! toggle_id_str_.empty() )
-    {
-      str_ += "jQuery( document ).ready( function( $ ) {\n";
-      str_ += "$('#" + toggle_id_str_ + "').on('click', function() {\n";
-      str_ += "console.log(\"Loading " + id_str_ + ": " + toggle_id_str_ + " ...\" );\n";
-      str_ += "$('#" + id_str_ + "').highcharts(";
-      str_ += javascript;
-      str_ += ");\n});\n});\n";
-    }
-    else
-    {
-      str_ += "jQuery('#" + id_str_ + "').highcharts(";
-      str_ += javascript;
-      str_ += ");\n";
-    }
-    str_ += "</script>\n";
+  js_.Accept( writer );
+  std::string javascript = b.GetString();
+  javascript.erase(std::remove(javascript.begin(),javascript.end(), '\n'), javascript.end());
+  std::string str_ = "<div id=\"" + id_str_ + "\"";
+  str_ += " style=\"min-width: " + util::to_string( width_ ) + "px;";
+  if ( height_ > 0 )
+    str_ += " height: " + util::to_string( height_ ) + "px;";
+  str_ += "margin: 5px;\"></div>\n";
+  str_ += "<script>\n";
+  if ( ! toggle_id_str_.empty() )
+  {
+    str_ += "jQuery( document ).ready( function( $ ) {\n";
+    str_ += "$('#" + toggle_id_str_ + "').on('click', function() {\n";
+    str_ += "console.log(\"Loading " + id_str_ + ": " + toggle_id_str_ + " ...\" );\n";
+    str_ += "$('#" + id_str_ + "').highcharts(";
+    str_ += javascript;
+    str_ += ");\n});\n});\n";
+  }
+  else
+  {
+    str_ += "jQuery('#" + id_str_ + "').highcharts(";
+    str_ += javascript;
+    str_ += ");\n";
+  }
+  str_ += "</script>\n";
 
-    return str_;
+  return str_;
 }
 
 std::string chart_t::to_xml() const

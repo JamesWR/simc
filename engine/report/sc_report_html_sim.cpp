@@ -918,16 +918,13 @@ void print_html_help_boxes( report::sc_html_stream& os, sim_t* sim )
      << "</div>\n"
      << "</div>\n";
 
-  for ( size_t i = 0; i < sim -> actor_list.size(); i++ )
-  {
-    os << "<div id=\"help-msd" << sim -> actor_list[ i ] -> actor_index << "\">\n"
-      << "<div class=\"help-box\">\n"
-      << "<h3>Max Spike Damage</h3>\n"
-      << "<p>Maximum amount of net damage taken in any " << sim -> actor_list[ i ] -> tmi_window << "-second period, expressed as a percentage of max health. Calculated independently for each iteration. "
-      << "'MSD Min/Mean/Max' are the lowest/average/highest MSDs out of all iterations.</p>\n"
-      << "</div>\n"
-      << "</div>\n";
-  }
+  os << "<div id=\"help-msd\">\n"
+    << "<div class=\"help-box\">\n"
+    << "<h3>Max Spike Damage</h3>\n"
+    << "<p>Maximum amount of net damage taken in any N-second period (default 6sec), expressed as a percentage of max health. Calculated independently for each iteration. "
+    << "'MSD Min/Mean/Max' are the lowest/average/highest MSDs out of all iterations.</p>\n"
+    << "</div>\n"
+    << "</div>\n";
 
   os << "<div id=\"help-error\">\n"
      << "<div class=\"help-box\">\n"
@@ -1060,7 +1057,7 @@ void print_html_head( report::sc_html_stream& os, sim_t* sim )
 {
   os << "<title>Simulationcraft Results</title>\n";
   os << "<meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\" />\n"
-     << "<script type=\"text/javascript\" src=\"http://ajax.googleapis.com/ajax/libs/jquery/1/jquery.min.js\"></script>\n"
+     << "<script type=\"text/javascript\" src=\"http://code.jquery.com/jquery-1.11.2.min.js\"></script>\n"
      << "<script src=\"http://code.highcharts.com/highcharts.js\"></script>\n"
      << "<script src=\"http://code.highcharts.com/highcharts-more.js\"></script>\n";
 // Disable exporting for now in the GUI.
@@ -1191,7 +1188,7 @@ void print_html_( report::sc_html_stream& os, sim_t* sim )
   // jQuery
   // The /1/ url auto-updates to the latest minified version
   // os << "<script type=\"text/javascript\" src=\"http://ajax.googleapis.com/ajax/libs/jquery/1/jquery.min.js\"></script>\n";
-  os << "<script type=\"text/javascript\" src=\"http://code.jquery.com/jquery-1.11.2.min.js\"></script>";
+  //os << "<script type=\"text/javascript\" src=\"http://code.jquery.com/jquery-1.11.2.min.js\"></script>";
 
   if ( sim -> hosted_html )
   {
