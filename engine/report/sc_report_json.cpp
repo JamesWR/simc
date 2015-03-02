@@ -449,7 +449,7 @@ js::sc_js_t to_json( const sim_t& )
 }
 #endif
 
-void print_json_( FILE* o, const sim_t& sim )
+js::sc_js_t get_root( const sim_t& sim )
 {
   js::sc_js_t root;
   root.set( "version", SC_VERSION );
@@ -458,13 +458,43 @@ void print_json_( FILE* o, const sim_t& sim )
   root.set( "build_date", __DATE__ );
   root.set( "build_time", __TIME__ );
   root.set( "sim", to_json( sim ) );
+  return root;
+}
+
+void print_json_raw( FILE* o, const sim_t& sim )
+{
+  js::sc_js_t root = get_root( sim );
   std::array<char, 1024> buffer;
   rapidjson::FileWriteStream b( o, buffer.data(), buffer.size() );
-
-  rapidjson::PrettyWriter<rapidjson::FileWriteStream> writer( b );
-  //rapidjson::Writer<rapidjson::FileWriteStream> writer(b);
-
+  rapidjson::Writer<rapidjson::FileWriteStream> writer( b );
   root.js_.Accept( writer );
+}
+
+void print_json_pretty( FILE* o, const sim_t& sim )
+{
+  js::sc_js_t root = get_root( sim );
+  std::array<char, 1024> buffer;
+  rapidjson::FileWriteStream b( o, buffer.data(), buffer.size() );
+  rapidjson::PrettyWriter<rapidjson::FileWriteStream> writer( b );
+  root.js_.Accept( writer );
+}
+
+std::string print_json_string_raw( const sim_t& sim )
+{
+  js::sc_js_t root = get_root( sim );
+  rapidjson::StringBuffer b;
+  rapidjson::Writer<rapidjson::StringBuffer> writer( b );
+  root.js_.Accept( writer );
+  return b.GetString();
+}
+
+std::string print_json_string_pretty( const sim_t& sim )
+{
+  js::sc_js_t root = get_root( sim );
+  rapidjson::StringBuffer b;
+  rapidjson::PrettyWriter<rapidjson::StringBuffer> writer( b );
+  root.js_.Accept( writer );
+  return b.GetString();
 }
 
 } // unnamed namespace
@@ -488,7 +518,7 @@ void print_json( sim_t& sim )
 // Print JSON report
   try
   {
-    print_json_( s, sim );
+    print_json_pretty( s, sim );
   } catch ( const std::exception& e )
   {
     sim.errorf( "Failed to print JSON output! %s", e.what() );
