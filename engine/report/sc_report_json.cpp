@@ -72,10 +72,19 @@ js::sc_js_t to_json( const sc_timeline_t& tl )
   return node;
 }
 
-js::sc_js_t to_json( const gain_t& rtl )
+js::sc_js_t to_json( const gain_t& g )
 {
   js::sc_js_t node;
-  // TODO
+  node.set( "name", g.name() );
+  for ( resource_e r = RESOURCE_NONE; r < RESOURCE_MAX; ++r )
+  {
+    js::sc_js_t node2;
+    node2.set( "resource", util::resource_type_string( r ) );
+    node2.set( "actual", g.actual[ r ] );
+    node2.set( "overflow", g.overflow[ r ] );
+    node2.set( "count", g.count[ r ] );
+    node.add( "data", node2 );
+  }
   return node;
 }
 
@@ -91,6 +100,23 @@ js::sc_js_t to_json( result_e i, const stats_t::stats_results_t& sr )
   node.set( "overkill_pct", to_json( sr.overkill_pct ) );
   node.set( "count", to_json( sr.count ) );
   node.set( "pct", sr.pct );
+  return node;
+}
+
+js::sc_js_t to_json( const benefit_t& b )
+{
+  js::sc_js_t node;
+  node.set( "name", b.name() );
+  node.set( "ration", to_json(b.ratio) );
+  return node;
+}
+
+js::sc_js_t to_json( const proc_t& p )
+{
+  js::sc_js_t node;
+  node.set( "name", p.name() );
+  node.set( "interval_sum", to_json(p.interval_sum) );
+  node.set( "count", to_json(p.count) );
   return node;
 }
 
@@ -153,14 +179,56 @@ js::sc_js_t to_json( const player_collected_data_t::health_changes_timeline_t& h
 js::sc_js_t to_json( const player_collected_data_t::resolve_timeline_t& rtl )
 {
   js::sc_js_t node;
-  // TODO
+  node.set( "merged_timeline", to_json( rtl.merged_timeline ) );
   return node;
 }
 
 js::sc_js_t to_json( const player_collected_data_t::buffed_stats_t& bs )
 {
   js::sc_js_t node;
-  // TODO
+  for ( attribute_e a = ATTRIBUTE_NONE; a < ATTRIBUTE_MAX; ++a )
+  {
+    js::sc_js_t anode;
+    anode.set( "attribute", util::attribute_type_string( a ) );
+    anode.set( "value", bs.attribute[ a ] );
+    node.add( "attributes", anode );
+  }
+  for ( resource_e r = RESOURCE_NONE; r < RESOURCE_MAX; ++r )
+  {
+    js::sc_js_t rnode;
+    rnode.set( "resource", util::resource_type_string( r ) );
+    rnode.set( "value", bs.resource[r] );
+    node.add( "resource_gained", rnode );
+  }
+  node.add( "spell_power", bs.spell_power );
+  node.add( "spell_hit", bs.spell_hit );
+  node.add( "spell_crit", bs.spell_crit );
+  node.add( "manareg_per_second", bs.manareg_per_second );
+  node.add( "attack_power", bs.attack_power );
+  node.add( "attack_hit", bs.attack_hit );
+  node.add( "mh_attack_expertise", bs.mh_attack_expertise );
+  node.add( "oh_attack_expertise", bs.oh_attack_expertise );
+  node.add( "armor", bs.armor );
+  node.add( "miss", bs.miss );
+  node.add( "crit", bs.crit );
+  node.add( "dodge", bs.dodge );
+  node.add( "parry", bs.parry );
+  node.add( "block", bs.block );
+  node.add( "bonus_armor", bs.bonus_armor );
+  node.add( "spell_haste", bs.spell_haste );
+  node.add( "spell_speed", bs.spell_speed );
+  node.add( "attack_haste", bs.attack_haste );
+  node.add( "attack_speed", bs.attack_speed );
+  node.add( "mastery_value", bs.mastery_value );
+  node.add( "multistrike", bs.multistrike );
+  node.add( "readiness", bs.readiness );
+  node.add( "damage_versatility", bs.damage_versatility );
+  node.add( "heal_versatility", bs.heal_versatility );
+  node.add( "mitigation_versatility", bs.mitigation_versatility );
+  node.add( "leech", bs.leech );
+  node.add( "run_speed", bs.run_speed );
+  node.add( "avoidance", bs.avoidance );
+  node.add( "leech", bs.leech );
   return node;
 }
 
@@ -385,6 +453,10 @@ void print_json_( FILE* o, const sim_t& sim )
 {
   js::sc_js_t root;
   root.set( "version", SC_VERSION );
+  root.set( "ptr_enabled", SC_USE_PTR );
+  root.set( "beta_enabled", SC_BETA );
+  root.set( "build_date", __DATE__ );
+  root.set( "build_time", __TIME__ );
   root.set( "sim", to_json( sim ) );
   std::array<char, 1024> buffer;
   rapidjson::FileWriteStream b( o, buffer.data(), buffer.size() );
