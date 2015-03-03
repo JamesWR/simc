@@ -88,6 +88,45 @@ js::sc_js_t to_json( const gain_t& g )
   return node;
 }
 
+js::sc_js_t to_json( const spell_data_t& sd )
+{
+  js::sc_js_t node;
+  node.set( "id", sd.id() );
+  if ( !sd.ok() )
+    return node;
+  // TODO
+
+  return node;
+}
+
+js::sc_js_t to_json( const cooldown_t& cd )
+{
+  js::sc_js_t node;
+  // TODO
+  return node;
+}
+
+js::sc_js_t to_json( const buff_t& b )
+{
+  js::sc_js_t node;
+  node.set( "name", b.name() );
+  node.set( "spell_data", to_json( b.data() ) );
+  if( b.source ) node.set( "source", b.source-> name() );
+  if ( b.cooldown ) node.set( "cooldown", to_json( *b.cooldown ) );
+  node.set( "uptime_array", to_json( b.uptime_array )  );
+  node.set( "default_value", b.default_value );
+  node.set( "activated", b.activated );
+  node.set( "reactable", b.reactable );
+  node.set( "reverse", b.reverse );
+  node.set( "constant", b.constant );
+  node.set( "quiet", b.quiet );
+  node.set( "overridden", b.overridden );
+  node.set( "can_cancel", b.can_cancel );
+  node.set( "default_chance", b.default_chance );
+  node.set( "name", b.name() );
+  return node;
+}
+
 js::sc_js_t to_json( result_e i, const stats_t::stats_results_t& sr )
 {
   js::sc_js_t node;
