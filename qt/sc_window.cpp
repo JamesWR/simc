@@ -16,7 +16,7 @@
 #endif
 #include <QStandardPaths>
 
-static int SC_GUI_HISTORY_VERSION = 640;
+static int SC_GUI_HISTORY_VERSION = 650;
 
 namespace { // UNNAMED NAMESPACE
 
@@ -116,7 +116,24 @@ void SC_MainWindow::loadHistory()
   QSettings settings;
   QString saveApiKey;
   saveApiKey = settings.value( "options/apikey" ).toString();
-
+  
+  QVariant simulateHistory = settings.value( "user_data/simulateHistory" );
+  if ( simulateHistory.isValid() )
+  {
+    QList<QVariant> a = simulateHistory.toList();
+    for ( int i = 0; i < a.size(); ++i )
+    {
+      const QVariant& entry = a.at( i );
+      if ( entry.isValid() )
+      {
+        QStringList sl = entry.toStringList();
+        if ( sl.size() == 2 )
+        {
+          simulateTab -> add_Text( sl.at( 1 ), sl.at( 0 ) );
+        }
+      }
+    }
+  }
   QVariant gui_version_number = settings.value( "gui/gui_version_number", 0 );
   if ( gui_version_number.toInt() < SC_GUI_HISTORY_VERSION )
   {
@@ -152,25 +169,6 @@ void SC_MainWindow::loadHistory()
   QString cache_file = TmpDir + "/simc_cache.dat";
   std::string cache_file_str = cache_file.toStdString();
   http::cache_load( cache_file_str.c_str() );
-
-
-  QVariant simulateHistory = settings.value( "user_data/simulateHistory" );
-  if ( simulateHistory.isValid() )
-  {
-    QList<QVariant> a = simulateHistory.toList();
-    for ( int i = 0; i < a.size(); ++i )
-    {
-      const QVariant& entry = a.at( i );
-      if ( entry.isValid() )
-      {
-        QStringList sl = entry.toStringList();
-        if ( sl.size() == 2 )
-        {
-          simulateTab -> add_Text( sl.at( 1 ), sl.at( 0 ) );
-        }
-      }
-    }
-  }
 
   QVariant history = settings.value( "user_data/historyList" );
   if ( history.isValid() )
@@ -341,7 +339,6 @@ SC_MainWindow::SC_MainWindow( QWidget *parent )
 void SC_MainWindow::createCmdLine()
 {
   cmdLine = new SC_MainWindowCommandLine( this );
-  cmdLine -> setCommandLineText( TAB_RESULTS, resultsFileText );
 
   connect( &simulationQueue, SIGNAL( firstItemWasAdded() ), this, SLOT( itemWasEnqueuedTryToSim() ) );
   connect( cmdLine, SIGNAL( pauseClicked() ), this, SLOT( pauseButtonClicked() ) );
@@ -1153,7 +1150,7 @@ void SC_MainWindow::simulateFinished( sim_t* sim )
     if ( mainTab -> currentTab() != TAB_SPELLQUERY )
       mainTab -> setCurrentTab( TAB_LOG );
 
-    // SPell Query
+    // Spell Query
     if ( mainTab -> currentTab() == TAB_SPELLQUERY )
     {
       QString result;
@@ -1499,7 +1496,7 @@ void SC_MainWindow::mainTabChanged( int index )
 
   // clear spell_query entries when changing tabs
   if ( cmdLine -> commandLineText().startsWith( "spell_query" ) )
-    cmdLine -> setCommandLineText( " " );
+    cmdLine -> setCommandLineText( "" );
 
   switch ( index )
   {
@@ -1691,7 +1688,6 @@ void SimulateThread::run()
   }
 
   sim -> output_file_str = (mainWindow -> AppDataDir + QDir::separator() + SIMC_LOG_FILE).toStdString();
-  sim -> html_file_str = (mainWindow -> AppDataDir + QDir::separator() + "simc_report.html").toStdString();
   sim -> xml_file_str = (mainWindow -> AppDataDir + QDir::separator() + "simc_report.xml").toStdString();
   sim -> reforge_plot_output_file_str = (mainWindow -> AppDataDir + QDir::separator() + "simc_plot_data.csv").toStdString();
   sim -> csv_output_file_str = (mainWindow -> AppDataDir + QDir::separator() + "simc_report.csv").toStdString();
@@ -1726,6 +1722,7 @@ void SimulateThread::run()
     success = false;
     return;
   }
+
   success = sim -> execute();
   if ( success )
   {
