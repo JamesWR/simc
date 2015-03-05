@@ -401,7 +401,7 @@ public:
   // SpellIcon.dbc
   const char* _icon;
   const char* _active_icon;
-  const char* _rank_str;
+  const char* _rank_str; // if present
 
   // Pointers for runtime linking
   std::vector<const spelleffect_data_t*>* _effects;

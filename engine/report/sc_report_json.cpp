@@ -116,7 +116,7 @@ namespace
     node.set("charges", sd.charges());
     node.set("charge_cooldown", to_json(sd.charge_cooldown()));
     node.set("desc", sd.desc());
-    node.set("desc_vars", sd.desc_vars());
+    if (sd.desc_vars())node.set("desc_vars", sd.desc_vars());
     node.set("duration", to_json(sd.duration()));
     node.set("gcd", to_json(sd.gcd()));
     node.set("initial_stacks", sd.initial_stacks());
@@ -132,22 +132,22 @@ namespace
     node.set("proc_flags", sd.proc_flags());
     node.set("internal_cooldown", to_json(sd.internal_cooldown()));
     node.set("real_ppm", sd.real_ppm());
-    node.set("rank_str", sd.rank_str());
+    if ( sd.rank_str()) node.set("rank_str", sd.rank_str());
     node.set("replace_spell_id", sd.replace_spell_id());
     node.set("rune_cost", sd.rune_cost());
     node.set("runic_power_gain", sd.runic_power_gain());
     node.set("scaling_multiplier", sd.scaling_multiplier());
     node.set("scaling_threshold", sd.scaling_threshold());
     node.set("school_mask", sd.school_mask());
-    node.set("tooltip", sd.tooltip());
+    if( sd.tooltip() ) node.set("tooltip", sd.tooltip());
     node.set("school_type", util::school_type_string(sd.get_school_type()));
     node.set("scaling_class", util::player_type_string(sd.scaling_class()));
     node.set("max_scaling_level", sd.max_scaling_level());
     for( size_t i = 0u; i < sd.effect_count(); ++i ) {
-      node.add( "effects", to_json( sd.effectN( i ) ) );
+      node.add( "effects", to_json( sd.effectN( i + 1 ) ) );
     }
     for( size_t i = 0u; i < sd.power_count(); ++i ) {
-      node.add( "powers", to_json( sd.powerN( i ) ) );
+      node.add( "powers", to_json( sd.powerN( i + 1) ) );
     }
 
     return node;
@@ -475,6 +475,19 @@ namespace
     for (const auto& pet : p.pet_list)
     {
       node.add("pets", to_json(*pet));
+    }
+
+    for (const auto& buff : p.buff_list)
+    {
+      node.add("buffs", to_json(*buff));
+    }
+    for (const auto& proc : p.proc_list)
+    {
+      node.add("procs", to_json(*proc));
+    }
+    for (const auto& gain : p.gain_list)
+    {
+      node.add("gains", to_json(*gain));
     }
     for (const auto& stat : p.stats_list)
     {

@@ -35,6 +35,7 @@
 #  endif
 #  ifndef UNICODE
 #    define UNICODE
+#    define _UNICODE
 #  endif
 #else
 #  define SC_SIGACTION

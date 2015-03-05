@@ -78,6 +78,7 @@ rapidjson::Value& sc_js_t::value( const std::string& path )
 
 sc_js_t& sc_js_t::set( const std::string& path, const char* value_ )
 {
+  assert( value_ );
   if ( rapidjson::Value* obj = path_value( path ) )
   {
     rapidjson::Value v( value_, js_.GetAllocator() );
@@ -112,6 +113,7 @@ sc_js_t& sc_js_t::set( const std::string& path, const size_t& value_ )
 
 sc_js_t& sc_js_t::add( const std::string& path, const char* value_ )
 {
+  assert( value_ );
   if ( rapidjson::Value* obj = path_value( path ) )
   {
     if ( obj -> GetType() != rapidjson::kArrayType )
