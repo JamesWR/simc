@@ -61,6 +61,33 @@ void appendCheckBox( const QString& label, const QString& option, const QString&
   layout -> addWidget( checkBox );
 }
 
+#if defined SC_WINDOWS
+#define WINDOWS_DEVICES "CON|AUX|PRN|COM1|COM2|COM3|LPT1|LPT2|LPT3|NUL"
+static QRegExp rc(QLatin1String(WINDOWS_DEVICES), Qt::CaseInsensitive);
+#endif
+#define SLASHES "/\\"
+static const char notAllowedChars[] = ",^@={}[]~!?:&*\"|#%<>$\"'();`'"SLASHES;
+
+QString RemoveBadFileChar( QString& filename )
+{
+  filename.replace( " ", "" ); // No spaces, because our sim engine hates that.
+  if ( filename == "" )
+    return filename;
+  for ( size_t i = 0; i < sizeof( notAllowedChars ); i++ )
+  {
+    filename.replace( notAllowedChars[i] , "" );
+  }
+  filename.replace( "..", "" );
+  filename.replace( ".html", "" );
+#if defined SC_WINDOWS
+  bool matchesWinDevice = rc.exactMatch( filename );
+  if ( matchesWinDevice )
+    filename = "";
+#endif
+  if ( filename.length() > 50 ) // The filename limit is much higher, but let's protect people from naming the file an absurdly long name and possibly hitting the 255 limit
+    filename.truncate( 50 );
+  return filename;
+}
 } // end unnamed namespace
 
 SC_OptionsTab::SC_OptionsTab( SC_MainWindow* parent ) :
@@ -1142,16 +1169,15 @@ QString SC_OptionsTab::mergeOptions()
     options += "\n";
   }
 
-  options += "html=";
-  QString text = "";
   if ( choice.auto_save -> currentIndex() != 0 )
   {
+    options += "html=";
+    QString text = "";
     if ( choice.auto_save -> currentIndex() == 1 )
     {
       QDateTime dateTime = QDateTime::currentDateTime();
       text += dateTime.toString( Qt::ISODate );
       text.replace( ":", "" );
-      text += ".html";
     }
     else
     {
@@ -1159,17 +1185,15 @@ QString SC_OptionsTab::mergeOptions()
       text = QInputDialog::getText( this, tr( "HTML File Name" ),
         tr( "What would you like to name this HTML file?" ), QLineEdit::Normal,
         QDir::home().dirName(), &ok );
-      if ( ok && !text.isEmpty() )
-      {
-        text += ".html";
-      }
     }
+    RemoveBadFileChar( text );
+    if ( text == "" )
+      text += "results.html";
+    else
+      text += ".html";
+    options += text;
+    options += "\n";
   }
-  if ( text == "" )
-    text += "results.html";
-
-  options += mainWindow -> AppDataDir + QDir::separator() + text;
-  options += "\n";
 
   options += "### End GUI options ###\n"
 
