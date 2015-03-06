@@ -70,7 +70,6 @@ static const char notAllowedChars[] = ",^@={}[]~!?:&*\"|#%<>$\"'();`'"SLASHES;
 
 QString RemoveBadFileChar( QString& filename )
 {
-  filename.replace( " ", "" ); // No spaces, because our sim engine hates that.
   if ( filename == "" )
     return filename;
   for ( size_t i = 0; i < sizeof( notAllowedChars ); i++ )
@@ -1188,12 +1187,15 @@ QString SC_OptionsTab::mergeOptions()
     }
     RemoveBadFileChar( text );
     if ( text == "" )
-      text += "results.html";
+      text += "results.html\"";
     else
-      text += ".html";
+      text += ".html\"";
+    text.insert( 0, QString( "\"" ) );
     options += text;
     options += "\n";
   }
+  else
+    options += "html=results.html\n";
 
   options += "### End GUI options ###\n"
 
