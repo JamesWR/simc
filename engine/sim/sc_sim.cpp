@@ -997,7 +997,7 @@ sim_t::sim_t( sim_t* p, int index ) :
   disable_set_bonuses( false ), disable_2_set_bonus( false ), disable_4_set_bonus( false ),
   pvp_crit( false ), equalize_plot_weights( false ),
   active_enemies( 0 ), active_allies( 0 ),
-  _rng( 0 ), seed( 0 ), deterministic( false ),
+  _rng( 0 ), rng_seed( 0 ), deterministic( false ),
   average_range( true ), average_gauss( false ),
   convergence_scale( 2 ),
   fight_style( "Patchwerk" ), overrides( overrides_t() ), auras( auras_t() ),
@@ -1074,7 +1074,7 @@ sim_t::sim_t( sim_t* p, int index ) :
     enchant = parent -> enchant;
 
     // While we inherit the parent seed, it may get overwritten in sim_t::init
-    seed = parent -> seed;
+    rng_seed = parent -> rng_seed;
 
     parent -> add_relative( this );
   }
@@ -1230,7 +1230,7 @@ void sim_t::reset()
 {
   if ( debug ) out_debug << "Resetting Simulator";
 
-  if( deterministic ) seed = rng().reseed();
+  if( deterministic ) rng_seed = rng().reseed();
 
   event_mgr.reset();
 
@@ -1504,7 +1504,7 @@ void sim_t::datacollection_end()
   {
     // TODO: Metric should be selectable
     iteration_data.push_back( iteration_data_entry_t( iteration_dmg / current_time().total_seconds(),
-                                                      seed,
+                                                      rng_seed,
                                                       static_cast< uint64_t >( target -> resources.initial[ RESOURCE_HEALTH ] ) ) );
   }
 }
@@ -1797,23 +1797,23 @@ bool sim_t::init()
   event_mgr.init();
 
   // Seed RNG
-  if ( seed == 0 )
+  if ( rng_seed == 0 )
   {
     if( deterministic )
     {
-      seed = 31459;
+      rng_seed = 31459;
     }
     else
     {
       int64_t sec, usec;
       stopwatch_t sw( STOPWATCH_WALL );
       sw.now( &sec, &usec );
-      seed  = static_cast< int >(  sec * 1000 );
-      seed += static_cast< int >( usec / 1000 );
+      rng_seed  = static_cast< int >(  sec * 1000 );
+      rng_seed += static_cast< int >( usec / 1000 );
     }
   }
   _rng = rng_t::create( rng_t::parse_type( rng_str ) );
-  _rng -> seed( seed + thread_index );
+  _rng -> seed( rng_seed + thread_index );
 
   if (   queue_lag_stddev == timespan_t::zero() )   queue_lag_stddev =   queue_lag * 0.25;
   if (     gcd_lag_stddev == timespan_t::zero() )     gcd_lag_stddev =     gcd_lag * 0.25;
@@ -2656,7 +2656,7 @@ void sim_t::create_options()
   // Misc
   add_option( opt_list( "party", party_encoding ) );
   add_option( opt_func( "active", parse_active ) );
-  add_option( opt_uint64( "seed", seed ) );
+  add_option( opt_uint64( "seed", rng_seed ) );
   add_option( opt_float( "wheel_granularity", event_mgr.wheel_granularity ) );
   add_option( opt_int( "wheel_seconds", event_mgr.wheel_seconds ) );
   add_option( opt_int( "wheel_shift", event_mgr.wheel_shift ) );

@@ -2687,7 +2687,7 @@ struct sim_t : private sc_thread_t
   // Random Number Generation
   rng_t* _rng;
   std::string rng_str;
-  uint64_t seed;
+  uint64_t rng_seed;
   int deterministic;
   int average_range, average_gauss;
   int convergence_scale;
