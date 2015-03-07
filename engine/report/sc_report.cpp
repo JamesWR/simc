@@ -849,7 +849,6 @@ void report::print_suite( sim_t* sim )
   report::print_json( *sim );
   report::print_xml( sim );
   report::print_profiles( sim );
-  report::print_csv_data( sim );
 }
 
 void report::print_html_sample_data( report::sc_html_stream& os, const player_t* p, const extended_sample_data_t& data, const std::string& name, int& td_counter, int columns )

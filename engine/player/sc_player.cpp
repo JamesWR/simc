@@ -10040,34 +10040,6 @@ void player_collected_data_t::collect_data( const player_t& p )
   }
 }
 
-std::ostream& player_collected_data_t::data_str( std::ostream& s ) const
-{
-  fight_length.data_str( s );
-  dmg.data_str( s );
-  compound_dmg.data_str( s );
-  dps.data_str( s );
-  prioritydps.data_str( s );
-  dpse.data_str( s );
-  dtps.data_str( s );
-  dmg_taken.data_str( s );
-  timeline_dmg.data_str( s );
-  timeline_dmg_taken.data_str( s );
-  // Heal
-  heal.data_str( s );
-  compound_heal.data_str( s );
-  hps.data_str( s );
-  hpse.data_str( s );
-  htps.data_str( s );
-  heal_taken.data_str( s );
-  timeline_healing_taken.data_str( s );
-  // TMI
-  theck_meloree_index.data_str( s );
-  effective_theck_meloree_index.data_str( s );
-  max_spike_amount.data_str( s );
-
-  return s;
-}
-
 void player_talent_points_t::clear()
 {  range::fill( choices, -1 ); }
 

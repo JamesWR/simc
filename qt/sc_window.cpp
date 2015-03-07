@@ -737,7 +737,6 @@ void SC_MainWindow::deleteSim( sim_t* sim, SC_TextEdit* append_error_message )
     files.push_back( sim -> html_file_str );
     files.push_back( sim -> xml_file_str );
     files.push_back( sim -> reforge_plot_output_file_str );
-    files.push_back( sim -> csv_output_file_str );
 
     std::string output_file_str = sim -> output_file_str;
     bool sim_control_was_not_zero = sim -> control != 0;
@@ -1237,16 +1236,6 @@ void SC_MainWindow::simulateFinished( sim_t* sim )
       plot_file.close();
     }
 
-    // CSV
-    SC_TextEdit* resultsCsvView = new SC_TextEdit( resultsEntry );
-    resultsEntry -> addTab( resultsCsvView, "csv" );
-    QFile csv_file( sim -> csv_output_file_str.c_str() );
-    if ( csv_file.open( QIODevice::ReadOnly | QIODevice::Text ) )
-    {
-      resultsCsvView -> append( csv_file.readAll() );
-      csv_file.close();
-    }
-
     if ( simulationQueue.isEmpty() )
     {
       mainTab -> setCurrentTab( sim_was_debug ? TAB_LOG : TAB_RESULTS );
@@ -1690,7 +1679,6 @@ void SimulateThread::run()
   sim -> output_file_str = (mainWindow -> AppDataDir + QDir::separator() + SIMC_LOG_FILE).toStdString();
   sim -> xml_file_str = (mainWindow -> AppDataDir + QDir::separator() + "simc_report.xml").toStdString();
   sim -> reforge_plot_output_file_str = (mainWindow -> AppDataDir + QDir::separator() + "simc_plot_data.csv").toStdString();
-  sim -> csv_output_file_str = (mainWindow -> AppDataDir + QDir::separator() + "simc_report.csv").toStdString();
 
   sim_control_t description;
   try

@@ -45,7 +45,6 @@
  SOURCES += engine/report/sc_report_json.cpp
  SOURCES += engine/report/sc_report_html_sim.cpp
  SOURCES += engine/report/sc_report_html_player.cpp
- SOURCES += engine/report/sc_report_csv_data.cpp
  SOURCES += engine/report/sc_report.cpp
  SOURCES += engine/report/sc_highchart.cpp
  SOURCES += engine/report/sc_chart.cpp

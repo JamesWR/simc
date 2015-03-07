@@ -2781,7 +2781,6 @@ struct sim_t : private sc_thread_t
   std::string output_file_str, html_file_str, json_file_str;
   std::string xml_file_str, xml_stylesheet_file_str;
   std::string reforge_plot_output_file_str;
-  std::string csv_output_file_str;
   std::vector<std::string> error_list;
   int report_precision;
   int report_pets_separately;
@@ -4205,7 +4204,6 @@ struct player_collected_data_t
   void print_tmi_debug_csv( const sc_timeline_t* nma, const std::vector<double>& weighted_value, const player_t& p );
   double calculate_tmi( const health_changes_timeline_t& tl, int window, double f_length, const player_t& p );
   double calculate_max_spike_damage( const health_changes_timeline_t& tl, int window );
-  std::ostream& data_str( std::ostream& s ) const;
 };
 
 struct player_talent_points_t

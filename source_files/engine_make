@@ -44,7 +44,6 @@ SRC += \
     report$(PATHSEP)sc_report_json.cpp \
     report$(PATHSEP)sc_report_html_sim.cpp \
     report$(PATHSEP)sc_report_html_player.cpp \
-    report$(PATHSEP)sc_report_csv_data.cpp \
     report$(PATHSEP)sc_report.cpp \
     report$(PATHSEP)sc_highchart.cpp \
     report$(PATHSEP)sc_chart.cpp \

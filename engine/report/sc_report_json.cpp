@@ -10,8 +10,7 @@
 
 namespace
 {
-#if 1
-//#if __cplusplus >= 201103L
+#if __cplusplus >= 201103L
 
 js::sc_js_t to_json( const timespan_t& t )
 {

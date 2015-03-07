@@ -2747,7 +2747,6 @@ void sim_t::create_options()
   add_option( opt_bool( "separate_stats_by_actions", separate_stats_by_actions ) );
   add_option( opt_bool( "report_raid_summary", report_raid_summary ) ); // Force reporting of raid summary
   add_option( opt_string( "reforge_plot_output_file", reforge_plot_output_file_str ) );
-  add_option( opt_string( "csv_output_file_str", csv_output_file_str ) );
   add_option( opt_bool( "monitor_cpu", event_mgr.monitor_cpu ) );
   add_option( opt_func( "maximize_reporting", parse_maximize_reporting ) );
   add_option( opt_string( "apikey", apikey ) );
