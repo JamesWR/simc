@@ -1679,6 +1679,7 @@ void SimulateThread::run()
   sim -> output_file_str = (mainWindow -> AppDataDir + QDir::separator() + SIMC_LOG_FILE).toStdString();
   sim -> xml_file_str = (mainWindow -> AppDataDir + QDir::separator() + "simc_report.xml").toStdString();
   sim -> reforge_plot_output_file_str = (mainWindow -> AppDataDir + QDir::separator() + "simc_plot_data.csv").toStdString();
+  sim -> json_file_str = (mainWindow -> AppDataDir + QDir::separator() + "simc_report.json").toStdString();
 
   sim_control_t description;
   try
