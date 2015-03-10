@@ -1016,7 +1016,6 @@ void SC_MainWindow::startSim()
 
   sim -> xml_file_str = (reportFileBase + ".xml").toStdString();
   sim -> reforge_plot_output_file_str = (reportFileBase + "_plotdata.csv").toStdString();
-  sim -> csv_output_file_str = (reportFileBase + ".csv").toStdString();
 
   if ( optionsTab -> get_api_key().size() == 32 ) // api keys are 32 characters long, it's not worth parsing <32 character keys.
     sim -> parse_option( "apikey",  optionsTab -> get_api_key().toUtf8().constData() );
