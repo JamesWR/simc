@@ -66,7 +66,7 @@ void appendCheckBox( const QString& label, const QString& option, const QString&
 static QRegExp rc(QLatin1String(WINDOWS_DEVICES), Qt::CaseInsensitive);
 #endif
 #define SLASHES "/\\"
-static const char notAllowedChars[] = ",^@={}[]~!?:&*\"|#%<>$\"'();`'"SLASHES;
+static const char notAllowedChars[] = ",^@={}[]~!?:&*\"|#%<>$\"'();`'" SLASHES;
 
 QString RemoveBadFileChar( QString& filename )
 {
@@ -224,7 +224,7 @@ void SC_OptionsTab::createGlobalsTab()
   globalsLayout_right -> addRow( tr( "Report Print Style" ),      choice.print_style = createChoice( 3, "MoP", "White", "Classic" ) );
   globalsLayout_right -> addRow( tr( "Statistics Level" ),   choice.statistics_level = createChoice( 4, "0", "1", "2", "3" ) );
   globalsLayout_right -> addRow( tr( "Deterministic RNG" ), choice.deterministic_rng = createChoice( 2, "Yes", "No" ) );
-  globalsLayout_right -> addRow( tr( "Auto-Save HTML Reports" ), choice.auto_save = createChoice( 3, "No", "Use current date/time", "Ask for filename on each simulation" ) );
+  globalsLayout_right -> addRow( tr( "Auto-Save Reports" ), choice.auto_save = createChoice( 3, "No", "Use current date/time", "Ask for filename on each simulation" ) );
 
   createItemDataSourceSelector( globalsLayout_right );
 
@@ -1037,6 +1037,36 @@ QString SC_OptionsTab::get_globalSettings()
   return options;
 }
 
+QString SC_OptionsTab::getReportlDestination() const
+{
+   assert( mainWindow );
+  // Setup html report destination
+  QString html_filename = "simc_report";
+  if ( choice.auto_save -> currentIndex() != 0 )
+  {
+    QString text;
+    if ( choice.auto_save -> currentIndex() == 1 )
+    {
+      QDateTime dateTime = QDateTime::currentDateTime();
+      text += dateTime.toString( Qt::ISODate );
+      text.replace( ":", "" );
+    }
+    else
+    {
+      bool ok;
+      text = QInputDialog::getText( mainWindow, tr( "Report File Name" ),
+        tr( "What would you like to name the report files?" ), QLineEdit::Normal,
+        QDir::home().dirName(), &ok );
+    }
+    RemoveBadFileChar( text );
+    if ( ! text.isEmpty() )
+    {
+      html_filename = text;
+    }
+  }
+  return mainWindow -> AppDataDir + QDir::separator() + html_filename;
+}
+
 QString SC_OptionsTab::mergeOptions()
 {
   QString options = "### Begin GUI options ###\n";
@@ -1168,35 +1198,6 @@ QString SC_OptionsTab::mergeOptions()
     options += util::to_string( choice.print_style -> currentIndex() ).c_str();
     options += "\n";
   }
-
-  if ( choice.auto_save -> currentIndex() != 0 )
-  {
-    options += "html=";
-    QString text = "";
-    if ( choice.auto_save -> currentIndex() == 1 )
-    {
-      QDateTime dateTime = QDateTime::currentDateTime();
-      text += dateTime.toString( Qt::ISODate );
-      text.replace( ":", "" );
-    }
-    else
-    {
-      bool ok;
-      text = QInputDialog::getText( this, tr( "HTML File Name" ),
-        tr( "What would you like to name this HTML file?" ), QLineEdit::Normal,
-        QDir::home().dirName(), &ok );
-    }
-    RemoveBadFileChar( text );
-    if ( text == "" )
-      text += "results.html\"";
-    else
-      text += ".html\"";
-    text.insert( 0, QString( "\"" ) );
-    options += text;
-    options += "\n";
-  }
-  else
-    options += "html=\"results.html\"\n";
 
   options += "### End GUI options ###\n"
 
