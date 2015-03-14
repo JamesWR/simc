@@ -7,7 +7,7 @@
 
 #define SC_MAJOR_VERSION "610"
 #define SC_MINOR_VERSION "07"
-#define SC_USE_PTR ( 0 )
+#define SC_USE_PTR ( 1 )
 #define SC_BETA ( 0 )
 #define SC_BETA_STR "wod"
 #define SC_VERSION ( SC_MAJOR_VERSION "-" SC_MINOR_VERSION )
@@ -4432,6 +4432,8 @@ struct player_t : public actor_t
   // Profs
   std::array<int, PROFESSION_MAX> profession;
 
+  virtual ~player_t() {}
+
   // TODO: FIXME, these stats should not be increased by scale factor deltas
   struct base_initial_current_t
   {
@@ -5162,12 +5164,6 @@ struct player_t : public actor_t
       return timespan_t::from_seconds( ( current.distance_to_move + current.moving_away ) / composite_movement_speed() + 0.001 );
     else
       return timespan_t::zero();
-  }
-
-  virtual void trigger_movement( timespan_t duration )
-  {
-    buffs.raid_movement -> buff_duration = timespan_t::from_seconds( duration.total_seconds() );
-    buffs.raid_movement -> trigger();
   }
 
   virtual void trigger_movement( double distance, movement_direction_e direction )

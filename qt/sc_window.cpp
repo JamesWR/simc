@@ -7,6 +7,9 @@
 #include "simulationcraftqt.hpp"
 #include "SC_OptionsTab.hpp"
 #include "SC_SpellQueryTab.hpp"
+#include "sc_SimulationThread.hpp"
+#include "sc_SampleProfilesTab.hpp"
+#include "sc_AutomationTab.hpp"
 #include "util/sc_mainwindowcommandline.hpp"
 #ifdef SC_PAPERDOLL
 #include "simcpaperdoll.hpp"
@@ -19,8 +22,6 @@
 static int SC_GUI_HISTORY_VERSION = 650;
 
 namespace { // UNNAMED NAMESPACE
-
-const char* SIMC_LOG_FILE = "simc_log.txt";
 
 #if ! defined( SC_USE_WEBKIT )
 struct HtmlOutputFunctor
@@ -185,7 +186,7 @@ void SC_MainWindow::loadHistory()
     }
   }
   optionsTab -> decodeOptions();
-  importTab -> decodeSettings();
+  importTab -> automationTab -> decodeSettings();
   spellQueryTab -> decodeSettings();
 
   if ( simulateTab -> count() <= 1 )
@@ -232,7 +233,7 @@ void SC_MainWindow::saveHistory()
   settings.endGroup();
 
   optionsTab -> encodeOptions();
-  importTab -> encodeSettings();
+  importTab -> automationTab -> encodeSettings();
   spellQueryTab -> encodeSettings();
 }
 
@@ -320,10 +321,10 @@ SC_MainWindow::SC_MainWindow( QWidget *parent )
   timer = new QTimer( this );
   connect( timer, SIGNAL( timeout() ), this, SLOT( updateSimProgress() ) );
 
-  importThread = new ImportThread( this );
+  importThread = new SC_ImportThread( this );
   connect( importThread, SIGNAL( finished() ), this, SLOT( importFinished() ) );
 
-  simulateThread = new SimulateThread( this );
+  simulateThread = new SC_SimulateThread( this );
   connect( simulateThread, SIGNAL( simulationFinished( sim_t* ) ), this, SLOT( simulateFinished( sim_t* ) ) );
 
 #ifdef SC_PAPERDOLL
@@ -418,7 +419,7 @@ void SC_MainWindow::createImportTab()
   battleNetView -> disableKeyboardNavigation();
   importTab -> addTab( battleNetView, tr( "Battle.Net" ) );
 
-  createBestInSlotTab();
+  createSampleProfilesTab();
 
   historyList = new QListWidget();
   historyList -> setSortingEnabled( true );
@@ -428,7 +429,7 @@ void SC_MainWindow::createImportTab()
   recentlyClosedTabModel = recentlyClosedTabImport -> getModel();
   importTab -> addTab( recentlyClosedTabImport, tr( "Recently Closed" ) );
 
-  importTab -> createAutomationTab();
+  importTab -> addTab( importTab -> automationTab, tr( "Automation" ) );
 
   connect( historyList, SIGNAL( itemDoubleClicked( QListWidgetItem* ) ), this, SLOT( historyDoubleClicked( QListWidgetItem* ) ) );
   connect( importTab, SIGNAL( currentChanged( int ) ), this, SLOT( importTabChanged( int ) ) );
@@ -439,140 +440,10 @@ void SC_MainWindow::createImportTab()
   // createCustomTab();
 }
 
-void SC_MainWindow::createBestInSlotTab()
+void SC_MainWindow::createSampleProfilesTab()
 {
-  // Create BiS Tree ( table with profiles )
-  QStringList headerLabels( tr( "Player Class" ) ); headerLabels += QString( tr( "Location" ) );
-
-  QTreeWidget* bisTree = new QTreeWidget();
-  bisTree -> setColumnCount( 1 );
-  bisTree -> setHeaderLabels( headerLabels );
-
-  static const char* tierNames[] = { "T17", "T18" };
-  static const int TIER_MAX = 2; // = sizeof_array( tierNames );
-
-  QTreeWidgetItem* playerItems[PLAYER_MAX];
-  range::fill( playerItems, 0 );
-  QTreeWidgetItem* rootItems[PLAYER_MAX][TIER_MAX];
-  for ( player_e i = DEATH_KNIGHT; i <= WARRIOR; i++ )
-  {
-    range::fill( rootItems[i], 0 );
-  }
-
-
-
-  QDir tdir = SC_PATHS::getDataPath() + "/profiles";
-  tdir.setFilter( QDir::Dirs );
-
-  QStringList tprofileList = tdir.entryList();
-  int tnumProfiles = tprofileList.count();
-  // Main loop through all subfolders of ./profiles/
-  for ( int i = 0; i < tnumProfiles; i++ )
-  {
-    QDir dir = SC_PATHS::getDataPath() + "/profiles" + "/" + tprofileList[ i ];
-    dir.setSorting( QDir::Name );
-    dir.setFilter( QDir::Files );
-    dir.setNameFilters( QStringList( "*.simc" ) );
-
-    QStringList profileList = dir.entryList();
-    int numProfiles = profileList.count();
-    for ( int k = 0; k < numProfiles; k++ )
-    {
-      QString profile = dir.absolutePath() + "/";
-      profile = QDir::toNativeSeparators( profile );
-      profile += profileList[k];
-
-      player_e player = PLAYER_MAX;
-
-      // Hack! For now...  Need to decide sim-wide just how the heck we want to refer to DKs.
-      if ( profile.contains( "Death_Knight" ) )
-        player = DEATH_KNIGHT;
-      else
-      {
-        for ( player_e j = PLAYER_NONE; j < PLAYER_MAX; j++ )
-        {
-          if ( profile.contains( util::player_type_string( j ), Qt::CaseInsensitive ) )
-          {
-            player = j;
-            break;
-          }
-        }
-      }
-
-      // exclude generate profiles
-      if ( profile.contains( "generate" ) )
-        continue;
-
-      int tier = TIER_MAX;
-      for ( int j = 0; j < TIER_MAX && tier == TIER_MAX; j++ )
-        if ( profile.contains( tierNames[j] ) )
-          tier = j;
-
-      if ( player != PLAYER_MAX && tier != TIER_MAX )
-      {
-        if ( !rootItems[player][tier] )
-        {
-          if ( !playerItems[player] )
-          {
-            QTreeWidgetItem* top = new QTreeWidgetItem( QStringList( util::inverse_tokenize( util::player_type_string( player ) ).c_str() ) );
-            playerItems[player] = top;
-          }
-
-          if ( !rootItems[player][tier] )
-          {
-            QTreeWidgetItem* tieritem = new QTreeWidgetItem( QStringList( tierNames[tier] ) );
-            playerItems[player] -> addChild( rootItems[player][tier] = tieritem );
-          }
-        }
-
-        QTreeWidgetItem* item = new QTreeWidgetItem( QStringList() << profileList[k] << profile );
-        rootItems[player][tier] -> addChild( item );
-      }
-    }
-  }
-
-  // Register all the added profiles ( done here so they show up alphabetically )
-  for ( player_e i = DEATH_KNIGHT; i <= WARRIOR; i++ )
-  {
-    if ( playerItems[i] )
-    {
-      bisTree -> addTopLevelItem( playerItems[i] );
-      for ( int j = 0; j < TIER_MAX; j++ )
-      {
-        if ( rootItems[i][j] )
-        {
-          rootItems[i][j] -> setExpanded( true ); // Expand the subclass Tier bullets by default
-          rootItems[i][j] -> sortChildren( 0, Qt::AscendingOrder );
-        }
-      }
-    }
-  }
-
-  bisTree -> setColumnWidth( 0, 300 );
-
-  connect( bisTree, SIGNAL( itemDoubleClicked( QTreeWidgetItem*, int ) ), this, SLOT( bisDoubleClicked( QTreeWidgetItem*, int ) ) );
-
-  // Create BiS Introduction
-
-  QFormLayout* bisIntroductionFormLayout = new QFormLayout();
-  QLabel* bisText = new QLabel( tr( "These sample profiles are attempts at creating the best possible gear, talent, glyph and action priority list setups to achieve the highest possible average damage per second.\n"
-    "The profiles are created with a lot of help from the theorycrafting community.\n"
-    "They are only as good as the thorough testing done on them, and the feedback and critic we receive from the community, including yourself.\n"
-    "If you have ideas for improvements, try to simulate them. If they result in increased dps, please open a ticket on our Issue tracker.\n"
-    "The more people help improve BiS profiles, the better will they reach their goal of representing the highest possible dps." ) );
-  bisIntroductionFormLayout -> addRow( bisText );
-
-  QWidget* bisIntroduction = new QWidget();
-  bisIntroduction -> setLayout( bisIntroductionFormLayout );
-
-  // Create BiS Tab ( Introduction + BiS Tree )
-
-  QVBoxLayout* bisTabLayout = new QVBoxLayout();
-  bisTabLayout -> addWidget( bisIntroduction, 1 );
-  bisTabLayout -> addWidget( bisTree, 9 );
-
-  QGroupBox* bisTab = new QGroupBox();
-  bisTab -> setLayout( bisTabLayout );
+  SC_SampleProfilesTab* bisTab = new SC_SampleProfilesTab( this );
+  connect( bisTab -> tree, SIGNAL( itemDoubleClicked( QTreeWidgetItem*, int ) ), this, SLOT( bisDoubleClicked( QTreeWidgetItem*, int ) ) );
   importTab -> addTab( bisTab, tr( "Sample Profiles" ) );
 }
 
@@ -764,14 +635,6 @@ void SC_MainWindow::deleteSim( sim_t* sim, SC_TextEdit* append_error_message )
     else
       logFileOpenedSuccessfully = true;
 
-    logText -> clear();
-
-    if ( !simulateThread -> success )
-    {
-      logText -> append( simulateThread -> error_str );
-      logText -> append( tr("Simulation failed!") );
-    }
-
     if ( !logFileOpenedSuccessfully )
     {
       for ( std::vector< std::string >::iterator it = errorListCopy.begin(); it != errorListCopy.end(); ++it )
@@ -930,6 +793,9 @@ void SC_MainWindow::importFinished()
   simProgress = 100;
   importSimProgress = 100;
   cmdLine -> setImportingProgress( importSimProgress, importSimPhase.c_str(), "" );
+
+  logText -> clear();
+
   if ( importThread -> player )
   {
     simulateTab -> set_Text( importThread -> profile );
@@ -963,6 +829,10 @@ void SC_MainWindow::importFinished()
   {
     simulateTab -> setTabText( simulateTab -> currentIndex(), tr( "Import Failed" ) );
     simulateTab -> append_Text( tr("# Unable to generate profile from: ") + importThread -> url + "\n" );
+    for( size_t i = 0; i < import_sim -> error_list.size(); ++i )
+    {
+        simulateTab -> append_Text( QString( "# ") + QString::fromStdString( import_sim -> error_list[ i ] ) );
+    }
     deleteSim( import_sim, simulateTab -> current_Text() ); import_sim = 0;
   }
 
@@ -989,7 +859,7 @@ void SC_MainWindow::startSim()
     return;
   }
   optionsTab -> encodeOptions();
-  importTab -> encodeSettings();
+  importTab -> automationTab -> encodeSettings();
 
   // Clear log text on success so users don't get confused if there is
   // an error from previous attempts
@@ -1161,11 +1031,17 @@ void SC_MainWindow::simulateFinished( sim_t* sim )
   simProgress = 100;
   cmdLine -> setSimulatingProgress( simProgress, simPhase.c_str(), tr( "Finished!" ) );
   bool sim_was_debug = sim -> debug || sim -> log;
+
+  logText -> clear();
   if ( ! simulateThread -> success )
   {
     logText -> moveCursor( QTextCursor::End );
     if ( mainTab -> currentTab() != TAB_SPELLQUERY )
       mainTab -> setCurrentTab( TAB_LOG );
+
+    qDebug() << "sim failed!" << simulateThread -> getError();
+    logText -> append( simulateThread -> getError() );
+    logText -> append( tr("Simulation failed!") );
 
     // Spell Query
     if ( mainTab -> currentTab() == TAB_SPELLQUERY )
@@ -1437,7 +1313,13 @@ void SC_MainWindow::importButtonClicked()
     break;
   }
   case TAB_RECENT:     recentlyClosedTabImport -> restoreCurrentlySelected(); break;
-  case TAB_AUTOMATION: startAutomationImport( TAB_AUTOMATION ); break;
+  case TAB_AUTOMATION:
+  {
+      QString profile = importTab -> automationTab -> startImport();
+      simulateTab -> add_Text( profile,  tr( "Automation Import" ) );
+      mainTab -> setCurrentTab( TAB_SIMULATE );
+  }
+      break;
   default: break;
   }
 }
@@ -1692,52 +1574,6 @@ void SC_MainWindow::currentlyViewedTabCloseRequest()
   }
 }
 
-// ==========================================================================
-// SimulateThread
-// ==========================================================================
-
-void SimulateThread::run()
-{
-  sim_control_t description;
-  try
-  {
-    description.options.parse_text( utf8_options.constData() );
-  }
-  catch ( const std::exception& e )
-  {
-    success = false;
-    error_str = QString( tr("Option parsing error: ") ) + e.what();
-    return;
-  }
-
-  try
-  {
-    sim -> setup( &description );
-  }
-  catch ( const std::exception& e )
-  {
-    success = false;
-    error_str = QString( tr("Simulation setup error: ") ) + e.what();
-    return;
-  }
-
-  if ( sim -> challenge_mode ) sim -> scale_to_itemlevel = 630;
-
-  if ( sim -> spell_query != 0 )
-  {
-    success = false;
-    return;
-  }
-
-  success = sim -> execute();
-  if ( success )
-  {
-    sim -> scaling -> analyze();
-    sim -> plot -> analyze();
-    sim -> reforge_plot -> analyze();
-    report::print_suite( sim );
-  }
-}
 
 // ============================================================================
 // SC_CommandLine
