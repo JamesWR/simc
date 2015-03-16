@@ -38,9 +38,9 @@ struct warlock_td_t: public actor_pair_t
   dot_t*  dots_unstable_affliction;
 
   buff_t* debuffs_haunt;
+  buff_t* debuffs_shadowflame;
 
   bool ds_started_below_20;
-  int shadowflame_stack;
   int agony_stack;
   double soc_trigger, soulburn_soc_trigger;
 
@@ -49,7 +49,6 @@ struct warlock_td_t: public actor_pair_t
   void reset()
   {
     ds_started_below_20 = false;
-    shadowflame_stack = 1;
     agony_stack = 1;
     soc_trigger = 0;
     soulburn_soc_trigger = 0;
@@ -2356,22 +2355,16 @@ struct shadowflame_t: public warlock_spell_t
   {
     double m = warlock_spell_t::composite_target_multiplier( target );
 
-    m *= td( target ) -> shadowflame_stack;
+    m *= td( target ) -> debuffs_shadowflame -> stack();
 
     return m;
   }
 
-  virtual void impact( action_state_t* s )
+  virtual void last_tick( dot_t* d )
   {
-    if ( result_is_hit( s -> result ) )
-    {
-      if ( td( s-> target ) -> dots_shadowflame -> is_ticking() )
-        td( s -> target ) -> shadowflame_stack = 2;
-      else
-        td( s -> target ) -> shadowflame_stack = 1;
-    }
+    warlock_spell_t::last_tick( d );
 
-    warlock_spell_t::impact( s );
+    td ( d -> state -> target ) -> debuffs_shadowflame -> expire();
   }
 };
 
@@ -2421,6 +2414,16 @@ struct hand_of_guldan_t: public warlock_spell_t
     if ( p() -> buffs.metamorphosis -> check() ) r = false;
 
     return r;
+  }
+
+  virtual void impact( action_state_t* s )
+  {
+    warlock_spell_t::impact( s );
+
+    if ( result_is_hit( s -> result ) )
+    {
+      td( s -> target ) -> debuffs_shadowflame -> trigger();
+    }
   }
 };
 
@@ -4831,7 +4834,6 @@ struct mannoroths_fury_t: public warlock_spell_t
 warlock_td_t::warlock_td_t( player_t* target, warlock_t* p ):
 actor_pair_t( target, p ),
 ds_started_below_20( false ),
-shadowflame_stack( 1 ),
 agony_stack( 1 ),
 soc_trigger( 0 ),
 soulburn_soc_trigger( 0 )
@@ -4847,6 +4849,8 @@ soulburn_soc_trigger( 0 )
   dots_haunt = target -> get_dot( "haunt", p );
 
   debuffs_haunt = buff_creator_t( *this, "haunt", source -> find_class_spell( "Haunt" ) )
+    .refresh_behavior( BUFF_REFRESH_PANDEMIC );
+  debuffs_shadowflame = buff_creator_t( *this, "shadowflame", source -> find_spell( 47960 ) )
     .refresh_behavior( BUFF_REFRESH_PANDEMIC );
 }
 
@@ -5537,8 +5541,6 @@ void warlock_t::apl_precombat()
   if ( specialization() != WARLOCK_DEMONOLOGY )
     precombat_list += "/grimoire_of_sacrifice,if=talent.grimoire_of_sacrifice.enabled&!talent.demonic_servitude.enabled";
 
-  precombat_list += "/service_pet,if=talent.grimoire_of_service.enabled";
-
   if ( sim->allow_potions )
   {
     // Pre-potion
@@ -5591,7 +5593,7 @@ void warlock_t::apl_precombat()
       action_list_str += "/dark_soul,if=!talent.demonbolt.enabled&(charges=2|!talent.archimondes_darkness.enabled|(target.time_to_die<=20&!glyph.dark_soul.enabled|target.time_to_die<=10)|(target.time_to_die<=60&demonic_fury>400)|((trinket.stacking_proc.multistrike.remains>7.5|trinket.proc.any.remains>7.5|buff.draenor_philosophers_stone_int.remains>12.5)&demonic_fury>=400))";
     }
     else
-      action_list_str += "/dark_soul,if=!talent.demonbolt.enabled&(charges=2|!talent.archimondes_darkness.enabled|(target.time_to_die<=20&!glyph.dark_soul.enabled|target.time_to_die<=10)|(target.time_to_die<=60&demonic_fury>400)|((trinket.stacking_proc.multistrike.remains>7.5|trinket.proc.any.remains>7.5)&demonic_fury>=400))";
+      action_list_str += "/dark_soul,if=!talent.demonbolt.enabled&((charges=2&(time>6|(debuff.shadowflame.stack=1&action.hand_of_guldan.in_flight)))|!talent.archimondes_darkness.enabled|(target.time_to_die<=20&!glyph.dark_soul.enabled|target.time_to_die<=10)|(target.time_to_die<=60&demonic_fury>400)|((trinket.stacking_proc.multistrike.remains>7.5|trinket.proc.any.remains>7.5)&demonic_fury>=400))";
     action_list_str += "/imp_swarm,if=!talent.demonbolt.enabled&(buff.dark_soul.up|(cooldown.dark_soul.remains>(120%(1%spell_haste)))|time_to_die<32)&time>3";
   }
   else
@@ -5692,13 +5694,13 @@ void warlock_t::apl_demonology()
     }
     else
       action_list_str += "/cancel_metamorphosis,if=buff.metamorphosis.up&((demonic_fury<650&!glyph.dark_soul.enabled)|demonic_fury<450)&buff.dark_soul.down&(trinket.stacking_proc.multistrike.down&trinket.proc.any.down|demonic_fury<(800-cooldown.dark_soul.remains*(10%spell_haste)))&target.time_to_die>20";
-    action_list_str += "/cancel_metamorphosis,if=buff.metamorphosis.up&action.hand_of_guldan.charges>0&dot.shadowflame.remains<action.hand_of_guldan.travel_time+action.shadow_bolt.cast_time&demonic_fury<100&buff.dark_soul.remains>10";
+    action_list_str += "/cancel_metamorphosis,if=buff.metamorphosis.up&action.hand_of_guldan.charges>0&dot.shadowflame.remains<action.hand_of_guldan.travel_time+action.shadow_bolt.cast_time&((demonic_fury<100&buff.dark_soul.remains>10)|time<20)";
     action_list_str += "/cancel_metamorphosis,if=buff.metamorphosis.up&action.hand_of_guldan.charges=3&(!buff.dark_soul.remains>gcd|action.metamorphosis.cooldown<gcd)";
     action_list_str += "/chaos_wave,if=buff.metamorphosis.up&(buff.dark_soul.up&active_enemies>=2|(charges=3|set_bonus.tier17_4pc=0&charges=2))";
     action_list_str += "/soul_fire,if=buff.metamorphosis.up&buff.molten_core.react&(buff.dark_soul.remains>execute_time|target.health.pct<=25)&(((buff.molten_core.stack*execute_time>=trinket.stacking_proc.multistrike.remains-1|demonic_fury<=ceil((trinket.stacking_proc.multistrike.remains-buff.molten_core.stack*execute_time)*40)+80*buff.molten_core.stack)|target.health.pct<=25)&trinket.stacking_proc.multistrike.remains>=execute_time|trinket.stacking_proc.multistrike.down|!trinket.has_stacking_proc.multistrike)";
     action_list_str += "/touch_of_chaos,cycle_targets=1,if=buff.metamorphosis.up&dot.corruption.remains<17.4&demonic_fury>750";
     action_list_str += "/touch_of_chaos,if=buff.metamorphosis.up";
-    action_list_str += "/metamorphosis,if=buff.dark_soul.remains>gcd&(demonic_fury>300|!glyph.dark_soul.enabled)&(demonic_fury>=80&buff.molten_core.stack>=1|demonic_fury>=40)";
+    action_list_str += "/metamorphosis,if=buff.dark_soul.remains>gcd&(time>6|debuff.shadowflame.stack=2)&(demonic_fury>300|!glyph.dark_soul.enabled)&(demonic_fury>=80&buff.molten_core.stack>=1|demonic_fury>=40)";
     if (find_item("draenic_philosophers_stone"))
     {
       action_list_str += "/metamorphosis,if=(trinket.stacking_proc.multistrike.react|trinket.proc.any.react|buff.draenor_philosophers_stone_int.react)&((demonic_fury>450&action.dark_soul.recharge_time>=10&glyph.dark_soul.enabled)|(demonic_fury>650&cooldown.dark_soul.remains>=10))";
