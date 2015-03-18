@@ -563,7 +563,14 @@ js::sc_js_t to_json( const scaling_t& o )
 js::sc_js_t to_json( const plot_t& o )
 {
   js::sc_js_t node;
-  // TODO
+  node.set( "dps_plot_stat_str", o.dps_plot_stat_str );
+  node.set( "dps_plot_step", o.dps_plot_step );
+  node.set( "dps_plot_points", o.dps_plot_points );
+  node.set( "dps_plot_iterations", o.dps_plot_iterations );
+  node.set( "dps_plot_target_error", o.dps_plot_target_error );
+  node.set( "dps_plot_debug", o.dps_plot_debug );
+  node.set( "dps_plot_positive", o.dps_plot_positive );
+  node.set( "dps_plot_negative", o.dps_plot_negative );
   return node;
 }
 
