@@ -9,6 +9,8 @@
 #include "util/rapidjson/stringbuffer.h"
 #include "util/rapidjson/prettywriter.h"
 #include <utility>
+#include <string>
+#include <vector>
 
 namespace js
 {

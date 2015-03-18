@@ -526,7 +526,23 @@ js::sc_js_t to_json( const raid_event_t& re )
 {
   js::sc_js_t node;
   node.set( "name", re.name() );
-  // TODO
+  node.set( "first", to_json(re.first) );
+  node.set( "last", to_json(re.last) );
+  node.set( "next", to_json(re.next) );
+  node.set( "cooldown", to_json(re.cooldown) );
+  node.set( "cooldown_stddev", to_json(re.cooldown_stddev) );
+  node.set( "cooldown_min", to_json(re.cooldown_min) );
+  node.set( "cooldown_max", to_json(re.cooldown_max) );
+  node.set( "duration", to_json(re.duration) );
+  node.set( "duration_stddev", to_json(re.duration_stddev) );
+  node.set( "duration_min", to_json(re.duration_min) );
+  node.set( "duration_max", to_json(re.duration_max) );
+  node.set( "distance_min", re.distance_min );
+  node.set( "distance_max", re.distance_max );
+  node.set( "players_only", re.players_only );
+  node.set( "player_chance", re.player_chance );
+  node.set( "affected_role", util::role_type_string(re.affected_role) );
+  node.set( "saved_duration", to_json(re.saved_duration) );
   return node;
 }
 
