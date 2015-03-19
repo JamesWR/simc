@@ -446,9 +446,6 @@ public:
     proc_t* ready_blood;
     proc_t* ready_frost;
     proc_t* ready_unholy;
-
-    proc_t* reaping_bug_blood;
-    proc_t* reaping_bug_frost;
   } procs;
 
   real_ppm_t t15_2pc_melee;
@@ -2383,156 +2380,6 @@ struct death_knight_action_t : public Base
 
   virtual expr_t* create_expression( const std::string& name_str );
 
-  ///////////////////////////////////////////////////////////////////////////
-  // Reaping rules (for Unholy?)
-  //
-  // Base cost type reaping:
-  // =======================
-  // Blood = Blood > Frost
-  // Frost = Frost > Blood
-  //
-  // Rune state reaping:
-  // ===================
-  // Depleted > Recharging > Full
-  //
-  // Unholy (death) runes never reap back to Unholy (death) runes.
-  //
-  // Returns the slot number reaped, or -1 if nothing could be reaped
-  int reap_priorization( rune_type rt )
-  {
-    unsigned base_rune_idx = 0;
-    if ( rt == RUNE_TYPE_FROST )
-    {
-      base_rune_idx = 2;
-    }
-
-    // First, check if we have 0, 1, or 2 death runes in priority order based
-    // on base cost type
-    unsigned n_death = 0;
-
-    n_death += p() -> _runes.slot[ base_rune_idx ].is_death();
-    n_death += p() -> _runes.slot[ base_rune_idx + 1 ].is_death();
-
-    // Two death runes already for the selected base rune type, reap nothing
-    if ( n_death == 2 )
-    {
-      return -1;
-    }
-    // One death rune, reap the other regardless of what state it is in
-    else if ( n_death == 1 )
-    {
-      if ( ! p() -> _runes.slot[ base_rune_idx ].is_death() )
-      {
-        p() -> _runes.slot[ base_rune_idx ].type |= RUNE_TYPE_DEATH;
-        return base_rune_idx;
-      }
-      else
-      {
-        p() -> _runes.slot[ base_rune_idx + 1 ].type |= RUNE_TYPE_DEATH;
-        return base_rune_idx + 1;
-      }
-    }
-    // No death runes, reap in priority depleted > recharging > ready.
-    else
-    {
-      // First rune is in "lower state" than the second rune. Reap it.
-      if ( p() -> _runes.slot[ base_rune_idx ].state <
-           p() -> _runes.slot[ base_rune_idx + 1 ].state )
-      {
-        p() -> _runes.slot[ base_rune_idx ].type |= RUNE_TYPE_DEATH;
-        return base_rune_idx;
-      }
-      // Second rune is in "lower state" than the second rune. Reap it.
-      else if ( p() -> _runes.slot[ base_rune_idx + 1 ].state <
-                p() -> _runes.slot[ base_rune_idx ].state )
-      {
-        p() -> _runes.slot[ base_rune_idx + 1 ].type |= RUNE_TYPE_DEATH;
-        return base_rune_idx + 1;
-      }
-      // Both depleted, can be possible in suitable rune condition with 2 rune
-      // abilities. Reap the first rune.
-      else if ( p() -> _runes.slot[ base_rune_idx ].is_depleted() &&
-                p() -> _runes.slot[ base_rune_idx + 1 ].is_depleted() )
-      {
-        p() -> _runes.slot[ base_rune_idx ].type |= RUNE_TYPE_DEATH;
-        return base_rune_idx;
-      }
-      // Both full, can be possible in suitable rune condition, for example
-      // AOEing. Reap first rune.
-      else if ( p() -> _runes.slot[ base_rune_idx ].is_ready() &&
-                p() -> _runes.slot[ base_rune_idx + 1 ].is_ready() )
-      {
-        p() -> _runes.slot[ base_rune_idx ].type |= RUNE_TYPE_DEATH;
-        return base_rune_idx;
-      }
-      // Otherwise, the rune state is somehow broken.
-      else
-      {
-        assert( 0 );
-      }
-    }
-
-    return -1;
-  }
-
-  // Reap runes. Unholy only method to model the reaping bug.
-  bool reap_runes( const rune_t& consumed_rune,
-                   const rune_consume_data_t& use_data )
-  {
-    return false; // Fixed in 6.1, leaving code here just in case it comes back... maybe?
-
-    if ( ! p() -> spec.reaping -> ok() )
-    {
-      return false;
-    }
-
-    int reaped = -1;
-
-    // Blood base costs will be reaped in the order of Blood > Frost, no matter
-    // if the spent rune is a Blood, Frost(death), or Unholy(death) rune.
-    if ( use_data.second == RUNE_TYPE_BLOOD )
-    {
-      reaped = reap_priorization( RUNE_TYPE_BLOOD );
-      if ( reaped == -1 )
-        reaped = reap_priorization( RUNE_TYPE_FROST );
-    }
-    // Frost base costs will be reaped in the order of Frost > Blood, no matter
-    // if the spent rune is a Frost, Blood(death), or Unholy(Death) rune.
-    else if ( use_data.second == RUNE_TYPE_FROST )
-    {
-      reaped = reap_priorization( RUNE_TYPE_FROST );
-      if ( reaped == -1 )
-        reaped = reap_priorization( RUNE_TYPE_BLOOD );
-    }
-
-    // Keep track of reaping bugs
-    if ( ( consumed_rune.is_blood() || consumed_rune.is_unholy() ) &&
-         ( reaped == 2 || reaped == 3 ) )
-    {
-      p() -> procs.reaping_bug_frost -> occur();
-      if ( p() -> sim -> debug )
-      {
-        p() -> sim -> out_debug.printf( "%s reaping bug, used rune %d (death), changed rune %d (frost) to death",
-            p() -> name(), consumed_rune.slot_number, reaped );
-      }
-    }
-    else if ( ( consumed_rune.is_frost() || consumed_rune.is_unholy() ) &&
-         ( reaped == 0 || reaped == 1 ) )
-    {
-      p() -> procs.reaping_bug_blood -> occur();
-      if ( p() -> sim -> debug )
-      {
-        p() -> sim -> out_debug.printf( "%s reaping bug, used rune %d (death), changed rune %d (blood) to death",
-            p() -> name(), consumed_rune.slot_number, reaped );
-      }
-    }
-
-    // We can also fall back here, if no runes can be converted (everything is
-    // a death rune already).
-
-    return true;
-  }
-
   // Consume Runes ============================================================
 
   void consume_runes( const rune_consume_t& use, bool convert_runes = false )
@@ -2563,13 +2410,7 @@ struct death_knight_action_t : public Base
       // Not the type it is after consumption
       int consumed_type = p() -> _runes.slot[ i ].type;
 
-      // Consume the rune, and potentially reap it. Reaping requires some
-      // trickery
-      p() -> _runes.slot[ i ].consume( 0 );
-      if ( convert_runes && ! reap_runes( rune, use[ i ] ) )
-      {
-        p() -> _runes.slot[ i ].type |= RUNE_TYPE_DEATH;
-      }
+      p() -> _runes.slot[ i ].consume( convert_runes );
 
       if ( p() -> sim -> log )
         p() -> sim -> out_log.printf( "%s consumes rune #%d, type %d", p() -> name(), i, consumed_type );
@@ -7185,9 +7026,6 @@ void death_knight_t::init_procs()
   procs.ready_blood              = get_proc( "Blood runes ready" );
   procs.ready_frost              = get_proc( "Frost runes ready" );
   procs.ready_unholy             = get_proc( "Unholy runes ready" );
-
-  procs.reaping_bug_blood        = get_proc( "Reaping bug: Blood" );
-  procs.reaping_bug_frost        = get_proc( "Reaping bug: Frost" );
 }
 
 // death_knight_t::init_resources ===========================================
