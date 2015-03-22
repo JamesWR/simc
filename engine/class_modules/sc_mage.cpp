@@ -15,6 +15,17 @@ namespace { // UNNAMED NAMESPACE
 // ==========================================================================
 
 struct mage_t;
+
+// Forcibly reset mage's current target, if it dies.
+struct current_target_reset_cb_t
+{
+  mage_t* mage;
+
+  current_target_reset_cb_t( player_t* m );
+
+  void operator()();
+};
+
 namespace actions {
 struct ignite_t;
 } // actions
@@ -341,6 +352,35 @@ public:
     regen_type = REGEN_DYNAMIC;
     regen_caches[ CACHE_HASTE ] = true;
     regen_caches[ CACHE_SPELL_HASTE ] = true;
+
+    // Forcibly reset mage's current target, if it dies.
+    struct current_target_reset_cb_t
+    {
+      mage_t* mage;
+
+      current_target_reset_cb_t( mage_t* m ) : mage( m )
+      { }
+
+      void operator()()
+      {
+        for ( size_t i = 0, end = mage -> sim -> target_non_sleeping_list.size(); i < end; ++i )
+        {
+          // If the mage's current target is still alive, bail out early.
+          if ( mage -> current_target == mage -> sim -> target_non_sleeping_list[ i ] )
+          {
+            return;
+          }
+        }
+
+        if ( mage -> sim -> debug )
+        {
+          mage -> sim -> out_debug.printf( "%s current target %s died. Resetting target to %s.",
+              mage -> name(), mage -> current_target -> name(), mage -> target -> name() );
+        }
+
+        mage -> current_target = mage -> target;
+      }
+    };
   }
 
   // Character Definition
@@ -400,6 +440,30 @@ public:
 
   std::string       get_potion_action();
 };
+
+inline current_target_reset_cb_t::current_target_reset_cb_t( player_t* m ):
+  mage( debug_cast<mage_t*>( m ) )
+{ }
+
+inline void current_target_reset_cb_t::operator()()
+{
+  for ( size_t i = 0, end = mage -> sim -> target_non_sleeping_list.size(); i < end; ++i )
+  {
+    // If the mage's current target is still alive, bail out early.
+    if ( mage -> current_target == mage -> sim -> target_non_sleeping_list[ i ] )
+    {
+      return;
+    }
+  }
+
+  if ( mage -> sim -> debug )
+  {
+    mage -> sim -> out_debug.printf( "%s current target %s died. Resetting target to %s.",
+        mage -> name(), mage -> current_target -> name(), mage -> target -> name() );
+  }
+
+  mage -> current_target = mage -> target;
+}
 
 namespace pets {
 
@@ -3898,20 +3962,34 @@ struct prismatic_crystal_t : public mage_spell_t
 
 struct choose_target_t : public action_t
 {
+  enum target_if_mode_e
+  {
+    TARGET_IF_NONE,
+    TARGET_IF_FIRST,
+    TARGET_IF_MIN,
+    TARGET_IF_MAX
+  };
+
   bool check_selected;
   player_t* selected_target;
 
   // Infinite loop protection
   timespan_t last_execute;
 
+  std::string target_if_str;
+  expr_t* target_if_expr;
+  target_if_mode_e target_if_mode;
+
   choose_target_t( mage_t* p, const std::string& options_str ) :
     action_t( ACTION_OTHER, "choose_target", p ),
     check_selected( false ), selected_target( 0 ),
-    last_execute( timespan_t::min() )
+    last_execute( timespan_t::min() ),
+    target_if_expr( 0 ), target_if_mode( TARGET_IF_NONE )
   {
     std::string target_name;
 
     add_option( opt_string( "name", target_name ) );
+    add_option( opt_string( "target_if", target_if_str ) );
     add_option( opt_bool( "check_selected", check_selected ) );
     parse_options( options_str );
 
@@ -3926,13 +4004,134 @@ struct choose_target_t : public action_t
     else
       selected_target = p -> target;
 
-    if ( ! selected_target )
+    if ( ! selected_target && target_if_str.empty() )
       background = true;
 
     trigger_gcd = timespan_t::zero();
 
     harmful = may_miss = may_crit = callbacks = false;
     ignore_false_positive = true;
+
+    std::string::size_type offset = target_if_str.find( ':' );
+    if ( offset != std::string::npos )
+    {
+      std::string target_if_type_str = target_if_str.substr( 0, offset );
+      target_if_str.erase( 0, offset + 1 );
+      if ( util::str_compare_ci( target_if_type_str, "max" ) )
+      {
+        target_if_mode = TARGET_IF_MAX;
+      }
+      else if ( util::str_compare_ci( target_if_type_str, "min" ) )
+      {
+        target_if_mode = TARGET_IF_MIN;
+      }
+      else if ( util::str_compare_ci( target_if_type_str, "first" ) )
+      {
+        target_if_mode = TARGET_IF_FIRST;
+      }
+      else
+      {
+        sim -> errorf( "%s unknown target_if mode '%s' for choose_target. Valid values are 'min', 'max', 'first'.",
+            player -> name(), target_if_type_str.c_str() );
+        background = true;
+      }
+    }
+    else if ( ! target_if_str.empty() )
+    {
+      target_if_mode = TARGET_IF_FIRST;
+    }
+  }
+
+  ~choose_target_t()
+  { delete target_if_expr; }
+
+  size_t available_targets( std::vector< player_t* >& tl ) const
+  {
+    mage_t* p = debug_cast<mage_t*>( player );
+
+    tl.clear();
+    if ( ! target -> is_sleeping() )
+      tl.push_back( target );
+
+    for ( size_t i = 0, actors = sim -> target_non_sleeping_list.size(); i < actors; i++ )
+    {
+      player_t* t = sim -> target_non_sleeping_list[ i ];
+
+      if ( t != target )
+        tl.push_back( t );
+    }
+
+    if ( target != p -> pets.prismatic_crystal && ! p -> pets.prismatic_crystal -> is_sleeping() )
+      tl.push_back( p -> pets.prismatic_crystal );
+
+    return tl.size();
+  }
+
+  player_t* select_target_if_target()
+  {
+    if ( target_if_mode == TARGET_IF_NONE || target_list().size() == 1 )
+    {
+      return 0;
+    }
+
+    mage_t* p = debug_cast<mage_t*>( player );
+
+    player_t* original_target = target;
+    player_t* proposed_target = p -> current_target;
+
+    target = p -> current_target;
+    double current_target_v = target_if_expr -> evaluate();
+
+    double max_ = current_target_v;
+    double min_ = current_target_v;
+    for ( size_t i = 0, end = target_list().size(); i < end; ++i )
+    {
+      target = target_list()[ i ];
+
+      // No need to check current target
+      if ( target == p -> current_target )
+      {
+        continue;
+      }
+
+      double v = target_if_expr -> evaluate();
+
+      // Don't swap to targets that evaluate to identical value than the current target
+      if ( v == current_target_v )
+      {
+        continue;
+      }
+
+      if ( target_if_mode == TARGET_IF_FIRST && v != 0 )
+      {
+        proposed_target = target;
+        break;
+      }
+      else if ( target_if_mode == TARGET_IF_MAX && v > max_ )
+      {
+        max_ = v;
+        proposed_target = target;
+      }
+      else if ( target_if_mode == TARGET_IF_MIN && v < min_ )
+      {
+        min_ = v;
+        proposed_target = target;
+      }
+    }
+
+    target = original_target;
+
+    return proposed_target;
+  }
+
+  void init()
+  {
+    action_t::init();
+
+    if ( ! target_if_str.empty() )
+    {
+      target_if_expr = expr_t::parse( this, target_if_str, sim -> optimize_expressions );
+    }
   }
 
   result_e calculate_result( action_state_t* )
@@ -3946,12 +4145,13 @@ struct choose_target_t : public action_t
     action_t::execute();
 
     mage_t* p = debug_cast<mage_t*>( player );
+    assert( ! target_if_expr || ( selected_target == select_target_if_target() ) );
 
     if ( sim -> current_time() == last_execute )
     {
       sim -> errorf( "%s choose_target infinite loop detected (due to no time passing between executes) at '%s'",
         p -> name(), signature_str.c_str() );
-      sim -> cancel();
+      sim -> abort();
       return;
     }
 
@@ -3970,6 +4170,15 @@ struct choose_target_t : public action_t
   bool ready()
   {
     mage_t* p = debug_cast<mage_t*>( player );
+
+    if ( target_if_mode != TARGET_IF_NONE )
+    {
+      selected_target = select_target_if_target();
+      if ( selected_target == 0 )
+      {
+        return false;
+      }
+    }
 
     // Safeguard stupidly against breaking the sim.
     if ( selected_target -> is_sleeping() )
@@ -4697,6 +4906,10 @@ void mage_t::init_stats()
     haste += perks.improved_icy_veins -> effectN( 1 ).percent();
   }
   iv_haste = 1.0 / ( 1.0 + haste );
+
+  // Register target reset callback here (anywhere later on than in constructor) so older GCCs are
+  // happy
+  sim -> target_non_sleeping_list.register_callback( current_target_reset_cb_t( this ) );
 }
 
 // mage_t::init_actions =====================================================
@@ -4997,6 +5210,7 @@ void mage_t::apl_fire()
 
   action_priority_list_t* crystal_sequence    = get_action_priority_list( "crystal_sequence"  );
   action_priority_list_t* init_combust        = get_action_priority_list( "init_combust"      );
+  action_priority_list_t* t17_2pc_combust     = get_action_priority_list( "t17_2pc_combust"   );
   action_priority_list_t* combust_sequence    = get_action_priority_list( "combust_sequence"  );
   action_priority_list_t* active_talents      = get_action_priority_list( "active_talents"    );
   action_priority_list_t* living_bomb         = get_action_priority_list( "living_bomb"       );
@@ -5016,6 +5230,7 @@ void mage_t::apl_fire()
                               "if=buff.ice_floes.down&(raid_event.movement.distance>0|raid_event.movement.in<action.fireball.cast_time)" );
   default_list -> add_talent( this, "Rune of Power",
                               "if=buff.rune_of_power.remains<cast_time" );
+  default_list -> add_action( "call_action_list,name=t17_2pc_combust,if=set_bonus.tier17_2pc&pyro_chain&(active_enemies>1|(talent.prismatic_crystal.enabled&cooldown.prismatic_crystal.remains>15))" );
   default_list -> add_action( "call_action_list,name=combust_sequence,if=pyro_chain" );
   default_list -> add_action( "call_action_list,name=crystal_sequence,if=talent.prismatic_crystal.enabled&pet.prismatic_crystal.active" );
   default_list -> add_action( "call_action_list,name=init_combust,if=!pyro_chain" );
@@ -5029,10 +5244,15 @@ void mage_t::apl_fire()
 
 
   // TODO: Add multi LB explosions on multitarget fights.
+  crystal_sequence -> add_action( "choose_target,name=prismatic_crystal",
+                                  "Action list while Prismatic Crystal is up" );
   crystal_sequence -> add_action( this, "Inferno Blast",
-                                  "cycle_targets=1,if=dot.combustion.ticking&active_dot.combustion<active_enemies+1",
-                                  "Action list while Prismatic Crystal is up\n"
-                                  "# Spread Combustion from PC; \"active_enemies+1\" because PC is not counted" );
+                                  "if=dot.combustion.ticking&active_dot.combustion<active_enemies+1",
+                                  "Spread Combustion from PC" );
+  crystal_sequence -> add_action( this, "Inferno Blast",
+                                  "cycle_targets=1,if=dot.combustion.ticking&active_dot.combustion<active_enemies",
+                                  "Spread Combustion on multitarget fights" );
+  crystal_sequence -> add_talent( this, "Blast Wave" );
   crystal_sequence -> add_action( this, "Pyroblast",
                                   "if=execute_time=gcd.max&pet.prismatic_crystal.remains<gcd.max+travel_time&pet.prismatic_crystal.remains>travel_time",
                                   "Use pyros before PC's expiration" );
@@ -5043,14 +5263,68 @@ void mage_t::apl_fire()
                               "Combustion sequence initialization\n"
                               "# This sequence lists the requirements for preparing a Combustion combo with each talent choice\n"
                               "# Meteor Combustion" );
-  init_combust -> add_action( "start_pyro_chain,if=talent.prismatic_crystal.enabled&cooldown.prismatic_crystal.up&((cooldown.combustion.remains<gcd.max*2&buff.pyroblast.up&(buff.heating_up.up^action.fireball.in_flight))|(buff.pyromaniac.up&(cooldown.combustion.remains<ceil(buff.pyromaniac.remains%gcd.max)*gcd.max)))",
-                              "Prismatic Crystal Combustion" );
-  init_combust -> add_action( "start_pyro_chain,if=talent.prismatic_crystal.enabled&!glyph.combustion.enabled&cooldown.prismatic_crystal.remains>20&((cooldown.combustion.remains<gcd.max*2&buff.pyroblast.up&buff.heating_up.up&action.fireball.in_flight)|(buff.pyromaniac.up&(cooldown.combustion.remains<ceil(buff.pyromaniac.remains%gcd.max)*gcd.max)))" );
+  init_combust -> add_action( "start_pyro_chain,if=talent.prismatic_crystal.enabled&!set_bonus.tier17_2pc&cooldown.prismatic_crystal.up&((cooldown.combustion.remains<gcd.max*2&buff.pyroblast.up&(buff.heating_up.up^action.fireball.in_flight))|(buff.pyromaniac.up&(cooldown.combustion.remains<ceil(buff.pyromaniac.remains%gcd.max)*gcd.max)))",
+                              "Prismatic Crystal Combustion without 2T17" );
+  init_combust -> add_action( "start_pyro_chain,if=talent.prismatic_crystal.enabled&set_bonus.tier17_2pc&cooldown.prismatic_crystal.up&cooldown.combustion.remains<gcd.max*2&buff.pyroblast.up&(buff.heating_up.up^action.fireball.in_flight)",
+                              "Prismatic Crystal Combustion with 2T17" );
+  init_combust -> add_action( "start_pyro_chain,if=talent.prismatic_crystal.enabled&!glyph.combustion.enabled&cooldown.prismatic_crystal.remains>20&((cooldown.combustion.remains<gcd.max*2&buff.pyroblast.up&buff.heating_up.up&action.fireball.in_flight)|(buff.pyromaniac.up&(cooldown.combustion.remains<ceil(buff.pyromaniac.remains%gcd.max)*gcd.max)))",
+                              "Unglyphed Combustions between Prismatic Crystals" );
   init_combust -> add_action( "start_pyro_chain,if=!talent.prismatic_crystal.enabled&!talent.meteor.enabled&((cooldown.combustion.remains<gcd.max*4&buff.pyroblast.up&buff.heating_up.up&action.fireball.in_flight)|(buff.pyromaniac.up&cooldown.combustion.remains<ceil(buff.pyromaniac.remains%gcd.max)*(gcd.max+talent.kindling.enabled)))",
                               "Kindling or Level 90 Combustion" );
 
 
-  combust_sequence -> add_action( "stop_pyro_chain,if=cooldown.combustion.duration-cooldown.combustion.remains<15",
+  t17_2pc_combust -> add_action( "stop_pyro_chain,if=prev.combustion",
+                                 "2T17 two-target Combustion sequence" );
+  t17_2pc_combust -> add_talent( this, "Prismatic Crystal" );
+
+  for( size_t i = 0; i < racial_actions.size(); i++ )
+    t17_2pc_combust -> add_action( racial_actions[i] );
+  for( size_t i = 0; i < item_actions.size(); i++ )
+    t17_2pc_combust -> add_action( item_actions[i] );
+  t17_2pc_combust -> add_action( get_potion_action() );
+
+  t17_2pc_combust -> add_action( this, "Inferno Blast",
+                                 "if=prev_gcd.inferno_blast",
+                                 "Second pre-combust IB" );
+  t17_2pc_combust -> add_action( this, "Inferno Blast",
+                                 "if=charges_fractional>=2-(gcd.max%8)&((buff.pyroblast.down&buff.pyromaniac.down)|(current_target=prismatic_crystal&pet.prismatic_crystal.remains*2<gcd.max*5))",
+                                 "First pre-combust IB" );
+  t17_2pc_combust -> add_action( "choose_target,target_if=max:dot.ignite.tick_dmg,if=prev_gcd.inferno_blast",
+                                 "Search for enemy with highest ignite for Combustion" );
+  t17_2pc_combust -> add_action( this, "Pyroblast",
+                                 "if=prev_gcd.inferno_blast&execute_time=gcd.max&dot.ignite.tick_dmg*100*gcd.max<hit_damage*(100+crit_pct_current)*mastery_value",
+                                 "Failsafe: Pyroblast after double IB if ignite ticks are low" );
+  t17_2pc_combust -> add_action( this, "Combustion",
+                                 "if=prev_gcd.inferno_blast",
+                                 "Combustion; Will only trigger post double IB" );
+  t17_2pc_combust -> add_action( this, "Combustion",
+                                 "if=prev_gcd.pyroblast&action.inferno_blast.charges=0" );
+  t17_2pc_combust -> add_talent( this, "Meteor",
+                                 "if=active_enemies<=2&prev_gcd.pyroblast" );
+  t17_2pc_combust -> add_action( this, "Pyroblast",
+                                 "if=buff.pyroblast.up&buff.heating_up.up&action.fireball.in_flight" );
+  t17_2pc_combust -> add_action( this, "Fireball",
+                                 "if=!dot.ignite.ticking&!in_flight",
+                                 "Initial Fireball" );
+  t17_2pc_combust -> add_action( this, "Pyroblast",
+                                 "if=set_bonus.tier17_4pc&buff.pyromaniac.up" );
+  t17_2pc_combust -> add_action( this, "Fireball",
+                                 "if=buff.pyroblast.up&buff.heating_up.down&dot.ignite.tick_dmg*100*(execute_time+travel_time)<hit_damage*(100+crit_pct_current)*mastery_value&(!current_target=prismatic_crystal|pet.prismatic_crystal.remains>6)",
+                                 "Conditional second Fireball" );
+  t17_2pc_combust -> add_action( this, "Pyroblast",
+                                 "if=current_target=prismatic_crystal&pet.prismatic_crystal.remains<gcd.max*4&execute_time=gcd.max",
+                                 "Pyroblast trigger due to Prismatic Crystal's limited duration" );
+  t17_2pc_combust -> add_action( this, "Pyroblast",
+                                 "if=buff.pyroblast.up&action.inferno_blast.charges_fractional>=2-(gcd.max%4)&(current_target!=prismatic_crystal|pet.prismatic_crystal.remains<8)&prev_gcd.pyroblast",
+                                 "Final Pyroblast spam before double IB" );
+
+  t17_2pc_combust -> add_action( this, "Inferno Blast",
+                                 "if=buff.pyroblast.down&buff.heating_up.down&prev_gcd.pyroblast",
+                                 "Failsafe: use IB before combusting anyway if double non-crit happens early" );
+  t17_2pc_combust -> add_action( this, "Fireball" );
+
+
+  combust_sequence -> add_action( "stop_pyro_chain,if=prev.combustion",
                                   "Combustion Sequence" );
   combust_sequence -> add_talent( this, "Prismatic Crystal" );
 
@@ -5068,10 +5342,12 @@ void mage_t::apl_fire()
   combust_sequence -> add_action( this, "Fireball",
                                   "if=!dot.ignite.ticking&!in_flight" );
   combust_sequence -> add_action( this, "Pyroblast",
-                                  "if=buff.pyroblast.up" );
+                                  "if=buff.pyroblast.up&dot.ignite.tick_dmg*(6-dot.ignite.ticks_remain)<crit_damage*mastery_value" );
   combust_sequence -> add_action( this, "Inferno Blast",
                                   "if=talent.meteor.enabled&cooldown.meteor.duration-cooldown.meteor.remains<gcd.max*3",
                                   "Meteor Combustions can run out of Pyro procs before impact. Use IB to delay Combustion" );
+  combust_sequence -> add_action( this, "Inferno Blast",
+                                  "if=dot.ignite.tick_dmg*(6-dot.ignite.ticks_remain)<crit_damage*mastery_value" );
   combust_sequence -> add_action( this, "Combustion" );
 
 
@@ -5080,7 +5356,7 @@ void mage_t::apl_fire()
                                 "Active talents usage" );
   active_talents -> add_action( "call_action_list,name=living_bomb,if=talent.living_bomb.enabled" );
   active_talents -> add_talent( this, "Blast Wave",
-                                "if=(!talent.incanters_flow.enabled|buff.incanters_flow.stack>=4)&(time_to_die<10|!talent.prismatic_crystal.enabled|(charges=1&cooldown.prismatic_crystal.remains>recharge_time)|charges=2|current_target=prismatic_crystal)" );
+                                "if=(!talent.incanters_flow.enabled|buff.incanters_flow.stack>=4)&(time_to_die<10|!talent.prismatic_crystal.enabled|(charges>=1&cooldown.prismatic_crystal.remains>recharge_time))" );
 
 
   living_bomb -> add_action( this, "Inferno Blast",
@@ -5120,15 +5396,17 @@ void mage_t::apl_fire()
                                "if=buff.pyroblast.up&buff.heating_up.up&action.fireball.in_flight",
                                "Pyro camp during regular sequence; Do not use Pyro procs without HU and first using fireball" );
   single_target -> add_action( this, "Pyroblast",
-                               "if=set_bonus.tier17_2pc&buff.pyroblast.up&cooldown.combustion.remains>8&action.inferno_blast.charges_fractional>0.85",
+                               "if=set_bonus.tier17_2pc&buff.pyroblast.up&cooldown.combustion.remains>8&action.inferno_blast.charges_fractional>1-(gcd.max%8)",
                                "Aggressively use Pyro with 2T17 and IB available" );
   single_target -> add_action( this, "Inferno Blast",
-                               "if=buff.pyroblast.down&buff.heating_up.up" );
+                               "if=(cooldown.combustion.remains%8+charges_fractional>=2|!set_bonus.tier17_2pc|!(active_enemies>1|talent.prismatic_crystal.enabled))&buff.pyroblast.down&buff.heating_up.up",
+                               "Heating Up conversion to Pyroblast" );
   single_target -> add_action( "call_action_list,name=active_talents" );
   single_target -> add_action( this, "Inferno Blast",
-                               "if=buff.pyroblast.up&buff.heating_up.down&!action.fireball.in_flight" );
+                               "if=(cooldown.combustion.remains%8+charges_fractional>=2|!set_bonus.tier17_2pc|!(active_enemies>1|talent.prismatic_crystal.enabled))&buff.pyroblast.up&buff.heating_up.down&!action.fireball.in_flight",
+                               "Adding Heating Up to Pyroblast" );
   single_target -> add_action( this, "Inferno Blast",
-                               "if=set_bonus.tier17_2pc&charges_fractional>1.85",
+                               "if=set_bonus.tier17_2pc&(cooldown.combustion.remains%8+charges_fractional>2|!set_bonus.tier17_2pc|!(active_enemies>1|talent.prismatic_crystal.enabled))&charges_fractional>2-(gcd.max%8)",
                                "Aggressively use IB with 2T17" );
   single_target -> add_action( this, "Fireball" );
   single_target -> add_action( this, "Scorch", "moving=1" );
@@ -5620,25 +5898,66 @@ expr_t* mage_t::create_expression( action_t* a, const std::string& name_str )
       expr_t( n ), mage( m ) {}
   };
 
-  if ( util::str_compare_ci( name_str, "current_target" ) )
+  // Current target expression support
+  // "current_target" returns the actor id of the mage's current target
+  // "current_target.<some other expression>" evaluates <some other expression> on the current
+  // target of the mage
+  if ( util::str_in_str_ci( name_str, "current_target" ) )
   {
-    struct current_target_expr_t : public mage_expr_t
+    std::string::size_type offset = name_str.find( '.' );
+    if ( offset != std::string::npos )
     {
-      current_target_expr_t( const std::string& n, mage_t& m ) :
-        mage_expr_t( n, m )
-      { }
-
-      double evaluate()
+      struct current_target_wrapper_expr_t : public target_wrapper_expr_t
       {
-        return mage.current_target ? static_cast<double>( mage.current_target -> actor_index ) : 0;
-      }
-    };
+        mage_t& mage;
 
-    return new current_target_expr_t( name_str, *this );
+        current_target_wrapper_expr_t( action_t& action, const std::string& suffix_expr_str ) :
+          target_wrapper_expr_t( action, "current_target_wrapper_expr_t", suffix_expr_str ),
+          mage( static_cast<mage_t&>( *action.player ) )
+        { }
+
+        player_t* target() const
+        { assert( mage.current_target ); return mage.current_target; }
+      };
+
+      return new current_target_wrapper_expr_t( *a, name_str.substr( offset + 1 ) );
+    }
+    else
+    {
+      struct current_target_expr_t : public mage_expr_t
+      {
+        current_target_expr_t( const std::string& n, mage_t& m ) :
+          mage_expr_t( n, m )
+        { }
+
+        double evaluate()
+        {
+          assert( mage.current_target );
+          return static_cast<double>( mage.current_target -> actor_index );
+        }
+      };
+
+      return new current_target_expr_t( name_str, *this );
+    }
   }
 
+  // Default target expression support
+  // "default_target" returns the actor id of the mage's default target (typically the first enemy
+  // in the sim, e.g. fluffy_pillow)
+  // "default_target.<some other expression>" evaluates <some other expression> on the default
+  // target of the mage
   if ( util::str_compare_ci( name_str, "default_target" ) )
-    return make_ref_expr( name_str, target -> actor_index );
+  {
+    std::string::size_type offset = name_str.find( '.' );
+    if ( offset != std::string::npos )
+    {
+      return target -> create_expression( a, name_str.substr( offset + 1 ) );
+    }
+    else
+    {
+      return make_ref_expr( name_str, target -> actor_index );
+    }
+  }
 
   // Incanters flow direction
   // Evaluates to:  0.0 if IF talent not chosen or IF stack unchanged

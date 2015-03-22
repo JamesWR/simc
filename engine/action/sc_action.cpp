@@ -104,6 +104,20 @@ struct action_execute_event_t : public player_event_t
     // action -> pre_execute_state.
     if ( execute_state )
     {
+      if ( action -> sim -> fancy_target_distance_stuff )
+      {
+        if ( action -> execute_time() != timespan_t::zero() )
+        { // No need to recheck if the execute time was zero.
+          if ( action -> range > 0.0 )
+          {
+            if ( target -> get_position_distance( action -> player -> x_position, action -> player -> y_position ) > action -> range )
+            { // Target is now out of range, we cannot finish the cast.
+              action -> interrupt_action();
+              return;
+            }
+          }
+        }
+      }
       target = execute_state -> target;
       action -> pre_execute_state = execute_state;
       execute_state = 0;
@@ -276,6 +290,7 @@ action_t::action_t( action_e       ty,
   min_gcd( timespan_t() ),
   trigger_gcd( player -> base_gcd ),
   range(),
+  radius(),
   weapon_power_mod(),
   attack_power_mod(),
   spell_power_mod(),
@@ -536,6 +551,7 @@ void action_t::parse_effect_data( const spelleffect_data_t& spelleffect_data )
     case E_HEALTH_LEECH:
       spell_power_mod.direct  = spelleffect_data.sp_coeff();
       attack_power_mod.direct = spelleffect_data.ap_coeff();
+      radius                  = spelleffect_data.radius_max();
       amount_delta            = spelleffect_data.m_delta();
       base_dd_min      = player -> dbc.effect_min( spelleffect_data.id(), player -> level );
       base_dd_max      = player -> dbc.effect_max( spelleffect_data.id(), player -> level );
@@ -842,7 +858,7 @@ double action_t::calculate_tick_amount( action_state_t* state, double dot_multip
   if ( sim -> debug )
   {
     sim -> out_debug.printf( "%s amount for %s on %s: ta=%.0f i_ta=%.0f b_ta=%.0f bonus_ta=%.0f s_mod=%.2f s_power=%.0f a_mod=%.2f a_power=%.0f mult=%.2f, tick_mult=%.2f",
-                   player -> name(), name(), target -> name(), amount,
+                   player -> name(), name(), state -> target -> name(), amount,
                    init_tick_amount, base_ta( state ), bonus_ta( state ),
                    spell_tick_power_coefficient( state ), state -> composite_spell_power(),
                    attack_tick_power_coefficient( state ), state -> composite_attack_power(),
@@ -1784,6 +1800,15 @@ bool action_t::ready()
     target = saved_target;
 
     return false;
+  }
+
+  if ( sim -> fancy_target_distance_stuff )
+  {
+    if ( range > 0 )
+    {
+      if ( target -> get_position_distance( player -> x_position, player -> y_position ) > range )
+        return false;
+    }
   }
 
   if ( target -> debuffs.invulnerable -> check() && harmful )
@@ -2763,6 +2788,24 @@ void action_t::schedule_travel( action_state_t* s )
 
 void action_t::impact( action_state_t* s )
 {
+  if ( sim -> fancy_target_distance_stuff && is_aoe() )
+  {
+    if ( radius > 0 || range > 0 )
+    {
+      if ( dot_duration == timespan_t::zero() ) // Dot applications were already checked in ready, no need to check them again.
+      {
+        double distance_from_target = s -> target -> get_position_distance( player -> x_position, player -> y_position );
+        if ( radius > 0 ) // Check radius first.
+        {
+          if ( distance_from_target > radius )
+            return;
+        }
+        else if ( distance_from_target > range )
+          return;
+      }
+    }
+  }
+
   assess_damage( ( type == ACTION_HEAL || type == ACTION_ABSORB ) ? HEAL_DIRECT : DMG_DIRECT, s );
 
   if ( result_is_hit( s -> result ) )

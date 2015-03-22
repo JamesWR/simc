@@ -1301,6 +1301,7 @@ bool str_prefix_ci ( const std::string& str, const std::string& prefix );
 double floor( double X, unsigned int decplaces = 0 );
 double ceil( double X, unsigned int decplaces = 0 );
 double round( double X, unsigned int decplaces = 0 );
+double approx_sqrt( double X );
 double get_avg_itemlvl( const player_t* p );
 
 std::string& tolower( std::string& str );
@@ -2258,6 +2259,21 @@ private:
 
 };
 
+struct target_wrapper_expr_t : public expr_t
+{
+  action_t& action;
+  std::vector<expr_t*> proxy_expr;
+  std::string suffix_expr_str;
+// Template to return a function expression
+  // Inlined
+  target_wrapper_expr_t( action_t& a, const std::string& name_str, const std::string& expr_str );
+  virtual player_t* target() const;
+  double evaluate();
+
+  ~target_wrapper_expr_t()
+  { range::dispose( proxy_expr ); }
+};
+
 // Template to return a function expression
 template <typename F>
 inline expr_t* make_fn_expr( const std::string& name, F f )
@@ -2334,11 +2350,18 @@ struct iteration_data_entry_t
 {
   double   metric;
   uint64_t seed;
-  uint64_t target_health;
+  std::vector <uint64_t> target_health;
 
   iteration_data_entry_t( double m, uint64_t s, uint64_t h ) :
-    metric( m ), seed( s ), target_health( h )
+    metric( m ), seed( s )
+  { target_health.push_back( h ); }
+
+  iteration_data_entry_t( double m, uint64_t s ) :
+    metric( m ), seed( s )
   { }
+
+  void add_health( uint64_t h )
+  { target_health.push_back( h ); }
 };
 
 // Simulation Setup =========================================================
@@ -2719,7 +2742,7 @@ struct sim_t : private sc_thread_t
 
     // Misc stuff needs resolving
     int    bloodlust;
-    double target_health;
+    std::vector<uint64_t> target_health;
   } overrides;
 
   // Auras
@@ -2805,6 +2828,7 @@ struct sim_t : private sc_thread_t
   bool maximize_reporting;
   std::string apikey;
   bool ilevel_raid_report;
+  bool fancy_target_distance_stuff;
 
   sim_report_information_t report_information;
 
@@ -2915,6 +2939,7 @@ struct sim_t : private sc_thread_t
   mutex_t* pause_mutex;
   bool paused;
   std::string highcharts_str;
+  void abort();
 private:
   void do_pause();
 
@@ -5284,6 +5309,7 @@ private:
   {
     if ( ( yards >= current.distance_to_move ) && current.moving_away <= 0 )
     {
+      x_position += current.distance_to_move;
       current.distance_to_move = 0;
       current.movement_direction = MOVEMENT_NONE;
       buffs.raid_movement -> expire();
@@ -5292,11 +5318,13 @@ private:
     {
       if ( current.moving_away > 0 )
       {
+        x_position -= yards;
         current.moving_away -= yards;
         current.distance_to_move += yards;
       }
       else
       {
+        x_position += yards;
         current.moving_away = 0;
         current.distance_to_move -= yards;
       }
@@ -5780,6 +5808,7 @@ struct action_t : public noncopyable
   double rp_gain;
   timespan_t min_gcd, trigger_gcd;
   double range;
+  double radius;
   double weapon_power_mod;
   struct {
   double direct, tick;
@@ -6719,8 +6748,8 @@ public:
   real_ppm_t() :
     player( 0 ), freq( 0 ), modifier( 0 ), rppm( 0 ),
     last_trigger_attempt( timespan_t::from_seconds( -10.0 ) ),
-    last_successful_trigger( timespan_t::from_seconds( -120.0 ) ),
-    initial_precombat_time( timespan_t::from_seconds( -120.0 ) ), // Assume 2 min out of combat before pull, as that's what blizzard caps it at.
+    last_successful_trigger( timespan_t::from_seconds( -180.0 ) ),
+    initial_precombat_time( timespan_t::from_seconds( -180.0 ) ),
     scales_with( RPPM_NONE )
   { }
 
@@ -6730,8 +6759,9 @@ public:
     modifier( p.dbc.rppm_coefficient( p.specialization(), spell_id ) ),
     rppm( freq * modifier ),
     last_trigger_attempt( timespan_t::from_seconds( -10.0 ) ),
-    last_successful_trigger( timespan_t::from_seconds( -120.0 ) ),
-    initial_precombat_time( timespan_t::from_seconds( -120.0 ) ), // Assume 2 min out of combat before pull, as that's what blizzard caps it at.
+    last_successful_trigger( timespan_t::from_seconds( -180.0 ) ), // Blizz done lied to us, or changed it without telling. After going through a lot of logs,
+                                                                   // it seems that it's actually 3 minutes for the precombat timer.
+    initial_precombat_time( timespan_t::from_seconds( -180.0 ) ),
     scales_with( s )
   { }
 
@@ -7582,6 +7612,31 @@ inline void player_t::do_dynamic_regen()
     }
   }
 }
+
+inline target_wrapper_expr_t::target_wrapper_expr_t( action_t& a, const std::string& name_str, const std::string& expr_str ) :
+  expr_t( name_str ), action( a ), suffix_expr_str( expr_str )
+{
+  proxy_expr.resize( action.sim -> actor_list.size() + 1, 0 );
+}
+/* Simple String to Number function, using stringstream
+inline double target_wrapper_expr_t::evaluate()
+{
+  assert( target() );
+ * This will NOT translate all numbers in the string to a number,
+  size_t actor_index = target() -> actor_index;
+ * but stops at the first non-numeric character.
+  if ( proxy_expr[ actor_index ] == 0 )
+  {
+    proxy_expr[ actor_index ] = target() -> create_expression( &( action ), suffix_expr_str );
+  }
+ */
+  std::cout << "target_wrapper_expr_t " << name() << " evaluate " << target() -> name() << " " <<  proxy_expr[ actor_index ] -> eval() << std::endl;
+
+  return proxy_expr[ actor_index ] -> eval();
+}
+
+inline player_t* target_wrapper_expr_t::target() const
+{ return action.target; }
 
 /* Simple String to Number function, using stringstream
  * This will NOT translate all numbers in the string to a number,
