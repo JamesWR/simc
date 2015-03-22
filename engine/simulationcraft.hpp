@@ -2709,7 +2709,7 @@ struct sim_t : private sc_thread_t
   // Random Number Generation
   rng_t* _rng;
   std::string rng_str;
-  uint64_t rng_seed;
+  uint64_t seed;
   int deterministic;
   int average_range, average_gauss;
   int convergence_scale;
@@ -7618,18 +7618,19 @@ inline target_wrapper_expr_t::target_wrapper_expr_t( action_t& a, const std::str
 {
   proxy_expr.resize( action.sim -> actor_list.size() + 1, 0 );
 }
-/* Simple String to Number function, using stringstream
+
+// Simple String to Number function, using stringstream
 inline double target_wrapper_expr_t::evaluate()
 {
   assert( target() );
- * This will NOT translate all numbers in the string to a number,
+ // This will NOT translate all numbers in the string to a number,
   size_t actor_index = target() -> actor_index;
- * but stops at the first non-numeric character.
+ // but stops at the first non-numeric character.
   if ( proxy_expr[ actor_index ] == 0 )
   {
     proxy_expr[ actor_index ] = target() -> create_expression( &( action ), suffix_expr_str );
   }
- */
+
   std::cout << "target_wrapper_expr_t " << name() << " evaluate " << target() -> name() << " " <<  proxy_expr[ actor_index ] -> eval() << std::endl;
 
   return proxy_expr[ actor_index ] -> eval();
