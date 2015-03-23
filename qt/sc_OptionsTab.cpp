@@ -6,6 +6,7 @@
 #include "simulationcraft.hpp"
 #include "simulationcraftqt.hpp"
 #include "sc_OptionsTab.hpp"
+#include "sc_SimulateTab.hpp"
 #include "util/sc_mainwindowcommandline.hpp"
 #include <QtCore/QDateTime>
 
@@ -1035,7 +1036,7 @@ QString SC_OptionsTab::get_globalSettings()
 
   if ( choice.deterministic_rng->currentIndex() == 0 )
   {
-    options += "deterministic_rng=1\n";
+    options += "deterministic=1\n";
   }
 
   return options;

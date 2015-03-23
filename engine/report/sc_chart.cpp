@@ -824,9 +824,10 @@ bool chart::generate_scaling_plot( highchart::chart_t& ac, const player_t* p, sc
     ac.add_simple_series( "", "", util::stat_type_abbrev( i ), data );
   }
 
-
   return true;
 }
+
+// chart::generate_scale_factors ===========================================
 
 bool chart::generate_scale_factors( highchart::bar_chart_t& bc, const player_t* p, scale_metric_e metric )
 {

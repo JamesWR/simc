@@ -1,10 +1,19 @@
-#ifndef SC_OPTIONSTAB_HPP
-#define SC_OPTIONSTAB_HPP
+// ==========================================================================
+// Dedmonwakeen's Raid DPS/TPS Simulator.
+// Send questions to natehieter@gmail.com
+// ==========================================================================
+#pragma once
+#include "config.hpp"
 
-#include <QtWidgets/QtWidgets>
+#include <QtWidgets/QTabWidget>
 
 class SC_MainWindow;
 class SC_ReforgeButtonGroup;
+class QComboBox;
+class QButtonGroup;
+class QLineEdit;
+class QListWidget;
+class QFormLayout;
 
 // ============================================================================
 // SC_OptionsTabWidget
@@ -101,5 +110,3 @@ signals:
   void armory_region_changed( const QString& );
   void optionsChanged(); // FIXME: hookup to everything
 };
-
-#endif // SC_OPTIONSTAB_HPP
