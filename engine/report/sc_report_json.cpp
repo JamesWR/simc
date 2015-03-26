@@ -475,6 +475,22 @@ js::sc_js_t to_json( const pet_t& p )
   return node;
 }
 
+js::sc_js_t to_json( const dbc_t& dbc )
+{
+  js::sc_js_t node;
+  bool versions[] =
+  { false, true };
+  for ( const auto& ptr : versions )
+  {
+    js::sc_js_t subnode;
+    subnode.set( "build_level", dbc::build_level( ptr ) );
+    subnode.set( "wow_version", dbc::wow_version( ptr ) );
+    node.set( dbc::wow_ptr_status( ptr ), subnode );
+  }
+  node.set( "version_used", dbc::wow_ptr_status( dbc.ptr ) );
+  return node;
+}
+
 js::sc_js_t to_json( const player_t& p )
 {
   js::sc_js_t node;
@@ -491,13 +507,30 @@ js::sc_js_t to_json( const player_t& p )
   node.set( "death_pct", p.death_pct );
   node.set( "size", p.size );
   node.set( "potion_used", p.potion_used );
-  // TODO
-  node.set( "collected_data", to_json( p.collected_data ) );
-  // TODO
+  node.set( "timeofday", (p.timeofday == player_t::NIGHT_TIME ? "NIGHT_TIME" : "DAY_TIME") );
+  node.set( "gcd_ready", to_json( p.gcd_ready ) );
+  node.set( "base_gcd", to_json( p.base_gcd ) );
+  node.set( "started_waiting", to_json( p.started_waiting ) );
   for ( const auto& pet : p.pet_list )
   {
     node.add( "pets", to_json( *pet ) );
   }
+  node.set( "invert_scaling", p.invert_scaling );
+  node.set( "reaction_offset", to_json( p.reaction_offset ) );
+  node.set( "reaction_mean", to_json( p.reaction_mean ) );
+  node.set( "reaction_stddev", to_json( p.reaction_stddev ) );
+  node.set( "reaction_nu", to_json( p.reaction_nu ) );
+  node.set( "world_lag", to_json( p.world_lag ) );
+  node.set( "world_lag_stddev", to_json( p.world_lag_stddev ) );
+  node.set( "brain_lag", to_json( p.brain_lag ) );
+  node.set( "brain_lag_stddev", to_json( p.brain_lag_stddev ) );
+  node.set( "world_lag_override", p.world_lag_override );
+  node.set( "world_lag_stddev_override", p.world_lag_stddev_override );
+  node.set( "dbc", to_json( p.dbc ) );
+
+  // TODO
+  node.set( "collected_data", to_json( p.collected_data ) );
+  // TODO
 
   for ( const auto& buff : p.buff_list )
   {
@@ -515,22 +548,6 @@ js::sc_js_t to_json( const player_t& p )
   {
     node.add( "stats", to_json( *stat ) );
   }
-  return node;
-}
-
-js::sc_js_t to_json( const dbc_t& dbc )
-{
-  js::sc_js_t node;
-  bool versions[] =
-  { false, true };
-  for ( const auto& ptr : versions )
-  {
-    js::sc_js_t subnode;
-    subnode.set( "build_level", dbc::build_level( ptr ) );
-    subnode.set( "wow_version", dbc::wow_version( ptr ) );
-    node.set( dbc::wow_ptr_status( ptr ), subnode );
-  }
-  node.set( "version_used", dbc::wow_ptr_status( dbc.ptr ) );
   return node;
 }
 
