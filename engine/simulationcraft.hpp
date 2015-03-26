@@ -4210,7 +4210,7 @@ struct player_collected_data_t
     const player_t* target;
     const timespan_t time;
     timespan_t wait_time;
-    std::vector<std::pair<buff_t*, int> > buff_list;
+    std::vector<std::pair<buff_t*, int> > buff_list; // second: current stack of the buff
     std::array<double, RESOURCE_MAX> resource_snapshot;
     std::array<double, RESOURCE_MAX> resource_max_snapshot;
 

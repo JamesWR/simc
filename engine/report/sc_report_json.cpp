@@ -348,8 +348,26 @@ js::sc_js_t to_json( const player_collected_data_t::action_sequence_data_t& asd 
     node.set( "wait_time", to_json( asd.wait_time ) );
 
   }
-  // TODO print resources
-  // TODO print buffs
+  for( const auto& buff : asd.buff_list ) {
+    js::sc_js_t bnode;
+    bnode.set( "name", buff.first -> name() );
+    bnode.set( "stacks", buff.second );
+    node.add( "buffs", bnode );
+  }
+  for ( resource_e r = RESOURCE_NONE; r < RESOURCE_MAX; ++r )
+  {
+    js::sc_js_t rnode;
+    rnode.set( "resource", util::resource_type_string( r ) );
+    rnode.set( "value", asd.resource_snapshot[r] );
+    node.add( "resource_snapshot", rnode );
+  }
+  for ( resource_e r = RESOURCE_NONE; r < RESOURCE_MAX; ++r )
+  {
+    js::sc_js_t rnode;
+    rnode.set( "resource", util::resource_type_string( r ) );
+    rnode.set( "value", asd.resource_max_snapshot[r] );
+    node.add( "resource_max_snapshot", rnode );
+  }
 
   return node;
 }
@@ -512,6 +530,7 @@ js::sc_js_t to_json( const dbc_t& dbc )
     subnode.set( "wow_version", dbc::wow_version( ptr ) );
     node.set( dbc::wow_ptr_status( ptr ), subnode );
   }
+  node.set( "version_used", dbc::wow_ptr_status( dbc.ptr ) );
   return node;
 }
 
@@ -581,10 +600,12 @@ js::sc_js_t to_json( const reforge_plot_t& o )
   return node;
 }
 
-js::sc_js_t to_json( const iteration_data_entry_t& o )
+js::sc_js_t to_json( const iteration_data_entry_t& ide )
 {
   js::sc_js_t node;
-  // TODO
+  node.set( "metric", ide.metric );
+  node.set( "seed", ide.seed );
+  node.set( "target_health", ide.target_health );
   return node;
 }
 
