@@ -4,7 +4,7 @@
 #ifndef ptr_MAX_CLASS
 #define ptr_MAX_CLASS (12)
 #endif
-// Class based active abilities, wow build 19783
+// Class based active abilities, wow build 19802
 static unsigned __ptr_class_ability_data[][PTR_CLASS_ABILITY_TREE_SIZE][PTR_CLASS_ABILITY_SIZE] = {
   {
     {
@@ -28,7 +28,7 @@ static unsigned __ptr_class_ability_data[][PTR_CLASS_ABILITY_TREE_SIZE][PTR_CLAS
   },
   // Class active abilities for Warrior
   {
-    // General tree, 23 abilities
+    // General tree, 26 abilities
     {
         6673, // Battle Shout
         2457, // Battle Stance
@@ -37,16 +37,19 @@ static unsigned __ptr_class_ability_data[][PTR_CLASS_ABILITY_TREE_SIZE][PTR_CLAS
          469, // Commanding Shout
       175708, // Concussion Blow
           71, // Defensive Stance
+      163558, // Execute Off-Hand
         1715, // Hamstring
         6544, // Heroic Leap
           78, // Heroic Strike
        57755, // Heroic Throw
+      118340, // Impending Victory (Talent)
         3411, // Intervene
         5246, // Intimidating Shout
         6552, // Pummel
       156287, // Ravager
        64382, // Shattering Throw
       112048, // Shield Barrier
+      156321, // Shield Charge
       176318, // Siegebreaker Off-Hand
        23920, // Spell Reflection
       145585, // Storm Bolt Off-Hand
@@ -107,7 +110,7 @@ static unsigned __ptr_class_ability_data[][PTR_CLASS_ABILITY_TREE_SIZE][PTR_CLAS
   },
   // Class active abilities for Paladin
   {
-    // General tree, 25 abilities
+    // General tree, 26 abilities
     {
       114919, // Arcing Light
        20217, // Blessing of Kings
@@ -120,6 +123,7 @@ static unsigned __ptr_class_ability_data[][PTR_CLASS_ABILITY_TREE_SIZE][PTR_CLAS
        24275, // Hammer of Wrath
        53595, // Hammer of the Righteous
         1044, // Hand of Freedom
+       96172, // Hand of Light
         1022, // Hand of Protection
         6940, // Hand of Sacrifice
       130552, // Harsh Word
@@ -307,9 +311,10 @@ static unsigned __ptr_class_ability_data[][PTR_CLASS_ABILITY_TREE_SIZE][PTR_CLAS
   },
   // Class active abilities for Rogue
   {
-    // General tree, 29 abilities
+    // General tree, 30 abilities
     {
         8676, // Ambush
+       22482, // Blade Flurry
         2094, // Blind
         1833, // Cheap Shot
        31224, // Cloak of Shadows
@@ -722,7 +727,7 @@ static unsigned __ptr_class_ability_data[][PTR_CLASS_ABILITY_TREE_SIZE][PTR_CLAS
       104773, // Unending Resolve
            0,
     },
-    // Affliction tree, 12 abilities
+    // Affliction tree, 11 abilities
     {
          980, // Agony
       113860, // Dark Soul: Misery
@@ -731,7 +736,6 @@ static unsigned __ptr_class_ability_data[][PTR_CLASS_ABILITY_TREE_SIZE][PTR_CLAS
        48181, // Haunt
          755, // Health Funnel
         1454, // Life Tap
-      114790, // Seed of Corruption
        27243, // Seed of Corruption
        86121, // Soul Swap
        74434, // Soulburn
@@ -777,7 +781,7 @@ static unsigned __ptr_class_ability_data[][PTR_CLASS_ABILITY_TREE_SIZE][PTR_CLAS
     {
            0,
     },
-    // Pet tree, 33 abilities
+    // Pet tree, 32 abilities
     {
        89766, // Axe Toss (Special Ability)
       115748, // Bladedance (Basic Attack)
@@ -788,7 +792,6 @@ static unsigned __ptr_class_ability_data[][PTR_CLASS_ABILITY_TREE_SIZE][PTR_CLAS
        19658, // Devour Magic
        85692, // Doom Bolt
       115746, // Felbolt (Basic Attack)
-      115770, // Fellash (Special Ability)
        89751, // Felstorm (Special Ability)
         3110, // Firebolt (Basic Attack)
        89792, // Flee (Special Ability)
@@ -803,6 +806,7 @@ static unsigned __ptr_class_ability_data[][PTR_CLASS_ABILITY_TREE_SIZE][PTR_CLAS
       171138, // Shadow Lock (Special Ability)
       115232, // Shadow Shield (Special Ability)
        89808, // Singe Magic (Special Ability)
+      166864, // Soul Fire
        19647, // Spell Lock (Special Ability)
        17735, // Suffering (Special Ability)
       134477, // Threatening Presence (Special Ability)
@@ -811,7 +815,6 @@ static unsigned __ptr_class_ability_data[][PTR_CLASS_ABILITY_TREE_SIZE][PTR_CLAS
       171021, // Torch Magic (Special Ability)
         3716, // Torment (Basic Attack)
         6360, // Whiplash (Special Ability)
-      115831, // Wrathstorm (Special Ability)
            0,
     },
   },
@@ -877,11 +880,10 @@ static unsigned __ptr_class_ability_data[][PTR_CLASS_ABILITY_TREE_SIZE][PTR_CLAS
       116670, // Uplift
            0,
     },
-    // Windwalker tree, 13 abilities
+    // Windwalker tree, 12 abilities
     {
       116768, // Combo Breaker: Blackout Kick
       159407, // Combo Breaker: Chi Explosion
-      118864, // Combo Breaker: Tiger Palm
       116095, // Disable
       115288, // Energizing Brew
       113656, // Fists of Fury
@@ -993,10 +995,9 @@ static unsigned __ptr_class_ability_data[][PTR_CLASS_ABILITY_TREE_SIZE][PTR_CLAS
       145205, // Wild Mushroom
            0,
     },
-    // Pet tree, 2 abilities
+    // Pet tree, 1 abilities
     {
       150017, // Rake
-      113769, // Wrath
            0,
     },
   },
@@ -1004,7 +1005,7 @@ static unsigned __ptr_class_ability_data[][PTR_CLASS_ABILITY_TREE_SIZE][PTR_CLAS
 
 #define PTR_TREE_SPECIALIZATION_SIZE (28)
 
-// Talent tree specialization abilities, wow build 19783
+// Talent tree specialization abilities, wow build 19802
 static unsigned __ptr_tree_specialization_data[][MAX_SPECS_PER_CLASS][PTR_TREE_SPECIALIZATION_SIZE] = {
   // Specialization abilities for Hunter pets
   {
@@ -1945,7 +1946,7 @@ static unsigned __ptr_tree_specialization_data[][MAX_SPECS_PER_CLASS][PTR_TREE_S
 
 #define PTR_CLASS_MASTERY_ABILITY_SIZE (1)
 
-// Class mastery abilities, wow build 19783
+// Class mastery abilities, wow build 19802
 static unsigned __ptr_class_mastery_ability_data[MAX_CLASS][MAX_SPECS_PER_CLASS][PTR_CLASS_MASTERY_ABILITY_SIZE] = {
   {
     {
@@ -2168,7 +2169,7 @@ static unsigned __ptr_class_mastery_ability_data[MAX_CLASS][MAX_SPECS_PER_CLASS]
 #define ptr_MAX_RACE (28)
 #endif
 
-// Racial abilities, wow build 19783
+// Racial abilities, wow build 19802
 static unsigned __ptr_race_ability_data[ptr_MAX_RACE][ptr_MAX_CLASS][PTR_RACE_ABILITY_SIZE] = {
   {
     {     0, },
@@ -2891,7 +2892,7 @@ static unsigned __ptr_race_ability_data[ptr_MAX_RACE][ptr_MAX_CLASS][PTR_RACE_AB
 
 #define PTR_GLYPH_ABILITIES_SIZE (41)
 
-// Glyph spells for classes, wow build 19783
+// Glyph spells for classes, wow build 19802
 static unsigned __ptr_glyph_abilities_data[][3][PTR_GLYPH_ABILITIES_SIZE] = {
   {
     {
@@ -3531,7 +3532,7 @@ static unsigned __ptr_glyph_abilities_data[][3][PTR_GLYPH_ABILITIES_SIZE] = {
 
 #define PTR_TIER_BONUSES_TIER_BASE (13)
 
-// Tier item set bonuses for class, wow build 19783
+// Tier item set bonuses for class, wow build 19802
 static unsigned __ptr_tier_bonuses_data[][PTR_TIER_BONUSES_MAX_TIER][PTR_TIER_BONUSES_SIZE] = {
   {
     {
@@ -3956,7 +3957,7 @@ static unsigned __ptr_tier_bonuses_data[][PTR_TIER_BONUSES_MAX_TIER][PTR_TIER_BO
 
 #define PTR_SET_BONUS_DATA_SIZE (382)
 
-// Set bonus data, wow build 19783
+// Set bonus data, wow build 19802
 static item_set_bonus_t __ptr_set_bonus_data[PTR_SET_BONUS_DATA_SIZE] = {
   // Set bonus name                              ,      OptName, EnumID, SetID, Tier, Bns, Cls,         Derived Spec, Role, Spec,  Spell, Items
   { "Gladiator's Battlegear"                     ,        "pvp",      0,  1230,    0,   2,   1,              {   0 },    0,   73, 165641, { 111239, 111240, 111241, 111242, 111243,  0 } },
@@ -4360,7 +4361,7 @@ static item_set_bonus_t __ptr_set_bonus_data[PTR_SET_BONUS_DATA_SIZE] = {
 
 #define PTR_PERK_SIZE (4)
 
-// Perk specialization abilities, wow build 19783
+// Perk specialization abilities, wow build 19802
 static unsigned __ptr_perk_data[][MAX_SPECS_PER_CLASS][PTR_PERK_SIZE] = {
   {
     {
@@ -4668,7 +4669,7 @@ static unsigned __ptr_perk_data[][MAX_SPECS_PER_CLASS][PTR_PERK_SIZE] = {
   },
 };
 
-// Glyph properties, wow build 19783
+// Glyph properties, wow build 19802
 static glyph_property_data_t __ptr_glyph_property_data[485] = {
   {   162,  54811 },
   {   163,  54812 },

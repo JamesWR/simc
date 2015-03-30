@@ -880,7 +880,7 @@ bool chart::generate_scale_factors( highchart::bar_chart_t& bc, const player_t* 
   bc.add_simple_series( "bar", color::class_color( p -> type ), util::scale_metric_type_abbrev( metric ) + std::string( " per point" ), data );
   bc.add_simple_series( "errorbar", "", "Error", error );
 
-  // Enable datalabels on the second series (the actual scale factor mean)
+
   //bc.set( "series.0.dataLabels.enabled", false );
   //bc.set( "series.0.dataLabels.format", "{point.y:." + util::to_string( p -> sim -> report_precision ) + "f}" );
   //bc.set( "series.0.dataLabels.y", -2 );

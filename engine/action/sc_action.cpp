@@ -355,7 +355,7 @@ action_t::action_t( action_e       ty,
   tick_action                    = NULL;
   execute_action                 = NULL;
   impact_action                  = NULL;
-  dynamic_tick_action            = false;
+  dynamic_tick_action            = true; // WoD updates everything on tick by default. If you need snapshotted values for a periodic effect, use persistent multipliers.
   starved_proc                   = NULL;
   action_skill                   = player -> base.skill;
 
@@ -2996,7 +2996,8 @@ bool action_t::consume_cost_per_second( timespan_t tick_time )
                                cost, util::resource_type_string( r ),
                                name(), player -> resources.current[ r ] );
     }
-    double resource_consumed = player -> resource_loss( r, cost, nullptr, this );
+
+    resource_consumed = player -> resource_loss( r, cost, nullptr, this );
     stats -> consume_resource( r, resource_consumed );
 
     if ( sim -> log )
@@ -3019,7 +3020,6 @@ bool action_t::consume_cost_per_second( timespan_t tick_time )
   }
 
   return true;
-
 }
 
 action_cost_tick_event_t::action_cost_tick_event_t( action_t& a, timespan_t time_to_tick ) :

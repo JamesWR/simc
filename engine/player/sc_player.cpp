@@ -2767,7 +2767,8 @@ double player_t::composite_leech() const
 
 double player_t::composite_run_speed() const
 {
-  return composite_speed_rating() / current.rating.speed;
+  // speed DRs using the following formula:
+  return 1.0 / ( 1 / 0.29 + ( current.rating.speed * 100 ) / composite_speed_rating() );
 }
 
 // player_t::composite_avoidance ================================================
@@ -4368,7 +4369,7 @@ timespan_t player_t::time_to_percent( double percent ) const
   if ( iteration_dmg_taken > 0.0 && resources.base[RESOURCE_HEALTH] > 0 && sim -> current_time() >= timespan_t::from_seconds( 1.0 ) )
     ttp = ( resources.current[RESOURCE_HEALTH] - ( percent * 0.01 * resources.base[RESOURCE_HEALTH] ) ) / ( iteration_dmg_taken / sim -> current_time().total_seconds() );
   else
-    ttp = ( sim -> expected_iteration_time - sim -> current_time() ).total_seconds() * ( 100 - percent );
+    ttp = ( sim -> expected_iteration_time - sim -> current_time() ).total_seconds() * ( 100 - percent ) * 0.01;
 
   time_to_percent = timespan_t::from_seconds( ttp );
 
@@ -8364,6 +8365,8 @@ bool player_t::create_profile( std::string& profile_str, save_e stype, bool save
     }
 
     profile_str += "\n# Gear Summary" + term;
+    double avg_ilvl = util::get_avg_itemlvl( this );
+    profile_str += "# gear_ilvl=" + util::to_string( avg_ilvl, 2 ) + term;
     for ( stat_e i = STAT_NONE; i < STAT_MAX; i++ )
     {
       double value = total_gear.get_stat( i );

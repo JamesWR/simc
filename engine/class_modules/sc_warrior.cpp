@@ -1088,13 +1088,14 @@ struct melee_t: public warrior_attack_t
   {
     warrior_attack_t::impact( s );
 
+    // Sudden death procs on everything except a miss.
+    if ( sudden_death && s -> result != RESULT_MISS && p() -> rppm.sudden_death -> trigger() )
+    {
+      p() -> buff.sudden_death -> trigger();
+    }
     if ( result_is_hit( s -> result ) || result_is_block( s -> block_result ) )
     {
       trigger_rage_gain( s );
-      if ( sudden_death && p() -> rppm.sudden_death -> trigger() )
-      {
-        p() -> buff.sudden_death -> trigger();
-      }
       if ( p() -> active.enhanced_rend )
       {
         if ( td( s -> target ) -> dots_rend -> is_ticking() )
@@ -1627,11 +1628,11 @@ struct execute_off_hand_t: public warrior_attack_t
     may_miss = may_dodge = may_parry = may_block = false;
     weapon = &( p -> off_hand_weapon );
 
-    if ( p -> wod_hotfix )
-    { weapon_multiplier = 3.5; } // Hotfix from 2015-02-27, Fury only.
     if ( p -> main_hand_weapon.group() == WEAPON_1H &&
          p -> off_hand_weapon.group() == WEAPON_1H )
-    { weapon_multiplier *= 1.0 + p -> spec.singleminded_fury -> effectN( 3 ).percent(); }
+    {
+      weapon_multiplier *= 1.0 + p -> spec.singleminded_fury -> effectN( 3 ).percent();
+    }
 
     weapon_multiplier *= 1.0 + p -> perk.empowered_execute -> effectN( 1 ).percent();
   }
@@ -1650,9 +1651,6 @@ struct execute_t: public warrior_attack_t
 
     sudden_death_rage = 30;
 
-    if ( p -> wod_hotfix && p -> specialization() != WARRIOR_ARMS )
-    { weapon_multiplier = 3.5; } // Hotfix from 2015-02-27, Fury/Prot only.
-
     if ( p -> spec.crazed_berserker -> ok() )
     {
       oh_attack = new execute_off_hand_t( p, "execute_oh", p -> find_spell( 163558 ) );
@@ -1663,8 +1661,6 @@ struct execute_t: public warrior_attack_t
     }
     else if ( p -> specialization() == WARRIOR_ARMS )
     {
-      if ( p -> wod_hotfix )
-      { weapon_multiplier = 1.35; } // Was hotfixed sometime during PTR.
       sudden_death_rage = 10;
     }
 
@@ -1705,7 +1701,7 @@ struct execute_t: public warrior_attack_t
     if ( p() -> buff.tier16_4pc_death_sentence -> up() && target -> health_percentage() < 20 )
       c *= 1.0 + p() -> buff.tier16_4pc_death_sentence -> data().effectN( 2 ).percent();
 
-    if ( p() -> buff.sudden_death -> up() && c > 0.0 )
+    if ( p() -> buff.sudden_death -> check() && c > 0.0 )
     {
       if ( p() -> mastery.weapons_master -> ok() && target -> health_percentage() < 20 )
       {
@@ -4503,7 +4499,7 @@ struct warrior_real_ppm_t: public Base
 struct sudden_death_t: public warrior_real_ppm_t < real_ppm_t >
 {
   sudden_death_t( warrior_t& p ):
-    base_t( p, real_ppm_t( p, 2.5, RPPM_HASTE ) )
+    base_t( p, real_ppm_t( p, p.talents.sudden_death -> real_ppm(), RPPM_HASTE ) )
   {}
 };
 };

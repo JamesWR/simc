@@ -39,7 +39,7 @@ actions+=/call_action_list,name=init_combust,if=!pyro_chain
 # Utilize level 90 active talents while avoiding pyro munching
 actions+=/rune_of_power,if=buff.rune_of_power.remains<action.fireball.execute_time+gcd.max&!(buff.heating_up.up&action.fireball.in_flight)
 actions+=/mirror_image,if=!(buff.heating_up.up&action.fireball.in_flight)
-actions+=/call_action_list,name=aoe,if=active_enemies>=4
+actions+=/call_action_list,name=aoe,if=active_enemies>10
 actions+=/call_action_list,name=single_target
 
 # Action list while Prismatic Crystal is up
@@ -82,8 +82,8 @@ actions.t17_2pc_combust+=/choose_target,target_if=max:dot.ignite.tick_dmg,if=pre
 # Failsafe: Pyroblast after double IB if ignite ticks are low
 actions.t17_2pc_combust+=/pyroblast,if=prev_gcd.inferno_blast&execute_time=gcd.max&dot.ignite.tick_dmg*(6-ceil(dot.ignite.remains-travel_time))*100<hit_damage*(100+crit_pct_current)*mastery_value
 # Combustion; Will only trigger post double IB
-actions.t17_2pc_combust+=/combustion,if=prev_gcd.inferno_blast
-actions.t17_2pc_combust+=/combustion,if=prev_gcd.pyroblast&action.inferno_blast.charges=0
+actions.t17_2pc_combust+=/combustion,if=prev_gcd.inferno_blast&pyro_chain_duration>gcd.max
+actions.t17_2pc_combust+=/combustion,if=prev_gcd.pyroblast&action.inferno_blast.charges=0&pyro_chain_duration>gcd.max
 actions.t17_2pc_combust+=/meteor,if=active_enemies<=2&prev_gcd.pyroblast
 actions.t17_2pc_combust+=/pyroblast,if=buff.pyroblast.up&buff.heating_up.up&action.fireball.in_flight
 # Initial Fireball
@@ -106,7 +106,7 @@ actions.combust_sequence+=/blood_fury
 actions.combust_sequence+=/berserking
 actions.combust_sequence+=/arcane_torrent
 actions.combust_sequence+=/potion,name=draenic_intellect
-actions.combust_sequence+=/meteor
+actions.combust_sequence+=/meteor,if=active_enemies<=2
 actions.combust_sequence+=/pyroblast,if=set_bonus.tier17_4pc&buff.pyromaniac.up
 actions.combust_sequence+=/inferno_blast,if=set_bonus.tier16_4pc_caster&(buff.pyroblast.up^buff.heating_up.up)
 actions.combust_sequence+=/fireball,if=!dot.ignite.ticking&!in_flight
@@ -117,13 +117,13 @@ actions.combust_sequence+=/inferno_blast,if=dot.ignite.tick_dmg*(6-dot.ignite.ti
 actions.combust_sequence+=/combustion
 
 # Active talents usage
-actions.active_talents=meteor,if=active_enemies>=5|(glyph.combustion.enabled&(!talent.incanters_flow.enabled|buff.incanters_flow.stack+incanters_flow_dir>=4)&cooldown.meteor.duration-cooldown.combustion.remains<10)
+actions.active_talents=meteor,if=active_enemies>=3|(glyph.combustion.enabled&(!talent.incanters_flow.enabled|buff.incanters_flow.stack+incanters_flow_dir>=4)&cooldown.meteor.duration-cooldown.combustion.remains<10)
 actions.active_talents+=/call_action_list,name=living_bomb,if=talent.living_bomb.enabled
-actions.active_talents+=/blast_wave,if=(!talent.incanters_flow.enabled|buff.incanters_flow.stack>=4)&(time_to_die<10|!talent.prismatic_crystal.enabled|(charges>=1&cooldown.prismatic_crystal.remains>recharge_time))
+actions.active_talents+=/blast_wave,if=(!talent.incanters_flow.enabled|buff.incanters_flow.stack>=4)&(target.time_to_die<10|!talent.prismatic_crystal.enabled|(charges>=1&cooldown.prismatic_crystal.remains>recharge_time))
 
 # Living Bomb application
 actions.living_bomb=inferno_blast,cycle_targets=1,if=dot.living_bomb.ticking&active_dot.living_bomb<active_enemies
-actions.living_bomb+=/living_bomb,cycle_targets=1,if=target!=prismatic_crystal&(active_dot.living_bomb=0|(ticking&active_dot.living_bomb=1))&(((!talent.incanters_flow.enabled|incanters_flow_dir<0|buff.incanters_flow.stack=5)&remains<3.6)|((incanters_flow_dir>0|buff.incanters_flow.stack=1)&remains<gcd.max))&target.time_to_die>remains+12
+actions.living_bomb+=/living_bomb,cycle_targets=1,if=target!=prismatic_crystal&(active_dot.living_bomb=0|(ticking&active_dot.living_bomb=1))&(((!talent.incanters_flow.enabled|incanters_flow_dir<0|buff.incanters_flow.stack=5)&remains<3.6)|((incanters_flow_dir>0|buff.incanters_flow.stack=1)&remains<gcd.max))&target.target.time_to_die>remains+12
 
 # AoE sequence
 actions.aoe=inferno_blast,cycle_targets=1,if=(dot.combustion.ticking&active_dot.combustion<active_enemies)|(dot.pyroblast.ticking&active_dot.pyroblast<active_enemies)
@@ -164,22 +164,23 @@ hands=arcanoshatter_gloves,id=115552,bonus_id=42/562/565/567,gem_id=115809
 waist=seeking_ember_girdle,id=113941,bonus_id=42/562/565/567,gem_id=115809
 legs=turret_mechanics_legwraps,id=113970,bonus_id=42/562/565/567,gem_id=115809
 feet=cavedwellers_climbers,id=113864,bonus_id=42/562/565/567,gem_id=115809
-finger1=ukuroggs_corrupted_seal,id=113975,bonus_id=567,gem_id=115809,enchant=gift_of_critical_strike
-finger2=spellbound_runic_band_of_the_allseeing_eye,id=118306,bonus_id=42/562/565/567,gem_id=115809,enchant=gift_of_critical_strike
+finger1=ukuroggs_corrupted_seal,id=113975,bonus_id=42/562/565/567,gem_id=115809,enchant=gift_of_critical_strike
+finger2=spellbound_runic_band_of_the_allseeing_eye,id=118306,enchant=gift_of_critical_strike
 trinket1=goren_soul_repository,id=119194,bonus_id=42/562/565/567,gem_id=115809
 trinket2=blackiron_micro_crucible,id=113984,bonus_id=42/562/565/567,gem_id=115809
 main_hand=blackhand_doomstaff,id=113988,bonus_id=42/562/565/567,gem_id=115809,enchant=mark_of_the_thunderlord
 
 # Gear Summary
-# gear_stamina=5128
-# gear_intellect=4283
+# gear_ilvl=706.60
+# gear_stamina=5019
+# gear_intellect=4211
 # gear_spell_power=1943
-# gear_crit_rating=2205
-# gear_haste_rating=991
-# gear_mastery_rating=1904
+# gear_crit_rating=2155
+# gear_haste_rating=998
+# gear_mastery_rating=1849
 # gear_armor=943
 # gear_multistrike_rating=243
-# gear_versatility_rating=152
-# gear_speed_rating=2139
+# gear_versatility_rating=108
+# gear_speed_rating=2082
 # set_bonus=tier17_2pc=1
 # set_bonus=tier17_4pc=1

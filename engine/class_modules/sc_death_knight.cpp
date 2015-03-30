@@ -255,7 +255,6 @@ public:
     melee_attack_t* frozen_power;
     spell_t* frozen_runeblade;
     spell_t* necrotic_plague;
-    spell_t* breath_of_sindragosa;
     spell_t* necrosis;
     heal_t* conversion;
     heal_t* mark_of_sindragosa;
@@ -2574,12 +2573,6 @@ void death_knight_melee_attack_t::consume_resource()
   if ( result_is_hit( execute_state -> result ) || always_consume )
     consume_runes( use, convert_runes == 0 ? false : rng().roll( convert_runes ) == 1 );
 
-  if ( p() -> active_spells.breath_of_sindragosa &&
-       p() -> resources.current[ RESOURCE_RUNIC_POWER ] < p() -> active_spells.breath_of_sindragosa -> tick_action -> base_costs[ RESOURCE_RUNIC_POWER ] )
-  {
-    p() -> active_spells.breath_of_sindragosa -> get_dot() -> cancel();
-  }
-
   if ( p() -> active_spells.conversion &&
        p() -> resources.current[ RESOURCE_RUNIC_POWER ] < p() -> active_spells.conversion -> tick_action -> base_costs[ RESOURCE_RUNIC_POWER ] )
   {
@@ -2639,12 +2632,6 @@ void death_knight_spell_t::consume_resource()
 
   if ( result_is_hit( execute_state -> result ) )
     consume_runes( use, convert_runes == 0 ? false : rng().roll( convert_runes ) == 1 );
-
-  if ( p() -> active_spells.breath_of_sindragosa &&
-       p() -> resources.current[ RESOURCE_RUNIC_POWER ] < p() -> active_spells.breath_of_sindragosa -> tick_action -> base_costs[ RESOURCE_RUNIC_POWER ] )
-  {
-    p() -> active_spells.breath_of_sindragosa -> get_dot() -> cancel();
-  }
 }
 
 // death_knight_spell_t::execute() ==========================================
@@ -4457,9 +4444,12 @@ struct outbreak_t : public death_knight_spell_t
     {
       p() -> apply_diseases( execute_state, DISEASE_BLOOD_PLAGUE | DISEASE_FROST_FEVER );
 
-      p() -> trigger_runic_empowerment( resource_consumed );
-      p() -> trigger_runic_corruption( resource_consumed );
-      p() -> trigger_blood_charge( resource_consumed );
+      if ( resource_consumed > 0 )
+      {
+        p() -> trigger_runic_empowerment( resource_consumed );
+        p() -> trigger_runic_corruption( resource_consumed );
+        p() -> trigger_blood_charge( resource_consumed );
+      }
     }
 
     if ( p() -> buffs.dancing_rune_weapon -> check() )
@@ -5150,20 +5140,6 @@ struct breath_of_sindragosa_tick_t: public death_knight_spell_t
   {
     aoe = -1;
     background = true;
-    resource_current = RESOURCE_RUNIC_POWER;
-  }
-
-  void execute()
-  {
-    death_knight_spell_t::execute();
-
-    if ( result_is_hit( execute_state -> result ) )
-    {
-      p() -> trigger_runic_empowerment( resource_consumed );
-      p() -> trigger_blood_charge( resource_consumed );
-      p() -> trigger_runic_corruption( resource_consumed );
-      p() -> trigger_shadow_infusion( resource_consumed );
-    }
   }
 
   void impact( action_state_t* s )
@@ -5194,16 +5170,34 @@ struct breath_of_sindragosa_t : public death_knight_spell_t
     parse_options( options_str );
 
     may_miss = may_crit = hasted_ticks = callbacks = false;
-    tick_zero = true;
+    tick_zero = dynamic_tick_action = true;
 
     tick_action = new breath_of_sindragosa_tick_t( p, this );
-    tick_action -> base_costs[ RESOURCE_RUNIC_POWER ] = data().powerN( 1 ).cost_per_second();
     school = tick_action -> school;
   }
 
   timespan_t composite_dot_duration( const action_state_t* ) const
   {
     return player -> sim -> expected_iteration_time * 2;
+  }
+
+  void cancel()
+  {
+    death_knight_spell_t::cancel();
+    if ( dot_t* d = get_dot( target ) )
+      d -> cancel();
+  }
+
+  bool consume_cost_per_second( timespan_t tick_time )
+  {
+    bool ret = death_knight_spell_t::consume_cost_per_second( tick_time );
+
+    p() -> trigger_runic_empowerment( resource_consumed );
+    p() -> trigger_blood_charge( resource_consumed );
+    p() -> trigger_runic_corruption( resource_consumed );
+    p() -> trigger_shadow_infusion( resource_consumed );
+
+    return ret;
   }
 
   void execute()
@@ -5214,16 +5208,8 @@ struct breath_of_sindragosa_t : public death_knight_spell_t
       d -> cancel();
     else
     {
-      p() -> active_spells.breath_of_sindragosa = this;
-      p() -> active_spells.breath_of_sindragosa -> target = target;
       death_knight_spell_t::execute();
     }
-  }
-
-  void last_tick( dot_t* dot )
-  {
-    death_knight_spell_t::last_tick( dot );
-    p() -> active_spells.breath_of_sindragosa = 0;
   }
 
   void init()

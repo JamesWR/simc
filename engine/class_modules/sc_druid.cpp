@@ -2373,7 +2373,7 @@ struct ferocious_bite_t : public cat_attack_t
     parse_options( options_str );
     base_costs[ RESOURCE_COMBO_POINT ] = 1;
 
-    max_excess_energy      = data().effectN( 2 ).base_value();
+    max_excess_energy      = -1 * data().effectN( 2 ).base_value();
     special                = true;
     spell_power_mod.direct = 0;
 
@@ -2383,14 +2383,14 @@ struct ferocious_bite_t : public cat_attack_t
     p -> max_fb_energy = max_excess_energy + cost();
   }
 
-  virtual bool ready()
+  bool ready()
   {
     if ( max_energy && p() -> resources.current[ RESOURCE_ENERGY ] < p() -> max_fb_energy )
       return false;
     return cat_attack_t::ready();
   }
 
-  virtual void execute()
+  void execute()
   {
     // Berserk does affect the additional energy consumption.
     if ( p() -> buff.berserk -> check() )
@@ -2404,7 +2404,7 @@ struct ferocious_bite_t : public cat_attack_t
     if ( p() -> buff.tier15_4pc_melee -> up() )
       p() -> buff.tier15_4pc_melee -> decrement();
 
-    max_excess_energy = data().effectN( 2 ).base_value();
+    max_excess_energy = -1 * data().effectN( 2 ).base_value();
   }
 
   void impact( action_state_t* state )
@@ -2432,7 +2432,7 @@ struct ferocious_bite_t : public cat_attack_t
     }
   }
 
-  virtual void consume_resource()
+  void consume_resource()
   {
     // Ferocious Bite consumes 25+x energy, with 0 <= x <= 25.
     // Consumes the base_cost and handles Omen of Clarity
@@ -2776,10 +2776,7 @@ struct shred_t : public cat_attack_t
 
     if ( stealthed() )
     {
-      if ( p() -> wod_hotfix )
-        m *= 1.2;
-      else
-        m *= 1.0 + p() -> buff.prowl -> data().effectN( 4 ).percent();
+      m *= 1.0 + p() -> buff.prowl -> data().effectN( 4 ).percent();
     }
 
     return m;
@@ -5033,9 +5030,6 @@ struct moonfire_cat_t : public druid_spell_t
     druid_spell_t( "moonfire_cat", player, player -> find_spell( 155625 ) )
   {
     parse_options( options_str );
-
-    if ( p() -> wod_hotfix )
-      base_multiplier *= 1.2;
   }
 
   virtual void impact( action_state_t* s )

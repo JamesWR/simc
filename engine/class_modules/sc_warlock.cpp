@@ -2896,17 +2896,38 @@ struct immolate_t: public warlock_spell_t
     return cc;
   }
 
+  virtual double composite_persistent_multiplier( const action_state_t* state ) const
+  {
+    double m = warlock_spell_t::composite_persistent_multiplier( state );
+
+    // Snapshot the FnB penalty
+    if ( p() -> buffs.fire_and_brimstone -> check() )
+    {
+      m *= p() -> buffs.fire_and_brimstone -> data().effectN( 5 ).percent();
+    }
+
+    return m;
+  }
+
+  virtual double composite_ta_multiplier( const action_state_t* state ) const
+  {
+    double m = warlock_spell_t::composite_ta_multiplier( state );
+
+    // A rather impressive hack to determine if the immolate dot was cast with FnB or not
+    if ( state -> persistent_multiplier < 1 )
+    {
+      if ( p() -> mastery_spells.emberstorm -> ok() )
+      {
+        m *= 1.0 + p() -> cache.mastery_value();
+      }
+    }
+
+    return m;
+  }
+
   virtual double action_multiplier() const
   {
     double m = warlock_spell_t::action_multiplier();
-
-    if ( p() -> buffs.fire_and_brimstone -> check() )
-    {
-      if ( p() -> mastery_spells.emberstorm -> ok() )
-        m *= 1.0 + p() -> cache.mastery_value();
-
-      m *= p() -> buffs.fire_and_brimstone -> data().effectN( 5 ).percent();
-    }
 
     if ( p() -> mastery_spells.emberstorm -> ok() )
       m *= 1.0 + p() -> mastery_spells.emberstorm -> effectN( 3 ).percent() + p() -> cache.mastery_value() * p() -> emberstorm_e3_from_e1();

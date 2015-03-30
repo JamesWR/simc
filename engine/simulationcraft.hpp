@@ -5,9 +5,9 @@
 #ifndef SIMULATIONCRAFT_H
 #define SIMULATIONCRAFT_H
 
-#define SC_MAJOR_VERSION "610"
-#define SC_MINOR_VERSION "08"
-#define SC_USE_PTR ( 1 )
+#define SC_MAJOR_VERSION "612"
+#define SC_MINOR_VERSION "01"
+#define SC_USE_PTR ( 0 )
 #define SC_BETA ( 0 )
 #define SC_BETA_STR "wod"
 #define SC_VERSION ( SC_MAJOR_VERSION "-" SC_MINOR_VERSION )
@@ -2830,6 +2830,7 @@ struct sim_t : private sc_thread_t
   std::string apikey;
   bool ilevel_raid_report;
   bool fancy_target_distance_stuff;
+  double scaling_normalized;
 
   sim_report_information_t report_information;
 
@@ -6142,10 +6143,10 @@ public:
   bool has_travel_events_for( const player_t* target ) const;
   const std::vector<travel_event_t*>& current_travel_events() const
   { return travel_events; }
-  void schedule_cost_tick_event( timespan_t tick_time = timespan_t::from_seconds( 1.0 ) );
-  bool consume_cost_per_second( timespan_t tick_time );
-  bool need_to_trigger_costs_per_second() const
-  { return std::accumulate( base_costs_per_second.begin(), base_costs_per_second.end(), 0.0 ); }
+  virtual void schedule_cost_tick_event( timespan_t tick_time = timespan_t::from_seconds( 1.0 ) );
+  virtual bool consume_cost_per_second( timespan_t tick_time );
+  virtual bool need_to_trigger_costs_per_second() const
+  { return std::accumulate( base_costs_per_second.begin(), base_costs_per_second.end(), 0.0 ) != 0; }
   rng_t& rng() { return sim -> rng(); }
   rng_t& rng() const { return sim -> rng(); }
 
@@ -6800,6 +6801,11 @@ public:
 
   void set_frequency( double frequency )
   { freq = frequency; rppm = freq * modifier; }
+
+  void set_initial_precombat_time( timespan_t precombat )
+  {
+    initial_precombat_time = precombat;
+  }
 
   double get_frequency() const
   { return freq; }
