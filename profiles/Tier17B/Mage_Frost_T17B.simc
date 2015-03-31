@@ -45,16 +45,17 @@ actions+=/call_action_list,name=single_target
 
 # Actions while Prismatic Crystal is active
 actions.crystal_sequence=frost_bomb,if=active_enemies=1&current_target!=prismatic_crystal&remains<10
+actions.crystal_sequence+=/prismatic_crystal
 actions.crystal_sequence+=/frozen_orb
 actions.crystal_sequence+=/call_action_list,name=cooldowns
-actions.crystal_sequence+=/prismatic_crystal
 actions.crystal_sequence+=/frost_bomb,if=talent.prismatic_crystal.enabled&current_target=prismatic_crystal&active_enemies>1&!ticking
 actions.crystal_sequence+=/ice_lance,if=buff.fingers_of_frost.react=2|(buff.fingers_of_frost.react&active_dot.frozen_orb>=1)
-actions.crystal_sequence+=/ice_nova,if=charges=2
-actions.crystal_sequence+=/frostfire_bolt,if=buff.brain_freeze.react
+actions.crystal_sequence+=/ice_nova,if=charges=2|pet.prismatic_crystal.remains<gcd.max
 actions.crystal_sequence+=/ice_lance,if=buff.fingers_of_frost.react
+actions.crystal_sequence+=/frostfire_bolt,if=buff.brain_freeze.react
 actions.crystal_sequence+=/ice_nova
 actions.crystal_sequence+=/blizzard,interrupt_if=cooldown.frozen_orb.up|(talent.frost_bomb.enabled&buff.fingers_of_frost.react=2),if=active_enemies>=5
+actions.crystal_sequence+=/choose_target,if=pet.prismatic_crystal.remains<action.frostbolt.cast_time+action.frostbolt.travel_time
 actions.crystal_sequence+=/frostbolt
 
 # Consolidated damage cooldown abilities
@@ -67,7 +68,7 @@ actions.cooldowns+=/potion,name=draenic_intellect,if=buff.bloodlust.up|buff.icy_
 # Water Jet initialization
 actions.init_water_jet=frost_bomb,if=remains<3.6
 actions.init_water_jet+=/ice_lance,if=buff.fingers_of_frost.react&pet.water_elemental.cooldown.water_jet.up
-actions.init_water_jet+=/water_jet,if=prev_gcd.frostbolt
+actions.init_water_jet+=/water_jet,if=prev_gcd.frostbolt|action.frostbolt.travel_time<spell_haste
 actions.init_water_jet+=/frostbolt
 
 # Water Jet sequence
@@ -123,19 +124,20 @@ finger1=epicenter_loop,id=113947,bonus_id=42/562/565/567,gem_id=115813,enchant=g
 finger2=spellbound_runic_band_of_the_allseeing_eye,id=118306,enchant=gift_of_multistrike
 trinket1=darmacs_unstable_talisman,id=113948,bonus_id=42/562/565/567,gem_id=115813
 trinket2=blackiron_micro_crucible,id=113984,bonus_id=42/562/565/567,gem_id=115813
-main_hand=infernoflame_staff,id=113869,bonus_id=42/562/565/567,gem_id=115813,enchant=mark_of_the_frostwolf
+main_hand=fang_of_the_earth,id=113934,bonus_id=42/562/565/567,gem_id=115813,enchant=mark_of_the_frostwolf
+off_hand=enginestokers_lantern,id=113960,bonus_id=42/562/565/567,gem_id=115813
 
 # Gear Summary
-# gear_ilvl=706.60
-# gear_stamina=5019
-# gear_intellect=4211
-# gear_spell_power=1943
-# gear_crit_rating=1019
-# gear_haste_rating=761
-# gear_mastery_rating=1014
+# gear_ilvl=706.56
+# gear_stamina=5014
+# gear_intellect=4208
+# gear_spell_power=1940
+# gear_crit_rating=1119
+# gear_haste_rating=750
+# gear_mastery_rating=778
 # gear_armor=943
-# gear_multistrike_rating=2093
+# gear_multistrike_rating=2283
 # gear_versatility_rating=463
-# gear_speed_rating=2082
+# gear_speed_rating=2080
 # set_bonus=tier17_2pc=1
 # set_bonus=tier17_4pc=1
