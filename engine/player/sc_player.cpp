@@ -1715,6 +1715,27 @@ void player_t::init_spells()
     if ( s -> ok() )
       _mastery = &( s -> effectN( 1 ) );
   }
+
+  struct leech_t : public heal_t
+  {
+    leech_t( player_t* player ) :
+      heal_t( "leech", player, player -> find_spell( 143924 ) )
+    {
+      background = proc = true;
+      callbacks = may_crit = may_miss = may_dodge = may_parry = may_block = false;
+      may_multistrike = 0;
+    }
+
+    void init()
+    {
+      heal_t::init();
+
+      snapshot_flags = update_flags = STATE_MUL_DA | STATE_TGT_MUL_DA | STATE_VERSATILITY |
+                                      STATE_RESOLVE | STATE_MUL_PERSISTENT;
+    }
+  };
+
+  spell.leech = new leech_t( this );
 }
 
 // player_t::init_gains =====================================================
@@ -5950,6 +5971,7 @@ struct snapshot_stats_t : public action_t
     buffed_stats.mitigation_versatility = p -> cache.mitigation_versatility();
     buffed_stats.run_speed = p -> cache.run_speed();
     buffed_stats.avoidance = p -> cache.avoidance();
+    buffed_stats.leech = p -> cache.leech();
 
     buffed_stats.spell_power  = util::round( p -> cache.spell_power( SCHOOL_MAX ) * p -> composite_spell_power_multiplier() );
     buffed_stats.spell_hit    = p -> cache.spell_hit();
@@ -6170,8 +6192,17 @@ struct use_item_t : public action_t
 
     // Parse Special Effect
     const special_effect_t& e = item -> special_effect( SPECIAL_EFFECT_SOURCE_NONE, SPECIAL_EFFECT_USE );
-    buff = e.create_buff();
-    action = e.create_action();
+    buff = buff_t::find( player, e.name() );
+    if ( ! buff )
+    {
+      buff = e.create_buff();
+    }
+
+    action = player -> find_action( e.name() );
+    if ( ! action )
+    {
+      action = e.create_action();
+    }
 
     if ( ! buff && ! action )
     {

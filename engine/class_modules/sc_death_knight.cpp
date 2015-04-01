@@ -188,6 +188,7 @@ public:
   double    blood_charge_counter;
   double    shadow_infusion_counter;
   double    fallen_crusader, fallen_crusader_rppm;
+  double    antimagic_shell_absorbed;
 
   stats_t*  antimagic_shell;
 
@@ -242,6 +243,7 @@ public:
   // Cooldowns
   struct cooldowns_t
   {
+    cooldown_t* antimagic_shell;
     cooldown_t* bone_shield_icd;
     cooldown_t* vampiric_blood;
   } cooldown;
@@ -459,6 +461,7 @@ public:
     runic_power_decay_rate(),
     fallen_crusader( 0 ),
     fallen_crusader_rppm( find_spell( 166441 ) -> real_ppm() ),
+    antimagic_shell_absorbed( 0.0 ),
     antimagic_shell( 0 ),
     buffs( buffs_t() ),
     runeforge( runeforge_t() ),
@@ -477,6 +480,7 @@ public:
     range::fill( pets.army_ghoul, nullptr );
     base.distance = 0;
 
+    cooldown.antimagic_shell = get_cooldown( "antimagic_shell" );
     cooldown.bone_shield_icd = get_cooldown( "bone_shield_icd" );
     cooldown.bone_shield_icd -> duration = timespan_t::from_seconds( 1.0 );
 
@@ -5223,6 +5227,32 @@ struct breath_of_sindragosa_t : public death_knight_spell_t
 
 // Anti-magic Shell =========================================================
 
+struct antimagic_shell_buff_t : public buff_t
+{
+  antimagic_shell_buff_t( death_knight_t* p ) :
+    buff_t( buff_creator_t( p, "antimagic_shell", p -> find_class_spell( "Anti-Magic Shell" ) )
+                              .cd( timespan_t::zero() ) )
+  { }
+
+  bool trigger( int stacks, double value, double chance, timespan_t duration )
+  {
+    death_knight_t* p = debug_cast< death_knight_t* >( player );
+    p -> antimagic_shell_absorbed = 0.0;
+    return buff_t::trigger( stacks, value, chance, duration );
+  }
+
+  void expire_override( int expiration_stacks, timespan_t remaining_duration )
+  {
+    buff_t::expire_override( expiration_stacks, remaining_duration );
+    death_knight_t* p = debug_cast< death_knight_t* >( player );
+    if ( p -> antimagic_shell_absorbed >= 0.0 && p -> glyph.regenerative_magic -> ok() )
+    {
+      double cd_reduction = -20 + ( 20.0 * p -> antimagic_shell_absorbed / ( p -> resources.max[RESOURCE_HEALTH] * 0.4 ) );
+      p -> cooldown.antimagic_shell -> adjust( timespan_t::from_seconds( cd_reduction ) );
+    }
+  }
+};
+
 struct antimagic_shell_t : public death_knight_spell_t
 {
   double interval;
@@ -5234,6 +5264,7 @@ struct antimagic_shell_t : public death_knight_spell_t
     death_knight_spell_t( "antimagic_shell", p, p -> find_class_spell( "Anti-Magic Shell" ) ),
     interval( 60 ), interval_stddev( 0.05 ), interval_stddev_opt( 0 ), damage( 0 )
   {
+    cooldown = p -> cooldown.antimagic_shell;
     harmful = may_crit = may_miss = false;
     base_dd_min = base_dd_max = 0;
     target = player;
@@ -6328,6 +6359,9 @@ void death_knight_t::init_action_list()
 
   def -> add_action( "auto_attack" );
   def -> add_talent( this, "Death's Advance", "if=movement.remains>2" );
+
+  if ( specialization() == DEATH_KNIGHT_UNHOLY )
+  def -> add_action( "run_action_list,name=bos,if=talent.breath_of_sindragosa.enabled" );
   def -> add_action( this, "Anti-Magic Shell", "damage=100000" );
 
   switch ( specialization() )
@@ -6507,24 +6541,56 @@ void death_knight_t::init_action_list()
       def -> add_action( potion_str + ",if=buff.dark_transformation.up&target.time_to_die<=60" );
 
     // Breath of Sindragosa specific APLs
-    action_priority_list_t* bos_st = get_action_priority_list( "bos_st" );
-    bos_st -> add_action( this, "Death and Decay", "if=runic_power<88" );
-    bos_st -> add_action( this, "Festering Strike", "if=runic_power<77" );
-    bos_st -> add_action( this, "Scourge Strike", "if=runic_power<88" );
-    bos_st -> add_talent( this, "Blood Tap", "if=buff.blood_charge.stack>=5" );
-    bos_st -> add_talent( this, "Plague Leech" );
-    bos_st -> add_action( this, "Empower Rune Weapon" );
-    bos_st -> add_action( this, "Death Coil", "if=buff.sudden_doom.react" );
+    action_priority_list_t* bos = get_action_priority_list( "bos" );
+    bos -> add_action( this, "Anti-Magic Shell", "damage=100000,if=(dot.breath_of_sindragosa.ticking&runic_power<25)|cooldown.breath_of_sindragosa.remains>40" );
+    bos -> add_action( "blood_fury,if=dot.breath_of_sindragosa.ticking" );
+    bos -> add_action( "berserking" );
 
-    action_priority_list_t* bos_aoe = get_action_priority_list( "bos_aoe" );
-    bos_aoe -> add_action( this, "Death and Decay", "if=runic_power<88" );
-    bos_aoe -> add_action( this, "Blood Boil", "if=runic_power<88" );
-    bos_aoe -> add_action( this, "Scourge Strike", "if=runic_power<88&unholy=1" );
-    bos_aoe -> add_action( this, "Icy Touch", "if=runic_power<88" );
-    bos_aoe -> add_talent( this, "Blood Tap", "if=buff.blood_charge.stack>=5" );
-    bos_aoe -> add_talent( this, "Plague Leech" );
-    bos_aoe -> add_action( this, "Empower Rune Weapon" );
-    bos_aoe -> add_action( this, "Death Coil", "if=buff.sudden_doom.react" );
+    for ( size_t i = 0; i < get_item_actions().size(); i++ )
+      bos -> add_action( get_item_actions()[i] + ",if=dot.breath_of_sindragosa.ticking" );
+
+    if ( sim -> allow_potions && level >= 80 )
+      bos -> add_action( potion_str + ",if=dot.breath_of_sindragosa.ticking" );
+
+    bos -> add_action( "run_action_list,name=bos_st" );
+
+    action_priority_list_t* bos_st = get_action_priority_list( "bos_st" );
+    bos_st -> add_talent( this, "Plague Leech", "if=((cooldown.outbreak.remains<1)|disease.min_remains<1)&((blood<1&frost<1)|(blood<1&unholy<1)|(frost<1&unholy<1))");
+    bos_st -> add_action( this, "Soul Reaper", "if=(target.health.pct-3*(target.health.pct%target.time_to_die))<=" + soul_reaper_pct );
+    bos_st -> add_talent( this, "Blood Tap", "if=((target.health.pct-3*(target.health.pct%target.time_to_die))<=" + soul_reaper_pct + ")&cooldown.soul_reaper.remains=0" );
+    bos_st -> add_talent( this, "Breath of Sindragosa", "if=runic_power>75" );
+    bos_st -> add_action( "run_action_list,name=bos_active,if=dot.breath_of_sindragosa.ticking" );
+    bos_st -> add_action( this, "Summon Gargoyle" );
+    bos_st -> add_talent( this, "Unholy Blight", "if=!(dot.blood_plague.ticking|dot.frost_fever.ticking)" );
+    bos_st -> add_action( this, "Outbreak", "cycle_targets=1,if=!(dot.blood_plague.ticking|dot.frost_fever.ticking)" );
+    bos_st -> add_action( this, "Plague Strike", "if=!(dot.blood_plague.ticking|dot.frost_fever.ticking)" );
+    bos_st -> add_action( this, "Blood Boil", "cycle_targets=1,if=!(dot.blood_plague.ticking|dot.frost_fever.ticking)");
+    bos_st -> add_action( this, "Death and Decay", "if=active_enemies>1&unholy>1" );
+    bos_st -> add_action( this, "Festering Strike", "if=blood>1&frost>1" );
+    bos_st -> add_action( this, "Scourge Strike", "if=((unholy>1|death>1)&active_enemies<=3)|(unholy>1&active_enemies>=4)" );
+    bos_st -> add_action( this, "Death and Decay", "if=active_enemies>1");
+    bos_st -> add_action( this, "Blood Boil", "if=active_enemies>=4&(blood=2|(frost=2&death=2))" );
+    bos_st -> add_action( this, "Dark Transformation" );
+    bos_st -> add_talent( this, "Blood Tap", "if=buff.blood_charge.stack>10" );
+    bos_st -> add_action( this, "Blood Boil", "if=active_enemies>=4" );
+    bos_st -> add_action( this, "Death Coil", "if=(buff.sudden_doom.react|runic_power>80)&(buff.blood_charge.stack<=10)" );
+    bos_st -> add_action( this, "Scourge Strike", "if=cooldown.breath_of_sindragosa.remains>6|runic_power<75" );
+    bos_st -> add_action( this, "Festering Strike", "if=cooldown.breath_of_sindragosa.remains>6|runic_power<75" );
+    bos_st -> add_action( this, "Death Coil", "if=cooldown.breath_of_sindragosa.remains>20" );
+    bos_st -> add_talent( this, "Plague Leech" );
+
+    action_priority_list_t* bos_active = get_action_priority_list( "bos_active" );
+    bos_active -> add_action( this, "Plague Strike", "if=!disease.ticking" );
+    bos_active -> add_action( this, "Blood Boil", "cycle_targets=1,if=(active_enemies>=2&!(dot.blood_plague.ticking|dot.frost_fever.ticking))|active_enemies>=4&(runic_power<88&runic_power>30)" );
+    bos_active -> add_action( this, "Scourge Strike", "if=active_enemies<=3&(runic_power<88&runic_power>30)" );
+    bos_active -> add_action( this, "Festering Strike", "if=runic_power<77" );
+    bos_active -> add_action( this, "Blood Boil", "if=active_enemies>=4");
+    bos_active -> add_action( this, "Scourge Strike", "if=active_enemies<=3" );
+    bos_active -> add_talent( this, "Blood Tap", "if=buff.blood_charge.stack>=5" );
+    bos_active -> add_action( "arcane_torrent,if=runic_power<70" );
+    bos_active -> add_talent( this, "Plague Leech" );
+    bos_active -> add_action( this, "Empower Rune Weapon", "if=runic_power<60" );
+    bos_active -> add_action( this, "Death Coil", "if=buff.sudden_doom.react" );
 
     action_priority_list_t* spread = get_action_priority_list( "spread" );
     spread -> add_action( this, "Blood Boil", "cycle_targets=1,if=!disease.min_ticking" );
@@ -6544,16 +6610,8 @@ void death_knight_t::init_action_list()
     st -> add_action( this, "Death Coil", "if=runic_power>90" );
     // Soul Reaper
     st -> add_action( this, "Soul Reaper", "if=(target.health.pct-3*(target.health.pct%target.time_to_die))<=" + soul_reaper_pct );
-    st -> add_talent( this, "Breath of Sindragosa", "if=runic_power>75");
-    st -> add_action( "run_action_list,name=bos_st,if=dot.breath_of_sindragosa.ticking" );
-
-    // Breath of Sindragosa coming off cooldown, get ready to use
-    st -> add_action( this, "Death and Decay", "if=cooldown.breath_of_sindragosa.remains<7&runic_power<88&talent.breath_of_sindragosa.enabled");
-    st -> add_action( this, "Scourge Strike", "if=cooldown.breath_of_sindragosa.remains<7&runic_power<88&talent.breath_of_sindragosa.enabled");
-    st -> add_action( this, "Festering Strike", "if=cooldown.breath_of_sindragosa.remains<7&runic_power<76&talent.breath_of_sindragosa.enabled");
-
     st -> add_talent( this, "Blood Tap", "if=((target.health.pct-3*(target.health.pct%target.time_to_die))<=" + soul_reaper_pct + ")&cooldown.soul_reaper.remains=0" );
-    st -> add_action( this, "Death and Decay", "if=unholy=2" );
+    st -> add_action( this, "Death and Decay", "if=(!talent.unholy_blight.enabled|!talent.necrotic_plague.enabled)&unholy=2" );
     st -> add_talent( this, "Defile", "if=unholy=2" );
     st -> add_action( this, "Plague Strike", "if=!disease.min_ticking&unholy=2" );
     st -> add_action( this, "Scourge Strike", "if=unholy=2" );
@@ -6569,9 +6627,9 @@ void death_knight_t::init_action_list()
     st -> add_action( this, "Festering Strike", "if=((Frost-death)>1)" );
     st -> add_talent( this, "Blood Tap", "if=((target.health.pct-3*(target.health.pct%target.time_to_die))<=45)&cooldown.soul_reaper.remains=0" );
     st -> add_action( this, "Summon Gargoyle" );
-    st -> add_action( this, "Death and Decay" );
+    st -> add_action( this, "Death and Decay", "if=(!talent.unholy_blight.enabled|!talent.necrotic_plague.enabled)" );
     st -> add_talent( this, "Defile" );
-    st -> add_talent( this, "Blood Tap", "if=cooldown.defile.remains=0" );
+    st -> add_talent( this, "Blood Tap", "if=talent.defile.enabled&cooldown.defile.remains=0" );
     st -> add_action( this, "Plague Strike", "if=!disease.min_ticking" );
     st -> add_action( this, "Dark Transformation" );
     st -> add_talent( this, "Blood Tap", "if=buff.blood_charge.stack>10&(buff.sudden_doom.react|(buff.dark_transformation.down&unholy<=1))" );
@@ -6592,10 +6650,6 @@ void death_knight_t::init_action_list()
     aoe -> add_action( "call_action_list,name=spread,if=!dot.blood_plague.ticking|!dot.frost_fever.ticking|(!dot.necrotic_plague.ticking&talent.necrotic_plague.enabled)" );
     // AoE defile
     aoe -> add_talent( this, "Defile" );
-    // AoE Breath of Sindragosa in use, cast and then keep up
-    aoe -> add_talent( this, "Breath of Sindragosa", "if=runic_power>75" );
-    aoe -> add_action( "run_action_list,name=bos_aoe,if=dot.breath_of_sindragosa.ticking" );
-    //AoE continued
     aoe -> add_action( this, "Blood Boil", "if=blood=2|(frost=2&death=2)" );
     aoe -> add_action( this, "Summon Gargoyle" );
     aoe -> add_action( this, "Dark Transformation" );
@@ -6850,8 +6904,8 @@ void death_knight_t::create_buffs()
   buffs.blood_shield        = new blood_shield_buff_t( this );
   buffs.rune_tap            = buff_creator_t( this, "rune_tap", find_specialization_spell( "Rune Tap" ) -> effectN( 1 ).trigger() );
 
-  buffs.antimagic_shell     = buff_creator_t( this, "antimagic_shell", find_class_spell( "Anti-Magic Shell" ) )
-                              .cd( timespan_t::zero() );
+  buffs.antimagic_shell     = new antimagic_shell_buff_t( this );
+
   buffs.blood_charge        = buff_creator_t( this, "blood_charge", find_spell( 114851 ) )
                               .chance( find_talent_spell( "Blood Tap" ) -> ok() );
   buffs.blood_presence      = buff_creator_t( this, "blood_presence", find_class_spell( "Blood Presence" ) )
@@ -7037,6 +7091,7 @@ void death_knight_t::reset()
   runic_power_decay_rate = 1; // 1 RP per second decay
   blood_charge_counter = 0;
   shadow_infusion_counter = 0;
+  antimagic_shell_absorbed = 0.0;
 
   t15_2pc_melee.reset();
 
@@ -7099,6 +7154,16 @@ void death_knight_t::assess_damage_imminent( school_e school, dmg_e, action_stat
     if ( buffs.antimagic_shell -> up() )
     {
       double absorbed = s -> result_amount * spell.antimagic_shell -> effectN( 1 ).percent();
+      antimagic_shell_absorbed += absorbed;
+
+      double max_hp_absorb = resources.max[RESOURCE_HEALTH] * 0.4;
+
+      if ( antimagic_shell_absorbed > max_hp_absorb )
+      {
+        absorbed = antimagic_shell_absorbed - max_hp_absorb;
+        antimagic_shell_absorbed = -1.0; // Set to -1.0 so expire_override knows that we don't need to reduce cooldown from regenerative magic. 
+        buffs.antimagic_shell -> expire();
+      }
 
       double generated = absorbed / resources.max[RESOURCE_HEALTH];
 

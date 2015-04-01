@@ -12,6 +12,8 @@
 #define SC_BETA_STR "wod"
 #define SC_VERSION ( SC_MAJOR_VERSION "-" SC_MINOR_VERSION )
 
+// #error "[YYYY-MM-DD] Simulationcraft development has moved to http://github.com/simulationcraft. Please clone the repository from there."
+
 // Platform, compiler and general configuration
 #include "config.hpp"
 #include <algorithm>
@@ -4773,6 +4775,11 @@ struct player_t : public actor_t
 
     gain_t* leech;
   } gains;
+
+  struct spells_t
+  {
+    action_t* leech;
+  } spell;
 
   struct procs_t
   {
