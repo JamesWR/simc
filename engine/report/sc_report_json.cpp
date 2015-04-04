@@ -681,7 +681,7 @@ js::sc_js_t to_json( const sim_t& sim )
   node.set( "challenge_mode", sim.challenge_mode );
   node.set( "pvp_crit", sim.pvp_crit );
   node.set( "rng", to_json( sim.rng() ) );
-  node.set( "rng_seed", sim.rng_seed );
+  node.set( "rng_seed", sim.seed );
   node.set( "deterministic", sim.deterministic );
   node.set( "average_range", sim.average_range );
   node.set( "average_gauss", sim.average_gauss );
