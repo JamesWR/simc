@@ -271,7 +271,7 @@ public:
   { return _radius; }
 
   double radius_max() const
-  { return _radius_max; }
+  { return std::max( _radius_max, radius() ); }
 
   double pp_combo_points() const
   { return _pp_combo_points; }

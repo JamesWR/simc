@@ -33,6 +33,17 @@ bool iteration_data_cmp_r( const iteration_data_entry_t& a,
   return true;
 }
 
+struct seed_predicate_t
+{
+  uint64_t seed;
+
+  seed_predicate_t( uint64_t seed_ ) : seed( seed_ )
+  { }
+
+  bool operator()( const iteration_data_entry_t& e ) const
+  { return e.seed == seed; }
+};
+
 // parse_ptr ================================================================
 
 bool parse_ptr( sim_t*             sim,
@@ -1543,6 +1554,14 @@ void sim_t::datacollection_end()
       entry.add_health( static_cast< uint64_t >( t -> resources.initial[ RESOURCE_HEALTH ] ) );
     }
 
+    if ( std::find_if( iteration_data.begin(), iteration_data.end(),
+                       seed_predicate_t( seed ) ) != iteration_data.end() )
+    {
+      errorf( "[Thread-%d] Duplicate seed " PRIu64 " found on iteration %u, skipping ...",
+          thread_index, seed, current_iteration );
+      return;
+    }
+
     iteration_data.push_back( entry );
   }
 }
@@ -1996,8 +2015,6 @@ bool sim_t::init()
 
   simulation_length.reserve( std::min( iterations, 10000 ) );
 
-  initialized = true;
-
   for ( size_t i = 0, end = player_list.size(); i < end; i++ )
   {
     if ( player_list[ i ] -> regen_type == REGEN_STATIC )
@@ -2006,6 +2023,13 @@ bool sim_t::init()
       break;
     }
   }
+
+  if ( ! canceled )
+  {
+    range::for_each( actor_list, std::mem_fn( &player_t::init_finished ) );
+  }
+
+  initialized = true;
 
   return canceled ? false : true;
 }

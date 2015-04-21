@@ -35,7 +35,7 @@ item_t::item_t( player_t* p, const std::string& o ) :
 
 // item_t::has_stats =======================================================
 
-bool item_t::has_stats()
+bool item_t::has_stats() const
 {
   for ( size_t i = 0; i < sizeof_array( parsed.data.stat_type_e ); i++ )
   {
@@ -69,7 +69,7 @@ bool item_t::socket_color_match() const
 
 // item_t::has_special_effect ==============================================
 
-bool item_t::has_special_effect( special_effect_source_e source, special_effect_e type )
+bool item_t::has_special_effect( special_effect_source_e source, special_effect_e type ) const
 {
   return special_effect( source, type ).source != SPECIAL_EFFECT_SOURCE_NONE;
 }
@@ -77,7 +77,7 @@ bool item_t::has_special_effect( special_effect_source_e source, special_effect_
 
 // item_t::special_effect ===================================================
 
-const special_effect_t& item_t::special_effect( special_effect_source_e source, special_effect_e type )
+const special_effect_t& item_t::special_effect( special_effect_source_e source, special_effect_e type ) const
 {
   static special_effect_t nonevalue( this );
 
@@ -97,7 +97,7 @@ const special_effect_t& item_t::special_effect( special_effect_source_e source, 
 
 // item_t::to_string ========================================================
 
-std::string item_t::item_stats_str()
+std::string item_t::item_stats_str() const
 {
   std::ostringstream s;
   if ( parsed.armor > 0 )
@@ -129,7 +129,7 @@ std::string item_t::item_stats_str()
   return str;
 }
 
-std::string item_t::weapon_stats_str()
+std::string item_t::weapon_stats_str() const
 {
   if ( ! weapon() )
   {
@@ -149,7 +149,7 @@ std::string item_t::weapon_stats_str()
   return s.str();
 }
 
-std::string item_t::suffix_stats_str()
+std::string item_t::suffix_stats_str() const
 {
   if ( parsed.suffix_stats.size() == 0 )
   {
@@ -170,7 +170,7 @@ std::string item_t::suffix_stats_str()
   return str;
 }
 
-std::string item_t::gem_stats_str()
+std::string item_t::gem_stats_str() const
 {
   if ( parsed.gem_stats.size() == 0 )
   {
@@ -191,7 +191,7 @@ std::string item_t::gem_stats_str()
   return str;
 }
 
-std::string item_t::enchant_stats_str()
+std::string item_t::enchant_stats_str() const
 {
   if ( parsed.enchant_stats.size() == 0 )
   {
@@ -212,7 +212,7 @@ std::string item_t::enchant_stats_str()
   return str;
 }
 
-std::string item_t::socket_bonus_stats_str()
+std::string item_t::socket_bonus_stats_str() const
 {
   if ( parsed.socket_bonus_stats.size() == 0 )
   {
@@ -233,7 +233,7 @@ std::string item_t::socket_bonus_stats_str()
   return str;
 }
 
-std::string item_t::to_string()
+std::string item_t::to_string() const
 {
   std::ostringstream s;
 
@@ -402,11 +402,15 @@ unsigned item_t::item_level() const
 {
   if ( sim -> scale_to_itemlevel > 0 )
     return sim -> scale_to_itemlevel;
+  else if ( parsed.item_level > 0 )
+  {
+    return parsed.item_level;
+  }
   else
     return parsed.data.level + item_database::upgrade_ilevel( parsed.data, upgrade_level() );
 }
 
-stat_e item_t::stat( size_t idx )
+stat_e item_t::stat( size_t idx ) const
 {
   if ( idx >= sizeof_array( parsed.data.stat_type_e ) )
     return STAT_NONE;
@@ -414,7 +418,7 @@ stat_e item_t::stat( size_t idx )
   return util::translate_item_mod( parsed.data.stat_type_e[ idx ] );
 }
 
-int item_t::stat_value( size_t idx )
+int item_t::stat_value( size_t idx ) const
 {
   if ( idx >= sizeof_array( parsed.data.stat_val ) - 1 )
     return -1;
@@ -427,7 +431,7 @@ int item_t::stat_value( size_t idx )
 bool item_t::active() const
 {
   if ( slot == SLOT_INVALID ) return false;
-  if ( ! ( name_str.empty() || name_str == "empty" || name_str == "none" ) ) return true;
+  if ( ! ( name_str.empty() || name_str == "empty" || name_str == "none" || name_str == "nothing" ) ) return true;
   return false;
 }
 
@@ -512,8 +516,9 @@ bool item_t::parse_options()
   {
     opts::parse( sim, option_name_str, options, remainder );
   }
-  catch( ... )
+  catch ( const std::exception& e )
   {
+    sim -> errorf( "%s item '%s': Unable to parse item options str '%s': %s", player -> name(), name(), options_str.c_str(), e.what() );
     return false;
   }
 
@@ -961,7 +966,7 @@ bool item_t::init()
   if ( ! decode_ilevel()                           ) return false;
   if ( ! decode_armor_type()                       ) return false;
 
-  if ( parsed.upgrade_level > 0 && ( ! parsed.data.quality || ! parsed.data.level ) )
+  if ( parsed.upgrade_level > 0 && ( ! parsed.data.quality || ( ! parsed.data.level && ! parsed.item_level ) ) )
     sim -> errorf( "Player %s upgrading item %s at slot %s without quality or ilevel, upgrading will not work\n",
                    player -> name(), name(), slot_name() );
 
@@ -1034,7 +1039,7 @@ bool item_t::decode_warforged()
 
 // item_t::is_matching_type =================================================
 
-bool item_t::is_matching_type()
+bool item_t::is_matching_type() const
 {
   if ( ! util::is_match_slot( slot ) )
     return true;
@@ -1044,7 +1049,7 @@ bool item_t::is_matching_type()
 
 // item_t::is_valid_type ====================================================
 
-bool item_t::is_valid_type()
+bool item_t::is_valid_type() const
 {
   if ( ! util::is_match_slot( slot ) )
     return true;
@@ -1073,8 +1078,8 @@ bool item_t::decode_ilevel()
 {
   if ( ! option_ilevel_str.empty() )
   {
-    parsed.data.level = util::to_unsigned( option_ilevel_str );
-    if ( parsed.data.level == 0 )
+    parsed.item_level = util::to_unsigned( option_ilevel_str );
+    if ( parsed.item_level == 0 )
       return false;
   }
 

@@ -282,6 +282,7 @@ struct enemy_action_driver_t : public CHILD_ACTION_TYPE
     else
       num_attacks = static_cast<size_t>( aoe_tanks );
 
+    this -> interrupt_auto_attack = false;
     // if there are no valid targets, disable
     if ( ch_list.size() < 1 )
       this -> background = true;
@@ -338,12 +339,11 @@ struct melee_t : public enemy_action_t<melee_attack_t>
     base_t( name, player ), first( false )
   {
     school = SCHOOL_PHYSICAL;
-    may_crit = true;
-    background = true;
     trigger_gcd = timespan_t::zero();
     base_dd_min = 26000;
     base_execute_time = timespan_t::from_seconds( 1.5 );
-    repeating = true;
+    may_crit = background = repeating = true;
+    special = false;
 
     parse_options( options_str );
   }
@@ -1295,7 +1295,9 @@ void enemy_t::init_action_list()
           if ( !sim -> player_list[ i ] -> is_pet() && sim -> player_list[ i ] -> primary_role() == ROLE_HEAL )
             ++healers;
 
-        action_list_str += "/auto_attack,damage=" + util::to_string( 20000 * healers * level / 85 ) + ",attack_speed=2.0,target=" + sim -> heal_target -> name_str;
+        double hps_per_healer = 90000;
+        double swing_speed = 2.0;
+        action_list_str += "/auto_attack,damage=" + util::to_string( hps_per_healer * healers * swing_speed * level / 100.0 ) + ",attack_speed=" + util::to_string(swing_speed) + ",target=" + sim -> heal_target -> name_str;
       }
       // Otherwise... do nothing?
       else

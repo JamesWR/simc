@@ -1,6 +1,6 @@
 # TxN
 # Tier x Normal
-# * Ilvl Cap: 665
+# * Ilvl Cap: 670
 # * No Random Gems (ie. Bonus RNG Gem Slots)
 # * No Tertiary Stats
 # * No Ranked Gear (ie. Thunderforged/Warforged)
@@ -10,8 +10,8 @@
 
 optimal_raid=1
 tmi_boss=TMI_Standard_Boss_T17N
-
 # Raid Tier17N
+
 Death_Knight_Frost_1h_T17N.simc
 Death_Knight_Frost_2h_T17N.simc
 Death_Knight_Unholy_T17N.simc

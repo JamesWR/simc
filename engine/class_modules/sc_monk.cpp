@@ -144,7 +144,7 @@ double monk_weapon_damage( action_t* action,
   }
 
   // Off Hand
-  if ( oh && oh -> type != WEAPON_NONE && weapon_power_mod > 0 )
+  if ( oh && oh -> type != WEAPON_NONE && weapon_power_mod > 0 && player -> specialization() != MONK_MISTWEAVER )
   {
     assert( oh -> slot == SLOT_OFF_HAND );
     double dmg = sim -> averaged_range( oh -> min_dmg, oh -> max_dmg ) + oh -> bonus_dmg;
@@ -170,7 +170,7 @@ double monk_weapon_damage( action_t* action,
 }
 } // Namespace 'monk_util' ends
 
-struct monk_td_t: public actor_pair_t
+struct monk_td_t: public actor_target_data_t
 {
 public:
 
@@ -399,6 +399,7 @@ public:
     const spell_data_t* teachings_of_the_monastery;
     const spell_data_t* thunder_focus_tea;
     const spell_data_t* uplift;
+    const spell_data_t* extend_life;
 
     // Windwalker
     const spell_data_t* afterlife;
@@ -410,6 +411,7 @@ public:
     const spell_data_t* energizing_brew;
     const spell_data_t* fists_of_fury;
     const spell_data_t* flying_serpent_kick;
+    const spell_data_t* rising_sun_kick_trinket;
     const spell_data_t* storm_earth_and_fire;
     const spell_data_t* tigereye_brew;
     const spell_data_t* touch_of_karma;
@@ -517,7 +519,10 @@ public:
     user_options( options_t() ),
     light_stagger_threshold( 0 ),
     moderate_stagger_threshold( 0.035 ),
-    heavy_stagger_threshold( 0.065 )
+    heavy_stagger_threshold( 0.065 ),
+    eluding_movements( 0 ),
+    soothing_breeze( 0 ),
+    furious_sun( 0 )
   {
     // actives
     _active_stance = FIERCE_TIGER;
@@ -617,6 +622,11 @@ public:
   const double heavy_stagger_threshold;
   double  clear_stagger();
   bool  has_stagger();
+
+  // Tier 18 (WoD 6.2) trinket effects
+  const special_effect_t* eluding_movements;
+  const special_effect_t* soothing_breeze;
+  const special_effect_t* furious_sun;
 };
 
 // ==========================================================================
@@ -650,12 +660,12 @@ struct jade_serpent_statue_t: public statue_t
 
 struct storm_earth_and_fire_pet_t : public pet_t
 {
-  struct sef_td_t: public actor_pair_t
+  struct sef_td_t: public actor_target_data_t
   {
     debuff_t* rising_sun_kick;
 
     sef_td_t( player_t* target, storm_earth_and_fire_pet_t* source ) :
-      actor_pair_t( target, source ),
+      actor_target_data_t( target, source ),
       rising_sun_kick( buff_creator_t( *this, "rising_sun_kick" ).spell( source -> find_spell( 130320 ) ) )
     { }
   };
@@ -1917,22 +1927,6 @@ public:
 
   virtual void execute()
   {
-    /* String look ups during runtime, but it's mistweaver... soo.... commented out.
-    if ( p() -> buff.channeling_soothing_mist -> check()
-    && p() -> executing
-    && !( p() -> executing -> name_str == "enveloping_mist" || p() -> executing -> name_str == "surging_mist" ) )
-    {
-    for ( size_t i = 0, actors = p() -> sim -> player_non_sleeping_list.size(); i < actors; ++i )
-    {
-    player_t* t = p() -> sim -> player_non_sleeping_list[i];
-    if ( td( t ) -> dots.soothing_mist -> is_ticking() )
-    {
-    td( t ) -> dots.soothing_mist -> cancel();
-    p() -> buff.channeling_soothing_mist -> expire();
-    break;
-    }
-    }
-    }*/
     ab::execute();
 
     trigger_storm_earth_and_fire( this );
@@ -2045,49 +2039,13 @@ struct monk_melee_attack_t: public monk_action_t < melee_attack_t >
   // Both MH and OH are directly weaved into one damage number
   virtual double calculate_weapon_damage( double ap )
   {
-    double total_dmg = 0;
-    // Main Hand
-    if ( mh && mh -> type != WEAPON_NONE && weapon_multiplier > 0 )
-    {
-      assert( mh -> slot != SLOT_OFF_HAND );
-      double dmg = sim -> averaged_range( mh -> min_dmg, mh -> max_dmg ) + mh -> bonus_dmg;
-      dmg /= mh -> swing_time.total_seconds();
-      total_dmg += dmg;
-
-      if ( sim->debug )
-      {
-        sim -> out_debug.printf( "%s main hand weapon damage portion for %s: td=%.3f wd=%.3f bd=%.3f ws=%.3f ap=%.3f",
-                                 player -> name(), name(), total_dmg, dmg, mh -> bonus_dmg, mh -> swing_time.total_seconds(), ap );
-      }
-    }
-
-    // Off Hand
-    if ( oh && oh -> type != WEAPON_NONE && weapon_multiplier > 0 )
-    {
-      assert( oh -> slot == SLOT_OFF_HAND );
-      double dmg = sim -> averaged_range( oh -> min_dmg, oh -> max_dmg ) + oh -> bonus_dmg;
-      dmg /= oh -> swing_time.total_seconds();
-      // OH penalty
-      dmg *= 0.5;
-
-      total_dmg += dmg;
-
-      if ( sim -> debug )
-      {
-        sim -> out_debug.printf( "%s off-hand weapon damage portion for %s: td=%.3f wd=%.3f bd=%.3f ws=%.3f ap=%.3f",
-                                 player -> name(), name(), total_dmg, dmg, oh -> bonus_dmg, oh -> swing_time.total_seconds(), ap );
-      }
-    }
-
-    if ( player -> dual_wield() )
-      total_dmg *= 0.857143;
-
-    if ( !mh && !oh )
-      total_dmg += base_t::calculate_weapon_damage( ap );
+    // Use monk specific weapon damage calculation if mh or oh (monk specific weapons) are
+    // specificed.
+    if ( mh || oh )
+      return monk_util::monk_weapon_damage( this, mh, oh, weapon_power_mod, ap );
+    // Otherwise, use normal weapon damage calculation. It's only used for auto-attacks currently.
     else
-      total_dmg += weapon_power_mod * ap;
-
-    return total_dmg;
+      return melee_attack_t::calculate_weapon_damage( ap );
   }
 
   virtual double composite_target_multiplier( player_t* t ) const
@@ -2145,7 +2103,10 @@ struct jab_t: public monk_melee_attack_t
 
   double combo_breaker_chance()
   {
-    return p() -> spec.combo_breaker -> effectN( 1 ).percent();
+    double cb_chance = p() -> spec.combo_breaker -> effectN( 1 ).percent();
+//    if ( maybe_ptr( p() -> dbc.ptr ) &&  p() -> sets.has_set_bonus( SET_MELEE, T18, B4 ) )
+//      cb_chance += p() -> sets.set( SET_MELEE, T18, B4 ) -> effectN( 1 ).percent();
+    return cb_chance;
   }
 
   virtual void execute()
@@ -2207,6 +2168,8 @@ struct tiger_palm_t: public monk_melee_attack_t
     mh = &( player -> main_hand_weapon );
     oh = &( player -> off_hand_weapon );
     base_multiplier = 3;
+    if ( maybe_ptr( p -> dbc.ptr ) )
+      base_multiplier = 3.42; // hardcoded into tooltip
     if ( p -> specialization() == MONK_MISTWEAVER )
       base_multiplier *= 1.0 + p -> spec.teachings_of_the_monastery -> effectN( 5 ).percent();
     base_costs[RESOURCE_CHI] *= 1.0 + p -> spec.brewmaster_training -> effectN( 2 ).percent();
@@ -2277,13 +2240,50 @@ struct rsk_debuff_t: public monk_melee_attack_t
   }
 };
 
-struct rising_sun_kick_t: public monk_melee_attack_t
+struct rising_sun_kick_proc_t : public monk_melee_attack_t
 {
   rsk_debuff_t* rsk_debuff;
 
+  rising_sun_kick_proc_t( monk_t* p, const spell_data_t* s ) :
+    monk_melee_attack_t( "rising_sun_kick_trinket", p, s ),
+    rsk_debuff( new rsk_debuff_t( p, p -> find_spell( 130320 ) ) )
+  {
+    cooldown -> duration = timespan_t::from_millis( 250 );
+    background = true;
+    stancemask = FIERCE_TIGER | SPIRITED_CRANE;
+    mh = &( player->main_hand_weapon );
+    oh = &( player->off_hand_weapon );
+    base_multiplier *= 10.56; // hardcoded into tooltip
+    if ( maybe_ptr( p -> dbc.ptr ) )
+      base_multiplier = 10.0; // hardcoded into tooltip
+    spell_power_mod.direct = 0.0;
+    sef_ability = SEF_RISING_SUN_KICK;
+    min_gcd = timespan_t::from_millis( 250 );
+    trigger_gcd = timespan_t::from_millis( 250 );
+  }
+
+  virtual void impact(action_state_t* s)
+  {
+    monk_melee_attack_t::impact(s);
+
+    rsk_debuff -> execute();
+  }
+
+  virtual double cost() const
+  {
+    return 0;
+  }
+};
+
+struct rising_sun_kick_t: public monk_melee_attack_t
+{
+  rsk_debuff_t* rsk_debuff;
+  rising_sun_kick_proc_t* rsk_proc;
+
   rising_sun_kick_t( monk_t* p, const std::string& options_str ):
     monk_melee_attack_t( "rising_sun_kick", p, p -> spec.rising_sun_kick ),
-    rsk_debuff( new rsk_debuff_t( p, p -> find_spell( 130320 ) ) )
+    rsk_debuff( new rsk_debuff_t( p, p -> find_spell( 130320 ) ) ),
+    rsk_proc( new rising_sun_kick_proc_t( p, p -> spec.rising_sun_kick_trinket ) )
   {
     cooldown -> duration = data().charge_cooldown();
     cooldown -> charges = data().charges();
@@ -2292,8 +2292,43 @@ struct rising_sun_kick_t: public monk_melee_attack_t
     mh = &( player -> main_hand_weapon );
     oh = &( player -> off_hand_weapon );
     base_multiplier *= 10.56; // hardcoded into tooltip
+    if ( maybe_ptr( p -> dbc.ptr ) )
+      base_multiplier = 10.0; // hardcoded into tooltip
     spell_power_mod.direct = 0.0;
     sef_ability = SEF_RISING_SUN_KICK;
+  }
+
+  double combo_breaker_chance()
+  {
+    double cb_chance = 0;
+//    if ( maybe_ptr( p() -> dbc.ptr ) &&  p() -> sets.has_set_bonus( SET_MELEE, T18, B2 ) )
+//      cb_chance += p() -> sets.set( SET_MELEE, T18, B2 ) -> effectN( 1 ).percent();
+    return cb_chance;
+  }
+
+  virtual void execute()
+  {
+    monk_melee_attack_t::execute();
+
+    if ( result_is_miss( execute_state -> result ) )
+      return;
+
+    double cb_chance = combo_breaker_chance();
+    if ( cb_chance > 0 )
+    {
+      if ( p() -> talent.chi_explosion -> ok() )
+      {
+        if ( p() -> buff.combo_breaker_ce -> trigger( 1, buff_t::DEFAULT_VALUE(), cb_chance ) )
+          p() -> proc.combo_breaker_ce -> occur();
+     }
+      else
+      {
+        if ( p() -> buff.combo_breaker_bok -> trigger( 1, buff_t::DEFAULT_VALUE(), cb_chance ) )
+          p() -> proc.combo_breaker_bok -> occur();
+      }
+      if ( p() -> buff.combo_breaker_tp -> trigger( 1, buff_t::DEFAULT_VALUE(), cb_chance ) )
+        p() -> proc.combo_breaker_tp -> occur();
+    }
   }
 
   virtual void impact( action_state_t* s )
@@ -2310,6 +2345,17 @@ struct rising_sun_kick_t: public monk_melee_attack_t
     double savings = base_costs[RESOURCE_CHI] - cost();
     if ( result_is_hit( execute_state -> result ) )
       p() -> track_chi_consumption += savings;
+
+    // Windwalker Tier 18 (WoD 6.2) trinket effect is in use, adjust Rising Sun Kick proc chance based on spell data
+    // of the special effect.
+    if ( maybe_ptr( p() -> dbc.ptr ) && ( p() -> furious_sun ) )
+    {
+      const spell_data_t* data = p() -> furious_sun -> driver();
+      double proc_chance = data -> effectN( 1 ).average( p() -> furious_sun -> item) / 100.0;
+
+      if ( rng().roll( proc_chance ) )
+        rsk_proc -> execute();
+    }
   }
 };
 
@@ -2338,6 +2384,8 @@ struct heal_blackout_kick_t: public monk_heal_t
 
 struct blackout_kick_t: public monk_melee_attack_t
 {
+  rising_sun_kick_proc_t* rsk_proc;
+
   void trigger_blackout_kick_dot( blackout_kick_t* s, player_t* t, double dmg )
   {
     monk_t* p = s -> p();
@@ -2359,14 +2407,17 @@ struct blackout_kick_t: public monk_melee_attack_t
   }
 
   blackout_kick_t( monk_t* p, const std::string& options_str ):
-    monk_melee_attack_t( "blackout_kick", p, p -> find_class_spell( "Blackout Kick" ) )
+    monk_melee_attack_t( "blackout_kick", p, p -> find_class_spell( "Blackout Kick" ) ),
+    rsk_proc( new rising_sun_kick_proc_t( p, p -> spec.rising_sun_kick_trinket ) )
   {
     parse_options( options_str );
     if ( p -> talent.chi_explosion -> ok() )
       background = true;
     mh = &( player -> main_hand_weapon );
     oh = &( player -> off_hand_weapon );
-    base_multiplier *= 6.4; // hardcoded into tooltip
+    base_multiplier = 6.4; // hardcoded into tooltip
+    if ( maybe_ptr( p -> dbc.ptr ) )
+      base_multiplier = 6.08; // hardcoded into tooltip
     spell_power_mod.direct = 0.0;
 
     if ( p -> spec.teachings_of_the_monastery -> ok() )
@@ -2439,6 +2490,17 @@ struct blackout_kick_t: public monk_melee_attack_t
       p() -> gain.combo_breaker_savings -> add( RESOURCE_CHI, savings );
       p() -> buff.combo_breaker_bok -> expire();
     }
+
+    // Windwalker Tier 18 (WoD 6.2) trinket effect is in use, adjust Rising Sun Kick proc chance based on spell data
+    // of the special effect.
+    if ( maybe_ptr( p() -> dbc.ptr ) && ( p() -> furious_sun ) )
+    {
+      const spell_data_t* data = p() -> furious_sun -> driver();
+      double proc_chance = data -> effectN( 1 ).average( p() -> furious_sun -> item ) / 100.0;
+
+      if ( rng().roll( proc_chance ) )
+        rsk_proc -> execute();
+    }
   }
 };
 
@@ -2493,10 +2555,13 @@ struct chi_explosion_t: public monk_melee_attack_t
 {
   const spell_data_t* windwalker_chi_explosion_dot;
   const spell_data_t* spirited_crane_chi_explosion;
+  rising_sun_kick_proc_t* rsk_proc;
+
   chi_explosion_t( monk_t* p, const std::string& options_str ):
     monk_melee_attack_t( "chi_explosion", p, p -> talent.chi_explosion ),
     windwalker_chi_explosion_dot( p -> find_spell( 157680 ) ),
-    spirited_crane_chi_explosion( p -> find_spell( 159620 ) )
+    spirited_crane_chi_explosion( p -> find_spell( 159620 ) ),
+    rsk_proc( new rising_sun_kick_proc_t( p, p -> spec.rising_sun_kick_trinket ) )
   {
     parse_options( options_str );
     may_block = false;
@@ -2576,6 +2641,23 @@ struct chi_explosion_t: public monk_melee_attack_t
     {
       if ( resource_consumed >= 3 )
         trigger_brew( 1 );
+
+      // Windwalker Tier 18 (WoD 6.2) trinket effect is in use, adjust Rising Sun Kick proc chance based on spell data
+      // of the special effect.
+      if ( maybe_ptr( p() -> dbc.ptr ) && ( p() -> furious_sun ) )
+      {
+        const spell_data_t* data = p() -> furious_sun -> driver();
+        double proc_chance = data -> effectN( 1 ).average( p() -> furious_sun -> item ) / 100.0;
+        // Chi Explosion's proc chance is reduced in half
+        proc_chance *= 0.50;
+
+        // Each chi spent has a chance of proccing a Rising Sun Kick. Plausible to see up to 4 RSK procs; though doubtful
+        for ( int i = 1; i <= resource_consumed; i++ )
+        {
+          if ( rng().roll( proc_chance ) )
+            rsk_proc -> execute();
+        }
+      }
     }
     else if ( p() -> current_stance() == SPIRITED_CRANE )
     {
@@ -2861,8 +2943,11 @@ struct fists_of_fury_tick_t: public monk_melee_attack_t
 
 struct fists_of_fury_t: public monk_melee_attack_t
 {
+  rising_sun_kick_proc_t* rsk_proc;
+
   fists_of_fury_t( monk_t* p, const std::string& options_str ):
-    monk_melee_attack_t( "fists_of_fury", p, p -> spec.fists_of_fury )
+    monk_melee_attack_t( "fists_of_fury", p, p -> spec.fists_of_fury ),
+    rsk_proc( new rising_sun_kick_proc_t( p, p -> spec.rising_sun_kick_trinket ) )
   {
     parse_options( options_str );
 
@@ -2874,6 +2959,8 @@ struct fists_of_fury_t: public monk_melee_attack_t
     interrupt_auto_attack = true;
 
     base_multiplier *= 7.755; // hardcoded into tooltip
+    if ( maybe_ptr( p -> dbc.ptr ) )
+      base_multiplier = 7.367; // hardcoded into tooltip
     spell_power_mod.direct = 0.0;
 
     // T14 WW 2PC
@@ -2893,6 +2980,21 @@ struct fists_of_fury_t: public monk_melee_attack_t
       p() -> track_chi_consumption += savings;
       if ( p() -> sets.has_set_bonus( MONK_WINDWALKER, T17, B2 ) )
         trigger_brew( p() -> sets.set( MONK_WINDWALKER, T17, B2 ) -> effectN( 1 ).base_value() );
+    }
+  }
+
+  virtual void last_tick( dot_t* dot )
+  {
+    monk_melee_attack_t::last_tick( dot );
+    // Windwalker Tier 18 (WoD 6.2) trinket effect is in use, adjust Rising Sun Kick proc chance based on spell data
+    // of the special effect.
+    if ( maybe_ptr( p() -> dbc.ptr ) && ( p() -> furious_sun ) )
+    {
+      const spell_data_t* data = p() -> furious_sun -> driver();
+      double proc_chance = data -> effectN( 1 ).average( p() -> furious_sun -> item ) / 100.0;
+
+      if ( rng().roll( proc_chance ) )
+        rsk_proc -> execute();
     }
   }
 };
@@ -2920,8 +3022,11 @@ struct hurricane_strike_tick_t: public monk_melee_attack_t
 
 struct hurricane_strike_t: public monk_melee_attack_t
 {
+  rising_sun_kick_proc_t* rsk_proc;
+
   hurricane_strike_t( monk_t* p, const std::string& options_str ):
-    monk_melee_attack_t( "hurricane_strike", p, p -> talent.hurricane_strike )
+    monk_melee_attack_t( "hurricane_strike", p, p -> talent.hurricane_strike ),
+    rsk_proc( new rising_sun_kick_proc_t( p, p -> spec.rising_sun_kick_trinket ) )
   {
     sef_ability = SEF_HURRICANE_STRIKE;
 
@@ -2932,6 +3037,8 @@ struct hurricane_strike_t: public monk_melee_attack_t
     dot_duration = data().duration();
     base_tick_time = dot_duration / 15;
     base_multiplier = 2.5;
+    if ( maybe_ptr( p -> dbc.ptr ) )
+      base_multiplier = 2.375; // hardcoded into tooltip
     spell_power_mod.direct = 0.0;
 
     tick_action = new hurricane_strike_tick_t( "hurricane_strike_tick", p, p -> find_spell( 158221 ) );
@@ -2941,6 +3048,25 @@ struct hurricane_strike_t: public monk_melee_attack_t
   {
     timespan_t tt = tick_time( s -> haste );
     return tt * 15;
+  }
+
+  virtual void last_tick(dot_t* dot)
+  {
+    monk_melee_attack_t::last_tick(dot); 
+    if ( maybe_ptr( p() -> dbc.ptr ) && ( p() -> furious_sun ) )
+    {
+      const spell_data_t* data = p() -> furious_sun -> driver();
+      double proc_chance = data -> effectN( 1 ).average( p() -> furious_sun -> item) / 100.0;
+      // Hurricane Strike's proc chance is reduced in half
+      proc_chance *= 0.50;
+
+      // Each chi spent has a chance of proccing a Rising Sun Kick. Plausible to see up to 3 RSK procs; though highly unlikely
+      for ( int i = 1; i <= base_costs[RESOURCE_CHI]; i++ )
+      {
+        if ( rng().roll( proc_chance ) )
+          rsk_proc -> execute();
+      }
+    }
   }
 
   void consume_resource()
@@ -3021,7 +3147,12 @@ struct melee_t: public monk_melee_attack_t
   {
     monk_melee_attack_t::impact( s );
 
-    if ( result_is_hit_or_multistrike( s -> result ) && p() -> current_stance() != WISE_SERPENT )
+    if ( maybe_ptr( p() -> dbc.ptr ) )
+    {
+      if ( result_is_hit( s -> result ) && p() -> current_stance() != WISE_SERPENT )
+        p() -> buff.tiger_strikes -> trigger();
+    }
+    else if ( result_is_hit_or_multistrike( s -> result ) && p() -> current_stance() != WISE_SERPENT )
       p() -> buff.tiger_strikes -> trigger();
 
     if ( p() -> spec.brewing_elusive_brew -> ok() )
@@ -4238,40 +4369,8 @@ struct purifying_brew_t: public monk_spell_t
 
 struct crackling_jade_lightning_t: public monk_spell_t
 {
-  // Crackling Jade Spirit needs to bypass all mana costs for the duration
-  // of the channel, if Lucidity is up when the spell is cast. Thus,
-  // we need custom state to go around the channeling cost per second.
-  struct cjl_state_t: public action_state_t
-  {
-    bool lucidity;
-
-    cjl_state_t( crackling_jade_lightning_t* cjl, player_t* target ):
-      action_state_t( cjl, target ), lucidity( false )
-    { }
-
-    std::ostringstream& debug_str( std::ostringstream& s )
-    {
-      action_state_t::debug_str( s ) << " lucidity=" << lucidity; return s;
-    }
-
-    void initialize()
-    {
-      action_state_t::initialize(); lucidity = false;
-    }
-
-    void copy_state( const action_state_t* o )
-    {
-      action_state_t::copy_state( o );
-      const cjl_state_t* ss = debug_cast<const cjl_state_t*>( o );
-      lucidity = ss -> lucidity;
-    }
-  };
-
-  const spell_data_t* proc_driver;
-
   crackling_jade_lightning_t( monk_t& p, const std::string& options_str ):
-    monk_spell_t( "crackling_jade_lightning", &p, p.find_class_spell( "Crackling Jade Lightning" ) ),
-    proc_driver( p.find_spell( 123332 ) )
+    monk_spell_t( "crackling_jade_lightning", &p, p.find_class_spell( "Crackling Jade Lightning" ) )
   {
     parse_options( options_str );
 
@@ -4281,16 +4380,11 @@ struct crackling_jade_lightning_t: public monk_spell_t
     procs_courageous_primal_diamond = false;
   }
 
-  action_state_t* new_state()
+  double cost() const
   {
-    return new cjl_state_t( this, target );
-  }
-
-  void snapshot_state( action_state_t* state, dmg_e rt )
-  {
-    monk_spell_t::snapshot_state( state, rt );
-    cjl_state_t* ss = debug_cast<cjl_state_t*>( state );
-    ss -> lucidity = player -> buffs.courageous_primal_diamond_lucidity -> check() != 0;
+    if ( p() -> current_stance() == WISE_SERPENT )
+      return 0;
+    return monk_spell_t::cost();
   }
 
   void last_tick( dot_t* dot )
@@ -4315,9 +4409,8 @@ struct crackling_jade_lightning_t: public monk_spell_t
   {
     monk_spell_t::tick( dot );
 
-    if ( rng().roll( proc_driver -> proc_chance() ) )
-      p() -> resource_gain( RESOURCE_CHI, proc_driver -> effectN( 1 ).trigger() -> effectN( 1 ).base_value(), p() -> gain.crackling_jade_lightning, this );
-
+    if ( p() -> current_stance() == SPIRITED_CRANE )
+      p() -> resource_gain( RESOURCE_CHI, 1, p() -> gain.crackling_jade_lightning, this );
   }
 };
 
@@ -4452,8 +4545,10 @@ TODO: Verify healing values.
 struct expel_harm_heal_t: public monk_heal_t
 {
   attacks::expel_harm_t* attack;
+  action_t* action;
   expel_harm_heal_t( monk_t& p, const std::string& options_str ):
-    monk_heal_t( "expel_harm_heal", p, p.find_class_spell( "Expel Harm" ) )
+    monk_heal_t( "expel_harm_heal", p, p.find_class_spell( "Expel Harm" ) ),
+    action( 0 )
   {
     parse_options( options_str );
 
@@ -4464,10 +4559,26 @@ struct expel_harm_heal_t: public monk_heal_t
 
     attack = new attacks::expel_harm_t( &p );
 
+    action = this;
+
     if ( p.specialization() == MONK_MISTWEAVER )
       base_costs[RESOURCE_MANA] = 0;
     else
       base_costs[RESOURCE_ENERGY] = 0;
+  }
+
+  virtual double action_multiplier() const
+  {
+    double am = monk_heal_t::action_multiplier();
+
+    weapon_t mh = p() -> main_hand_weapon;
+    weapon_t oh = p() -> off_hand_weapon;
+      
+    double weapon_damage = monk_util::monk_weapon_damage( action, &( mh ), &( oh ), weapon_power_mod, 
+      (p() -> specialization() == MONK_MISTWEAVER ? p() -> composite_spell_power( SCHOOL_MAX ) : p() -> composite_melee_attack_power() ) );
+    am *= weapon_damage;
+
+    return am;
   }
 
   void impact( action_state_t* s )
@@ -4800,7 +4911,8 @@ struct healing_elixirs_t: public monk_heal_t
   healing_elixirs_t( monk_t& p ):
     monk_heal_t( "healing_elixirs", p, p.talent.healing_elixirs )
   {
-    harmful = may_crit = may_multistrike = false;
+    harmful = may_crit = false;
+    may_multistrike = 0;
     trigger_gcd = timespan_t::zero();
     pct_heal = p.passives.healing_elixirs -> effectN( 1 ).percent();
     cooldown -> duration = data().effectN( 1 ).period();
@@ -4951,7 +5063,7 @@ namespace buffs
 // ==========================================================================
 
 monk_td_t::monk_td_t( player_t* target, monk_t* p ):
-actor_pair_t( target, p ),
+actor_target_data_t( target, p ),
 dots( dots_t() ),
 debuff( buffs_t() ),
 monk( *p )
@@ -5127,6 +5239,7 @@ void monk_t::init_spells()
   spec.storm_earth_and_fire          = find_specialization_spell( "Storm, Earth, and Fire" );
   spec.battle_trance                 = find_specialization_spell( "Battle Trance" );
   spec.windflurry                    = find_specialization_spell( "Windflurry" );
+  spec.rising_sun_kick_trinket       = find_spell( 185099 );
 
   // Brewmaster Passives
   spec.brewmaster_training           = find_specialization_spell( "Brewmaster Training" );
@@ -5168,6 +5281,7 @@ void monk_t::init_spells()
   spec.life_cocoon                   = find_specialization_spell( "Life Cocoon" );
   spec.enveloping_mist               = find_specialization_spell( "Enveloping Mist" );
   spec.jade_mists                    = find_specialization_spell( "Jade Mists" );
+  spec.extend_life                   = find_spell( 185158 ); // Tier 18 bonus
 
   // Stance
   stance_data.fierce_tiger           = find_class_spell( "Stance of the Fierce Tiger" );
@@ -5232,7 +5346,7 @@ void monk_t::init_base_stats()
     base_gcd = timespan_t::from_seconds( 1.0 );
 
   resources.base[RESOURCE_CHI] = 4 + talent.ascension -> effectN( 1 ).base_value() + perk.empowered_chi -> effectN( 1 ).base_value();
-  resources.base[RESOURCE_ENERGY] = 100;
+  resources.base[RESOURCE_ENERGY] = 100;// + ( ( maybe_ptr( dbc.ptr ) && sets.has_set_bonus( MONK_WINDWALKER, T18, B4 ) ) ? sets.set( MONK_WINDWALKER, T18, B4 ) -> effectN( 2 ).base_value() : 0 );
 
   base_chi_regen_per_second = 0;
   base_energy_regen_per_second = 10.0;
@@ -5314,7 +5428,9 @@ void monk_t::create_buffs()
 
   buff.diffuse_magic = buff_creator_t( this, "diffuse_magic", talent.diffuse_magic );
 
-  buff.serenity = buff_creator_t( this, "serenity", talent.serenity );
+  timespan_t serentiy_duration = ( maybe_ptr( dbc.ptr ) && specialization() == MONK_BREWMASTER ? timespan_t::from_seconds( talent.serenity -> effectN( 1 ).base_value() ) : talent.serenity -> duration() );
+  buff.serenity = buff_creator_t( this, "serenity", talent.serenity )
+    .duration( serentiy_duration );
 
   buff.death_note = buff_creator_t( this, "death_note", find_spell( 121125 ) )
     .duration( timespan_t::from_minutes( 60 ) );
@@ -5924,15 +6040,16 @@ void monk_t::assess_damage(school_e school,
       buff.guard -> up();
 
     // Given that most of the fight in the sim, the Brewmaster is below 35% HP, we need to throttle how often this actually procs
-    // currently giving this a 10% chance to reset, but the user can determin how often to reset this.
-    if ( health_percentage() < 35 )
+    // currently giving this a 10% chance to reset, but the user can determin how often to reset this. 
+    double desperate_measures = 35;//( maybe_ptr( dbc.ptr ) && sets.has_set_bonus( MONK_BREWMASTER, T18, B2 ) ? sets.set( MONK_BREWMASTER, T18, B2 ) -> effectN( 1 ).base_value() : 35);
+    if ( health_percentage() < desperate_measures )
     {
       bool eh_reset = rng().roll( user_options.eh_reset_throttle > 0 ? user_options.eh_reset_throttle / 100 : 0.10 );
       if ( eh_reset )
         cooldown.expel_harm -> reset( true );
     }
 
-    if ( s -> result == RESULT_DODGE && sets.set( MONK_BREWMASTER, T17, B2 ) )
+    if ( s -> result == RESULT_DODGE && sets.has_set_bonus( MONK_BREWMASTER, T17, B2 ) )
       resource_gain( RESOURCE_ENERGY, passives.tier17_2pc_tank -> effectN( 1 ).base_value(), gain.energy_refund );
   }
 
@@ -6531,7 +6648,7 @@ double monk_t::stagger_pct()
   {
     stagger += static_stance_data( STURDY_OX ).effectN( 8 ).percent();
 
-    if ( buff.shuffle -> check() )
+    if ( !maybe_ptr( dbc.ptr ) && buff.shuffle -> check() )
       stagger += buff.shuffle -> data().effectN( 2 ).percent();
 
     if ( spec.brewmaster_training -> ok() && buff.fortifying_brew -> check() )
@@ -6869,6 +6986,41 @@ private:
 
 // MONK MODULE INTERFACE ====================================================
 
+static void do_trinket_init( monk_t*                  player,
+                             specialization_e         spec,
+                             const special_effect_t*& ptr,
+                             const special_effect_t&  effect )
+{
+  // Ensure we have the spell data. This will prevent the trinket effect from working on live
+  // Simulationcraft. Also ensure correct specialization.
+  if ( ! player -> find_spell( effect.spell_id ) -> ok() ||
+       player -> specialization() != spec )
+  {
+    return;
+  }
+
+  // Set pointer, module considers non-null pointer to mean the effect is "enabled"
+  ptr = &( effect );
+}
+
+static void eluding_movements( special_effect_t& effect )
+{
+  monk_t* monk = debug_cast<monk_t*>( effect.player );
+  do_trinket_init( monk, MONK_BREWMASTER, monk -> eluding_movements, effect );
+}
+
+static void soothing_breeze( special_effect_t& effect )
+{
+  monk_t* monk = debug_cast<monk_t*>( effect.player );
+  do_trinket_init( monk, MONK_MISTWEAVER, monk -> soothing_breeze, effect );
+}
+
+static void furious_sun( special_effect_t& effect )
+{
+  monk_t* monk = debug_cast<monk_t*>( effect.player );
+  do_trinket_init( monk, MONK_WINDWALKER, monk -> furious_sun, effect );
+}
+
 struct monk_module_t: public module_t
 {
   monk_module_t(): module_t( MONK ) {}
@@ -6880,6 +7032,14 @@ struct monk_module_t: public module_t
     return p;
   }
   virtual bool valid() const { return true; }
+
+  virtual void static_init() const
+  {
+    unique_gear::register_special_effect( 184906, eluding_movements );
+    unique_gear::register_special_effect( 184907, soothing_breeze );
+    unique_gear::register_special_effect( 184908, furious_sun );
+  }
+
   virtual void init( sim_t* sim ) const
   {
     for ( unsigned int i = 0; i < sim -> actor_list.size(); i++ )

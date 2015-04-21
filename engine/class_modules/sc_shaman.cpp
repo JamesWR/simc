@@ -30,8 +30,6 @@ struct shaman_t;
 enum totem_e { TOTEM_NONE = 0, TOTEM_AIR, TOTEM_EARTH, TOTEM_FIRE, TOTEM_WATER, TOTEM_MAX };
 enum imbue_e { IMBUE_NONE = 0, FLAMETONGUE_IMBUE, WINDFURY_IMBUE, FROSTBRAND_IMBUE, EARTHLIVING_IMBUE };
 
-#define MAX_MAELSTROM_STACK ( 5 )
-
 struct shaman_attack_t;
 struct shaman_spell_t;
 struct shaman_heal_t;
@@ -40,7 +38,7 @@ struct totem_pulse_event_t;
 struct totem_pulse_action_t;
 struct maelstrom_weapon_buff_t;
 
-struct shaman_td_t : public actor_pair_t
+struct shaman_td_t : public actor_target_data_t
 {
   struct dots
   {
@@ -144,6 +142,10 @@ public:
 
   // Totems
   shaman_totem_pet_t* totems[ TOTEM_MAX ];
+
+  // Tier 18 (WoD 6.2) class specific trinket effects
+  const special_effect_t* elemental_bellows;
+  const special_effect_t* furious_winds;
 
   // Constants
   struct
@@ -389,6 +391,8 @@ public:
     guardian_fire_elemental( nullptr ),
     pet_earth_elemental( nullptr ),
     guardian_earth_elemental( nullptr ),
+    elemental_bellows( 0 ),
+    furious_winds( 0 ),
     constant(),
     buff(),
     cooldown(),
@@ -399,7 +403,6 @@ public:
     talent(),
     glyph(),
     spell(),
-    // TODO: Check in 6.1
     rppm_echo_of_the_elements( *this, 0, RPPM_HASTE )
   {
     for ( size_t i = 0; i < sizeof_array( pet_feral_spirit ); i++ )
@@ -441,7 +444,7 @@ public:
   // triggers
   void trigger_molten_earth( const action_state_t* );
   void trigger_fulmination_stack( const action_state_t* );
-  void trigger_maelstrom_weapon( const action_state_t* );
+  void trigger_maelstrom_weapon( const action_state_t*, double override_chance = 0.0 );
   void trigger_windfury_weapon( const action_state_t* );
   void trigger_flametongue_weapon( const action_state_t* );
   void trigger_improved_lava_lash( const action_state_t* );
@@ -479,7 +482,7 @@ public:
   virtual double    matching_gear_multiplier( attribute_e attr ) const;
   virtual void      create_options();
   virtual action_t* create_action( const std::string& name, const std::string& options );
-  virtual action_t* create_proc_action( const std::string& /* name */ );
+  virtual action_t* create_proc_action( const std::string& /* name */, const special_effect_t& );
   virtual pet_t*    create_pet   ( const std::string& name, const std::string& type = std::string() );
   virtual void      create_pets();
   virtual expr_t* create_expression( action_t*, const std::string& name );
@@ -533,7 +536,7 @@ counter_t::counter_t( shaman_t* p ) :
 }
 
 shaman_td_t::shaman_td_t( player_t* target, shaman_t* p ) :
-  actor_pair_t( target, p )
+  actor_target_data_t( target, p )
 {
   dot.flame_shock       = target -> get_dot( "flame_shock", p );
 
@@ -551,7 +554,9 @@ struct maelstrom_weapon_buff_t : public buff_t
   std::vector<shaman_attack_t*> trigger_actions;
 
   maelstrom_weapon_buff_t( shaman_t* player ) :
-    buff_t( buff_creator_t( player, 53817, "maelstrom_weapon" ) )
+    buff_t( buff_creator_t( player, 53817, "maelstrom_weapon" )
+            .max_stack( player -> find_spell( 53817 ) -> max_stacks() + 
+                        player -> sets.set( SHAMAN_ENHANCEMENT, T18, B4 ) -> effectN( 1 ).base_value() ) )
   { activated = false; }
 
   using buff_t::trigger;
@@ -890,7 +895,8 @@ public:
   {
     ab::init();
 
-    for ( size_t i = 0; i < MAX_MAELSTROM_STACK + 2; i++ )
+    size_t n_mwstack = static_cast<size_t>( ab::p() -> buff.maelstrom_weapon -> max_stack() + 2 );
+    for ( size_t i = 0; i < n_mwstack; i++ )
     {
       maelstrom_weapon_cast.push_back( new counter_t( ab::p() ) );
       maelstrom_weapon_executed.push_back( new counter_t( ab::p() ) );
@@ -922,7 +928,11 @@ public:
       if ( p -> buff.ancestral_swiftness -> up() )
         t *= 1.0 + p -> buff.ancestral_swiftness -> data().effectN( 1 ).percent();
       else
-        t *= 1.0 + p -> buff.maelstrom_weapon -> stack() * p -> buff.maelstrom_weapon -> data().effectN( 1 ).percent();
+      {
+        size_t max_stack = std::min( static_cast<unsigned>( p -> buff.maelstrom_weapon -> check() ),
+                                     p -> buff.maelstrom_weapon -> data().max_stacks() );
+        t *= 1.0 + max_stack * p -> buff.maelstrom_weapon -> data().effectN( 1 ).percent();
+      }
     }
 
     return t;
@@ -937,7 +947,9 @@ public:
          ab::instant_eligibility() &&
          ! p -> buff.ancestral_swiftness -> check() )
     {
-      m *= 1.0 + p -> buff.maelstrom_weapon -> check() * p -> perk.improved_maelstrom_weapon -> effectN( 1 ).percent();
+      size_t max_stack = std::min( static_cast<unsigned>( p -> buff.maelstrom_weapon -> check() ),
+                                   p -> buff.maelstrom_weapon -> data().max_stacks() );
+      m *= 1.0 + max_stack * p -> perk.improved_maelstrom_weapon -> effectN( 1 ).percent();
     }
 
     return m;
@@ -1679,6 +1691,7 @@ struct lightning_charge_t : public shaman_spell_t
     // Use the same name "lightning_shield" to make sure the cost of refreshing the shield is included with the procs.
     background       = true;
     may_crit         = true;
+    callbacks        = false;
 
     if ( player -> spec.fulmination -> ok() )
       id = player -> spec.fulmination -> id();
@@ -1821,8 +1834,10 @@ struct ancestral_awakening_t : public shaman_heal_t
 
 struct windfury_weapon_melee_attack_t : public shaman_attack_t
 {
+  double furious_winds_chance;
+
   windfury_weapon_melee_attack_t( const std::string& n, shaman_t* player, weapon_t* w ) :
-    shaman_attack_t( n, player, player -> dbc.spell( 25504 ) )
+    shaman_attack_t( n, player, player -> dbc.spell( 25504 ) ), furious_winds_chance( 0 )
   {
     weapon           = w;
     school           = SCHOOL_PHYSICAL;
@@ -1831,6 +1846,27 @@ struct windfury_weapon_melee_attack_t : public shaman_attack_t
 
     // Windfury can not proc itself
     may_proc_windfury = false;
+
+    // Enhancement Tier 18 (WoD 6.2) trinket effect
+    if ( player -> furious_winds )
+    {
+      const spell_data_t* data = player -> furious_winds -> driver();
+      double damage_value = data -> effectN( 1 ).average( player -> furious_winds -> item ) / 100.0;
+
+      furious_winds_chance = data -> effectN( 2 ).average( player -> furious_winds -> item ) / 100.0;
+
+      base_multiplier *= 1.0 + damage_value;
+    }
+  }
+
+  void impact( action_state_t* state )
+  {
+    shaman_attack_t::impact( state );
+
+    if ( result_is_hit( state -> result ) && furious_winds_chance > 0 )
+    {
+      p() -> trigger_maelstrom_weapon( state, furious_winds_chance );
+    }
   }
 };
 
@@ -2018,7 +2054,7 @@ void shaman_spell_base_t<Base>::execute()
   if ( eligible_for_instant && ! as_cast && p -> specialization() == SHAMAN_ENHANCEMENT )
   {
     maelstrom_weapon_executed[ p -> buff.maelstrom_weapon -> check() ] -> add( 1 );
-    p -> buff.maelstrom_weapon -> expire();
+    p -> buff.maelstrom_weapon -> decrement( p -> buff.maelstrom_weapon -> data().max_stacks() );
   }
 
   p -> buff.spiritwalkers_grace -> up();
@@ -2389,11 +2425,19 @@ struct stormstrike_t : public shaman_attack_t
   {
     shaman_attack_t::execute();
 
-    if ( result_is_hit( execute_state -> result ) && p() -> sets.has_set_bonus( SET_MELEE, T15, B2 ) )
+    if ( result_is_hit( execute_state -> result ) )
     {
-      int bonus = p() -> sets.set( SET_MELEE, T15, B2 ) -> effectN( 1 ).base_value();
+      if ( p() -> sets.has_set_bonus( SET_MELEE, T15, B2 ) )
+      {
+        int bonus = p() -> sets.set( SET_MELEE, T15, B2 ) -> effectN( 1 ).base_value();
+        p() -> buff.maelstrom_weapon -> trigger( this, bonus, 1.0 );
+      }
 
-      p() -> buff.maelstrom_weapon -> trigger( this, bonus, 1.0 );
+      if ( p() -> sets.has_set_bonus( SHAMAN_ENHANCEMENT, T18, B2 ) )
+      {
+        int bonus = p() -> sets.set( SHAMAN_ENHANCEMENT, T18, B2 ) -> effectN( 1 ).base_value();
+        p() -> buff.maelstrom_weapon -> trigger( this, bonus, 1.0 );
+      }
     }
 
     if ( result_is_hit( execute_state -> result ) && p() -> sets.has_set_bonus( SHAMAN_ENHANCEMENT, T17, B2 ) )
@@ -3501,6 +3545,18 @@ struct flame_shock_t : public shaman_spell_t
     uses_elemental_fusion = true;
     uses_unleash_flame    = true; // Disabled in spell data for some weird reason
     track_cd_waste        = false;
+
+    // Elemental Tier 18 (WoD 6.2) trinket effect is in use, adjust Flame Shock based on spell data
+    // of the special effect.
+    if ( player -> elemental_bellows )
+    {
+      const spell_data_t* data = player -> elemental_bellows -> driver();
+      double damage_value = data -> effectN( 1 ).average( player -> elemental_bellows -> item ) / 100.0;
+      double duration_value = data -> effectN( 3 ).average( player -> elemental_bellows -> item ) / 100.0;
+
+      base_multiplier *= 1.0 + damage_value;
+      dot_duration *= 1.0 + duration_value;
+    }
   }
 
   void execute()
@@ -4577,7 +4633,7 @@ action_t* shaman_t::create_action( const std::string& name,
   return player_t::create_action( name, options_str );
 }
 
-action_t* shaman_t::create_proc_action( const std::string& name )
+action_t* shaman_t::create_proc_action( const std::string& name, const special_effect_t& )
 {
   if ( util::str_compare_ci( name, "flurry_of_xuen" ) ) return new shaman_flurry_of_xuen_t( this );
 
@@ -4811,19 +4867,6 @@ void shaman_t::init_spells()
   constant.speed_attack_ancestral_swiftness = 1.0 / ( 1.0 + spell.ancestral_swiftness -> effectN( 2 ).percent() );
   constant.haste_ancestral_swiftness  = 1.0 / ( 1.0 + spell.ancestral_swiftness -> effectN( 1 ).percent() );
 
-  if ( sets.has_set_bonus( SET_CASTER, T15, B2 ) )
-    action_lightning_strike = new t15_2pc_caster_t( this );
-
-  if ( mastery.molten_earth -> ok() )
-    molten_earth = new molten_earth_driver_t( this );
-
-  if ( specialization() == SHAMAN_ENHANCEMENT )
-  {
-    windfury = new windfury_weapon_melee_attack_t( "windfury_attack", this, &( main_hand_weapon ) );
-    flametongue = new flametongue_weapon_spell_t( "flametongue_attack", this, &( off_hand_weapon ) );
-    action_improved_lava_lash = new improved_lava_lash_t( this );
-  }
-
   player_t::init_spells();
 }
 
@@ -4968,11 +5011,11 @@ void shaman_t::trigger_windfury_weapon( const action_state_t* state )
   }
 }
 
-void shaman_t::trigger_maelstrom_weapon( const action_state_t* state )
+void shaman_t::trigger_maelstrom_weapon( const action_state_t* state, double override_chance )
 {
   assert( debug_cast< shaman_attack_t* >( state -> action ) != 0 && "Maelstrom Weapon called on invalid action type" );
   shaman_attack_t* attack = debug_cast< shaman_attack_t* >( state -> action );
-  if ( ! attack -> may_proc_maelstrom )
+  if ( ! attack -> may_proc_maelstrom && ! override_chance )
     return;
 
   if ( ! attack -> weapon )
@@ -4981,7 +5024,15 @@ void shaman_t::trigger_maelstrom_weapon( const action_state_t* state )
   if ( ! spec.maelstrom_weapon -> ok() )
     return;
 
-  double chance = attack -> weapon -> proc_chance_on_swing( 8.0 );
+  double chance = 0;
+  if ( override_chance > 0 )
+  {
+    chance = override_chance;
+  }
+  else
+  {
+    chance = attack -> weapon -> proc_chance_on_swing( 8.0 );
+  }
 
   //if ( sets.has_set_bonus( SET_MELEE, PVP, B2 ) )
   //  chance *= 1.2;
@@ -5307,6 +5358,24 @@ void shaman_t::init_action_list()
     return;
   }
 
+  // After error checks, initialize secondary actions for various things
+  if ( specialization() == SHAMAN_ENHANCEMENT )
+  {
+    windfury = new windfury_weapon_melee_attack_t( "windfury_attack", this, &( main_hand_weapon ) );
+    flametongue = new flametongue_weapon_spell_t( "flametongue_attack", this, &( off_hand_weapon ) );
+    action_improved_lava_lash = new improved_lava_lash_t( this );
+  }
+
+  if ( sets.has_set_bonus( SET_CASTER, T15, B2 ) )
+  {
+    action_lightning_strike = new t15_2pc_caster_t( this );
+  }
+
+  if ( mastery.molten_earth -> ok() )
+  {
+    molten_earth = new molten_earth_driver_t( this );
+  }
+
   if ( ! action_list_str.empty() )
   {
     player_t::init_action_list();
@@ -5539,12 +5608,6 @@ void shaman_t::init_action_list()
     single -> add_action( this, "Unleash Flame", "if=talent.unleashed_fury.enabled&!buff.ascendance.up" );
     single -> add_action( this, "Flame Shock", "if=dot.flame_shock.remains<=9" );
     single -> add_action( this, spec.fulmination, "earth_shock", "if=(set_bonus.tier17_4pc&buff.lightning_shield.react>=12&!buff.lava_surge.up)|(!set_bonus.tier17_4pc&buff.lightning_shield.react>15)" );
-    single -> add_action( this, "Earthquake", "if=!talent.unleashed_fury.enabled&((1+stat.spell_haste)*(1+(mastery_value*2%4.5))>=(1.875+(1.25*0.226305)+1.25*(2*0.226305*stat.multistrike_pct%100)))&target.time_to_die>10&buff.elemental_mastery.down&buff.bloodlust.down" );
-    single -> add_action( this, "Earthquake", "if=!talent.unleashed_fury.enabled&((1+stat.spell_haste)*(1+(mastery_value*2%4.5))>=1.3*(1.875+(1.25*0.226305)+1.25*(2*0.226305*stat.multistrike_pct%100)))&target.time_to_die>10&(buff.elemental_mastery.up|buff.bloodlust.up)" );
-    single -> add_action( this, "Earthquake", "if=!talent.unleashed_fury.enabled&((1+stat.spell_haste)*(1+(mastery_value*2%4.5))>=(1.875+(1.25*0.226305)+1.25*(2*0.226305*stat.multistrike_pct%100)))&target.time_to_die>10&(buff.elemental_mastery.remains>=10|buff.bloodlust.remains>=10)" );
-    single -> add_action( this, "Earthquake", "if=talent.unleashed_fury.enabled&((1+stat.spell_haste)*(1+(mastery_value*2%4.5))>=((1.3*1.875)+(1.25*0.226305)+1.25*(2*0.226305*stat.multistrike_pct%100)))&target.time_to_die>10&buff.elemental_mastery.down&buff.bloodlust.down" );
-    single -> add_action( this, "Earthquake", "if=talent.unleashed_fury.enabled&((1+stat.spell_haste)*(1+(mastery_value*2%4.5))>=1.3*((1.3*1.875)+(1.25*0.226305)+1.25*(2*0.226305*stat.multistrike_pct%100)))&target.time_to_die>10&(buff.elemental_mastery.up|buff.bloodlust.up)" );
-    single -> add_action( this, "Earthquake", "if=talent.unleashed_fury.enabled&((1+stat.spell_haste)*(1+(mastery_value*2%4.5))>=((1.3*1.875)+(1.25*0.226305)+1.25*(2*0.226305*stat.multistrike_pct%100)))&target.time_to_die>10&(buff.elemental_mastery.remains>=10|buff.bloodlust.remains>=10)" );
     single -> add_talent( this, "Elemental Blast" );
     single -> add_action( this, "Flame Shock", "if=time>60&remains<=buff.ascendance.duration&cooldown.ascendance.remains+buff.ascendance.duration<duration",
                           "After the initial Ascendance, use Flame Shock pre-emptively just before Ascendance to guarantee Flame Shock staying up for the full duration of the Ascendance buff" );
@@ -6032,11 +6095,19 @@ public:
 
   void mwuse_table_header( report::sc_html_stream& os )
   {
+    const shaman_t& s = static_cast<const shaman_t&>( p );
+    size_t n_mwstack = s.buff.maelstrom_weapon -> max_stack();
     os << "<table class=\"sc\" style=\"float: left;\">\n"
          << "<tr style=\"vertical-align: bottom;\">\n"
            << "<th rowspan=\"2\">Ability</th>\n"
-           << "<th rowspan=\"2\">Event</th>\n"
-           << "<th rowspan=\"2\">0</th rowspan=\"2\"><th rowspan=\"2\">1</th><th rowspan=\"2\">2</th><th rowspan=\"2\">3</th><th rowspan=\"2\">4</th><th rowspan=\"2\">5</th><th colspan=\"2\">Total</th>\n"
+           << "<th rowspan=\"2\">Event</th>\n";
+
+    for ( size_t i = 0; i <= n_mwstack; ++i )
+    {
+      os   << "<th rowspan=\"2\">" << i << "</th>\n";
+    }
+
+    os     << "<th colspan=\"2\">Total</th>\n"
          << "</tr>\n"
          << "<tr><th>casts</th><th>charges</th></tr>\n";
   }
@@ -6125,8 +6196,10 @@ public:
 
   void mwuse_table_contents( report::sc_html_stream& os )
   {
-    std::vector<double> total_mw_cast( MAX_MAELSTROM_STACK + 2 );
-    std::vector<double> total_mw_executed( MAX_MAELSTROM_STACK + 2 );
+    const shaman_t& s = static_cast<const shaman_t&>( p );
+    size_t n_mwstack = s.buff.maelstrom_weapon -> max_stack();
+    std::vector<double> total_mw_cast( n_mwstack + 2 );
+    std::vector<double> total_mw_executed( n_mwstack + 2 );
     int n = 0;
     std::string row_class_str = "";
 
@@ -6137,10 +6210,10 @@ public:
         for ( size_t j = 0, end2 = s -> maelstrom_weapon_cast.size() - 1; j < end2; j++ )
         {
           total_mw_cast[ j ] += s -> maelstrom_weapon_cast[ j ] -> mean();
-          total_mw_cast[ MAX_MAELSTROM_STACK + 1 ] += s -> maelstrom_weapon_cast[ j ] -> mean();
+          total_mw_cast[ n_mwstack + 1 ] += s -> maelstrom_weapon_cast[ j ] -> mean();
 
           total_mw_executed[ j ] += s -> maelstrom_weapon_executed[ j ] -> mean();
-          total_mw_executed[ MAX_MAELSTROM_STACK + 1 ] += s -> maelstrom_weapon_executed[ j ] -> mean();
+          total_mw_executed[ n_mwstack + 1 ] += s -> maelstrom_weapon_executed[ j ] -> mean();
         }
       }
     }
@@ -6148,8 +6221,8 @@ public:
     for ( size_t i = 0, end = p.stats_list.size(); i < end; i++ )
     {
       stats_t* stats = p.stats_list[ i ];
-      std::vector<double> n_cast( MAX_MAELSTROM_STACK + 2 );
-      std::vector<double> n_executed( MAX_MAELSTROM_STACK + 2 );
+      std::vector<double> n_cast( n_mwstack + 2 );
+      std::vector<double> n_executed( n_mwstack + 2 );
       double n_cast_charges = 0, n_executed_charges = 0;
       bool has_data = false;
 
@@ -6163,12 +6236,12 @@ public:
               has_data = true;
 
             n_cast[ k ] += s -> maelstrom_weapon_cast[ k ] -> mean();
-            n_cast[ MAX_MAELSTROM_STACK + 1 ] += s -> maelstrom_weapon_cast[ k ] -> mean();
+            n_cast[ n_mwstack + 1 ] += s -> maelstrom_weapon_cast[ k ] -> mean();
 
             n_cast_charges += s -> maelstrom_weapon_cast[ k ] -> mean() * k;
 
             n_executed[ k ] += s -> maelstrom_weapon_executed[ k ] -> mean();
-            n_executed[ MAX_MAELSTROM_STACK + 1 ] += s -> maelstrom_weapon_executed[ k ] -> mean();
+            n_executed[ n_mwstack + 1 ] += s -> maelstrom_weapon_executed[ k ] -> mean();
 
             n_executed_charges += s -> maelstrom_weapon_executed[ k ] -> mean() * k;
           }
@@ -6196,7 +6269,7 @@ public:
         {
           double pct = 0;
           if ( total_mw_cast[ j ] > 0 )
-            pct = 100.0 * n_cast[ j ] / n_cast[ MAX_MAELSTROM_STACK + 1 ];
+            pct = 100.0 * n_cast[ j ] / n_cast[ n_mwstack + 1 ];
 
           if ( j < end2 - 1 )
             os.format("<td class=\"right\">%.1f (%.1f%%)</td>", util::round( n_cast[ j ], 1 ), util::round( pct, 1 ) );
@@ -6217,7 +6290,7 @@ public:
         {
           double pct = 0;
           if ( total_mw_executed[ j ] > 0 )
-            pct = 100.0 * n_executed[ j ] / n_executed[ MAX_MAELSTROM_STACK + 1 ];
+            pct = 100.0 * n_executed[ j ] / n_executed[ n_mwstack + 1 ];
 
           if ( j < end2 - 1 )
             os.format("<td class=\"right\">%.1f (%.1f%%)</td>", util::round( n_executed[ j ], 1 ), util::round( pct, 1 ) );
@@ -6316,6 +6389,37 @@ private:
 
 // SHAMAN MODULE INTERFACE ==================================================
 
+static void do_trinket_init( shaman_t*                player,
+                             specialization_e         spec,
+                             const special_effect_t*& ptr,
+                             const special_effect_t&  effect )
+{
+  // Ensure we have the spell data. This will prevent the trinket effect from working on live
+  // Simulationcraft. Also ensure correct specialization.
+  if ( ! player -> find_spell( effect.spell_id ) -> ok() ||
+       player -> specialization() != spec )
+  {
+    return;
+  }
+
+  // Set pointer, module considers non-null pointer to mean the effect is "enabled"
+  ptr = &( effect );
+}
+
+// Elemental T18 (WoD 6.2) trinket effect
+static void elemental_bellows( special_effect_t& effect )
+{
+  shaman_t* s = debug_cast<shaman_t*>( effect.player );
+  do_trinket_init( s, SHAMAN_ELEMENTAL, s -> elemental_bellows, effect );
+}
+
+// Enhancement T18 (WoD 6.2) trinket effect
+static void furious_winds( special_effect_t& effect )
+{
+  shaman_t* s = debug_cast<shaman_t*>( effect.player );
+  do_trinket_init( s, SHAMAN_ENHANCEMENT, s -> furious_winds, effect );
+}
+
 struct shaman_module_t : public module_t
 {
   shaman_module_t() : module_t( SHAMAN ) {}
@@ -6343,6 +6447,13 @@ struct shaman_module_t : public module_t
                               .quiet( true );
     }
   }
+
+  virtual void static_init() const
+  {
+    unique_gear::register_special_effect( 184919, elemental_bellows );
+    unique_gear::register_special_effect( 184920, furious_winds     );
+  }
+
   virtual void combat_begin( sim_t* ) const {}
   virtual void combat_end( sim_t* ) const {}
 };

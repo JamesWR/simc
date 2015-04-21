@@ -6,8 +6,8 @@
 #define SIMULATIONCRAFT_H
 
 #define SC_MAJOR_VERSION "612"
-#define SC_MINOR_VERSION "01"
-#define SC_USE_PTR ( 0 )
+#define SC_MINOR_VERSION "02"
+#define SC_USE_PTR ( 1 )
 #define SC_BETA ( 0 )
 #define SC_BETA_STR "wod"
 #define SC_VERSION ( SC_MAJOR_VERSION "-" SC_MINOR_VERSION )
@@ -594,7 +594,7 @@ enum set_bonus_type_e
   SET_BONUS_NONE = -1,
 
   // Actual tier support in SIMC
-  PVP, T17LFR, GLAIVES, T13, T14, T15, T16, T17,
+  PVP, T17LFR, GLAIVES, T13, T14, T15, T16, T17, T18,
 
   SET_BONUS_MAX
 };
@@ -2963,6 +2963,7 @@ struct module_t
   virtual player_t* create_player( sim_t* sim, const std::string& name, race_e r = RACE_NONE ) const = 0;
   virtual bool valid() const = 0;
   virtual void init( sim_t* ) const = 0;
+  virtual void static_init() const { }
   virtual void combat_begin( sim_t* ) const = 0;
   virtual void combat_end( sim_t* ) const = 0;
 
@@ -3011,7 +3012,13 @@ struct module_t
   static void init()
   {
     for ( player_e i = PLAYER_NONE; i < PLAYER_MAX; i++ )
-      get( i );
+    {
+      const module_t* m = get( i );
+      if ( m )
+      {
+        m -> static_init();
+      }
+    }
   }
 };
 
@@ -3509,6 +3516,7 @@ struct item_t
   // from user options, or a data source such as the Blizzard API, or Wowhead
   struct parsed_input_t
   {
+    unsigned                 item_level;
     int                      upgrade_level;
     int                      suffix_id;
     unsigned                 enchant_id;
@@ -3528,7 +3536,7 @@ struct item_t
     std::vector<std::string> source_list;
 
     parsed_input_t() :
-      upgrade_level( 0 ), suffix_id( 0 ), enchant_id( 0 ), addon_id( 0 ),
+      item_level( 0 ), upgrade_level( 0 ), suffix_id( 0 ), enchant_id( 0 ), addon_id( 0 ),
       armor( 0 ), data()
     {
       range::fill( data.stat_type_e, -1 );
@@ -3585,14 +3593,14 @@ struct item_t
   bool parse_options();
   inventory_type inv_type() const;
 
-  bool is_matching_type();
-  bool is_valid_type();
+  bool is_matching_type() const;
+  bool is_valid_type() const;
   bool socket_color_match() const;
 
   unsigned item_level() const;
   unsigned upgrade_level() const;
-  stat_e stat( size_t idx );
-  int stat_value( size_t idx );
+  stat_e stat( size_t idx ) const;
+  int stat_value( size_t idx ) const;
   bool has_item_stat( stat_e stat ) const;
 
   std::string encoded_item();
@@ -3634,19 +3642,19 @@ struct item_t
   static std::vector<stat_pair_t> str_to_stat_pair( const std::string& stat_str );
   static std::string stat_pairs_to_str( const std::vector<stat_pair_t>& stat_pairs );
 
-  std::string to_string();
-  std::string item_stats_str();
-  std::string weapon_stats_str();
-  std::string suffix_stats_str();
-  std::string gem_stats_str();
-  std::string socket_bonus_stats_str();
-  std::string enchant_stats_str();
-  bool has_stats();
-  bool has_special_effect( special_effect_source_e source = SPECIAL_EFFECT_SOURCE_NONE, special_effect_e type = SPECIAL_EFFECT_NONE );
-  bool has_use_special_effect()
+  std::string to_string() const;
+  std::string item_stats_str() const;
+  std::string weapon_stats_str() const;
+  std::string suffix_stats_str() const;
+  std::string gem_stats_str() const;
+  std::string socket_bonus_stats_str() const;
+  std::string enchant_stats_str() const;
+  bool has_stats() const;
+  bool has_special_effect( special_effect_source_e source = SPECIAL_EFFECT_SOURCE_NONE, special_effect_e type = SPECIAL_EFFECT_NONE ) const;
+  bool has_use_special_effect() const
   { return has_special_effect( SPECIAL_EFFECT_SOURCE_NONE, SPECIAL_EFFECT_USE ); }
 
-  const special_effect_t& special_effect( special_effect_source_e source = SPECIAL_EFFECT_SOURCE_NONE, special_effect_e type = SPECIAL_EFFECT_NONE );
+  const special_effect_t& special_effect( special_effect_source_e source = SPECIAL_EFFECT_SOURCE_NONE, special_effect_e type = SPECIAL_EFFECT_NONE ) const;
 };
 
 
@@ -3747,9 +3755,10 @@ struct set_bonus_t
     const spell_data_t* spell;
     const item_set_bonus_t* bonus;
     int overridden;
+    bool enabled;
 
     set_bonus_data_t() :
-      spell( spell_data_t::not_found() ), bonus( 0 ), overridden( -1 )
+      spell( spell_data_t::not_found() ), bonus( 0 ), overridden( -1 ), enabled( false )
     { }
   };
 
@@ -3789,6 +3798,7 @@ struct set_bonus_t
       case PVP:
       case T17LFR:
       case T17:
+      case T18:
         break;
       default:
         assert( 0 && "Attempt to access role-based set bonus through specialization." );
@@ -3816,11 +3826,11 @@ struct set_bonus_t
 
   // Fast accessor for checking whether a set bonus is enabled
   bool has_set_bonus( specialization_e spec, set_bonus_type_e set_bonus, set_bonus_e bonus ) const
-  { return set( spec, set_bonus, bonus ) != spell_data_t::not_found(); }
+  { return set_bonus_spec_data[ set_bonus ][ specdata::spec_idx( spec ) ][ bonus ].enabled; }
 
   // Fast accessor for checking whether a set bonus is enabled
   bool has_set_bonus( set_role_e role, set_bonus_type_e set_bonus, set_bonus_e bonus ) const
-  { return set( role, set_bonus, bonus ) != spell_data_t::not_found(); }
+  { return set_bonus_spec_data[ set_bonus ][ role ][ bonus ].enabled; }
 
   bool parse_set_bonus_option( const std::string& opt_str, set_bonus_type_e& set_bonus, set_role_e& role, set_bonus_e& bonus );
   std::string to_string() const;
@@ -4408,6 +4418,20 @@ struct scaling_metric_data_t {
     name( name ), value( tl.mean() ), stddev( tl.mean_stddev() ), metric( m ) {}
 };
 
+struct actor_target_data_t : public actor_pair_t
+{
+  struct atd_debuff_t
+  {
+    debuff_t* mark_of_doom;
+  } debuff;
+
+  struct atd_dot_t
+  {
+  } dot;
+
+  actor_target_data_t( player_t* target, player_t* source );
+};
+
 struct player_t : public actor_t
 {
   static const int default_level = 100;
@@ -4862,11 +4886,12 @@ struct player_t : public actor_t
   virtual void init_benefits();
   virtual void init_rng();
   virtual void init_stats();
+  virtual void init_finished();
   virtual void register_callbacks();
   // Class specific hook for first-phase initializing special effects. Returns true if the class-specific hook initialized something, false otherwise.
   virtual bool init_special_effect( special_effect_t& /* effect */, unsigned /* spell_id */ ) { return false; }
 
-  bool init_actions();
+  virtual bool init_actions();
 
   virtual void reset();
   virtual void combat_begin();
@@ -5176,7 +5201,7 @@ struct player_t : public actor_t
   double      get_player_distance( player_t& );
   double      get_position_distance( double m = 0, double v = 0 );
   action_priority_list_t* get_action_priority_list( const std::string& name, const std::string& comment = std::string() );
-  virtual actor_pair_t* get_target_data( player_t* /* target */ ) const
+  virtual actor_target_data_t* get_target_data( player_t* /* target */ ) const
   { return nullptr; }
 
   // Opportunity to perform any stat fixups before analysis
@@ -5195,7 +5220,7 @@ struct player_t : public actor_t
   position_e position() const
   { return current.position; }
 
-  virtual action_t* create_proc_action( const std::string& /* name */ )
+  virtual action_t* create_proc_action( const std::string& /* name */, const special_effect_t& /* effect */ )
   { return nullptr; }
   virtual bool requires_data_collection() const
   { return active_during_iteration; }
@@ -5639,9 +5664,11 @@ public:
 
   std::string timeline_aps_chart;
 
-  // Scale factor container
-  gear_stats_t scaling;
-  gear_stats_t scaling_error;
+  struct stats_scaling_t {
+    gear_stats_t value;
+    gear_stats_t error;
+  };
+  std::shared_ptr<stats_scaling_t> scaling;
 
   stats_t( const std::string& name, player_t* );
 
@@ -5941,6 +5968,7 @@ struct action_t : public noncopyable
   virtual bool   usable_moving() const;
   virtual bool   ready();
   virtual void   init();
+  virtual void   init_finished() {}
   virtual void   init_target_cache();
   virtual void   reset();
   virtual void   cancel();
@@ -6032,6 +6060,8 @@ private:
 public:
   virtual void do_schedule_travel( action_state_t*, const timespan_t& );
   virtual void schedule_travel( action_state_t* );
+  virtual bool fancy_target_stuff_impact( action_state_t* ); // I swear I'll rename this one day.
+  virtual bool fancy_target_stuff_execute();
   virtual void impact( action_state_t* );
   virtual void trigger_dot( action_state_t* );
 
@@ -6725,9 +6755,22 @@ inline dot_end_event_t::dot_end_event_t( dot_t* d, timespan_t time_to_end ) :
 inline void dot_end_event_t::execute()
 {
   dot -> end_event = nullptr;
-  assert( dot -> current_tick == dot -> num_ticks - 1 );
-  dot -> current_tick++;
-  dot -> tick();
+  if ( dot -> current_tick < dot -> num_ticks )
+  {
+    dot -> current_tick++;
+    dot -> tick();
+  }
+  // If for some reason the last tick has already ticked, ensure that the next tick has not
+  // consumed any time yet, i.e., the last tick has occurred on the same timestamp as this end
+  // event. This situation may occur in conjunction with extensive dot extension, where the last
+  // rescheduling of the dot-end-event occurs between the second to last and last ticks. That will
+  // in turn flip the order of the dot-tick-event and dot-end-event.
+  else
+  {
+    assert( dot -> tick_event && dot -> time_to_tick == dot -> tick_event -> remains() );
+  }
+
+  // Aand sanity check that the dot has consumed all ticks just in case.
   assert( dot -> current_tick == dot -> num_ticks );
   dot -> last_tick();
 }
@@ -6825,6 +6868,12 @@ public:
 
   double get_rppm() const
   { return rppm; }
+
+  void set_last_trigger_attempt( const timespan_t& ts )
+  { last_trigger_attempt = ts; }
+
+  void set_last_trigger_success( const timespan_t& ts )
+  { last_successful_trigger = ts; }
 
   void reset()
   {
@@ -6951,7 +7000,7 @@ struct dbc_proc_callback_t : public action_callback_t
     proc_buff( 0 ), proc_action( 0 ), weapon( 0 )
   { }
 
-  void initialize();
+  virtual void initialize();
 
   void reset()
   {
@@ -7210,7 +7259,7 @@ bool     initialize_item_sources( item_t& item, std::vector<std::string>& source
 
 int      random_suffix_type( item_t& item );
 int      random_suffix_type( const item_data_t* );
-uint32_t armor_value(        item_t& item );
+uint32_t armor_value(        const item_t& item );
 uint32_t armor_value(        const item_data_t*, const dbc_t&, unsigned item_level = 0 );
 // Uses weapon's own (upgraded) ilevel to calculate the damage
 uint32_t weapon_dmg_min(     item_t& item );
@@ -7288,18 +7337,28 @@ namespace enchant
 
 namespace unique_gear
 {
+  typedef void (*custom_cb_t)( special_effect_t& );
   struct special_effect_db_item_t
   {
     unsigned    spell_id;
-    const char* encoded_options;
+    std::string encoded_options;
     //const std::function<void(special_effect_t&, const item_t&, const special_effect_db_item_t&)> custom_cb;
-    void (*custom_cb)( special_effect_t& );
+    custom_cb_t custom_cb;
+
+    special_effect_db_item_t() :
+      spell_id( 0 ), encoded_options(), custom_cb( 0 )
+    { }
   };
+
+void register_special_effects();
+void register_special_effect( unsigned spell_id, const std::string& encoded_str );
+void register_special_effect( unsigned spell_id, custom_cb_t callback );
 
 void init( player_t* );
 
-const special_effect_db_item_t& find_special_effect_db_item( const special_effect_db_item_t* start, unsigned n, unsigned spell_id );
+const special_effect_db_item_t& find_special_effect_db_item( unsigned spell_id );
 bool initialize_special_effect( special_effect_t& effect, unsigned spell_id );
+void initialize_special_effect_2( special_effect_t* effect ); // Second phase initialization
 
 const item_data_t* find_consumable( const dbc_t& dbc, const std::string& name, item_subclass_consumable type );
 const item_data_t* find_item_by_spell( const dbc_t& dbc, unsigned spell_id );
@@ -7684,6 +7743,11 @@ inline double target_wrapper_expr_t::evaluate()
 
 inline player_t* target_wrapper_expr_t::target() const
 { return action.target; }
+
+inline actor_target_data_t::actor_target_data_t( player_t* target, player_t* source ) :
+  actor_pair_t( target, source ), debuff( atd_debuff_t() ), dot( atd_dot_t() )
+{ }
+
 
 /* Simple String to Number function, using stringstream
  * This will NOT translate all numbers in the string to a number,

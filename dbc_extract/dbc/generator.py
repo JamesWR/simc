@@ -1291,6 +1291,7 @@ class SpellDataGenerator(DataGenerator):
          54861, 133022,             # Nitro boosts
          175457, 175456, 175439,    # Focus Augmentation / Hyper Augmentation / Stout Augmentation
          179154, 179155, 179156, 179157, # T17 LFR cloth dps set bonus nukes
+         183950,                    # Darklight Ray (WoD 6.2 Int DPS trinket 3 damage spell)
         ),
 
         # Warrior:
@@ -3388,7 +3389,12 @@ class SetBonusListGenerator(DataGenerator):
             'name'   : 'tier17',
             'bonuses': [ 1242, 1238, 1236, 1240, 1239, 1234, 1241, 1235, 1243, 1237, 1233 ],
             'tier'   : 17
-        }
+        },
+        {
+            'name'   : 'tier18',
+            'bonuses': [ 1249, 1250, 1251, 1252, 1253, 1254, 1255, 1256, 1257, 1258, 1259 ],
+            'tier'   : 18
+        },
     ]
 
     def __init__(self, options):
@@ -3424,6 +3430,13 @@ class SetBonusListGenerator(DataGenerator):
         # spell per set bonus, to determine all relevant information for that
         # tier/class/spec combo
         self.set_bonus_to_spec_map = {
+        }
+
+        # And override some values, keyed on setbonusspellid ids
+        self.override_data = {
+            3491: {
+                'spec_id': 64
+            }
         }
 
         DataGenerator.__init__(self, options)
@@ -3566,11 +3579,14 @@ class SetBonusListGenerator(DataGenerator):
                 entry['role'] = bonus_data['derived_role']
                 entry['spec'] = -1
             else:
-                if set_spell_data.unk_wod_1:
-                    spec_data = self._chrspecialization_db[set_spell_data.unk_wod_1]
+                # Go through override data here
+                spec_id = self.override_data.get(id, {}).get('spec_id', set_spell_data.unk_wod_1)
+
+                if spec_id > 0:
+                    spec_data = self._chrspecialization_db[spec_id]
                     entry['class'] = spec_data.class_id
-                    entry['role'] = self.role_map.get(set_spell_data.unk_wod_1, spec_data.spec_type)
-                    entry['spec'] = set_spell_data.unk_wod_1
+                    entry['role'] = self.role_map.get(spec_id, spec_data.spec_type)
+                    entry['spec'] = spec_id
                 else:
                     entry['class'] = -1
                     entry['role'] = -1

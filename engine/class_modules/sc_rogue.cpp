@@ -49,6 +49,54 @@ enum ability_type_e {
   ABILITY_MAX
 };
 
+enum current_weapon_e
+{
+  WEAPON_PRIMARY = 0u,
+  WEAPON_SECONDARY
+};
+
+enum weapon_slot_e
+{
+  WEAPON_MAIN_HAND = 0u,
+  WEAPON_OFF_HAND
+};
+
+struct weapon_info_t
+{
+  // State of the hand, i.e., primary or secondary weapon currently equipped
+  current_weapon_e     current_weapon;
+  // Pointers to item data
+  const item_t*        item_data[ 2 ];
+  // Computed weapon data
+  weapon_t             weapon_data[ 2 ];
+  // Computed stats data
+  gear_stats_t         stats_data[ 2 ];
+  // Callbacks, associated with special effects on each weapons
+  std::vector<dbc_proc_callback_t*> cb_data[ 2 ];
+
+  // Item data storage for secondary weapons
+  item_t               secondary_weapon_data;
+
+  // Protect against multiple initialization since the init is done in an action_t object.
+  bool                 initialized;
+
+  // Track secondary weapon uptime through a buff
+  buff_t*              secondary_weapon_uptime;
+
+  weapon_info_t() :
+    current_weapon( WEAPON_PRIMARY ), initialized( false ), secondary_weapon_uptime( 0 )
+  {
+    range::fill( item_data, 0 );
+  }
+
+  weapon_slot_e slot() const;
+  void initialize();
+  void reset();
+
+  // Enable/disable callbacks on the primary/secondary weapons.
+  void callback_state( current_weapon_e weapon, bool state );
+};
+
 struct shadow_reflect_event_t : public player_event_t
 {
   int combo_points;
@@ -69,7 +117,7 @@ struct shadow_reflect_event_t : public player_event_t
 // Rogue
 // ==========================================================================
 
-struct rogue_td_t : public actor_pair_t
+struct rogue_td_t : public actor_target_data_t
 {
   struct dots_t
   {
@@ -132,6 +180,14 @@ struct rogue_t : public player_t
 
   // Data collection
   luxurious_sample_data_t* dfa_mh, *dfa_oh;
+
+  // Experimental weapon swapping
+  weapon_info_t weapon_data[ 2 ];
+
+  // Tier 18 (WoD 6.2) trinket effects
+  const special_effect_t* toxic_mutilator;
+  const special_effect_t* eviscerating_blade;
+  const special_effect_t* from_the_shadows;
 
   // Buffs
   struct buffs_t
@@ -372,6 +428,9 @@ struct rogue_t : public player_t
     active_venomous_wound( 0 ),
     auto_attack( 0 ), melee_main_hand( 0 ), melee_off_hand( 0 ),
     dfa_mh( 0 ), dfa_oh( 0 ),
+    toxic_mutilator( 0 ),
+    eviscerating_blade( 0 ),
+    from_the_shadows( 0 ),
     buffs( buffs_t() ),
     cooldowns( cooldowns_t() ),
     gains( gains_t() ),
@@ -406,7 +465,13 @@ struct rogue_t : public player_t
   virtual void      init_procs();
   virtual void      init_scaling();
   virtual void      init_resources( bool force );
+  virtual bool      init_items();
+  virtual void      init_special_effects();
+  virtual void      init_finished();
   virtual void      create_buffs();
+  virtual void      create_options();
+  virtual void      copy_from( player_t* source );
+  virtual bool      create_profile( std::string& profile_str, save_e stype, bool save_html );
   virtual void      init_action_list();
   virtual void      register_callbacks();
   virtual void      reset();
@@ -468,6 +533,8 @@ struct rogue_t : public player_t
 
   static const actions::rogue_attack_t* cast_attack( const action_t* action )
   { return debug_cast<const actions::rogue_attack_t*>( action ); }
+
+  void swap_weapon( weapon_slot_e slot, current_weapon_e to_weapon, bool in_combat = true );
 };
 
 inline bool rogue_td_t::sanguinary_veins()
@@ -546,6 +613,9 @@ struct rogue_attack_t : public melee_attack_t
   // Relentless strikes things
   bool proc_relentless_strikes_;
 
+  // Sinister calling proc action
+  rogue_attack_t* sc_action;
+
   rogue_attack_t( const std::string& token, rogue_t* p,
                   const spell_data_t* s = spell_data_t::nil(),
                   const std::string& options = std::string() ) :
@@ -557,7 +627,8 @@ struct rogue_attack_t : public melee_attack_t
     ability_type( ABILITY_NONE ),
     proc_ruthlessness_cp_( data().affected_by( p -> spell.ruthlessness_cp_driver -> effectN( 1 ) ) ),
     proc_ruthlessness_energy_( data().affected_by( p -> spell.ruthlessness_driver -> effectN( 2 ) ) ),
-    proc_relentless_strikes_( data().affected_by( p -> spec.relentless_strikes -> effectN( 1 ) ) )
+    proc_relentless_strikes_( data().affected_by( p -> spec.relentless_strikes -> effectN( 1 ) ) ),
+    sc_action( 0 )
   {
     parse_options( options );
 
@@ -753,7 +824,10 @@ struct rogue_attack_t : public melee_attack_t
     return m;
   }
 
-  void trigger_sinister_calling( dot_t* dot, bool may_crit = false, int may_multistrike = -1 );
+  // Sinister calling related functionality
+  void trigger_sinister_calling( dot_t* dot );
+  virtual void initialize_sinister_calling( unsigned spell_id );
+  virtual double sinister_calling_damage( const dot_t* d ) const;
 };
 
 // ==========================================================================
@@ -882,7 +956,6 @@ struct deadly_poison_t : public rogue_poison_t
     {
       may_crit       = false;
       harmful        = true;
-      tick_may_crit  = true;
       dot_behavior   = DOT_REFRESH;
     }
 
@@ -1516,6 +1589,13 @@ struct ambush_t : public rogue_attack_t
     ability_type      = AMBUSH;
     requires_position = POSITION_BACK;
     requires_stealth  = true;
+
+    // Tier 18 (WoD 6.2) Subtlety trinket effect
+    if ( p -> from_the_shadows )
+    {
+      const spell_data_t* data = p -> find_spell( p -> from_the_shadows -> spell_id );
+      base_multiplier *= 1.0 + data -> effectN( 2 ).average( p -> from_the_shadows -> item ) / 100.0;
+    }
   }
 
   double action_multiplier() const
@@ -1671,10 +1751,21 @@ struct blade_flurry_t : public rogue_attack_t
 
 struct dispatch_t : public rogue_attack_t
 {
+  double toxic_mutilator_crit_chance;
+
   dispatch_t( rogue_t* p, const std::string& options_str ) :
-    rogue_attack_t( "dispatch", p, p -> find_class_spell( "Dispatch" ), options_str )
+    rogue_attack_t( "dispatch", p, p -> find_class_spell( "Dispatch" ), options_str ),
+    toxic_mutilator_crit_chance( 0 )
   {
     ability_type = DISPATCH;
+
+    // Tier 18 (WoD 6.2) trinket effect for Assassination
+    if ( p -> toxic_mutilator )
+    {
+      const spell_data_t* data = p -> find_spell( p -> toxic_mutilator -> spell_id );
+      toxic_mutilator_crit_chance = data -> effectN( 1 ).average( p -> toxic_mutilator -> item );
+      toxic_mutilator_crit_chance /= 100.0;
+    }
 
     if ( p -> main_hand_weapon.type != WEAPON_DAGGER )
     {
@@ -1721,6 +1812,11 @@ struct dispatch_t : public rogue_attack_t
     // Shadow Reflection benefits from the owner's Enhanced Vendetta
     if ( p() -> buffs.enhanced_vendetta -> up() )
       c += p() -> buffs.enhanced_vendetta -> data().effectN( 1 ).percent();
+
+    if ( p() -> buffs.envenom -> check() )
+    {
+      c += toxic_mutilator_crit_chance;
+    }
 
     return c;
   }
@@ -1874,6 +1970,16 @@ struct eviscerate_t : public rogue_attack_t
     attack_power_mod.direct = 0.577;
     // Hard-coded tooltip.
     attack_power_mod.direct *= 0.88;
+
+    // Tier 18 (WoD 6.2) Combat trinket effect
+    // TODO: Eviscerate actually changes spells to 185187
+    if ( p -> eviscerating_blade )
+    {
+      const spell_data_t* data = p -> find_spell( p -> eviscerating_blade -> spell_id );
+      base_multiplier *= 1.0 + data -> effectN( 2 ).average( p -> eviscerating_blade -> item ) / 100.0;
+
+      range += data -> effectN( 1 ).base_value();
+    }
   }
 
   timespan_t gcd() const
@@ -1994,10 +2100,30 @@ struct crimson_tempest_t : public rogue_attack_t
       residual_periodic_action_t<rogue_attack_t>( "crimson_tempest", p, p -> find_spell( 122233 ) )
     {
       dual = true;
+
+      initialize_sinister_calling( 168952 );
     }
 
     action_state_t* new_state()
     { return new residual_periodic_state_t( this, target ); }
+
+    // Sinister Calling procs for Crimson Tempest don't need to snapshot anything, the damage is
+    // going to be current pooled tick amount.
+    double sinister_calling_damage( const dot_t* d ) const
+    {
+      return debug_cast<const residual_periodic_state_t*>( d -> state ) -> tick_amount;
+    }
+
+    void initialize_sinister_calling( unsigned spell_id )
+    {
+      residual_periodic_action_t<rogue_attack_t>::initialize_sinister_calling( spell_id );
+
+      if ( sc_action )
+      {
+        // Crimson tempest dot does not crit/ms, so the Sinister Calling proc will not either
+        sc_action -> may_crit = sc_action -> tick_may_crit = false;
+      }
+    }
   };
 
   crimson_tempest_dot_t* ct_dot;
@@ -2049,6 +2175,15 @@ struct garrote_t : public rogue_attack_t
   {
     may_crit          = false;
     requires_stealth  = true;
+
+    // Tier 18 (WoD 6.2) Subtlety trinket effect
+    if ( p -> from_the_shadows )
+    {
+      const spell_data_t* data = p -> find_spell( p -> from_the_shadows -> spell_id );
+      base_multiplier *= 1.0 + data -> effectN( 2 ).average( p -> from_the_shadows -> item ) / 100.0;
+    }
+
+    initialize_sinister_calling( 168971 );
   }
 
   void impact( action_state_t* state )
@@ -2073,8 +2208,8 @@ struct hemorrhage_t : public rogue_attack_t
     ability_type = HEMORRHAGE;
     dot_behavior = DOT_REFRESH;
     weapon = &( p -> main_hand_weapon );
-    tick_may_crit = true;
-    may_multistrike = true;
+
+    initialize_sinister_calling( 168908 );
   }
 
   double action_da_multiplier() const
@@ -2241,14 +2376,23 @@ struct mutilate_t : public rogue_attack_t
 {
   rogue_attack_t* mh_strike;
   rogue_attack_t* oh_strike;
+  double toxic_mutilator_crit_chance;
 
   mutilate_t( rogue_t* p, const std::string& options_str ) :
     rogue_attack_t( "mutilate", p, p -> find_class_spell( "Mutilate" ), options_str ),
-    mh_strike( 0 ), oh_strike( 0 )
+    mh_strike( 0 ), oh_strike( 0 ), toxic_mutilator_crit_chance( 0 )
   {
     ability_type = MUTILATE;
     may_crit = false;
     snapshot_flags |= STATE_MUL_DA;
+
+    // Tier 18 (WoD 6.2) trinket effect for Assassination
+    if ( p -> toxic_mutilator )
+    {
+      const spell_data_t* data = p -> find_spell( p -> toxic_mutilator -> spell_id );
+      toxic_mutilator_crit_chance = data -> effectN( 1 ).average( p -> toxic_mutilator -> item );
+      toxic_mutilator_crit_chance /= 100.0;
+    }
 
     if ( p -> main_hand_weapon.type != WEAPON_DAGGER ||
          p ->  off_hand_weapon.type != WEAPON_DAGGER )
@@ -2296,6 +2440,11 @@ struct mutilate_t : public rogue_attack_t
     // Shadow Reflection benefits from the owner's Enhanced Vendetta
     if ( p() -> buffs.enhanced_vendetta -> up() )
       c += p() -> buffs.enhanced_vendetta -> data().effectN( 1 ).percent();
+
+    if ( p() -> buffs.envenom -> check() )
+    {
+      c += toxic_mutilator_crit_chance;
+    }
 
     return c;
   }
@@ -2451,9 +2600,10 @@ struct rupture_t : public rogue_attack_t
     ability_type          = RUPTURE;
     may_crit              = false;
     base_costs[ RESOURCE_COMBO_POINT ] = 1;
-    tick_may_crit         = true;
     dot_behavior          = DOT_REFRESH;
     base_multiplier      *= 1.0 + p -> spec.sanguinary_vein -> effectN( 1 ).percent();
+
+    initialize_sinister_calling( 168963 );
   }
 
   timespan_t gcd() const
@@ -2867,7 +3017,9 @@ struct death_from_above_driver_t : public rogue_attack_t
       eviscerate -> execute();
     }
     else
+    {
       assert( 0 );
+    }
 
     p() -> buffs.death_from_above -> expire();
   }
@@ -3107,6 +3259,115 @@ struct honor_among_thieves_t : public action_t
 };
 
 // ==========================================================================
+// Experimental weapon swapping 
+// ==========================================================================
+
+struct weapon_swap_t : public action_t
+{
+  enum swap_slot_e
+  {
+    SWAP_MAIN_HAND,
+    SWAP_OFF_HAND,
+    SWAP_BOTH
+  };
+
+  std::string slot_str, swap_to_str;
+
+  swap_slot_e swap_type;
+  current_weapon_e swap_to_type;
+  rogue_t* rogue;
+
+  weapon_swap_t( rogue_t* rogue_, const std::string& options_str ) :
+    action_t( ACTION_OTHER, "weapon_swap", rogue_ ),
+    swap_type( SWAP_MAIN_HAND ), swap_to_type( WEAPON_SECONDARY ),
+    rogue( rogue_ )
+  {
+    may_miss = may_crit = may_dodge = may_parry = may_glance = callbacks = harmful = false;
+
+    add_option( opt_string( "slot", slot_str ) );
+    add_option( opt_string( "swap_to", swap_to_str ) );
+
+    parse_options( options_str );
+
+    if ( slot_str.empty() )
+    {
+      background = true;
+    }
+    else if ( util::str_compare_ci( slot_str, "main" ) ||
+              util::str_compare_ci( slot_str, "main_hand" ) )
+    {
+      swap_type = SWAP_MAIN_HAND;
+    }
+    else if ( util::str_compare_ci( slot_str, "off" ) ||
+              util::str_compare_ci( slot_str, "off_hand" ) )
+    {
+      swap_type = SWAP_OFF_HAND;
+    }
+    else if ( util::str_compare_ci( slot_str, "both" ) )
+    {
+      swap_type = SWAP_BOTH;
+    }
+
+    if ( util::str_compare_ci( swap_to_str, "primary" ) )
+    {
+      swap_to_type = WEAPON_PRIMARY;
+    }
+    else if ( util::str_compare_ci( swap_to_str, "secondary" ) )
+    {
+      swap_to_type = WEAPON_SECONDARY;
+    }
+  }
+
+  result_e calculate_result( action_state_t* )
+  { return RESULT_HIT; }
+
+  block_result_e calculate_block_result( action_state_t* )
+  { return BLOCK_RESULT_UNBLOCKED; }
+
+  void execute()
+  {
+    action_t::execute();
+
+    if ( swap_type == SWAP_MAIN_HAND )
+    {
+      rogue -> swap_weapon( WEAPON_MAIN_HAND, swap_to_type );
+    }
+    else if ( swap_type == SWAP_OFF_HAND )
+    {
+      rogue -> swap_weapon( WEAPON_OFF_HAND, swap_to_type );
+    }
+    else if ( swap_type == SWAP_BOTH )
+    {
+      rogue -> swap_weapon( WEAPON_MAIN_HAND, swap_to_type );
+      rogue -> swap_weapon( WEAPON_OFF_HAND, swap_to_type );
+    }
+  }
+
+  bool ready()
+  {
+    if ( swap_type == SWAP_MAIN_HAND &&
+         rogue -> weapon_data[ WEAPON_MAIN_HAND ].current_weapon == swap_to_type )
+    {
+      return false;
+    }
+    else if ( swap_type == SWAP_OFF_HAND &&
+              rogue -> weapon_data[ WEAPON_OFF_HAND ].current_weapon == swap_to_type )
+    {
+      return false;
+    }
+    else if ( swap_type == SWAP_BOTH && 
+              rogue -> weapon_data[ WEAPON_MAIN_HAND ].current_weapon == swap_to_type &&
+              rogue -> weapon_data[ WEAPON_OFF_HAND ].current_weapon == swap_to_type )
+    {
+      return false;
+    }
+
+    return action_t::ready();
+  }
+
+};
+
+// ==========================================================================
 // Rogue Secondary Abilities
 // ==========================================================================
 
@@ -3167,7 +3428,168 @@ struct blade_flurry_attack_t : public rogue_attack_t
   }
 };
 
+// Sinister Calling proc for subtlety
+
+struct sinister_calling_proc_t : public rogue_attack_t
+{
+  sinister_calling_proc_t( rogue_t* r, const std::string& name, unsigned spell_id ) :
+    rogue_attack_t( name + "_sc", r, r -> find_spell( spell_id ) )
+  {
+    background = proc = true;
+    callbacks = false;
+    weapon_multiplier = 0;
+    weapon_power_mod = 0;
+  }
+
+  void init()
+  {
+    rogue_attack_t::init();
+
+    // Raw damage value comes from the source action, nothing else is applied here. Crit is
+    // snapshotted to figure out a result.
+    snapshot_flags = STATE_CRIT | STATE_TGT_CRIT;
+    update_flags = 0;
+  }
+
+  double target_armor( player_t* ) const
+  { return 0; }
+};
+
 } // end namespace actions
+
+weapon_slot_e weapon_info_t::slot() const
+{
+  if ( item_data[ WEAPON_PRIMARY ] -> slot == SLOT_MAIN_HAND )
+  {
+    return WEAPON_MAIN_HAND;
+  }
+  else
+  {
+    return WEAPON_OFF_HAND;
+  }
+}
+
+void weapon_info_t::callback_state( current_weapon_e weapon, bool state )
+{
+  sim_t* sim = item_data[ WEAPON_PRIMARY ] -> sim;
+
+  for ( size_t i = 0, end = cb_data[ weapon ].size(); i < end; ++i )
+  {
+    if ( state )
+    {
+      cb_data[ weapon ][ i ] -> activate();
+      if ( cb_data[ weapon ][ i ] -> effect.rppm() > 0 )
+      {
+        cb_data[ weapon ][ i ] -> rppm.set_last_trigger_success( sim -> current_time() );
+        cb_data[ weapon ][ i ] -> rppm.set_last_trigger_attempt( sim -> current_time() );
+      }
+
+      if ( sim -> debug )
+      {
+        sim -> out_debug.printf( "%s enabling callback %s on item %s",
+            item_data[ WEAPON_PRIMARY ] -> player -> name(),
+            cb_data[ weapon ][ i ] -> effect.name().c_str(),
+            item_data[ weapon ] -> name() );
+      }
+    }
+    else
+    {
+      cb_data[ weapon ][ i ] -> deactivate();
+      if ( sim -> debug )
+      {
+        sim -> out_debug.printf( "%s disabling callback %s on item %s",
+            item_data[ WEAPON_PRIMARY ] -> player -> name(),
+            cb_data[ weapon ][ i ] -> effect.name().c_str(),
+            item_data[ weapon ] -> name() );
+      }
+    }
+  }
+}
+
+void weapon_info_t::initialize()
+{
+  if ( initialized )
+  {
+    return;
+  }
+
+  rogue_t* rogue = debug_cast<rogue_t*>( item_data[ WEAPON_PRIMARY ] -> player );
+
+  // Compute stats and initialize the callback data for the weapon. This needs to be done
+  // reasonably late (currently in weapon_swap_t action init) to ensure that everything has been
+  // initialized.
+  if ( item_data[ WEAPON_PRIMARY ] )
+  {
+    // Find primary weapon callbacks from the actor list of all callbacks
+    for ( size_t i = 0; i < item_data[ WEAPON_PRIMARY ] -> parsed.special_effects.size(); ++i )
+    {
+      special_effect_t* effect = item_data[ WEAPON_PRIMARY ] -> parsed.special_effects[ i ];
+
+      for ( size_t j = 0; j < rogue -> callbacks.all_callbacks.size(); ++j )
+      {
+        dbc_proc_callback_t* cb = debug_cast<dbc_proc_callback_t*>( rogue -> callbacks.all_callbacks[ j ] );
+
+        if ( &( cb -> effect ) == effect )
+        {
+          cb_data[ WEAPON_PRIMARY ].push_back( cb );
+        }
+      }
+    }
+
+    // Pre-compute primary weapon stats
+    for ( stat_e i = STAT_NONE; i < STAT_MAX; i++ )
+    {
+      stats_data[ WEAPON_PRIMARY ].add_stat( rogue -> convert_hybrid_stat( i ),
+                                             item_data[ WEAPON_PRIMARY ] -> stats.get_stat( i ) );
+    }
+  }
+
+  if ( item_data[ WEAPON_SECONDARY ] )
+  {
+    // Find secondary weapon callbacks from the actor list of all callbacks
+    for ( size_t i = 0; i < item_data[ WEAPON_SECONDARY ] -> parsed.special_effects.size(); ++i )
+    {
+      special_effect_t* effect = item_data[ WEAPON_SECONDARY ] -> parsed.special_effects[ i ];
+
+      for ( size_t j = 0; j < rogue -> callbacks.all_callbacks.size(); ++j )
+      {
+        dbc_proc_callback_t* cb = debug_cast<dbc_proc_callback_t*>( rogue -> callbacks.all_callbacks[ j ] );
+
+        if ( &( cb -> effect ) == effect )
+        {
+          cb_data[ WEAPON_SECONDARY ].push_back( cb );
+        }
+      }
+    }
+
+    // Pre-compute secondary weapon stats
+    for ( stat_e i = STAT_NONE; i < STAT_MAX; i++ )
+    {
+      stats_data[ WEAPON_SECONDARY ].add_stat( rogue -> convert_hybrid_stat( i ),
+                                               item_data[ WEAPON_SECONDARY ] -> stats.get_stat( i ) );
+    }
+
+    if ( item_data[ WEAPON_SECONDARY ] )
+    {
+      std::string prefix = slot() == WEAPON_MAIN_HAND ? "_mh" : "_oh";
+
+      secondary_weapon_uptime = buff_creator_t( rogue, "secondary_weapon" + prefix );
+    }
+  }
+
+  initialized = true;
+}
+
+void weapon_info_t::reset()
+{
+  rogue_t* rogue = debug_cast<rogue_t*>( item_data[ WEAPON_PRIMARY ] -> player );
+
+  // Reset swaps back to primary weapon for the slot
+  rogue -> swap_weapon( slot(), WEAPON_PRIMARY, false );
+
+  // .. and always deactivates secondary weapon callback(s).
+  callback_state( WEAPON_SECONDARY, false );
+}
 
 // Due to how our DOT system functions, at the time when last_tick() is called
 // for Deadly Poison, is_ticking() for the dot object will still return true.
@@ -3215,39 +3637,61 @@ void rogue_t::trigger_auto_attack( const action_state_t* state )
   auto_attack -> execute();
 }
 
-inline void actions::rogue_attack_t::trigger_sinister_calling( dot_t* dot, bool may_cr, int may_ms )
+void actions::rogue_attack_t::initialize_sinister_calling( unsigned spell_id )
 {
-  int may_multistrike_ = may_multistrike;
-  may_multistrike = may_ms;
-  bool tick_may_crit_ = tick_may_crit;
-  tick_may_crit = may_cr;
+  if ( ! p() -> spec.sinister_calling -> ok() )
+  {
+    return;
+  }
+
+  action_t* a = p() -> find_action( name_str + "_sc" );
+  if ( ! a )
+  {
+    sc_action = new sinister_calling_proc_t( p(), name_str, spell_id );
+  }
+  else
+  {
+    sc_action = debug_cast<rogue_attack_t*>( a );
+  }
+
+  add_child( sc_action );
+}
+
+inline double actions::rogue_attack_t::sinister_calling_damage( const dot_t* d ) const
+{
+  // Perform the extra tick with current actor snapshotted values to determine the correct "base"
+  // damage .. however, grab the number of combo points not from current CP but rather the CP of the
+  // ongoing dot.
+  action_state_t* s = d -> current_action -> get_state();
+  d -> current_action -> snapshot_state( s, DMG_OVER_TIME );
+  cast_state( s ) -> cp = cast_state( d -> state ) -> cp;
+  d -> current_action -> calculate_tick_amount( s, d -> last_tick_factor );
+
+  double damage = s -> result_raw;
+  action_state_t::release( s );
+
+  return damage;
+}
+
+inline void actions::rogue_attack_t::trigger_sinister_calling( dot_t* dot )
+{
+  // Increase tick count by one so that the dot state stays intact.
   dot -> current_tick++;
-  dot -> tick();
-  tick_may_crit = tick_may_crit_;
-  may_multistrike = may_multistrike_;
+
+  // Execute the sinister calling proxy action, it will perform independent result calcuation.
+  sc_action -> target = dot -> target;
+  sc_action -> base_dd_min = sc_action -> base_dd_max = sinister_calling_damage( dot );
+  sc_action -> schedule_execute();
 
   // Advances the time, so calculate new time to tick, num ticks, last tick factor
   if ( dot -> remains() > dot -> time_to_tick )
   {
     timespan_t remains = dot -> end_event -> remains() - dot -> time_to_tick;
-    timespan_t tick_remains = dot -> tick_event ? dot -> tick_event -> remains() : timespan_t::zero();
-
-    event_t::cancel( dot -> tick_event );
-
-    // Only start a new tick event, if there are still over one tick left.
-    if ( tick_remains > timespan_t::zero() && remains > tick_remains )
-      dot -> tick_event = new ( *sim ) dot_tick_event_t( dot, tick_remains );
-    // No tick event started, this is the last tick. Recalculate last tick
-    // factor, should be 100% for Rogues always, since the dots do not scale
-    // with haste
-    else
-      dot -> last_tick_factor = std::min( 1.0, ( dot -> time_to_tick - tick_remains + remains ) / dot -> time_to_tick );
-
     if ( sim -> debug )
     {
-      sim -> out_debug.printf( "%s sinister_calling %s, remains=%.3f tick_remains=%.3f new_remains=%.3f last_tick_factor=%.f",
-          player -> name(), dot -> current_action -> name(), dot -> remains().total_seconds(), tick_remains.total_seconds(),
-          remains.total_seconds(), dot -> last_tick_factor );
+      sim -> out_debug.printf( "%s sinister_calling %s, remains=%.3f new_remains=%.3f",
+          player -> name(), dot -> current_action -> name(), dot -> remains().total_seconds(),
+          remains.total_seconds() );
     }
 
     // Restart a new end-event, now one tick closer
@@ -3269,16 +3713,24 @@ void rogue_t::trigger_sinister_calling( const action_state_t* state )
 
   rogue_td_t* tdata = get_target_data( state -> target );
   if ( tdata -> dots.rupture -> is_ticking() )
-    cast_attack( tdata -> dots.rupture -> current_action ) -> trigger_sinister_calling( tdata -> dots.rupture, true );
+  {
+    cast_attack( tdata -> dots.rupture -> current_action ) -> trigger_sinister_calling( tdata -> dots.rupture );
+  }
 
   if ( tdata -> dots.garrote -> is_ticking() )
-    cast_attack( tdata -> dots.garrote -> current_action ) -> trigger_sinister_calling( tdata -> dots.garrote, true );
+  {
+    cast_attack( tdata -> dots.garrote -> current_action ) -> trigger_sinister_calling( tdata -> dots.garrote );
+  }
 
   if ( tdata -> dots.hemorrhage -> is_ticking() )
-    cast_attack( tdata -> dots.hemorrhage -> current_action ) -> trigger_sinister_calling( tdata -> dots.hemorrhage, true );
+  {
+    cast_attack( tdata -> dots.hemorrhage -> current_action ) -> trigger_sinister_calling( tdata -> dots.hemorrhage );
+  }
 
   if ( tdata -> dots.crimson_tempest -> is_ticking() )
+  {
     cast_attack( tdata -> dots.crimson_tempest -> current_action ) -> trigger_sinister_calling( tdata -> dots.crimson_tempest );
+  }
 }
 
 void rogue_t::trigger_seal_fate( const action_state_t* state )
@@ -3983,12 +4435,12 @@ inline void actions::marked_for_death_t::impact( action_state_t* state )
 // ==========================================================================
 
 rogue_td_t::rogue_td_t( player_t* target, rogue_t* source ) :
-  actor_pair_t( target, source ),
+  actor_target_data_t( target, source ),
   dots( dots_t() ),
   debuffs( debuffs_t() )
 {
 
-  dots.crimson_tempest  = target -> get_dot( "crimson_tempest_dot", source );
+  dots.crimson_tempest  = target -> get_dot( "crimson_tempest", source );
   dots.deadly_poison    = target -> get_dot( "deadly_poison_dot", source );
   dots.garrote          = target -> get_dot( "garrote", source );
   dots.rupture          = target -> get_dot( "rupture", source );
@@ -4025,14 +4477,14 @@ using namespace actions;
 
 struct shadow_reflection_pet_t : public pet_t
 {
-  struct shadow_reflection_td_t : public actor_pair_t
+  struct shadow_reflection_td_t : public actor_target_data_t
   {
     dot_t* revealing_strike;
 
     buff_t* vendetta;
 
     shadow_reflection_td_t( player_t* target, shadow_reflection_pet_t* source ) :
-      actor_pair_t( target, source )
+      actor_target_data_t( target, source )
     {
       revealing_strike = target -> get_dot( "revealing_strike", source );
 
@@ -4232,8 +4684,6 @@ struct shadow_reflection_pet_t : public pet_t
     sr_hemorrhage_t( shadow_reflection_pet_t* p ):
       shadow_reflection_attack_t( "hemorrhage", p, p -> find_spell( 16511 ) )
     {
-      tick_may_crit = true;
-      may_multistrike = true;
       dot_behavior = DOT_REFRESH;
     }
   };
@@ -4317,7 +4767,6 @@ struct shadow_reflection_pet_t : public pet_t
     {
       base_costs[ RESOURCE_COMBO_POINT ] = 1;
       may_crit              = false;
-      tick_may_crit         = true;
       dot_behavior          = DOT_REFRESH;
       weapon_multiplier = 0.0;
     }
@@ -4995,6 +5444,8 @@ action_t* rogue_t::create_action( const std::string& name,
   if ( name == "vanish"              ) return new vanish_t             ( this, options_str );
   if ( name == "vendetta"            ) return new vendetta_t           ( this, options_str );
 
+  if ( name == "swap_weapon"         ) return new weapon_swap_t        ( this, options_str );
+
   return player_t::create_action( name, options_str );
 }
 
@@ -5262,8 +5713,52 @@ void rogue_t::init_scaling()
 {
   player_t::init_scaling();
 
-  scales_with[ STAT_WEAPON_OFFHAND_DPS    ] = true;
-  scales_with[STAT_STRENGTH] = false;
+  scales_with[ STAT_WEAPON_OFFHAND_DPS    ] = items[ SLOT_OFF_HAND ].active();
+  scales_with[ STAT_STRENGTH              ] = false;
+
+  // Break out early if scaling is disabled on this player, or there's no
+  // scaling stat
+  if ( ! scale_player || sim -> scaling -> scale_stat == STAT_NONE )
+  {
+    return;
+  }
+
+  // If weapon swapping is used, adjust the weapon_t object damage values in the weapon state
+  // information if this simulator is scaling the corresponding weapon DPS (main or offhand). This
+  // is necessary, as weapon swapping overwrites player_t::main_hand_weapon and
+  // player_t::ofF_hand_weapon, which is where player_t::init_scaling originally injects the
+  // increased scaling value.
+  if ( sim -> scaling -> scale_stat == STAT_WEAPON_DPS &&
+       weapon_data[ WEAPON_MAIN_HAND ].secondary_weapon_data.active() )
+  {
+    double v = sim -> scaling -> scale_value;
+    double pvalue = weapon_data[ WEAPON_MAIN_HAND ].weapon_data[ WEAPON_PRIMARY ].swing_time.total_seconds() * v;
+    double svalue = weapon_data[ WEAPON_MAIN_HAND ].weapon_data[ WEAPON_SECONDARY ].swing_time.total_seconds() * v;
+
+    weapon_data[ WEAPON_MAIN_HAND ].weapon_data[ WEAPON_PRIMARY ].damage += pvalue;
+    weapon_data[ WEAPON_MAIN_HAND ].weapon_data[ WEAPON_PRIMARY ].min_dmg += pvalue;
+    weapon_data[ WEAPON_MAIN_HAND ].weapon_data[ WEAPON_PRIMARY ].max_dmg += pvalue;
+
+    weapon_data[ WEAPON_MAIN_HAND ].weapon_data[ WEAPON_SECONDARY ].damage += svalue;
+    weapon_data[ WEAPON_MAIN_HAND ].weapon_data[ WEAPON_SECONDARY ].min_dmg += svalue;
+    weapon_data[ WEAPON_MAIN_HAND ].weapon_data[ WEAPON_SECONDARY ].max_dmg += svalue;
+  }
+
+  if ( sim -> scaling -> scale_stat == STAT_WEAPON_OFFHAND_DPS &&
+       weapon_data[ WEAPON_OFF_HAND ].secondary_weapon_data.active() )
+  {
+    double v = sim -> scaling -> scale_value;
+    double pvalue = weapon_data[ WEAPON_OFF_HAND ].weapon_data[ WEAPON_PRIMARY ].swing_time.total_seconds() * v;
+    double svalue = weapon_data[ WEAPON_OFF_HAND ].weapon_data[ WEAPON_SECONDARY ].swing_time.total_seconds() * v;
+
+    weapon_data[ WEAPON_OFF_HAND ].weapon_data[ WEAPON_PRIMARY ].damage += pvalue;
+    weapon_data[ WEAPON_OFF_HAND ].weapon_data[ WEAPON_PRIMARY ].min_dmg += pvalue;
+    weapon_data[ WEAPON_OFF_HAND ].weapon_data[ WEAPON_PRIMARY ].max_dmg += pvalue;
+
+    weapon_data[ WEAPON_OFF_HAND ].weapon_data[ WEAPON_SECONDARY ].damage += svalue;
+    weapon_data[ WEAPON_OFF_HAND ].weapon_data[ WEAPON_SECONDARY ].min_dmg += svalue;
+    weapon_data[ WEAPON_OFF_HAND ].weapon_data[ WEAPON_SECONDARY ].max_dmg += svalue;
+  }
 }
 
 // rogue_t::init_resources =================================================
@@ -5411,6 +5906,207 @@ void rogue_t::register_callbacks()
   player_t::register_callbacks();
 }
 
+// rogue_t::create_options ==================================================
+
+static bool do_parse_secondary_weapon( rogue_t* rogue,
+                                       const std::string& value,
+                                       slot_e slot )
+{
+  switch ( slot )
+  {
+    case SLOT_MAIN_HAND:
+      rogue -> weapon_data[ WEAPON_MAIN_HAND ].secondary_weapon_data = item_t( rogue, value );
+      rogue -> weapon_data[ WEAPON_MAIN_HAND ].secondary_weapon_data.slot = slot;
+      break;
+    case SLOT_OFF_HAND:
+      rogue -> weapon_data[ WEAPON_OFF_HAND ].secondary_weapon_data = item_t( rogue, value );
+      rogue -> weapon_data[ WEAPON_OFF_HAND ].secondary_weapon_data.slot = slot;
+      break;
+    default:
+      break;
+  }
+
+  return true;
+}
+
+static bool parse_offhand_secondary( sim_t* sim,
+                                     const std::string& /* name */,
+                                     const std::string& value )
+{
+  rogue_t* rogue = static_cast<rogue_t*>( sim -> active_player );
+  return do_parse_secondary_weapon( rogue, value, SLOT_OFF_HAND );
+}
+
+static bool parse_mainhand_secondary( sim_t* sim,
+                                      const std::string& /* name */,
+                                      const std::string& value )
+{
+  rogue_t* rogue = static_cast<rogue_t*>( sim -> active_player );
+  return do_parse_secondary_weapon( rogue, value, SLOT_MAIN_HAND );
+}
+
+void rogue_t::create_options()
+{
+  add_option( opt_func( "off_hand_secondary", parse_offhand_secondary ) );
+  add_option( opt_func( "main_hand_secondary", parse_mainhand_secondary ) );
+
+  player_t::create_options();
+}
+
+// rogue_t::copy_from =======================================================
+
+void rogue_t::copy_from( player_t* source )
+{
+  rogue_t* rogue = static_cast<rogue_t*>( source );
+  player_t::copy_from( source );
+  if ( ! rogue -> weapon_data[ WEAPON_MAIN_HAND ].secondary_weapon_data.options_str.empty() )
+  {
+    weapon_data[ WEAPON_MAIN_HAND ].secondary_weapon_data.options_str = \
+      rogue -> weapon_data[ WEAPON_MAIN_HAND ].secondary_weapon_data.options_str;
+  }
+
+  if ( ! rogue -> weapon_data[ WEAPON_OFF_HAND ].secondary_weapon_data.options_str.empty() )
+  {
+    weapon_data[ WEAPON_OFF_HAND ].secondary_weapon_data.options_str = \
+      rogue -> weapon_data[ WEAPON_OFF_HAND ].secondary_weapon_data.options_str;
+  }
+}
+
+// rogue_t::create_profile  =================================================
+
+bool rogue_t::create_profile( std::string& profile_str, save_e stype, bool save_html )
+{
+  player_t::create_profile( profile_str, stype, save_html );
+
+  // Break out early if we are not saving everything, or gear
+  if ( stype != SAVE_ALL && stype != SAVE_GEAR )
+  {
+    return true;
+  }
+
+  std::string term = save_html ? "<br />\n" : "\n";
+
+  if ( weapon_data[ WEAPON_MAIN_HAND ].secondary_weapon_data.active() ||
+       weapon_data[ WEAPON_OFF_HAND ].secondary_weapon_data.active() )
+  {
+    profile_str += term;
+    profile_str += "# Secondary weapons used in conjunction with weapon swapping are defined below.";
+    profile_str += term;
+  }
+
+  if ( weapon_data[ WEAPON_MAIN_HAND ].secondary_weapon_data.active() )
+  {
+    profile_str += "main_hand_secondary=";
+    profile_str += weapon_data[ WEAPON_MAIN_HAND ].secondary_weapon_data.encoded_item() + term;
+    if ( sim -> save_gear_comments &&
+         ! weapon_data[ WEAPON_MAIN_HAND ].secondary_weapon_data.encoded_comment().empty() )
+    {
+      profile_str += "# ";
+      profile_str += weapon_data[ WEAPON_MAIN_HAND ].secondary_weapon_data.encoded_comment();
+      profile_str += term;
+    }
+  }
+
+  if ( weapon_data[ WEAPON_OFF_HAND ].secondary_weapon_data.active() )
+  {
+    profile_str += "off_hand_secondary=";
+    profile_str += weapon_data[ WEAPON_OFF_HAND ].secondary_weapon_data.encoded_item() + term;
+    if ( sim -> save_gear_comments &&
+         ! weapon_data[ WEAPON_OFF_HAND ].secondary_weapon_data.encoded_comment().empty() )
+    {
+      profile_str += "# ";
+      profile_str += weapon_data[ WEAPON_OFF_HAND ].secondary_weapon_data.encoded_comment();
+      profile_str += term;
+    }
+  }
+
+  return true;
+}
+
+// rogue_t::init_items ======================================================
+
+bool rogue_t::init_items()
+{
+  bool ret = player_t::init_items();
+  if ( ! ret )
+  {
+    return ret;
+  }
+
+  // Initialize weapon swapping data structures for primary weapons here
+  weapon_data[ WEAPON_MAIN_HAND ].weapon_data[ WEAPON_PRIMARY ] = main_hand_weapon;
+  weapon_data[ WEAPON_MAIN_HAND ].item_data[ WEAPON_PRIMARY ] = &( items[ SLOT_MAIN_HAND ] );
+  weapon_data[ WEAPON_OFF_HAND ].weapon_data[ WEAPON_PRIMARY ] = off_hand_weapon;
+  weapon_data[ WEAPON_OFF_HAND ].item_data[ WEAPON_PRIMARY ] = &( items[ SLOT_OFF_HAND ] );
+
+  if ( ! weapon_data[ WEAPON_MAIN_HAND ].secondary_weapon_data.options_str.empty() )
+  {
+    ret = weapon_data[ WEAPON_MAIN_HAND ].secondary_weapon_data.init();
+    if ( ! ret )
+    {
+      return false;
+    }
+    weapon_data[ WEAPON_MAIN_HAND ].weapon_data[ WEAPON_SECONDARY ] = main_hand_weapon;
+    weapon_data[ WEAPON_MAIN_HAND ].item_data[ WEAPON_SECONDARY ] = &( weapon_data[ WEAPON_MAIN_HAND ].secondary_weapon_data );
+
+    // Restore primary main hand weapon after secondary weapon init
+    main_hand_weapon = weapon_data[ WEAPON_MAIN_HAND ].weapon_data[ WEAPON_PRIMARY ];
+  }
+
+  if ( ! weapon_data[ WEAPON_OFF_HAND ].secondary_weapon_data.options_str.empty() )
+  {
+    ret = weapon_data[ WEAPON_OFF_HAND ].secondary_weapon_data.init();
+    if ( ! ret )
+    {
+      return false;
+    }
+    weapon_data[ WEAPON_OFF_HAND ].weapon_data[ WEAPON_SECONDARY ] = off_hand_weapon;
+    weapon_data[ WEAPON_OFF_HAND ].item_data[ WEAPON_SECONDARY ] = &( weapon_data[ WEAPON_OFF_HAND ].secondary_weapon_data );
+
+    // Restore primary off hand weapon after secondary weapon init
+    main_hand_weapon = weapon_data[ WEAPON_OFF_HAND ].weapon_data[ WEAPON_PRIMARY ];
+  }
+
+  return ret;
+}
+
+// rogue_t::init_special_effects ============================================
+
+void rogue_t::init_special_effects()
+{
+  player_t::init_special_effects();
+
+  if ( weapon_data[ WEAPON_MAIN_HAND ].item_data[ WEAPON_SECONDARY ] )
+  {
+    for ( size_t i = 0, end = weapon_data[ WEAPON_MAIN_HAND ].item_data[ WEAPON_SECONDARY ] -> parsed.special_effects.size();
+          i < end; ++i )
+    {
+      special_effect_t* effect = weapon_data[ WEAPON_MAIN_HAND ].item_data[ WEAPON_SECONDARY ] -> parsed.special_effects[ i ];
+      unique_gear::initialize_special_effect_2( effect );
+    }
+  }
+
+  if ( weapon_data[ WEAPON_OFF_HAND ].item_data[ WEAPON_SECONDARY ] )
+  {
+    for ( size_t i = 0, end = weapon_data[ WEAPON_OFF_HAND ].item_data[ WEAPON_SECONDARY ] -> parsed.special_effects.size();
+          i < end; ++i )
+    {
+      special_effect_t* effect = weapon_data[ WEAPON_OFF_HAND ].item_data[ WEAPON_SECONDARY ] -> parsed.special_effects[ i ];
+      unique_gear::initialize_special_effect_2( effect );
+    }
+  }
+}
+
+// rogue_t::init_finished ===================================================
+
+void rogue_t::init_finished()
+{
+  player_t::init_finished();
+
+  weapon_data[ WEAPON_MAIN_HAND ].initialize();
+  weapon_data[ WEAPON_OFF_HAND ].initialize();
+}
+
 // rogue_t::reset ===========================================================
 
 void rogue_t::reset()
@@ -5420,6 +6116,71 @@ void rogue_t::reset()
   poisoned_enemies = 0;
 
   event_t::cancel( event_premeditation );
+
+  weapon_data[ WEAPON_MAIN_HAND ].reset();
+  weapon_data[ WEAPON_OFF_HAND ].reset();
+}
+
+void rogue_t::swap_weapon( weapon_slot_e slot, current_weapon_e to_weapon, bool in_combat )
+{
+  if ( weapon_data[ slot ].current_weapon == to_weapon )
+  {
+    return;
+  }
+
+  if ( ! weapon_data[ slot ].item_data[ to_weapon ] )
+  {
+    return;
+  }
+
+  if ( sim -> debug )
+  {
+    sim -> out_debug.printf( "%s performing weapon swap from %s to %s",
+        name(), weapon_data[ slot ].item_data[ ! to_weapon ] -> name(),
+        weapon_data[ slot ].item_data[ to_weapon ] -> name() );
+  }
+
+  // First, swap stats on actor, but only if it is in combat. Outside of combat (basically
+  // during iteration reset) there is no need to adjust actor stats, as they are always reset to
+  // the primary weapons.
+  for ( stat_e i = STAT_NONE; in_combat && i < STAT_MAX; i++ )
+  {
+    stat_loss( i, weapon_data[ slot ].stats_data[ ! to_weapon ].get_stat( i ) );
+    stat_gain( i, weapon_data[ slot ].stats_data[ to_weapon ].get_stat( i ) );
+  }
+
+  weapon_t* target_weapon = &( slot == WEAPON_MAIN_HAND ? main_hand_weapon : off_hand_weapon );
+  action_t* target_action = slot == WEAPON_MAIN_HAND ? main_hand_attack : off_hand_attack;
+
+  // Swap the actor weapon object
+  *target_weapon = weapon_data[ slot ].weapon_data[ to_weapon ];
+  target_action -> base_execute_time = target_weapon -> swing_time;
+
+  // Enable new weapon callback(s)
+  weapon_data[ slot ].callback_state( to_weapon, true );
+
+  // Disable old weapon callback(s)
+  weapon_data[ slot ].callback_state( static_cast<current_weapon_e>( ! to_weapon ), false );
+
+  // Reset swing timer of the weapon
+  if ( target_action -> execute_event )
+  {
+    event_t::cancel( target_action -> execute_event );
+    target_action -> schedule_execute();
+  }
+
+  // Track uptime
+  if ( to_weapon == WEAPON_PRIMARY )
+  {
+    weapon_data[ slot ].secondary_weapon_uptime -> expire();
+  }
+  else
+  {
+    weapon_data[ slot ].secondary_weapon_uptime -> trigger();
+  }
+
+  // Set the current weapon wielding state for the slot
+  weapon_data[ slot ].current_weapon = to_weapon;
 }
 
 // rogue_t::arise ===========================================================
@@ -5616,6 +6377,37 @@ private:
 
 // ROGUE MODULE INTERFACE ===================================================
 
+static void do_trinket_init( rogue_t*                 r,
+                             specialization_e         spec,
+                             const special_effect_t*& ptr,
+                             const special_effect_t&  effect )
+{
+  if ( ! r -> find_spell( effect.spell_id ) -> ok() || r -> specialization() != spec )
+  {
+    return;
+  }
+
+  ptr = &( effect );
+}
+
+static void toxic_mutilator( special_effect_t& effect )
+{
+  rogue_t* rogue = debug_cast<rogue_t*>( effect.player );
+  do_trinket_init( rogue, ROGUE_ASSASSINATION, rogue -> toxic_mutilator, effect );
+}
+
+static void eviscerating_blade( special_effect_t& effect )
+{
+  rogue_t* rogue = debug_cast<rogue_t*>( effect.player );
+  do_trinket_init( rogue, ROGUE_COMBAT, rogue -> eviscerating_blade, effect );
+}
+
+static void from_the_shadows( special_effect_t& effect )
+{
+  rogue_t* rogue = debug_cast<rogue_t*>( effect.player );
+  do_trinket_init( rogue, ROGUE_SUBTLETY, rogue -> from_the_shadows, effect );
+}
+
 struct rogue_module_t : public module_t
 {
   rogue_module_t() : module_t( ROGUE ) {}
@@ -5629,6 +6421,13 @@ struct rogue_module_t : public module_t
 
   virtual bool valid() const
   { return true; }
+
+  virtual void static_init() const
+  {
+    unique_gear::register_special_effect( 184916, toxic_mutilator    );
+    unique_gear::register_special_effect( 184917, eviscerating_blade );
+    unique_gear::register_special_effect( 184918, from_the_shadows   );
+  }
 
   virtual void init( sim_t* ) const
   { }

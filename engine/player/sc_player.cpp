@@ -2175,6 +2175,13 @@ bool player_t::init_actions()
   return true;
 }
 
+// player_t::init_finished ==================================================
+
+void player_t::init_finished()
+{
+  range::for_each( action_list, std::mem_fn( &action_t::init_finished ) );
+}
+
 // player_t::create_buffs ===================================================
 
 void player_t::create_buffs()
@@ -3103,7 +3110,7 @@ void player_t::invalidate_cache( cache_e c )
 {
   if ( ! cache.active ) return;
 
-  if ( sim -> log ) sim -> out_log.printf( "%s invalidates %s", name(), util::cache_type_string( c ) );
+  if ( sim -> debug ) sim -> out_debug.printf( "%s invalidates %s", name(), util::cache_type_string( c ) );
 
   // Special linked invalidations
   switch ( c )
@@ -5929,14 +5936,49 @@ struct restore_mana_t : public action_t
 struct snapshot_stats_t : public action_t
 {
   bool completed;
+  spell_t*  proxy_spell;
+  attack_t* proxy_attack;
+  role_e role;
 
   snapshot_stats_t( player_t* player, const std::string& options_str ) :
     action_t( ACTION_OTHER, "snapshot_stats", player ),
-    completed( false )
+    completed( false ), proxy_spell( 0 ), proxy_attack( 0 ),
+    role( player -> primary_role() )
   {
     parse_options( options_str );
     trigger_gcd = timespan_t::zero();
     harmful = false;
+
+    if ( role == ROLE_SPELL || role == ROLE_HYBRID || role == ROLE_HEAL )
+    {
+      proxy_spell = new spell_t( "snapshot_spell", player );
+      proxy_spell -> background = true;
+      proxy_spell -> callbacks = false;
+    }
+
+    if ( role == ROLE_ATTACK || role == ROLE_HYBRID || role == ROLE_TANK )
+    {
+      proxy_attack = new melee_attack_t( "snapshot_attack", player );
+      proxy_attack -> background = true;
+      proxy_attack -> callbacks = false;
+    }
+  }
+
+  void init_finished()
+  {
+    action_t::init_finished();
+
+    player_t* p = player;
+    for ( size_t i = 0; i < p -> pet_list.size(); ++i )
+    {
+      pet_t* pet = p -> pet_list[ i ];
+      action_t* pet_snapshot = pet -> find_action( "snapshot_stats" );
+      if ( ! pet_snapshot )
+      {
+        pet_snapshot = pet -> create_action( "snapshot_stats", "" );
+        pet_snapshot -> init();
+      }
+    }
   }
 
   virtual void execute()
@@ -5991,7 +6033,6 @@ struct snapshot_stats_t : public action_t
     buffed_stats.block        = p -> cache.block();
     buffed_stats.crit         = p -> cache.crit_avoidance();
 
-    role_e role = p -> primary_role();
     double spell_hit_extra = 0, attack_hit_extra = 0, expertise_extra = 0;
 
     // The code below is not properly handling the case where the player has
@@ -6010,29 +6051,23 @@ struct snapshot_stats_t : public action_t
 
     if ( role == ROLE_SPELL || role == ROLE_HYBRID || role == ROLE_HEAL )
     {
-      spell_t* spell = new spell_t( "snapshot_spell", p  );
-      spell -> background = true;
-      spell -> init();
-      double chance = spell -> miss_chance( spell -> composite_hit(), sim -> target );
+      double chance = proxy_spell -> miss_chance( proxy_spell -> composite_hit(), sim -> target );
       if ( chance < 0 ) spell_hit_extra = -chance * p -> current_rating().spell_hit;
     }
 
     if ( role == ROLE_ATTACK || role == ROLE_HYBRID || role == ROLE_TANK )
     {
-      attack_t* attack = new melee_attack_t( "snapshot_attack", p );
-      attack -> background = true;
-      attack -> init();
-      double chance = attack -> miss_chance( attack -> composite_hit(), sim -> target );
+      double chance = proxy_attack -> miss_chance( proxy_attack -> composite_hit(), sim -> target );
       if ( p -> dual_wield() ) chance += 0.19;
       if ( chance < 0 ) attack_hit_extra = -chance * p -> current_rating().attack_hit;
-      if ( p -> position() != POSITION_FRONT  )
+      if ( p -> position() != POSITION_FRONT )
       {
-        chance = attack -> dodge_chance( p -> cache.attack_expertise(), sim -> target );
+        chance = proxy_attack -> dodge_chance( p -> cache.attack_expertise(), sim -> target );
         if ( chance < 0 ) expertise_extra = -chance * p -> current_rating().expertise;
       }
-      else if ( p ->position() == POSITION_FRONT )
+      else if ( p -> position() == POSITION_FRONT )
       {
-        chance = attack -> parry_chance( p -> cache.attack_expertise(), sim -> target );
+        chance = proxy_attack -> parry_chance( p -> cache.attack_expertise(), sim -> target );
         if ( chance < 0 ) expertise_extra = -chance * p -> current_rating().expertise;
       }
     }
@@ -6044,8 +6079,10 @@ struct snapshot_stats_t : public action_t
     {
       pet_t* pet = p -> pet_list[ i ];
       action_t* pet_snapshot = pet -> find_action( "snapshot_stats" );
-      if ( ! pet_snapshot ) pet_snapshot = pet -> create_action( "snapshot_stats", "" );
-      pet_snapshot -> execute();
+      if ( pet_snapshot )
+      {
+        pet_snapshot -> execute();
+      }
     }
   }
 
@@ -6145,7 +6182,7 @@ struct use_item_t : public action_t
 
   use_item_t( player_t* player, const std::string& options_str ) :
     action_t( ACTION_OTHER, "use_item", player ),
-    item( 0 )
+    item( 0 ), action( 0 ), buff( 0 )
   {
     std::string item_name, item_slot;
 
@@ -6192,16 +6229,25 @@ struct use_item_t : public action_t
 
     // Parse Special Effect
     const special_effect_t& e = item -> special_effect( SPECIAL_EFFECT_SOURCE_NONE, SPECIAL_EFFECT_USE );
-    buff = buff_t::find( player, e.name() );
-    if ( ! buff )
+    if ( e.type == SPECIAL_EFFECT_USE )
     {
-      buff = e.create_buff();
-    }
+      buff = buff_t::find( player, e.name() );
+      if ( ! buff )
+      {
+        buff = e.create_buff();
+      }
 
-    action = player -> find_action( e.name() );
-    if ( ! action )
-    {
-      action = e.create_action();
+      action = player -> find_action( e.name() );
+      if ( ! action )
+      {
+        action = e.create_action();
+      }
+
+      stats = player ->  get_stats( name_str, this );
+
+      cooldown = player -> get_cooldown( e.cooldown_name() );
+      cooldown -> duration = e.cooldown();
+      trigger_gcd = timespan_t::zero();
     }
 
     if ( ! buff && ! action )
@@ -6210,12 +6256,6 @@ struct use_item_t : public action_t
       background = true;
       return;
     }
-
-    stats = player ->  get_stats( name_str, this );
-
-    cooldown = player -> get_cooldown( e.cooldown_name() );
-    cooldown -> duration = e.cooldown();
-    trigger_gcd = timespan_t::zero();
   }
 
   void lockout( timespan_t duration )
@@ -6252,11 +6292,6 @@ struct use_item_t : public action_t
       lockout( buff -> buff_duration );
   }
 
-  virtual void reset()
-  {
-    action_t::reset();
-  }
-
   virtual bool ready()
   {
     if ( ! item ) return false;
@@ -6269,6 +6304,51 @@ struct use_item_t : public action_t
     }
 
     return action_t::ready();
+  }
+
+  expr_t* create_special_effect_expr( const std::vector<std::string>& data_str_split )
+  {
+    struct use_item_buff_type_expr_t : public expr_t
+    {
+      double v;
+
+      use_item_buff_type_expr_t( bool state ) :
+        expr_t( "use_item_buff_type" ),
+        v( state ? 1.0 : 0 )
+      { }
+
+      bool is_constant( double* )
+      { return true; }
+
+      double evaluate()
+      { return v; }
+    };
+
+    if ( data_str_split.size() != 2 || ! util::str_compare_ci( data_str_split[ 0 ], "use_buff" ) )
+    {
+      return 0;
+    }
+
+    stat_e stat = util::parse_stat_type( data_str_split[ 1 ] );
+    if ( stat == STAT_NONE )
+    {
+      return 0;
+    }
+
+    const special_effect_t& e = item -> special_effect( SPECIAL_EFFECT_SOURCE_NONE, SPECIAL_EFFECT_USE );
+
+    return new use_item_buff_type_expr_t( e.stat_type() == stat );
+  }
+
+  expr_t* create_expression( const std::string& name_str )
+  {
+    std::vector<std::string> split = util::string_split( name_str, "." );
+    if ( expr_t* e = create_special_effect_expr( split ) )
+    {
+      return e;
+    }
+
+    return action_t::create_expression( name_str );
   }
 };
 
@@ -8396,7 +8476,7 @@ bool player_t::create_profile( std::string& profile_str, save_e stype, bool save
     }
 
     profile_str += "\n# Gear Summary" + term;
-    double avg_ilvl = util::get_avg_itemlvl( this );
+    double avg_ilvl = util::round( util::get_avg_itemlvl( this ), 2 );
     profile_str += "# gear_ilvl=" + util::to_string( avg_ilvl, 2 ) + term;
     for ( stat_e i = STAT_NONE; i < STAT_MAX; i++ )
     {

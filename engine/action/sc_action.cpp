@@ -104,20 +104,6 @@ struct action_execute_event_t : public player_event_t
     // action -> pre_execute_state.
     if ( execute_state )
     {
-      if ( action -> sim -> fancy_target_distance_stuff )
-      {
-        if ( action -> execute_time() != timespan_t::zero() )
-        { // No need to recheck if the execute time was zero.
-          if ( action -> range > 0.0 )
-          {
-            if ( target -> get_position_distance( action -> player -> x_position, action -> player -> y_position ) > action -> range )
-            { // Target is now out of range, we cannot finish the cast.
-              action -> interrupt_action();
-              return;
-            }
-          }
-        }
-      }
       target = execute_state -> target;
       action -> pre_execute_state = execute_state;
       execute_state = 0;
@@ -131,8 +117,10 @@ struct action_execute_event_t : public player_event_t
       action -> pre_execute_state = 0;
     }
 
-    if ( ! target -> is_sleeping() )
+    if ( !target -> is_sleeping() )
+    {
       action -> execute();
+    }
 
     assert( ! action -> pre_execute_state );
 
@@ -308,6 +296,7 @@ action_t::action_t( action_e       ty,
   dot_behavior                   = DOT_CLIP;
   trigger_gcd                    = player -> base_gcd;
   range                          = -1.0;
+  radius                         = -1.0;
 
   amount_delta                   = 0.0;
   base_dd_min                    = 0.0;
@@ -375,6 +364,12 @@ action_t::action_t( action_e       ty,
   assert( ! name_str.empty() && "Abilities must have valid name_str entries!!" );
 
   util::tokenize( name_str );
+
+  if ( sim -> initialized )
+  {
+    sim -> errorf( "Player %s action %s created after simulator initialization.",
+        player -> name(), name() );
+  }
 
   if ( sim -> current_iteration > 0 )
   {
@@ -552,7 +547,7 @@ void action_t::parse_effect_data( const spelleffect_data_t& spelleffect_data )
     case E_HEALTH_LEECH:
       spell_power_mod.direct  = spelleffect_data.sp_coeff();
       attack_power_mod.direct = spelleffect_data.ap_coeff();
-      radius                  = spelleffect_data.radius_max();
+      radius           = spelleffect_data.radius_max();
       amount_delta            = spelleffect_data.m_delta();
       base_dd_min      = player -> dbc.effect_min( spelleffect_data.id(), player -> level );
       base_dd_max      = player -> dbc.effect_max( spelleffect_data.id(), player -> level );
@@ -564,11 +559,13 @@ void action_t::parse_effect_data( const spelleffect_data_t& spelleffect_data )
       base_dd_min      = player -> dbc.effect_min( spelleffect_data.id(), player -> level );
       base_dd_max      = player -> dbc.effect_max( spelleffect_data.id(), player -> level );
       weapon = &( player -> main_hand_weapon );
+      radius           = spelleffect_data.radius_max();
       break;
 
     case E_WEAPON_PERCENT_DAMAGE:
       weapon = &( player -> main_hand_weapon );
       weapon_multiplier = player -> dbc.effect_min( spelleffect_data.id(), player -> level );
+      radius           = spelleffect_data.radius_max();
       break;
 
       // Dot
@@ -581,6 +578,7 @@ void action_t::parse_effect_data( const spelleffect_data_t& spelleffect_data )
         case A_PERIODIC_HEAL:
           spell_power_mod.tick  = spelleffect_data.sp_coeff();
           attack_power_mod.tick = spelleffect_data.ap_coeff();
+          radius           = spelleffect_data.radius_max();
           base_td          = player -> dbc.effect_average( spelleffect_data.id(), player -> level );
         case A_PERIODIC_ENERGIZE:
         case A_PERIODIC_TRIGGER_SPELL_WITH_VALUE:
@@ -602,6 +600,7 @@ void action_t::parse_effect_data( const spelleffect_data_t& spelleffect_data )
           amount_delta            = spelleffect_data.m_delta();
           base_dd_min      = player -> dbc.effect_min( spelleffect_data.id(), player -> level );
           base_dd_max      = player -> dbc.effect_max( spelleffect_data.id(), player -> level );
+          radius           = spelleffect_data.radius_max();
           break;
         case A_ADD_FLAT_MODIFIER:
           switch ( spelleffect_data.misc_value1() )
@@ -1045,8 +1044,8 @@ size_t action_t::available_targets( std::vector< player_t* >& tl ) const
     player_t* t = sim -> target_non_sleeping_list[ i ];
 
     if ( t -> is_enemy() && ( t != target ) )
-      tl.push_back( t );
-  }
+            tl.push_back( t );
+        }
 
   if ( sim -> debug )
   {
@@ -1133,6 +1132,29 @@ block_result_e action_t::calculate_block_result( action_state_t* s )
   return block_result;
 }
 
+bool action_t::fancy_target_stuff_execute()
+{
+  if ( sim -> fancy_target_distance_stuff )
+  {
+    if ( sim -> log )
+    {
+      sim -> out_debug.printf( "%s action %s - Range %.3f, Radius %.3f, player location x=%.3f,y=%.3f, target: %s - location: x=%.3f,y=%.3f",
+        player -> name(), name(), range, radius, player -> x_position, player -> y_position, target -> name(), target -> x_position, target -> y_position );
+    }
+    if ( time_to_execute > timespan_t::zero() )
+    { // No need to recheck if the execute time was zero.
+      if ( range > 0.0 )
+      {
+        if ( target -> get_position_distance( player -> x_position, player -> y_position ) > range )
+        { // Target is now out of range, we cannot finish the cast.
+          return false;
+        }
+      }
+    }
+  }
+  return true;
+}
+
 // action_t::execute ========================================================
 
 void action_t::execute()
@@ -1152,6 +1174,9 @@ void action_t::execute()
   }
 
   if ( n_targets() == 0 && target -> is_sleeping() )
+    return;
+
+  if ( !fancy_target_stuff_execute() )
     return;
 
   if ( sim -> log && ! dual )
@@ -1397,7 +1422,7 @@ void action_t::tick( dot_t* d )
     if ( sim -> debug )
       d -> state -> debug();
 
-    schedule_multistrike( d -> state, amount_type( d -> state, true ) );
+    schedule_multistrike( d -> state, amount_type( d -> state, true ), d -> get_last_tick_factor() );
   }
 
   if ( ! periodic_hit ) stats -> add_tick( d -> time_to_tick, d -> state -> target );
@@ -1408,12 +1433,14 @@ void action_t::tick( dot_t* d )
 // action_t::multistrike_tick ===============================================
 
 // Generate a periodic multistrike
-void action_t::multistrike_tick( const action_state_t* source_state, action_state_t* ms_state, double /* tick_multiplier */ )
+void action_t::multistrike_tick( const action_state_t* source_state, action_state_t* ms_state, double tick_multiplier )
 {
   ms_state -> result_raw = source_state -> result_raw * composite_multistrike_multiplier( source_state );
   double total = ms_state -> result_raw;
   if ( ms_state -> result == RESULT_MULTISTRIKE_CRIT )
     total *= ( 1.0 + total_crit_bonus() );
+  // Also apply last_tick_factor properly
+  total *= tick_multiplier;
 
   ms_state -> result_total = ms_state -> result_amount = total;
 }
@@ -1450,7 +1477,9 @@ void action_t::update_resolve( dmg_e type,
     assert( source -> actor_spawn_index >= 0 && "Trying to register resolve damage event from a unspawned player! Something is seriously broken in player_t::arise/demise." );
 
     // bool for auto attack, to make code easier to read
-    bool is_auto_attack = ( player -> main_hand_attack && s -> action == player -> main_hand_attack ) || ( player -> off_hand_attack && s -> action == player -> off_hand_attack );
+    bool is_auto_attack = ( player -> main_hand_attack && s -> action == player -> main_hand_attack ) 
+      || ( player -> off_hand_attack && s -> action == player -> off_hand_attack ) ||
+      !s -> action -> special;
 
     // Resolve is only updated on damage taken events. The one exception is auto-attacks, which grant Resolve even on a dodge/parry.
     // If this is a miss that isn't an auto-attack, we can bail out early (and not recalculate)
@@ -1994,7 +2023,20 @@ void action_t::reset()
 
   if( sim -> current_iteration == 1 )
   {
-    if( if_expr ) if_expr = if_expr -> optimize();
+    if( if_expr )
+    {
+      if_expr = if_expr -> optimize();
+      if ( sim -> optimize_expressions && if_expr -> always_false() )
+      {
+        std::vector<action_t*>::iterator i = std::find( action_list -> foreground_action_list.begin(),
+                                                        action_list -> foreground_action_list.end(),
+                                                        this );
+        if ( i != action_list -> foreground_action_list.end() )
+        {
+          action_list -> foreground_action_list.erase( i );
+        }
+      }
+    }
     if( interrupt_if_expr ) interrupt_if_expr = interrupt_if_expr -> optimize();
     if( early_chain_if_expr ) early_chain_if_expr = early_chain_if_expr -> optimize();
   }
@@ -2402,7 +2444,7 @@ expr_t* action_t::create_expression( const std::string& name_str )
         virtual double evaluate()
         {
           if ( action.player -> last_foreground_action )
-            return action.player -> last_foreground_action -> id == prev -> id;
+            return action.player -> last_foreground_action -> internal_id == prev -> internal_id;
           return false;
         }
       };
@@ -2420,7 +2462,7 @@ expr_t* action_t::create_expression( const std::string& name_str )
         virtual double evaluate()
         {
           if ( action.player -> last_gcd_action )
-            return action.player -> last_gcd_action -> id == previously_used -> id;
+            return action.player -> last_gcd_action -> internal_id == previously_used -> internal_id;
           return false;
         }
       };
@@ -2441,7 +2483,7 @@ expr_t* action_t::create_expression( const std::string& name_str )
           {
             for ( size_t i = 0; i < action.player -> off_gcdactions.size(); i++ )
             {
-              if ( action.player -> off_gcdactions[i] -> id == previously_off_gcd -> id )
+              if ( action.player -> off_gcdactions[i] -> internal_id == previously_off_gcd -> internal_id )
                 return true;
             }
           }
@@ -2802,24 +2844,32 @@ void action_t::schedule_travel( action_state_t* s )
   do_schedule_travel( s, time_to_travel );
 }
 
+bool action_t::fancy_target_stuff_impact( action_state_t* s )
+{
+  if ( sim -> log )
+  {
+    sim -> out_debug.printf( "%s action %s - Range %.3f, Radius %.3f, player location x=%.3f,y=%.3f, original target: %s - location: x=%.3f,y=%.3f, impact target: %s - location: x=%.3f,y=%.3f",
+      player -> name(), name(), range, radius, player -> x_position, player -> y_position, target -> name(), target -> x_position, target -> y_position, s -> target -> name(), s -> target -> x_position, s -> target -> y_position );
+  }
+  if ( radius > 0 || range > 0 )
+  {
+    if ( radius > 0 ) // Check radius first, typically anything that has a radius (with a few exceptions) deal damage based on the original target.
+    {
+      if ( target -> get_position_distance( s -> target -> x_position, s -> target -> y_position ) > radius )
+        return false;
+    } // If they do not have a radius, they are likely based on the distance from the player.
+    else if ( s -> target -> get_position_distance( player -> x_position, player -> y_position ) > range )
+      return false;
+  }
+  return true;
+}
+
 void action_t::impact( action_state_t* s )
 {
   if ( sim -> fancy_target_distance_stuff && is_aoe() )
   {
-    if ( radius > 0 || range > 0 )
-    {
-      if ( dot_duration == timespan_t::zero() ) // Dot applications were already checked in ready, no need to check them again.
-      {
-        double distance_from_target = s -> target -> get_position_distance( player -> x_position, player -> y_position );
-        if ( radius > 0 ) // Check radius first.
-        {
-          if ( distance_from_target > radius )
-            return;
-        }
-        else if ( distance_from_target > range )
-          return;
-      }
-    }
+    if ( !fancy_target_stuff_impact( s ) )
+      return;
   }
 
   assess_damage( ( type == ACTION_HEAL || type == ACTION_ABSORB ) ? HEAL_DIRECT : DMG_DIRECT, s );

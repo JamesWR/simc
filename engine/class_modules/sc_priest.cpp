@@ -15,7 +15,7 @@ namespace actions { namespace spells { struct shadowy_apparition_spell_t; } }
 /* Priest target data
  * Contains target specific things
  */
-struct priest_td_t : public actor_pair_t
+struct priest_td_t : public actor_target_data_t
 {
 public:
   struct dots_t
@@ -100,6 +100,7 @@ public:
     buff_t* resolute_spirit; // t16 4pc heal spirit shell
     buff_t* clear_thoughts; //t17 4pc disc
     buff_t* shadow_power; //WoD Shadow 2pc PvP
+    buff_t* reperation; // T18 Disc 2p
   } buffs;
 
   // Talents
@@ -3401,6 +3402,18 @@ struct penance_t : public priest_spell_t
       if ( atonement )
         atonement -> stats = player -> get_stats( "atonement_penance" );
     }
+
+    virtual void impact( action_state_t* state ) override
+    {
+      priest_spell_t::impact( state );
+
+      if ( result_is_hit( state -> result ) )
+      {
+        // TODO: Check if this is the correct place & check for triggering.
+        // 2015-04-14: Your Penance [...] each time it deals damage or heals.
+        priest.buffs.reperation -> trigger();
+      }
+    }
   };
 
   penance_t( priest_t& p, const std::string& options_str ) :
@@ -3582,6 +3595,7 @@ struct smite_t : public priest_spell_t
 
 // Cascade Spell
 
+// TODO: Have Cascade pick the next target per bounce based on current distance instead of feeding it a list of all available targets.
 template <class Base>
 struct cascade_base_t : public Base
 {
@@ -3593,9 +3607,11 @@ public:
   struct cascade_state_t : action_state_t
   {
     int jump_counter;
+    player_t* source_target;
 
     cascade_state_t( action_t* a, player_t* t ) : action_state_t( a, t ),
-      jump_counter( 0 )
+      jump_counter( 0 ),
+      source_target( nullptr )
     { }
   };
 
@@ -3678,6 +3694,7 @@ public:
           // Copy-Pasted action_t::execute() code. Additionally increasing jump counter by one.
           cascade_state_t* s = debug_cast<cascade_state_t*>( ab::get_state() );
           s -> target = t;
+          s -> source_target = currentTarget;
           s -> n_targets = 1;
           s -> chain_target = 0;
           s -> jump_counter = cs -> jump_counter + 1;
@@ -3700,17 +3717,28 @@ public:
     }
   }
 
-  virtual double composite_target_da_multiplier( player_t* t ) const override
+  virtual double calculate_direct_amount( action_state_t* s )
   {
-    double ctdm = ab::composite_target_da_multiplier( t );
+    cascade_state_t* cs = debug_cast<cascade_state_t*>( s );
+    double cda = action_t::calculate_direct_amount( s );
 
-    double distance = ab::player -> current.distance;
+    double distance;
+
+    if ( cs -> source_target == nullptr ) //Initial bounce
+    {
+      distance = std::fabs( cs -> action -> player -> current.distance - cs -> target -> current.distance );
+    }
+    else
+    {
+      distance = std::fabs( cs -> source_target -> current.distance - cs -> target -> current.distance );
+    }
+
     if ( distance >= 30.0 )
-      return ctdm;
+      return cda;
 
     // Source: Ghostcrawler 20/06/2012; http://us.battle.net/wow/en/forum/topic/5889309137?page=5#97
     // 40% damage at 0 yards, 100% at 30, scaling linearly
-    return ctdm * ( 0.4 + 0.6 * distance / 30.0 );
+    return cda * ( 0.4 + 0.6 * distance / 30.0 );
   }
 };
 
@@ -3789,19 +3817,19 @@ public:
   }
   virtual ~halo_base_t() {}
 
-  virtual double composite_target_da_multiplier( player_t* t ) const override
+  virtual double calculate_direct_amount( action_state_t* s )
   {
-    double ctdm = ab::composite_target_da_multiplier( t );
+    double cda = action_t::calculate_direct_amount( s );
 
     // Source: Ghostcrawler 20/06/2012
     // http://us.battle.net/wow/en/forum/topic/5889309137?page=5#97
 
-    double distance = ab::player -> current.distance; // Replace with whatever we measure distance
+    double distance = std::fabs( s -> action -> player -> current.distance - s -> target -> current.distance); // Distance from the caster to the target
 
     //double mult = 0.5 * pow( 1.01, -1 * pow( ( distance - 25 ) / 2, 4 ) ) + 0.1 + 0.015 * distance;
     double mult = 0.5 * exp( -0.00995 * pow( distance / 2 - 12.5, 4 ) ) + 0.1 + 0.015 * distance;
 
-    return ctdm * mult;
+    return cda * mult;
   }
 };
 
@@ -4548,6 +4576,25 @@ struct penance_heal_t : public priest_heal_t
       school = SCHOOL_HOLY;
       stats = player.get_stats( "penance_heal", this );
     }
+
+    virtual void init() override
+    {
+      priest_heal_t::init();
+
+      snapshot_flags |= STATE_MUL_TA;
+    }
+
+    virtual void impact( action_state_t* state ) override
+    {
+      priest_heal_t::impact( state );
+
+      if ( result_is_hit( state -> result ) )
+      {
+        // TODO: Check if this is the correct place & check for triggering.
+        // 2015-04-14: Your Penance [...] each time it deals damage or heals.
+        priest.buffs.reperation -> trigger();
+      }
+    }
   };
 
   penance_heal_t( priest_t& p, const std::string& options_str ) :
@@ -5066,7 +5113,7 @@ struct spirit_shell_t : public priest_buff_t<buff_t>
 // ==========================================================================
 
 priest_td_t::priest_td_t( player_t* target, priest_t& p ) :
-  actor_pair_t( target, &p ),
+  actor_target_data_t( target, &p ),
   dots(),
   buffs(),
   glyph_of_mind_harvest_consumed( false ),
@@ -5523,6 +5570,11 @@ double priest_t::composite_player_multiplier( school_e school ) const
     m *= 1.0 + buffs.focused_will -> check() * perks.enhanced_focused_will -> effectN( 1 ).percent();
   }
 
+  if ( buffs.reperation -> check() )
+  {
+    m *= 1.0 + buffs.reperation -> data().effectN( 1 ).percent() * buffs.reperation -> check();
+  }
+
   return m;
 }
 
@@ -5549,6 +5601,11 @@ double priest_t::composite_player_heal_multiplier( const action_state_t* s ) con
     m *= 1.0 + buffs.saving_grace_penalty -> check() * buffs.saving_grace_penalty -> data().effectN( 1 ).percent();
   }
 
+  if ( buffs.reperation -> check() )
+  {
+    m *= 1.0 + buffs.reperation -> data().effectN( 1 ).percent() * buffs.reperation -> check();
+  }
+
   return m;
 }
 
@@ -5562,6 +5619,12 @@ double priest_t::composite_player_absorb_multiplier( const action_state_t* s ) c
   if ( buffs.saving_grace_penalty -> check() )
   {
     m *= 1.0 + buffs.saving_grace_penalty -> check() * buffs.saving_grace_penalty -> data().effectN( 2 ).percent();
+  }
+
+  if ( buffs.reperation -> check() )
+  {
+    // TODO: check assumption that it increases absorb as well.
+    m *= 1.0 + buffs.reperation -> data().effectN( 1 ).percent() * buffs.reperation -> check();
   }
 
   return m;
@@ -6094,6 +6157,12 @@ void priest_t::create_buffs()
                        .chance( sets.has_set_bonus( PRIEST_SHADOW, PVP, B2 ) )
                        .add_invalidate( CACHE_VERSATILITY );
 
+  buffs.reperation = buff_creator_t( this, "reperation" )
+                     .spell( find_spell( 186478 ) )
+                     .chance( sets.has_set_bonus( PRIEST_DISCIPLINE, T18, B2 ) )
+                     .add_invalidate( CACHE_PLAYER_DAMAGE_MULTIPLIER )
+                     .add_invalidate( CACHE_PLAYER_HEAL_MULTIPLIER );
+
   //Glyphs
   buffs.glyph_of_levitate = buff_creator_t( this, "glyph_of_levitate", glyphs.levitate )
                               .default_value( glyphs.levitate -> effectN( 1 ).percent() );
@@ -6557,9 +6626,9 @@ void priest_t::apl_disc_heal()
   def -> add_action( "penance_heal,if=buff.borrowed_time.up" );
   def -> add_action( "penance_heal" );
   def -> add_action( this, "Flash Heal", "if=buff.surge_of_light.react" );
-  def -> add_action( this, "Heal", "if=buff.power_infusion.up|mana.pct>20" );
   def -> add_action( "prayer_of_mending" );
   def -> add_talent( this, "Clarity of Will" );
+  def -> add_action( this, "Heal", "if=buff.power_infusion.up|mana.pct>20" );
   def -> add_action( "heal" );
 }
 

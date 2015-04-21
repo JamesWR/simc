@@ -55,7 +55,8 @@ CONFIG(console) {
 }
 
 TRANSLATIONS = locale/sc_de.ts \
-    locale/sc_zh.ts
+    locale/sc_zh.ts \
+    locale/sc_it.ts
 
 # OSX qt 5.1 is fubar and has double slashes, messing up things
 QTDIR=$$[QT_INSTALL_PREFIX]
@@ -92,7 +93,9 @@ macx {
     Resources.path = Contents/Resources
     Profiles.files = profiles/Tier17P profiles/Tier17N profiles/Tier17H profiles/Tier17M profiles/Tier17B
     Profiles.path = Contents/Resources/profiles
-    QMAKE_BUNDLE_DATA += Profiles Resources
+    Localization.files = locale/sc_de.qm locale/sc_it.qm locale/sc_zh.qm
+    Localization.path = Contents/Resources/locale
+    QMAKE_BUNDLE_DATA += Profiles Resources Localization
     QMAKE_DISTCLEAN += simc *.dmg
   }
 

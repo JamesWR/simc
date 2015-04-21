@@ -23,7 +23,7 @@ enum aspect_type { ASPECT_NONE = 0, ASPECT_MAX };
 
 enum exotic_munitions { NO_AMMO = 0, FROZEN_AMMO = 2, INCENDIARY_AMMO = 4, POISONED_AMMO = 8 };
 
-struct hunter_td_t: public actor_pair_t
+struct hunter_td_t: public actor_target_data_t
 {
   buff_t* debuffs_pvp_surv_4p_black_fire;
   struct dots_t
@@ -68,6 +68,11 @@ public:
   attack_t* action_lightning_arrow_arcane_shot;
   attack_t* action_lightning_arrow_multi_shot;
 
+  // Tier 18 (WoD 6.2) trinket effects
+  const special_effect_t* beastlord;
+  const special_effect_t* longview;
+  const special_effect_t* blackness;
+
   // Buffs
   struct buffs_t
   {
@@ -98,6 +103,7 @@ public:
   struct cooldowns_t
   {
     cooldown_t* explosive_shot;
+    cooldown_t* black_arrow;
     cooldown_t* bestial_wrath;
     cooldown_t* kill_shot_reset;
     cooldown_t* rapid_fire;
@@ -134,6 +140,7 @@ public:
     proc_t* tier16_2pc_melee;
     proc_t* tier16_4pc_melee;
     proc_t* tier17_2pc_bm;
+    proc_t* black_arrow_trinket_reset;
   } procs;
 
   real_ppm_t ppm_tier15_2pc_melee;
@@ -298,6 +305,9 @@ public:
     action_lightning_arrow_aimed_shot(),
     action_lightning_arrow_arcane_shot(),
     action_lightning_arrow_multi_shot(),
+    beastlord( 0 ),
+    longview( 0 ),
+    blackness( 0 ),
     buffs( buffs_t() ),
     cooldowns( cooldowns_t() ),
     gains( gains_t() ),
@@ -314,6 +324,7 @@ public:
   {
     // Cooldowns
     cooldowns.explosive_shot  = get_cooldown( "explosive_shot" );
+    cooldowns.black_arrow = get_cooldown( "black_arrow" );
     cooldowns.bestial_wrath   = get_cooldown( "bestial_wrath" );
     cooldowns.kill_shot_reset = get_cooldown( "kill_shot_reset" );
     cooldowns.kill_shot_reset -> duration = find_spell( 90967 ) -> duration();
@@ -404,6 +415,37 @@ public:
     buffs.pre_steady_focus -> expire();
   }
 };
+
+static void do_trinket_init( hunter_t*                 r,
+                             specialization_e         spec,
+                             const special_effect_t*& ptr,
+                             const special_effect_t&  effect )
+{
+  if ( ! r -> find_spell( effect.spell_id ) -> ok() || r -> specialization() != spec )
+  {
+    return;
+  }
+
+  ptr = &( effect );
+}
+
+static void beastlord( special_effect_t& effect )
+{
+  hunter_t* hunter = debug_cast<hunter_t*>( effect.player );
+  do_trinket_init( hunter, HUNTER_BEAST_MASTERY, hunter -> beastlord, effect );
+}
+
+static void longview( special_effect_t& effect )
+{
+  hunter_t* hunter = debug_cast<hunter_t*>( effect.player );
+  do_trinket_init( hunter, HUNTER_MARKSMANSHIP, hunter -> longview, effect );
+}
+
+static void blackness( special_effect_t& effect )
+{
+  hunter_t* hunter = debug_cast<hunter_t*>( effect.player );
+  do_trinket_init( hunter, HUNTER_SURVIVAL, hunter -> blackness, effect );
+}
 
 // Template for common hunter action code. See priest_action_t.
 template <class Base>
@@ -508,6 +550,19 @@ public:
     return ab::create_expression( name );
   }
 
+  void trigger_blackness()
+  {
+    if ( p() -> blackness && p() -> specialization() == HUNTER_SURVIVAL )
+    {
+      const spell_data_t* data = p() -> find_spell( p() -> blackness -> spell_id );
+      double chance = data -> effectN( 1 ).average( p() -> blackness -> item ) / 100.0;
+      if ( ab::rng().roll( chance ) )
+      {
+        p() -> cooldowns.black_arrow -> reset( true );
+        p() -> procs.black_arrow_trinket_reset -> occur();
+      }
+    }
+  }
 
 // thrill_of_the_hunt support ===============================================
 
@@ -643,7 +698,7 @@ public:
 // Hunter Main Pet
 // ==========================================================================
 
-struct hunter_main_pet_td_t: public actor_pair_t
+struct hunter_main_pet_td_t: public actor_target_data_t
 {
 public:
   hunter_main_pet_td_t( player_t* target, hunter_main_pet_t* p );
@@ -806,9 +861,10 @@ public:
   {
     base_t::create_buffs();
 
-    buffs.bestial_wrath     = buff_creator_t( this, 19574, "bestial_wrath" ).activated( true );
+    buffs.bestial_wrath = buff_creator_t( this, 19574, "bestial_wrath" ).activated( true );
     buffs.bestial_wrath -> cooldown -> duration = timespan_t::zero();
     buffs.bestial_wrath -> buff_duration += owner -> sets.set( SET_MELEE, T14, B4 ) -> effectN( 1 ).time_value();
+    buffs.bestial_wrath -> default_value = buffs.bestial_wrath -> data().effectN( 2 ).percent();
 
     buffs.frenzy            = buff_creator_t( this, 19615, "frenzy" ).chance( o() -> specs.frenzy -> effectN( 2 ).percent() );
 
@@ -828,6 +884,20 @@ public:
     buffs.tier17_4pc_bm = buff_creator_t( this, 178875, "tier17_4pc_bm" )
       .default_value( owner -> find_spell( 178875 ) -> effectN( 2 ).percent() )
       .add_invalidate( CACHE_PLAYER_DAMAGE_MULTIPLIER );
+  }
+
+  virtual void init_special_effects()
+  {
+    base_t::init_special_effects();
+    hunter_t* hunter = debug_cast<hunter_t*>( owner );
+    const special_effect_t* bl = hunter -> beastlord;
+    if ( bl )
+    {
+      const spell_data_t* data = hunter -> find_spell( bl -> spell_id );
+      buffs.bestial_wrath -> buff_duration += timespan_t::from_seconds( data -> effectN( 1 ).base_value() );
+      double increase = data -> effectN( 2 ).average( bl -> item ) + data -> effectN( 3 ).average( bl -> item );
+      buffs.bestial_wrath -> default_value += increase / 100.0;
+    }
   }
 
   virtual void init_gains()
@@ -967,7 +1037,7 @@ public:
     double m = base_t::composite_player_multiplier( school );
 
     if ( !buffs.stampede -> check() && buffs.bestial_wrath -> up() )
-      m *= 1.0 + buffs.bestial_wrath -> data().effectN( 2 ).percent();
+      m *= 1.0 + buffs.bestial_wrath -> current_value;
 
     if ( o() -> sets.has_set_bonus( SET_MELEE, T16, B4 ) )
       m *= 1.0 + buffs.tier16_4pc_bm_brutal_kinship -> stack() * buffs.tier16_4pc_bm_brutal_kinship -> data().effectN( 1 ).percent();
@@ -1100,6 +1170,8 @@ static bool trigger_beast_cleave( action_state_t* s )
       background = true;
       school = SCHOOL_PHYSICAL;
       aoe = -1;
+      range = -1.0;
+      radius = 10.0;
       // The starting damage includes all the buffs
       weapon_multiplier = 0;
     }
@@ -1521,7 +1593,7 @@ struct froststorm_breath_t: public hunter_main_pet_spell_t
 
 
 hunter_main_pet_td_t::hunter_main_pet_td_t( player_t* target, hunter_main_pet_t* p ):
-actor_pair_t( target, p )
+actor_target_data_t( target, p )
 {
 }
 // hunter_pet_t::create_action ==============================================
@@ -2045,6 +2117,7 @@ struct aimed_shot_t: public hunter_ranged_attack_t
 
 struct glaive_toss_strike_t: public ranged_attack_t
 {
+  double primary_target_multiplier;
   // use ranged_attack_to to avoid triggering other hunter behaviors (like thrill of the hunt)
   // TotH should be triggered by the glaive toss itself.
   glaive_toss_strike_t( hunter_t* player, const std::string& name, int id ):
@@ -2057,13 +2130,23 @@ struct glaive_toss_strike_t: public ranged_attack_t
     weapon = &( player -> main_hand_weapon );
     weapon_multiplier = 0;
     aoe = -1;
+    primary_target_multiplier = player -> talents.glaive_toss -> effectN( 1 ).base_value();
   }
 
-  virtual double composite_target_multiplier( player_t* target ) const
+  bool fancy_target_stuff_impact( action_state_t* s )
+  {
+    if ( ( s -> target -> x_position - std::min( player -> x_position, target -> x_position ) ) <= 
+      ( std::max( player -> x_position, target -> x_position ) - std::min( player -> x_position, target -> x_position ) ) )
+      return true;
+
+    return false;
+  }
+
+  double composite_target_multiplier( player_t* target ) const
   {
     double m = ranged_attack_t::composite_target_multiplier( target );
     if ( target == this -> target )
-      m *= static_cast<hunter_t*>( player ) -> talents.glaive_toss -> effectN( 1 ).base_value();
+      m *= primary_target_multiplier;
     return m;
   }
 };
@@ -2082,6 +2165,15 @@ struct glaive_rebound_t: public ranged_attack_t
     weapon = &( player -> main_hand_weapon );
     weapon_multiplier = 0;
     aoe = -1;
+  }
+
+  bool fancy_target_stuff_impact( action_state_t* s )
+  {
+    if ( ( s -> target -> x_position - std::min( player -> x_position, target -> x_position ) ) <= 
+      ( std::max( player -> x_position, target -> x_position ) - std::min( player -> x_position, target -> x_position ) ) )
+      return true;
+
+    return false;
   }
 
   size_t available_targets( std::vector< player_t* >& tl ) const
@@ -2339,10 +2431,13 @@ struct explosive_trap_t: public hunter_ranged_attack_t
     if ( p() -> perks.enhanced_traps -> ok() )
       cooldown -> duration *= ( 1.0 + p() -> perks.enhanced_traps -> effectN( 1 ).percent() );
     hasted_ticks = false;
-    dot_duration  = p() -> find_spell( 13812 ) -> duration();
-    base_tick_time = p() -> find_spell( 13812 ) -> effectN( 2 ).period();
+    const spell_data_t* damage = p() -> find_spell( 13812 );
+    dot_duration  = damage -> duration();
+    base_tick_time = damage -> effectN( 2 ).period();
     base_multiplier *= 1.0 + p() -> specs.trap_mastery -> effectN( 2 ).percent();
-    attack_power_mod.direct = p() -> find_spell( 13812 ) -> effectN( 1 ).ap_coeff();
+    attack_power_mod.direct = damage -> effectN( 1 ).ap_coeff();
+    radius = damage -> effectN( 1 ).radius_max();
+    range = 40.0;
 
     // BUG in game it uses the direct damage AP mltiplier for ticks as well.
     attack_power_mod.tick = attack_power_mod.direct;
@@ -2360,6 +2455,9 @@ struct chimaera_shot_impact_t: public hunter_ranged_attack_t
     hunter_ranged_attack_t( name, p, s )
   {
     dual = true;
+    aoe = 2;
+    radius = 5.0;
+    range = -1.0; // Range check is done in parent.
   }
 
   virtual double action_multiplier() const
@@ -2383,19 +2481,17 @@ struct chimaera_shot_t: public hunter_ranged_attack_t
     parse_options( options_str );
     callbacks = false;
     may_multistrike = 0;
-    aoe = 2;
     frost = new chimaera_shot_impact_t( player, "chimaera_shot_frost", player -> find_spell( 171454 ) );
     add_child( frost );
     nature = new chimaera_shot_impact_t( player, "chimaera_shot_nature", player -> find_spell( 171457 ) );
     add_child( nature );
     school = SCHOOL_FROSTSTRIKE; // Just so the report shows a mixture of the two colors.
-   
     starved_proc = player -> get_proc( "starved: chimaera_shot" );
   }
 
-  virtual void impact( action_state_t* s )
+  void execute()
   {
-    hunter_ranged_attack_t::impact( s );
+    hunter_ranged_attack_t::execute();
 
     if ( rng().roll( 0.5 ) ) // Chimaera shot has a 50/50 chance to roll frost or nature damage... for the flavorz.
       frost -> execute();
@@ -2497,6 +2593,8 @@ struct explosive_shot_t: public hunter_ranged_attack_t
     may_block = false;
 
     attack_power_mod.tick = 0.553; //Welcome to the hard-coded tooltip club!
+    if ( player -> dbc.ptr )
+      attack_power_mod.tick = 0.47;
     attack_power_mod.direct = attack_power_mod.tick;
     // the inital impact is not part of the rolling dot
     dot_duration = timespan_t::zero();
@@ -2612,7 +2710,8 @@ struct serpent_sting_t: public hunter_ranged_attack_t
     background = true;
     proc = true;
     tick_may_crit = true;
-    tick_zero = true;
+    if ( !player -> dbc.ptr)
+      tick_zero = true;
     hasted_ticks = false;
   }
 };
@@ -2640,6 +2739,8 @@ struct arcane_shot_t: public hunter_ranged_attack_t
 
     if ( result_is_hit( execute_state -> result ) )
       trigger_tier15_4pc_melee( p() -> procs.tier15_4pc_melee_arcane_shot, p() -> action_lightning_arrow_arcane_shot );
+
+    trigger_blackness();
   }
 
   virtual void impact( action_state_t* s )
@@ -2698,6 +2799,7 @@ struct multi_shot_t: public hunter_ranged_attack_t
   {
     hunter_ranged_attack_t::execute();
     consume_thrill_of_the_hunt();
+    trigger_blackness();
 
     pets::hunter_main_pet_t* pet = p() -> active.pet;
     if ( pet && p() -> specs.beast_cleave -> ok() )
@@ -3351,7 +3453,7 @@ struct stampede_t: public hunter_spell_t
 }
 
 hunter_td_t::hunter_td_t( player_t* target, hunter_t* p ):
-actor_pair_t( target, p ),
+actor_target_data_t( target, p ),
 dots( dots_t() )
 {
   dots.serpent_sting = target -> get_dot( "serpent_sting", p );
@@ -3629,6 +3731,8 @@ void hunter_t::create_buffs()
   buffs.bestial_wrath                = buff_creator_t( this, "bestial_wrath", specs.bestial_wrath )
     .cd( timespan_t::zero() )
     .add_invalidate( CACHE_PLAYER_DAMAGE_MULTIPLIER );
+    buffs.bestial_wrath -> default_value = buffs.bestial_wrath -> data().effectN( 7 ).percent();
+
 
   buffs.bestial_wrath -> buff_duration += sets.set( SET_MELEE, T14, B4 ) -> effectN( 1 ).time_value();
 
@@ -3738,6 +3842,7 @@ void hunter_t::init_procs()
   procs.tier16_2pc_melee             = get_proc( "tier16_2pc_melee" );
   procs.tier16_4pc_melee             = get_proc( "tier16_4pc_melee" );
   procs.tier17_2pc_bm                = get_proc( "tier17_2pc_bm" );
+  procs.black_arrow_trinket_reset    = get_proc( "black_arrow_trinket_reset" );
 }
 
 // hunter_t::init_rng =======================================================
@@ -3815,7 +3920,11 @@ void hunter_t::init_action_list()
     add_potion_action( precombat, "draenic_agility", "virmens_bite" );
 
     precombat -> add_action( "glaive_toss" );
-    precombat -> add_action( "focusing_shot,if=!talent.glaive_toss.enabled" );
+    if ( specialization() == HUNTER_SURVIVAL )
+    {
+      precombat -> add_action( "explosive_shot" );
+    }
+    precombat -> add_action( "focusing_shot" );
 
     switch ( specialization() )
     {
@@ -3980,26 +4089,30 @@ void hunter_t::apl_surv()
 
   default_list -> add_action( "auto_shot" );
 
-  add_item_actions( default_list );
   add_racial_actions( default_list ); 
+  add_item_actions( default_list );
 
   add_potion_action( default_list, "draenic_agility", "virmens_bite",
     "if=(((cooldown.stampede.remains<1)&(cooldown.a_murder_of_crows.remains<1))&(trinket.stat.any.up|buff.archmages_greater_incandescence_agi.up))|target.time_to_die<=25" );
 
   default_list -> add_action( "call_action_list,name=aoe,if=active_enemies>1" );
 
-  default_list -> add_talent( this, "Stampede", "if=buff.potion.up|(cooldown.potion.remains&(buff.archmages_greater_incandescence_agi.up|trinket.stat.any.up))|target.time_to_die<=25" );
   default_list -> add_talent( this, "A Murder of Crows" );
-  default_list -> add_action( this, "Black Arrow", "if=!ticking" );
+  default_list -> add_talent( this, "Stampede", "if=buff.potion.up|(cooldown.potion.remains&(buff.archmages_greater_incandescence_agi.up|trinket.stat.any.up))|target.time_to_die<=45" );
+  default_list -> add_action( this, "Black Arrow", "if=remains<gcd*1.5" );
+  default_list -> add_action( this, "Arcane Shot", "if=(trinket.proc.any.react&trinket.proc.any.remains<4)|dot.serpent_sting.remains<=3" );
   default_list -> add_action( this, "Explosive Shot" );
+  default_list -> add_action( this, "Cobra Shot", "if=buff.pre_steady_focus.up" );
   default_list -> add_talent( this, "Dire Beast" );
-  default_list -> add_action( this, "Arcane Shot", "if=buff.thrill_of_the_hunt.react&focus>35&cast_regen<=focus.deficit|dot.serpent_sting.remains<=3|target.time_to_die<4.5" );
-  default_list -> add_action( this, "Explosive Trap" );
-  // default_list -> add_talent( this, "Glaive Toss" );
-  // default_list -> add_talent( this, "Powershot" );
-  // default_list -> add_talent( this, "Barrage" );
-  default_list -> add_action( this, "Cobra Shot", "if=buff.pre_steady_focus.up&buff.steady_focus.remains<5&(14+cast_regen)<=focus.deficit", "Cast a second shot for steady focus if that won't cap us." );
-  default_list -> add_action( this, "Arcane Shot", "if=focus>=80|talent.focusing_shot.enabled" );
+  default_list -> add_action( this, "Arcane Shot", "if=(buff.thrill_of_the_hunt.react&focus>35)|target.time_to_die<4.5" );
+  default_list -> add_talent( this, "Glaive Toss" );
+  default_list -> add_talent( this, "Powershot" );
+  default_list -> add_talent( this, "Barrage" );
+  default_list -> add_action( this, "Explosive Trap", "if=!trinket.proc.any.react&!trinket.stacking_proc.any.react" );
+  default_list -> add_action( this, "Arcane Shot", "if=talent.steady_focus.enabled&!talent.focusing_shot.enabled&focus.deficit<action.cobra_shot.cast_regen*2+28" );
+  default_list -> add_action( this, "Cobra Shot", "if=talent.steady_focus.enabled&buff.steady_focus.remains<5" );
+  default_list -> add_talent( this, "Focusing Shot", "if=talent.steady_focus.enabled&buff.steady_focus.remains<=cast_time&focus.deficit>cast_regen" );
+  default_list -> add_action( this, "Arcane Shot", "if=focus>=70|talent.focusing_shot.enabled|(talent.steady_focus.enabled&focus>=50)" );
   default_list -> add_talent( this, "Focusing Shot" );
   if ( level >= 81 )
     default_list -> add_action( this, "Cobra Shot" );
@@ -4207,14 +4320,27 @@ double hunter_t::composite_player_multiplier( school_e school ) const
 
   if ( mastery.essence_of_the_viper -> ok() &&
        dbc::get_school_mask( school ) & SCHOOL_MAGIC_MASK )
+  {
        m *= 1.0 + cache.mastery_value();
+       // the 19% mastery buff is not in the spell data yet.
+       if ( dbc.ptr )
+         m *= 1.19;
+  }
 
   if ( buffs.bestial_wrath -> up() )
-    m *= 1.0 + buffs.bestial_wrath -> data().effectN( 7 ).percent();
+    m *= 1.0 + buffs.bestial_wrath -> current_value;
 
   if ( buffs.sniper_training -> up() )
   {
     m *= 1.0 + cache.mastery_value();
+  }
+
+  if ( longview && specialization() == HUNTER_MARKSMANSHIP )
+  {
+    const spell_data_t* data = find_spell( longview -> spell_id ); 
+    double factor = data -> effectN( 1 ).average( longview -> item ) / 100.0 / 100.0;
+    m *= 1.0 + base.distance * factor;
+  //  m *= 1.0 + base.distance * 0.0025;
   }
 
   if ( sets.has_set_bonus( SET_MELEE, T16, B4 ) )
@@ -4536,6 +4662,14 @@ struct hunter_module_t: public module_t
   }
 
   virtual bool valid() const { return true; }
+  
+  virtual void static_init() const
+  {
+    unique_gear::register_special_effect( 184900, beastlord);
+    unique_gear::register_special_effect( 184901, longview );
+    unique_gear::register_special_effect( 184902, blackness);
+  }
+
   virtual void init( sim_t* sim ) const
   {
     for ( size_t i = 0; i < sim -> actor_list.size(); i++ )
