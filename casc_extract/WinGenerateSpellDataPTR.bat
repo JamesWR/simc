@@ -8,6 +8,7 @@ ren %oldname% %wowdir%
 del hi.txt
 cd ..
 cd ..
+set curr=%cd%
 cd dbc_extract
-call generate.bat ptr %wowdir% E:\simulationcraft\casc_extract\wow\
+call generate.bat ptr %wowdir% %curr%\casc_extract\wow
 pause

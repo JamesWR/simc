@@ -71,7 +71,7 @@ Effects          :
 #1 (id=75)       : Apply Aura (6) | Decrease Movement Speed% (33)
                    Base Value: -50 | Scaled Value: -50
 #2 (id=76)       : School Damage: frost (2)
-                   Base Value: 1 | Scaled Value: 1 | SP Coefficient: 1.48900
+                   Base Value: 1 | Scaled Value: 1 | SP Coefficient: 1.78700
 #3 (id=257164)   : Server Side Script (77)
                    Base Value: 0 | Scaled Value: 0
 Description      : Launches a bolt of frost at the enemy, causing $s2 Frost damage and slowing movement speed by $s1% for $d.
@@ -307,7 +307,7 @@ Attributes       : ........ ........ x....... ........   ........ ........ .....
                  : ........ ........ ........ ........   ........ ........ ........ ........ 
 Effects          :
 #1 (id=635)      : School Damage: fire (2)
-                   Base Value: 0 | Scaled Value: 0 | SP Coefficient: 0.78900
+                   Base Value: 0 | Scaled Value: 0 (avg=1.012, dl=0.17) | SP Coefficient: 0.78900
 Description      : Blasts the enemy for $s1 Fire damage.
 
 Name             : Counterspell (id=2139) [Spell Family (3)] 
@@ -1151,7 +1151,7 @@ Effects          :
 #1 (id=22383)    : Unknown effect type (176)
                    Base Value: 0 | Scaled Value: 0
 #2 (id=22384)    : Apply Aura (6) | Invisibility (18)
-                   Base Value: 340 | Scaled Value: 560 (avg=0) | Points Per Level: 5
+                   Base Value: 340 | Scaled Value: 560 | Points Per Level: 5
 #3 (id=22385)    : Apply Aura (6) | Unknown effect sub type (335)
                    Base Value: 0 | Scaled Value: 0
 Description      : $@spelldesc66
@@ -1504,7 +1504,7 @@ Effects          :
 #1 (id=36562)    : Apply Aura (6) | Decrease Movement Speed% (33)
                    Base Value: -40 | Scaled Value: -40
 #2 (id=36563)    : School Damage: frostfire (2)
-                   Base Value: 1 | Scaled Value: 0 (avg=1.5, dl=0.24) | SP Coefficient: 1.34800
+                   Base Value: 1 | Scaled Value: 0 (avg=1.5, dl=0.24) | SP Coefficient: 1.61700
 Description      : Launches a bolt of frostfire at the enemy, causing $?a57761[${$m2*1.25} to ${$M2*1.25}][$s2] Frostfire damage and slowing the target's movement by $s1% for $d.
 Tooltip          : Movement slowed by $s1%.
 Variables        : $arctic1=$?s31674[${1.01}][${1}]
@@ -2945,7 +2945,7 @@ Effects          :
 #1 (id=123204)   : Unknown effect type (176)
                    Base Value: 0 | Scaled Value: 0
 #2 (id=123205)   : Apply Aura (6) | Invisibility (18)
-                   Base Value: 340 | Scaled Value: 560 (avg=0) | Points Per Level: 5
+                   Base Value: 340 | Scaled Value: 560 | Points Per Level: 5
 #3 (id=123206)   : Apply Aura (6) | Unknown effect sub type (335)
                    Base Value: 0 | Scaled Value: 0
 Description      : $@spelldesc110959

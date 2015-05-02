@@ -34,6 +34,7 @@ public:
     absorb_buff_t* divine_aegis;
     absorb_buff_t* spirit_shell;
     buff_t* holy_word_serenity;
+    buff_t* mental_fatigue;
   } buffs;
 
   bool glyph_of_mind_harvest_consumed;
@@ -288,6 +289,13 @@ public:
     action_t* echo_of_light;
     actions::spells::shadowy_apparition_spell_t* shadowy_apparitions;
   } active_spells;
+
+  struct
+  {
+    const special_effect_t* naarus_discipline;
+    const special_effect_t* complete_healing;
+    const special_effect_t* mental_fatigue;
+  } active_items;
 
   // Pets
   struct
@@ -1438,6 +1446,17 @@ struct priest_heal_t : public priest_action_t<heal_t>
     priest.buffs.surge_of_light -> up();
     priest.buffs.surge_of_light -> expire();
   }
+
+  /**
+   * 124519-boss-13-priest-trinket Discipline
+   */
+  void trigger_naarus_discipline( const action_state_t* s )
+  {
+    if ( priest.active_items.naarus_discipline )
+    {
+      s -> target -> buffs.naarus_discipline -> trigger();
+    }
+  }
 };
 
 // Shadow Orb State ===================================================
@@ -1549,11 +1568,12 @@ struct priest_spell_t : public priest_action_t<spell_t>
 
   atonement_heal_t* atonement;
   bool can_trigger_atonement;
+  bool is_mind_spell; // TODO: activate on relevant spells, see spell query affected list.
 
   priest_spell_t( const std::string& n, priest_t& player,
                   const spell_data_t* s = spell_data_t::nil() ) :
     base_t( n, player, s ),
-    atonement( nullptr ), can_trigger_atonement( false )
+    atonement( nullptr ), can_trigger_atonement( false ), is_mind_spell( false )
   {
     dot_behavior      = DOT_REFRESH;
     weapon_multiplier = 0.0;
@@ -1565,6 +1585,22 @@ struct priest_spell_t : public priest_action_t<spell_t>
 
     if ( can_trigger_atonement )
       atonement = new atonement_heal_t( "atonement_" + name_str, priest );
+  }
+
+  virtual double composite_target_multiplier( player_t* t ) const override
+  {
+    double am = base_t::composite_target_multiplier( t );
+
+    if ( is_mind_spell )
+    {
+      priest_td_t& td = get_td( t );
+      if ( td.buffs.mental_fatigue -> check() )
+      {
+        am *= 1.0 + td.buffs.mental_fatigue -> check() * td.buffs.mental_fatigue -> data().effectN( 1 ).percent();
+      }
+    }
+
+    return am;
   }
 
   virtual void impact( action_state_t* s ) override
@@ -2126,6 +2162,7 @@ struct mind_blast_t : public priest_spell_t
   {
     parse_options( options_str );
     instant_multistrike = 0;
+    is_mind_spell = true;
 
     // Glyph of Mind Harvest
     if ( priest.glyphs.mind_harvest -> ok() )
@@ -2291,6 +2328,7 @@ struct mind_spike_t : public priest_spell_t
   {
     parse_options( options_str );
     instant_multistrike = 0;
+    is_mind_spell = true;
   }
 
   virtual action_state_t* new_state() override
@@ -2526,6 +2564,7 @@ struct mind_sear_base_t : public priest_spell_t
     dynamic_tick_action = true;
     tick_zero    = false;
     instant_multistrike = 0;
+    is_mind_spell = true;
 
     tick_action = new mind_sear_tick_t( p, p.find_class_spell( insanity ? "Searing Insanity" : "Mind Sear" ) );
   }
@@ -3074,6 +3113,7 @@ struct mind_flay_base_t : public priest_spell_t
     channeled    = true;
     hasted_ticks = false;
     use_off_gcd  = true;
+    is_mind_spell = true;
 
     if ( priest.perks.enhanced_mind_flay -> ok() )
     {
@@ -3097,6 +3137,16 @@ struct mind_flay_base_t : public priest_spell_t
   {
     priest_spell_t::tick( d );
     priest.buffs.glyph_of_mind_flay -> trigger();
+
+    if ( priest.active_items.mental_fatigue )
+    {
+      if ( d -> state && result_is_hit( d -> state -> result ))
+      {
+        // Assumes trigger on hit, not on damage
+        priest_td_t& td = get_td( d -> state -> target );
+        td.buffs.mental_fatigue -> trigger();
+      }
+    }
   }
 };
 
@@ -5107,6 +5157,52 @@ struct spirit_shell_t : public priest_buff_t<buff_t>
 
 } // end namespace buffs
 
+namespace items {
+
+
+void do_trinket_init( priest_t*                player,
+                             specialization_e         spec,
+                             const special_effect_t*& ptr,
+                             const special_effect_t&  effect )
+{
+  // Ensure we have the spell data. This will prevent the trinket effect from working on live
+  // Simulationcraft. Also ensure correct specialization.
+  if ( ! player -> find_spell( effect.spell_id ) -> ok() ||
+       player -> specialization() != spec )
+  {
+    return;
+  }
+
+  // Set pointer, module considers non-null pointer to mean the effect is "enabled"
+  ptr = &( effect );
+}
+
+void discipline_trinket( special_effect_t& effect )
+{
+  priest_t* s = debug_cast<priest_t*>( effect.player );
+  do_trinket_init( s, PRIEST_DISCIPLINE, s -> active_items.naarus_discipline, effect );
+}
+
+void holy_trinket( special_effect_t& effect )
+{
+  priest_t* s = debug_cast<priest_t*>( effect.player );
+  do_trinket_init( s, PRIEST_HOLY, s -> active_items.complete_healing, effect );
+}
+
+void shadow_trinket( special_effect_t& effect )
+{
+  priest_t* s = debug_cast<priest_t*>( effect.player );
+  do_trinket_init( s, PRIEST_SHADOW, s -> active_items.mental_fatigue, effect );
+}
+
+void init()
+{
+  unique_gear::register_special_effect( 184912, discipline_trinket );
+  unique_gear::register_special_effect( 184914, holy_trinket );
+  unique_gear::register_special_effect( 184915, shadow_trinket );
+}
+
+} // items
 
 // ==========================================================================
 // Priest Targetdata Definitions
@@ -5139,6 +5235,9 @@ priest_td_t::priest_td_t( player_t* target, priest_t& p ) :
                              .spell( p.find_spell( 88684 ) )
                              .cd( timespan_t::zero() )
                              .activated( false );
+
+  buffs.mental_fatigue = buff_creator_t( *this, "mental_fatigue" )
+                         .spell( p.find_spell( 185104 ) );
 
   target -> callbacks_on_demise.push_back( std::bind( &priest_td_t::target_demise, this ) );
 }
@@ -7038,8 +7137,13 @@ struct priest_module_t : public module_t
       player_t* p = sim -> actor_list[ i ];
       p -> buffs.guardian_spirit  = buff_creator_t( p, "guardian_spirit", p -> find_spell( 47788 ) ); // Let the ability handle the CD
       p -> buffs.pain_supression  = buff_creator_t( p, "pain_supression", p -> find_spell( 33206 ) ); // Let the ability handle the CD
+      p -> buffs.naarus_discipline  = buff_creator_t( p, "naarus_discipline", p -> find_spell( 185103 ) );
       p -> buffs.weakened_soul    = new buffs::weakened_soul_t( p );
     }
+  }
+  virtual void static_init() const override
+  {
+    items::init();
   }
   virtual void combat_begin( sim_t* ) const override {}
   virtual void combat_end( sim_t* ) const override {}

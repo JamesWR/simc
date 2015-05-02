@@ -43,7 +43,11 @@ struct player_ready_event_t : public player_event_t
                       p() -> name(), x.total_seconds(),
                       p() -> resources.current[ p() -> primary_resource() ] );
       }
-      else p() -> started_waiting = sim().current_time();
+      else
+      {
+        p() -> started_waiting = sim().current_time();
+        p() -> min_threshold_trigger();
+      }
     }
   }
 };
@@ -68,6 +72,27 @@ struct demise_event_t : public player_event_t
   virtual void execute()
   {
     p() -> demise();
+  }
+};
+
+// Trigger a wakeup based on a resource treshold. Only used by trigger_ready=1 actors
+struct resource_threshold_event_t : public event_t
+{
+  player_t* player;
+
+  resource_threshold_event_t( player_t* p, const timespan_t& delay ) :
+    event_t( *p ), player( p )
+  {
+    add_event( delay );
+  }
+
+  const char* name() const override
+  { return "Resource-Threshold"; }
+
+  void execute()
+  {
+    player -> trigger_ready();
+    player -> resource_threshold_trigger = 0;
   }
 };
 
@@ -2180,6 +2205,129 @@ bool player_t::init_actions()
 void player_t::init_finished()
 {
   range::for_each( action_list, std::mem_fn( &action_t::init_finished ) );
+
+  // Naive recording of minimum energy thresholds for the actor.
+  // TODO: Energy pooling, and energy-based expressions (energy>=10) are not included yet
+  for ( size_t i = 0; i < action_list.size(); ++i )
+  {
+    if ( ! action_list[ i ] -> background && action_list[ i ] -> base_costs[ primary_resource() ] > 0 )
+    {
+      if ( std::find( resource_thresholds.begin(), resource_thresholds.end(),
+            action_list[ i ] -> base_costs[ primary_resource() ] ) == resource_thresholds.end() )
+      {
+        resource_thresholds.push_back( action_list[ i ] -> base_costs[ primary_resource() ] );
+      }
+    }
+  }
+
+  std::sort( resource_thresholds.begin(), resource_thresholds.end() );
+}
+
+// player_t::min_threshold_trigger ==========================================
+
+// Add a wake-up call at the next resource threshold level, compared to the current resource status
+// of the actor
+void player_t::min_threshold_trigger()
+{
+  if ( ready_type == READY_POLL )
+  {
+    return;
+  }
+
+  if ( resource_thresholds.size() == 0 )
+  {
+    return;
+  }
+
+  resource_e pres = primary_resource();
+  if ( pres != RESOURCE_MANA && pres != RESOURCE_ENERGY && pres != RESOURCE_FOCUS )
+  {
+    return;
+  }
+
+  size_t i = 0, end = resource_thresholds.size();
+  double threshold = 0;
+  for ( ; i < end; ++i )
+  {
+    if ( resources.current[ pres ] < resource_thresholds[ i ] )
+    {
+      threshold = resource_thresholds[ i ];
+      break;
+    }
+  }
+
+  timespan_t time_to_threshold = timespan_t::zero();
+  if ( i < resource_thresholds.size() )
+  {
+    double rps = 0;
+    switch ( pres )
+    {
+      case RESOURCE_MANA:
+        rps = mana_regen_per_second();
+        break;
+      case RESOURCE_ENERGY:
+        rps = energy_regen_per_second();
+        break;
+      case RESOURCE_FOCUS:
+        rps = focus_regen_per_second();
+        break;
+      default:
+        break;
+    }
+
+    if ( rps > 0 )
+    {
+      double diff = threshold - resources.current[ pres ];
+      time_to_threshold = timespan_t::from_seconds( diff / rps );
+    }
+  }
+
+  // If time to threshold is zero, there's no need to reset anything
+  if ( time_to_threshold <= timespan_t::zero() )
+  {
+    return;
+  }
+
+  timespan_t occurs = sim -> current_time() + time_to_threshold;
+  if ( resource_threshold_trigger )
+  {
+    // We should never ever be doing threshold-based wake up calls if there already is a
+    // Player-ready event.
+    assert( ! readying );
+
+    if ( occurs > resource_threshold_trigger -> occurs() )
+    {
+      resource_threshold_trigger -> reschedule( time_to_threshold );
+      if ( sim -> debug )
+      {
+        sim -> out_debug.printf( "Player %s rescheduling Resource-Threshold event: threshold=%.1f delay=%.3f",
+            name(), threshold, time_to_threshold.total_seconds() );
+      }
+    }
+    else if ( occurs < resource_threshold_trigger -> occurs() )
+    {
+      event_t::cancel( resource_threshold_trigger );
+      resource_threshold_trigger = new ( *sim ) resource_threshold_event_t( this, time_to_threshold );
+      if ( sim -> debug )
+      {
+        sim -> out_debug.printf( "Player %s recreating Resource-Threshold event: threshold=%.1f delay=%.3f",
+            name(), threshold, time_to_threshold.total_seconds() );
+      }
+    }
+  }
+  else
+  {
+    // We should never ever be doing threshold-based wake up calls if there already is a
+    // Player-ready event.
+    assert( ! readying );
+
+    resource_threshold_trigger = new ( *sim )  resource_threshold_event_t( this, time_to_threshold );
+    if ( sim -> debug )
+    {
+      sim -> out_debug.printf( "Player %s scheduling new Resource-Threshold event: threshold=%.1f delay=%.3f",
+          name(), threshold, time_to_threshold.total_seconds() );
+    }
+  }
 }
 
 // player_t::create_buffs ===================================================
@@ -2304,6 +2452,15 @@ item_t* player_t::find_item( const std::string& str )
 
   return 0;
 }
+
+// player_t::has_t18_class_trinket ============================================
+
+bool player_t::has_t18_class_trinket() const
+{
+  // Class modules should override this with their individual trinket detection
+  return false;
+}
+
 
 // player_t::energy_regen_per_second ========================================
 
@@ -3741,6 +3898,8 @@ void player_t::reset()
 
   incoming_damage.clear();
 
+  resource_threshold_trigger = 0;
+
   for( size_t i = 0, end = variables.size(); i < end; i++ )
     variables[ i ].reset();
 
@@ -5057,6 +5216,9 @@ void player_t::target_mitigation( school_e school,
   if ( buffs.pain_supression && buffs.pain_supression -> up() )
     s -> result_amount *= 1.0 + buffs.pain_supression -> data().effectN( 1 ).percent();
 
+  if ( buffs.naarus_discipline && buffs.naarus_discipline -> up() )
+    s -> result_amount *= 1.0 + buffs.naarus_discipline -> data().effectN( 1 ).percent();
+
   if ( buffs.stoneform && buffs.stoneform -> up() )
     s -> result_amount *= 1.0 + buffs.stoneform -> data().effectN( 1 ).percent();
 
@@ -5085,7 +5247,7 @@ void player_t::target_mitigation( school_e school,
     // Armor
     if ( s -> action )
     {
-      double armor =  s -> action -> target_armor( this );
+      double armor = s -> target_armor;
       double resist = armor / ( armor + s -> action -> player -> current.armor_coeff );
       resist = clamp( resist, 0.0, 0.85 );
       s -> result_amount *= 1.0 - resist;
@@ -7578,6 +7740,24 @@ expr_t* player_t::create_expression( action_t* a,
     return new time_to_bloodlust_expr_t( this, expression_str );
   }
 
+  // T18 Hellfire Citadel class trinket
+  if ( expression_str == "t18_class_trinket" )
+  {
+    if ( sim -> optimize_expressions )
+      return expr_t::create_constant( expression_str, ( this -> has_t18_class_trinket() ) ? 1.0 : 0.0 );
+
+    struct t18_class_trinket_expr_t : public player_expr_t
+    {
+      t18_class_trinket_expr_t( player_t& p ) :
+        player_expr_t( "t18_class_trinket", p ) {}
+      virtual double evaluate()
+      {
+        return player.has_t18_class_trinket();
+      }
+    };
+    return new t18_class_trinket_expr_t( *this );
+  }
+
   // incoming_damage_X expressions
   if ( util::str_in_str_ci( expression_str, "incoming_damage_" ) )
   {
@@ -7861,7 +8041,7 @@ expr_t* player_t::create_expression( action_t* a,
 
     return new use_apl_expr_t( this, splits[ 1 ], use_apl );
   }
-  
+
 
   else if ( splits.size() == 3 )
   {

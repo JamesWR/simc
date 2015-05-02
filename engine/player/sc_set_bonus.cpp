@@ -197,20 +197,33 @@ void set_bonus_t::initialize()
         {
           if ( data.bonus -> bonus == 2 )
           {
-            if ( ! actor -> sim -> disable_2_set_bonus )
+            if ( !actor -> sim -> disable_2_set_bonus )
+            {
               data.spell = actor -> find_spell( data.bonus -> spell_id );
+              data.enabled = true;
+            }
+            else
+            {
+              data.enabled = false;
+            }
           }
           else if ( data.bonus -> bonus == 4 )
           {
-            if ( ! actor -> sim -> disable_4_set_bonus )
+            if ( !actor -> sim -> disable_4_set_bonus )
+            {
               data.spell = actor -> find_spell( data.bonus -> spell_id );
+              data.enabled = true;
+            }
+            else
+            {
+              data.enabled = false;
+            }
           }
           else
           {
             data.spell = actor -> find_spell( data.bonus -> spell_id );
+            data.enabled = true;
           }
-
-          data.enabled = true;
         }
       }
     }
@@ -375,9 +388,9 @@ bool set_bonus_t::parse_set_bonus_option( const std::string& opt_str,
   else if ( util::str_compare_ci( split[ bonus_offset ], "4pc" ) )
     bonus = B4;
 
-  for ( size_t bonus_idx = 0; bonus_idx < dbc::n_set_bonus( maybe_ptr( actor -> dbc.ptr ) ); bonus_idx++ )
+  for ( size_t bonus_idx = 0; bonus_idx < dbc::n_set_bonus( SC_USE_PTR ); bonus_idx++ )
   {
-    const item_set_bonus_t& bonus = dbc::set_bonus( maybe_ptr( actor -> dbc.ptr ) )[ bonus_idx ];
+    const item_set_bonus_t& bonus = dbc::set_bonus( SC_USE_PTR )[ bonus_idx ];
     if ( bonus.class_id != -1 && bonus.class_id != util::class_id( actor -> type ) )
       continue;
 
@@ -398,9 +411,9 @@ std::string set_bonus_t::generate_set_bonus_options() const
 {
   std::vector<std::string> opts;
 
-  for ( size_t bonus_idx = 0; bonus_idx < dbc::n_set_bonus( maybe_ptr( actor -> dbc.ptr ) ); bonus_idx++ )
+  for ( size_t bonus_idx = 0; bonus_idx < dbc::n_set_bonus( SC_USE_PTR ); bonus_idx++ )
   {
-    const item_set_bonus_t& bonus = dbc::set_bonus( maybe_ptr( actor -> dbc.ptr ) )[ bonus_idx ];
+    const item_set_bonus_t& bonus = dbc::set_bonus( SC_USE_PTR )[ bonus_idx ];
     std::string opt = bonus.set_opt_name;
     opt += "_" + util::to_string( bonus.bonus ) + "pc";
     if ( role_set_bonus( bonus.enum_id ) )

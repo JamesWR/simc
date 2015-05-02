@@ -1019,13 +1019,14 @@ enum snapshot_state_e
 
   STATE_TGT_MITG_DA    = 0x010000,
   STATE_TGT_MITG_TA    = 0x020000,
+  STATE_TGT_ARMOR      = 0x040000,
 
   // No multiplier herlper, use in action_t::init() (after parent init) by
   // issuing snapshot_flags &= STATE_NO_MULTIPLIER (and/or update_flags &=
   // STATE_NO_MULTIPLIER if a dot). This disables all multipliers, including
   // versatility, resolve, and any/all persistent multipliers the action would
   // use.
-  STATE_NO_MULTIPLIER  = ~( STATE_MUL_DA | STATE_MUL_TA | STATE_VERSATILITY | STATE_MUL_PERSISTENT | STATE_TGT_MUL_DA | STATE_TGT_MUL_TA | STATE_RESOLVE )
+  STATE_NO_MULTIPLIER  = ~( STATE_MUL_DA | STATE_MUL_TA | STATE_VERSATILITY | STATE_MUL_PERSISTENT | STATE_TGT_MUL_DA | STATE_TGT_MUL_TA | STATE_RESOLVE | STATE_TGT_ARMOR )
 };
 
 enum ready_e
@@ -1429,6 +1430,10 @@ option_t opt_deprecated( const std::string& n, const std::string& new_option );
 
 #ifndef MAX_SCALING_LEVEL
 #define MAX_SCALING_LEVEL (105)
+#endif
+
+#ifndef MAX_ILEVEL
+#define MAX_ILEVEL (1000)
 #endif
 
 // Include DBC Module
@@ -1989,12 +1994,61 @@ protected:
 public:
   const spell_data_t& data() const { return *s_data; }
 
-  // Use check() inside of ready() and cost() methods to prevent skewing of "benefit" calculations.
-  // Use up() where the presence of the buff affects the action mechanics.
-  int             check() const { return current_stack; }
-  inline bool     up()    { if ( current_stack > 0 ) { up_count++; } else { down_count++; } return current_stack > 0; }
-  inline int      stack() { if ( current_stack > 0 ) { up_count++; } else { down_count++; } return current_stack; }
-  virtual double   value() { if ( current_stack > 0 ) { up_count++; } else { down_count++; } return current_value; }
+  /**
+   * Get current number of stacks, no benefit tracking.
+   * Use check() inside of ready() and cost() methods to prevent skewing of "benefit" calculations.
+   * Use up() where the presence of the buff affects the action mechanics.
+   */
+  int check() const
+  {
+    return current_stack;
+  }
+
+  /**
+   * Get current number of stacks + benefit tracking.
+   * Use check() inside of ready() and cost() methods to prevent skewing of "benefit" calculations.
+   * Use up()/down where the presence of the buff affects the action mechanics.
+   */
+  int stack()
+  {
+    int cs = current_stack;
+    if ( cs > 0 )
+    {
+      up_count++;
+    }
+    else
+    {
+      down_count++;
+    }
+    return cs;
+  }
+
+  /**
+   * Check if buff is up
+   * Use check() inside of ready() and cost() methods to prevent skewing of "benefit" calculations.
+   * Use up()/down where the presence of the buff affects the action mechanics.
+   */
+  bool up()
+  {
+    return stack() > 0;
+  }
+
+  /**
+   * Get current buff value + benefit tracking.
+   */
+  virtual double value()
+  {
+    stack();
+    return current_value;
+  }
+  /**
+   * Get current buff value  multiplied by current stacks + benefit tracking.
+   */
+  double stack_value()
+  {
+    return current_stack * value();
+  }
+
   timespan_t remains() const;
   timespan_t elapsed( const timespan_t& t ) const { return t - last_start; }
   bool   remains_gt( timespan_t time ) const;
@@ -2075,7 +2129,7 @@ struct stat_buff_t : public buff_t
   virtual void bump     ( int stacks = 1, double value = -1.0 );
   virtual void decrement( int stacks = 1, double value = -1.0 );
   virtual void expire_override( int expiration_stacks, timespan_t remaining_duration );
-  virtual double value() { if ( current_stack > 0 ) { up_count++; } else { down_count++; } return stats[ 0 ].current_value; }
+  virtual double value() override{ stack(); return stats[ 0 ].current_value; }
 
 protected:
   stat_buff_t( const stat_buff_creator_t& params );
@@ -4423,6 +4477,7 @@ struct actor_target_data_t : public actor_pair_t
   struct atd_debuff_t
   {
     debuff_t* mark_of_doom;
+    debuff_t* fel_burn;
   } debuff;
 
   struct atd_dot_t
@@ -4763,10 +4818,14 @@ struct player_t : public actor_t
     buff_t* archmages_incandescence_agi;
     buff_t* archmages_incandescence_int;
 
-    // T17 LFR stuf
+    // T17 LFR stuff
     buff_t* surge_of_energy;
     buff_t* natures_fury;
     buff_t* brute_strength;
+
+    // 6.2 trinket proxy buffs
+    buff_t* naarus_discipline; // Priest-Discipline Boss 13 T18 trinket
+    buff_t* spirit_shift; // Agi DPS Trinket 3
   } buffs;
 
   struct debuffs_t
@@ -5173,6 +5232,8 @@ struct player_t : public actor_t
   bool      has_shield_equipped() const
   { return  items[ SLOT_OFF_HAND ].parsed.data.item_subclass == ITEM_SUBCLASS_ARMOR_SHIELD; }
 
+  // T18 Hellfire Citadel class trinket detection
+  virtual bool has_t18_class_trinket() const;
 
   action_priority_list_t* find_action_priority_list( const std::string& name );
   void                    clear_action_priority_lists() const;
@@ -5402,6 +5463,11 @@ public:
   // Figure out another actor, by name. Prioritizes pets > harmful targets >
   // other players. Used by "actor.<name>" expression currently.
   virtual player_t* actor_by_name_str( const std::string& ) const;
+
+  // Wicked resource threshold trigger-ready stuff .. work in progress
+  event_t* resource_threshold_trigger;
+  std::vector<double> resource_thresholds;
+  void min_threshold_trigger();
 };
 
 // Target Specific ==========================================================
@@ -5728,6 +5794,7 @@ struct action_state_t : public noncopyable
   // Target mitigation multipliers
   double          target_mitigation_da_multiplier;
   double          target_mitigation_ta_multiplier;
+  double          target_armor;
 
   static void release( action_state_t*& s );
   static std::string flags_to_str( unsigned flags );
@@ -5764,6 +5831,9 @@ struct action_state_t : public noncopyable
 
   virtual double composite_target_mitigation_ta_multiplier() const
   { return target_mitigation_ta_multiplier; }
+
+  virtual double composite_target_armor() const
+  { return target_armor; }
 
   // Inlined
   virtual proc_types proc_type() const;
@@ -5827,18 +5897,18 @@ struct action_t : public noncopyable
 
   school_e school; // What type of damage - Fire, Physical, etc.
   uint32_t id;
-  unsigned internal_id;
+  unsigned internal_id; // Every action -- even actions without spelldata -- is given an internal_id
   resource_e resource_current;
   int aoe; // Number of targets the action will impact. -1 = no target limit.
   int pre_combat, may_multistrike;
   int instant_multistrike; // -1 = autodetect (NYI), 0 = multistrikes have a delay, 1 = multistrikes occur immediately
   bool dual; // true if this action should not be counted for executes.
   bool callbacks; // When set to false, action will not trigger trinkets, enchants, rppm.
-  bool special, channeled, sequence;
+  bool special, channeled, sequence; // Special - Not an autoattack
   bool quiet; // When set to true, action will not show up in raid report or count towards executes.
   bool background; // Background actions cannot be executed via action list, but can be triggered by other actions. Background actions do not count for executes.
   bool use_off_gcd; // When set to true, will check every 100 ms to see if this action needs to be used, rather than waiting until the next gcd.
-  bool interrupt_auto_attack; // true if channeled action does not reschedule autoattacks.
+  bool interrupt_auto_attack; // true if channeled action does not reschedule autoattacks, used on abilities such as bladestorm.
   bool ignore_false_positive; // Used for actions that will do awful things to the sim when a "false positive" skill roll happens.
   double action_skill; // Skill is now done per ability, with the default being set to the player option.
   bool direct_tick; // Used with DoT Drivers, tells simc that the direct hit is actually a tick.
@@ -5851,15 +5921,15 @@ struct action_t : public noncopyable
   timespan_t ability_lag, ability_lag_stddev;
   double rp_gain;
   timespan_t min_gcd, trigger_gcd;
-  double range;
-  double radius;
+  double range; // This is how far away the target can be from the player, and still be hit or targeted.
+  double radius; // This is how far away the target can be from the original target, while still being hit.
   double weapon_power_mod;
   struct {
   double direct, tick;
   } attack_power_mod, spell_power_mod;
   double amount_delta;
-  timespan_t base_execute_time;
-  timespan_t base_tick_time;
+  timespan_t base_execute_time; // Unbuffed cast time
+  timespan_t base_tick_time; // Unbuffed tick time
   timespan_t dot_duration;
   std::array< double, RESOURCE_MAX > base_costs;
   std::array< double, RESOURCE_MAX > base_costs_per_second;
@@ -5873,7 +5943,7 @@ struct action_t : public noncopyable
   double weapon_multiplier;
   double base_add_multiplier;
   double base_aoe_multiplier; // Static reduction of damage for AoE
-  bool split_aoe_damage;
+  bool split_aoe_damage; // Split damage evenly between targets
   bool normalize_weapon_speed;
   double base_cooldown_reduction;
   cooldown_t* cooldown;
@@ -5900,9 +5970,9 @@ struct action_t : public noncopyable
   target_specific_t<dot_t*> target_specific_dot;
   action_priority_list_t* action_list;
   //std::string action_list;
-  action_t* tick_action;
-  action_t* execute_action;
-  action_t* impact_action;
+  action_t* tick_action; // This action will execute every tick
+  action_t* execute_action; // This action will execute every execute
+  action_t* impact_action; // This action will execute every impact - Useful for AoE debuffs
   bool dynamic_tick_action; // Used with tick_action, tells tick_action to update state on every tick.
   proc_t* starved_proc;
   int64_t total_executions;
@@ -7075,11 +7145,8 @@ private:
     if ( triggered && proc_action &&
          ( ! proc_buff || proc_buff -> check() == proc_buff -> max_stack() ) )
     {
-      action_state_t* proc_state = proc_action -> get_state();
-      proc_state -> target = state -> target;
       proc_action -> target = state -> target;
-      proc_action -> snapshot_state( proc_state, proc_action -> type == ACTION_HEAL ? HEAL_DIRECT : DMG_DIRECT );
-      proc_action -> schedule_execute( proc_state );
+      proc_action -> schedule_execute();
 
       // Decide whether to expire the buff even with 1 max stack
       if ( proc_buff && proc_buff -> max_stack() > 1 )

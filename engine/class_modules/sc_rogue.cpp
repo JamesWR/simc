@@ -241,6 +241,7 @@ struct rogue_t : public player_t
     buff_t* enhanced_vendetta;
     buff_t* shadow_strikes;
     buff_t* crimson_poison;
+    buff_t* deadly_shadows;
   } buffs;
 
   // Cooldowns
@@ -252,6 +253,7 @@ struct rogue_t : public player_t
     cooldown_t* ruthlessness;
     cooldown_t* seal_fate;
     cooldown_t* sprint;
+    cooldown_t* vanish;
   } cooldowns;
 
   // Gains
@@ -335,6 +337,7 @@ struct rogue_t : public player_t
     const spell_data_t* tier13_4pc;
     const spell_data_t* tier15_4pc;
     const spell_data_t* venom_rush;
+    const spell_data_t* tier18_2pc_combat_ar;
   } spell;
 
   // Talents
@@ -451,6 +454,7 @@ struct rogue_t : public player_t
     cooldowns.killing_spree       = get_cooldown( "killing_spree"       );
     cooldowns.ruthlessness        = get_cooldown( "ruthlessness"        );
     cooldowns.sprint              = get_cooldown( "sprint"              );
+    cooldowns.vanish              = get_cooldown( "vanish"              );
 
     base.distance = 3;
     regen_type = REGEN_DYNAMIC;
@@ -1751,13 +1755,26 @@ struct blade_flurry_t : public rogue_attack_t
 
 struct dispatch_t : public rogue_attack_t
 {
+  struct t18_dispatch_t : public melee_attack_t
+  {
+    t18_dispatch_t( rogue_t* p ) :
+      melee_attack_t( "dispatch_t18", p, p -> find_spell( 186183 ) )
+    {
+      callbacks = false;
+      background = true;
+    }
+  };
+
   double toxic_mutilator_crit_chance;
+  t18_dispatch_t* t18_dispatch;
 
   dispatch_t( rogue_t* p, const std::string& options_str ) :
     rogue_attack_t( "dispatch", p, p -> find_class_spell( "Dispatch" ), options_str ),
-    toxic_mutilator_crit_chance( 0 )
+    toxic_mutilator_crit_chance( 0 ), t18_dispatch( 0 )
   {
     ability_type = DISPATCH;
+
+    adds_combo_points += p -> sets.set( ROGUE_ASSASSINATION, T18, B4 ) -> effectN( 1 ).base_value();
 
     // Tier 18 (WoD 6.2) trinket effect for Assassination
     if ( p -> toxic_mutilator )
@@ -1771,6 +1788,12 @@ struct dispatch_t : public rogue_attack_t
     {
       sim -> errorf( "Trying to use %s without a dagger in main-hand", name() );
       background = true;
+    }
+
+    if ( ! background && p -> sets.has_set_bonus( ROGUE_ASSASSINATION, T18, B2 ) )
+    {
+      t18_dispatch = new t18_dispatch_t( p );
+      add_child( t18_dispatch );
     }
   }
 
@@ -1803,6 +1826,20 @@ struct dispatch_t : public rogue_attack_t
                             p() -> gains.t17_2pc_assassination,
                             this );
     p() -> buffs.enhanced_vendetta -> expire();
+  }
+
+  void impact( action_state_t* state )
+  {
+    rogue_attack_t::impact( state );
+
+    if ( t18_dispatch && result_is_hit( state -> result ) )
+    {
+      double v = state -> result_amount;
+      v *= p() -> sets.set( ROGUE_ASSASSINATION, T18, B2 ) -> effectN( 1 ).percent();
+      t18_dispatch -> target = state -> target;
+      t18_dispatch -> base_dd_min = t18_dispatch -> base_dd_max = v;
+      t18_dispatch -> execute();
+    }
   }
 
   double composite_crit() const
@@ -2044,6 +2081,13 @@ struct eviscerate_t : public rogue_attack_t
       timespan_t snd_duration = 3 * 6 * p() -> buffs.slice_and_dice -> buff_period;
 
       p() -> buffs.slice_and_dice -> trigger( 1, snd, -1.0, snd_duration );
+    }
+
+    if ( p() -> sets.has_set_bonus( ROGUE_SUBTLETY, T18, B4 ) )
+    {
+      timespan_t v = timespan_t::from_seconds( -p() -> sets.set( ROGUE_SUBTLETY, T18, B4 ) -> effectN( 1 ).base_value() );
+      v *= cast_state( state ) -> cp;
+      p() -> cooldowns.vanish -> adjust( v, false );
     }
   }
 };
@@ -2912,6 +2956,8 @@ struct vanish_t : public rogue_attack_t
 
     cooldown -> duration += p -> perk.enhanced_vanish -> effectN( 1 ).time_value();
     cooldown -> duration += p -> glyph.disappearance -> effectN( 1 ).time_value();
+
+    adds_combo_points = p -> sets.set( ROGUE_SUBTLETY, T18, B2 ) -> effectN( 1 ).base_value();
   }
 
   void execute()
@@ -2926,6 +2972,8 @@ struct vanish_t : public rogue_attack_t
 
     if ( p() -> off_hand_attack && p() -> off_hand_attack -> execute_event )
       event_t::cancel( p() -> off_hand_attack -> execute_event );
+
+    p() -> buffs.deadly_shadows -> trigger();
   }
 };
 
@@ -3315,6 +3363,26 @@ struct weapon_swap_t : public action_t
     else if ( util::str_compare_ci( swap_to_str, "secondary" ) )
     {
       swap_to_type = WEAPON_SECONDARY;
+    }
+
+    if ( swap_type != SWAP_BOTH )
+    {
+      if ( ! rogue -> weapon_data[ swap_type ].item_data[ swap_to_type ] )
+      {
+        background = true;
+        sim -> errorf( "Player %s weapon_swap: No weapon info for %s/%s",
+            player -> name(), slot_str.c_str(), swap_to_str.c_str() );
+      }
+    }
+    else
+    {
+      if ( ! rogue -> weapon_data[ WEAPON_MAIN_HAND ].item_data[ swap_to_type ] ||
+           ! rogue -> weapon_data[ WEAPON_OFF_HAND ].item_data[ swap_to_type ] )
+      {
+        background = true;
+        sim -> errorf( "Player %s weapon_swap: No weapon info for %s/%s",
+            player -> name(), slot_str.c_str(), swap_to_str.c_str() );
+      }
     }
   }
 
@@ -5115,6 +5183,16 @@ double rogue_t::composite_player_multiplier( school_e school ) const
     {
       m *= 1.0 + spec.assassins_resolve -> effectN( 2 ).percent();
     }
+
+    if ( sets.has_set_bonus( ROGUE_COMBAT, T18, B4 ) && buffs.adrenaline_rush -> up() )
+    {
+      m *= 1.0 + sets.set( ROGUE_COMBAT, T18, B4 ) -> effectN( 1 ).percent();
+    }
+
+    if ( buffs.deadly_shadows -> up() )
+    {
+      m *= 1.0 + buffs.deadly_shadows -> data().effectN( 1 ).percent();
+    }
   }
 
   return m;
@@ -5457,6 +5535,8 @@ expr_t* rogue_t::create_expression( action_t* a, const std::string& name_str )
     return make_ref_expr( name_str, resources.current[ RESOURCE_COMBO_POINT ] );
   else if ( util::str_compare_ci( name_str, "anticipation_charges" ) )
     return make_ref_expr( name_str, buffs.anticipation -> current_stack );
+  else if ( util::str_compare_ci( name_str, "poisoned_enemies" ) )
+    return make_ref_expr( name_str, poisoned_enemies );
 
   return player_t::create_expression( a, name_str );
 }
@@ -5542,6 +5622,7 @@ void rogue_t::init_spells()
   spell.tier13_4pc          = find_spell( 105865 );
   spell.tier15_4pc          = find_spell( 138151 );
   spell.venom_rush          = find_spell( 156719 );
+  spell.tier18_2pc_combat_ar= find_spell( 186286 );
 
   // Glyphs
   glyph.disappearance       = find_glyph_spell( "Glyph of Disappearance" );
@@ -5782,6 +5863,20 @@ static void energetic_recovery( buff_t* buff, int, int )
                         p -> gains.energetic_recovery );
 }
 
+static void combat_t18_2pc_bonus( buff_t* buff, int, int )
+{
+  double proc_chance = buff -> player -> sets.set( ROGUE_COMBAT, T18, B2 ) -> proc_chance();
+  rogue_t* p = debug_cast<rogue_t*>( buff -> player );
+
+  if ( p -> buffs.adrenaline_rush -> remains() > p -> spell.tier18_2pc_combat_ar -> duration() )
+  {
+    return;
+  }
+
+  p -> buffs.adrenaline_rush -> trigger( 1, buff_t::DEFAULT_VALUE(), proc_chance,
+      p -> spell.tier18_2pc_combat_ar -> duration() );
+}
+
 void rogue_t::create_buffs()
 {
   // Handle the Legendary here, as it's called after init_items()
@@ -5811,7 +5906,8 @@ void rogue_t::create_buffs()
                               .duration( find_class_spell( "Adrenaline Rush" ) -> duration() + sets.set( SET_MELEE, T13, B4 ) -> effectN( 2 ).time_value() )
                               .default_value( find_class_spell( "Adrenaline Rush" ) -> effectN( 2 ).percent() )
                               .affects_regen( true )
-                              .add_invalidate( CACHE_ATTACK_SPEED );
+                              .add_invalidate( CACHE_ATTACK_SPEED )
+                              .add_invalidate( sets.has_set_bonus( ROGUE_COMBAT, T18, B4 ) ? CACHE_PLAYER_DAMAGE_MULTIPLIER : CACHE_NONE );
   buffs.blindside           = buff_creator_t( this, "blindside", spec.blindside -> effectN( 1 ).trigger() )
                               .chance( spec.blindside -> proc_chance() );
   buffs.feint               = buff_creator_t( this, "feint", find_class_spell( "Feint" ) )
@@ -5859,13 +5955,29 @@ void rogue_t::create_buffs()
                              .duration( timespan_t::min() )
                              .period( timespan_t::zero() )
                              .refresh_behavior( BUFF_REFRESH_PANDEMIC );
-  buffs.slice_and_dice     = buff_creator_t( this, "slice_and_dice", find_class_spell( "Slice and Dice" ) )
-                             .duration( perk.improved_slice_and_dice -> ok() ? timespan_t::zero() : timespan_t::min() )
-                             .tick_behavior( specialization() == ROGUE_SUBTLETY ? BUFF_TICK_REFRESH : BUFF_TICK_NONE )
-                             .tick_callback( specialization() == ROGUE_SUBTLETY ? &energetic_recovery : 0 )
-                             .period( specialization() == ROGUE_SUBTLETY ? find_class_spell( "Slice and Dice" ) -> effectN( 2 ).period() : timespan_t::zero() )
-                             .refresh_behavior( BUFF_REFRESH_PANDEMIC )
-                             .add_invalidate( CACHE_ATTACK_SPEED );
+
+  buff_creator_t snd_creator = buff_creator_t( this, "slice_and_dice", find_class_spell( "Slice and Dice" ) )
+                               .duration( perk.improved_slice_and_dice -> ok() ? timespan_t::zero() : timespan_t::min() )
+                               .tick_behavior( BUFF_TICK_NONE )
+                               .period( timespan_t::zero() )
+                               .refresh_behavior( BUFF_REFRESH_PANDEMIC )
+                               .add_invalidate( CACHE_ATTACK_SPEED );
+
+  if ( spec.energetic_recovery -> ok() )
+  {
+    snd_creator.period( find_class_spell( "Slice and Dice" ) -> effectN( 2 ).period() );
+    snd_creator.tick_behavior( BUFF_TICK_REFRESH );
+    snd_creator.tick_callback( &energetic_recovery );
+  }
+  // Presume that combat re-uses the ticker for the T18 2pc set bonus
+  else if ( sets.has_set_bonus( ROGUE_COMBAT, T18, B2 ) )
+  {
+    snd_creator.period( find_class_spell( "Slice and Dice" ) -> effectN( 2 ).period() );
+    snd_creator.tick_behavior( BUFF_TICK_REFRESH );
+    snd_creator.tick_callback( &combat_t18_2pc_bonus );
+  }
+
+  buffs.slice_and_dice = snd_creator;
 
   // Legendary buffs
   buffs.fof_p1            = stat_buff_creator_t( this, "suffering", find_spell( 109959 ) )
@@ -5899,6 +6011,10 @@ void rogue_t::create_buffs()
   buffs.shadowstep        = buff_creator_t( this, "shadowstep", talent.shadowstep )
     .cd( timespan_t::zero() );
   buffs.crimson_poison    = buff_creator_t( this, "crimson_poison", find_spell( 157562 ) );
+
+  buffs.deadly_shadows = buff_creator_t( this, "deadly_shadows", find_spell( 188700 ) )
+                         .add_invalidate( CACHE_PLAYER_DAMAGE_MULTIPLIER )
+                         .chance( sets.has_set_bonus( ROGUE_SUBTLETY, T18, B2 ) );
 }
 
 void rogue_t::register_callbacks()
@@ -6271,15 +6387,22 @@ void rogue_t::regen( timespan_t periodicity )
 
 timespan_t rogue_t::available() const
 {
-  double energy = resources.current[ RESOURCE_ENERGY ];
+  if ( ready_type != READY_POLL )
+  {
+    return player_t::available();
+  }
+  else
+  {
+    double energy = resources.current[ RESOURCE_ENERGY ];
 
-  if ( energy > 25 )
-    return timespan_t::from_seconds( 0.1 );
+    if ( energy > 25 )
+      return timespan_t::from_seconds( 0.1 );
 
-  return std::max(
-           timespan_t::from_seconds( ( 25 - energy ) / energy_regen_per_second() ),
-           timespan_t::from_seconds( 0.1 )
-         );
+    return std::max(
+             timespan_t::from_seconds( ( 25 - energy ) / energy_regen_per_second() ),
+             timespan_t::from_seconds( 0.1 )
+           );
+  }
 }
 
 // rogue_t::convert_hybrid_stat ==============================================

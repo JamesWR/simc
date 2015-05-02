@@ -1275,7 +1275,7 @@ class SpellDataGenerator(DataGenerator):
          84745,  84746,             # Shallow Insight, Moderate Insight
          138537,                    # Death Knight Tier15 2PC melee pet special attack
          137597,                    # Legendary meta gem Lightning Strike
-         137323, 137247,    # Healer legendary meta
+         137323, 137247,            # Healer legendary meta
          137331, 137326,
          146137,                    # Cleave
          146071,                    # Multistrike
@@ -1291,7 +1291,8 @@ class SpellDataGenerator(DataGenerator):
          54861, 133022,             # Nitro boosts
          175457, 175456, 175439,    # Focus Augmentation / Hyper Augmentation / Stout Augmentation
          179154, 179155, 179156, 179157, # T17 LFR cloth dps set bonus nukes
-         183950,                    # Darklight Ray (WoD 6.2 Int DPS trinket 3 damage spell)
+         183950,                    # Darklight Ray (WoD 6.2 Int DPS Trinket 3 damage spell)
+	 184559,                    # Spirit Eruption (WoD 6.2 Agi DPS Trinket 3 damage spell)
         ),
 
         # Warrior:
@@ -1326,6 +1327,12 @@ class SpellDataGenerator(DataGenerator):
           ( 90967, 0 ),  # Kill Command cooldown
           ( 157708, 2 ), # Marks Kill Shot
           ( 178875, 0 ), # BM T17 4P 
+		  ( 188200, 0 ), # BM T18 2P
+		  ( 188201, 0 ), # BM T18 4P
+		  ( 188198, 0 ), # SV T18 2P
+		  ( 188199, 0 ), # SV T18 4P
+		  ( 188190, 0 ), # MM T18 2P
+		  ( 188191, 0 ), # MM T18 4P
         ),
 
         # Rogue:
@@ -1341,6 +1348,7 @@ class SpellDataGenerator(DataGenerator):
             ( 168963, 0 ),          # Sinister Calling: Rupture
             ( 115189, 0 ),          # Anticipation buff
             ( 157562, 0 ),          # Crimson Poison (Enhanced Crimson Tempest perk)
+            ( 186183, 0 ),          # Assassination T18 2PC Nature Damage component
         ),
 
         # Priest:
@@ -1479,6 +1487,7 @@ class SpellDataGenerator(DataGenerator):
 	  ( 135597, 0 ),       # Tooth and Claw absorb buff
 	  ( 155784, 0 ),       # Primal Tenacity buff
 	  ( 137542, 0 ),       # Displacer Beast buff
+	  ( 185321, 0 ),       # Stalwart Guardian buff (T18 trinket)
         ),
     ]
 

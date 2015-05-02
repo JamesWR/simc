@@ -18,6 +18,17 @@ bool iteration_data_cmp( const iteration_data_entry_t& a,
   {
     return true;
   }
+  else if ( a.metric == b.metric )
+  {
+    if ( a.seed != b.seed )
+    {
+      return a.seed > b.seed;
+    }
+    else
+    {
+      return &a > &b;
+    }
+  }
 
   return false;
 }
@@ -28,6 +39,17 @@ bool iteration_data_cmp_r( const iteration_data_entry_t& a,
   if ( a.metric > b.metric )
   {
     return false;
+  }
+  else if ( a.metric == b.metric )
+  {
+    if ( a.seed != b.seed )
+    {
+      return a.seed > b.seed;
+    }
+    else
+    {
+      return &a > &b;
+    }
   }
 
   return true;
@@ -676,8 +698,14 @@ bool parse_spell_query( sim_t*             sim,
   {
     std::string lvl_offset_str = value.substr( lvl_offset + 1 );
     int sq_lvl = strtol( lvl_offset_str.c_str(), 0, 10 );
-    if ( sq_lvl < 1 || sq_lvl > MAX_LEVEL )
+    if ( sq_lvl < 1 )
       return 0;
+
+    if ( sq_lvl > MAX_ILEVEL )
+    {
+      sim -> errorf( "Maximum item level supported in Simulationcraft is %u.", MAX_ILEVEL );
+      return 0;
+    }
 
     sim -> spell_query_level = as< unsigned >( sq_lvl );
 
@@ -1557,12 +1585,13 @@ void sim_t::datacollection_end()
     if ( std::find_if( iteration_data.begin(), iteration_data.end(),
                        seed_predicate_t( seed ) ) != iteration_data.end() )
     {
-      errorf( "[Thread-%d] Duplicate seed " PRIu64 " found on iteration %u, skipping ...",
+      errorf( "[Thread-%d] Duplicate seed %llu found on iteration %u, skipping ...",
           thread_index, seed, current_iteration );
-      return;
     }
-
-    iteration_data.push_back( entry );
+    else
+    {
+      iteration_data.push_back( entry );
+    }
   }
 }
 
@@ -2564,6 +2593,9 @@ expr_t* sim_t::create_expression( action_t* a,
   {
     std::string type = splits[ 1 ];
     std::string filter = splits[ 2 ];
+
+    if ( optimize_expressions && util::str_compare_ci( filter, "exists" ) )
+      return expr_t::create_constant( name_str, raid_event_t::evaluate_raid_event_expression( this, type, filter ) );
 
     struct raid_event_expr_t : public expr_t
     {

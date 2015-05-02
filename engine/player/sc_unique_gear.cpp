@@ -17,23 +17,28 @@ namespace { // UNNAMED NAMESPACE
 
 namespace enchants
 {
-  void mark_of_bleeding_hollow( special_effect_t& );
-  void megawatt_filament( special_effect_t& );
-  void oglethorpes_missile_splitter( special_effect_t& );
+  /* Legacy Enchants */
+  void executioner( special_effect_t& );
+  void hurricane_spell( special_effect_t& );
+
+  /* Mists of Pandaria */
+  void dancing_steel( special_effect_t& );
+  void jade_spirit( special_effect_t& );
+  void windsong( special_effect_t& );
+  void rivers_song( special_effect_t& );
+  void colossus( special_effect_t& );
+
+  /* Warlords of Draenor */
   void hemets_heartseeker( special_effect_t& );
+  void mark_of_bleeding_hollow( special_effect_t& );
   void mark_of_the_thunderlord( special_effect_t& );
   void mark_of_the_shattered_hand( special_effect_t& );
   void mark_of_the_frostwolf( special_effect_t& );
   void mark_of_shadowmoon( special_effect_t& );
   void mark_of_blackrock( special_effect_t& );
   void mark_of_warsong( special_effect_t& );
-  void dancing_steel( special_effect_t& );
-  void jade_spirit( special_effect_t& );
-  void windsong( special_effect_t& );
-  void rivers_song( special_effect_t& );
-  void colossus( special_effect_t& );
-  void executioner( special_effect_t& );
-  void hurricane_spell( special_effect_t& );
+  void megawatt_filament( special_effect_t& );
+  void oglethorpes_missile_splitter( special_effect_t& );
 }
 
 namespace profession
@@ -45,53 +50,61 @@ namespace profession
 
 namespace item
 {
-  void flurry_of_xuen( special_effect_t& );
-  void essence_of_yulon( special_effect_t& );
-  void endurance_of_niuzao( special_effect_t& );
-  void skeers_bloodsoaked_talisman( special_effect_t& );
-  void black_blood_of_yshaarj( special_effect_t& );
+  void heartpierce( special_effect_t& );
+
+  /* Mists of Pandaria 5.2 */
   void rune_of_reorigination( special_effect_t& );
   void spark_of_zandalar( special_effect_t& );
   void unerring_vision_of_leishen( special_effect_t& );
-  void readiness( special_effect_t& );
+
+  /* Mists of Pandaria 5.4 */
   void amplification( special_effect_t& );
+  void black_blood_of_yshaarj( special_effect_t& );
+  void cleave( special_effect_t& );
+  void endurance_of_niuzao( special_effect_t& );
+  void essence_of_yulon( special_effect_t& );
+  void flurry_of_xuen( special_effect_t& );
   void prismatic_prison_of_pride( special_effect_t& );
   void purified_bindings_of_immerseus( special_effect_t& );
+  void readiness( special_effect_t& );
+  void skeers_bloodsoaked_talisman( special_effect_t& );
   void thoks_tail_tip( special_effect_t& );
-  void cleave( special_effect_t& );
-  void heartpierce( special_effect_t& );
 
-  /* Warlards of Draenor 6.0 */
-  void blackiron_micro_crucible( special_effect_t& );
-  void humming_blackiron_trigger( special_effect_t& );
-  void battering_talisman_trigger( special_effect_t& );
-  void forgemasters_insignia( special_effect_t& );
+  /* Warlords of Draenor 6.0 */
   void autorepairing_autoclave( special_effect_t& );
+  void battering_talisman_trigger( special_effect_t& );
+  void blackiron_micro_crucible( special_effect_t& );
+  void forgemasters_insignia( special_effect_t& );
+  void humming_blackiron_trigger( special_effect_t& );
   void spellbound_runic_band( special_effect_t& );
   void spellbound_solium_band( special_effect_t& );
 
-  /* Warlords of Draenor 6.2 (WIP) */
-  void int_dps_trinket_4( special_effect_t& );
+  /* Warlords of Draenor 6.2 */
+  void agi_dps_trinket_3( special_effect_t& );
+  void insatiable_hunger( special_effect_t& );
   void int_dps_trinket_3( special_effect_t& );
+  void int_dps_trinket_4( special_effect_t& );
+  void str_dps_trinket_3( special_effect_t& );
+  void str_dps_trinket_4( special_effect_t& );
 }
 
 namespace gem
 {
-  void sinister_primal( special_effect_t& );
-  void indomitable_primal( special_effect_t& );
   void capacitive_primal( special_effect_t& );
   void courageous_primal( special_effect_t& );
+  void indomitable_primal( special_effect_t& );
+  void sinister_primal( special_effect_t& );
 }
 
 namespace set_bonus
 {
-  void t17_lfr_passive_stat( special_effect_t& );
   void t17_lfr_4pc_agimelee( special_effect_t& );
+  void t17_lfr_4pc_clothcaster( special_effect_t& );
   void t17_lfr_4pc_leamelee( special_effect_t& );
   void t17_lfr_4pc_leacaster( special_effect_t& );
   void t17_lfr_4pc_mailcaster( special_effect_t& );
   void t17_lfr_4pc_platemelee( special_effect_t& );
-  void t17_lfr_4pc_clothcaster( special_effect_t& );
+  void t17_lfr_passive_stat( special_effect_t& );
 }
 
 /**
@@ -2133,6 +2146,203 @@ struct mark_of_doom_t : public debuff_t
   }
 };
 
+struct fel_burn_t : public debuff_t
+{
+  fel_burn_t( const actor_pair_t& p, const special_effect_t& source_effect ) :
+    debuff_t( buff_creator_t( p, "fel_burn", source_effect.driver()  )
+    .refresh_behavior( BUFF_REFRESH_DISABLED )
+    .max_stack( 50 )
+    .duration( timespan_t::from_seconds( 15.0 ) ) )
+  {
+  }
+};
+
+struct str_dps_trinket_4_damage_t : public melee_attack_t
+{
+  str_dps_trinket_4_damage_t( const special_effect_t& effect  ) :
+    melee_attack_t( "fel_burn", effect.player, effect.player -> find_spell( 184256 ) )
+  {
+    background = special = tick_may_crit = true;
+    may_crit = callbacks = false;
+    base_td = data().effectN( 1 ).average( effect.item );
+    weapon_multiplier = 0;
+  }
+
+  double composite_target_multiplier( player_t* target ) const
+  {
+    double m = melee_attack_t::composite_target_multiplier( target );
+
+    const actor_target_data_t* td = player -> get_target_data( target );
+
+    m *= td -> debuff.fel_burn -> current_stack;
+
+    return m;
+  }
+};
+
+struct str_dps_trinket_4_cb_t : public dbc_proc_callback_t
+{
+  action_t* burn;
+  str_dps_trinket_4_cb_t( const special_effect_t& effect ):
+    dbc_proc_callback_t( effect.player, effect )
+  {
+    burn = effect.player -> find_action( "fel_burn" );
+    if ( !burn )
+    {
+      burn = effect.item -> player -> create_proc_action( "fel_burn", effect );
+    }
+
+    if ( !burn )
+    {
+      burn = new str_dps_trinket_4_damage_t( effect );
+    }
+  }
+
+  void execute( action_t* /* a */, action_state_t* trigger_state )
+  {
+    actor_target_data_t* td = listener -> get_target_data( trigger_state -> target );
+    assert( td );
+    if ( !td -> debuff.fel_burn )
+    {
+      td -> debuff.fel_burn = new fel_burn_t( actor_pair_t( trigger_state -> target, listener ), effect );
+      td -> debuff.fel_burn -> reset();
+    }
+    if ( ! td -> debuff.fel_burn -> up() )
+    {
+      td -> debuff.fel_burn -> trigger( 1 );
+      burn -> target = trigger_state -> target;
+      burn -> execute();
+    }
+    else
+    {
+      td -> debuff.fel_burn -> trigger( 1 );
+    }
+  }
+};
+
+void item::str_dps_trinket_4( special_effect_t& effect )
+{
+  effect.proc_flags2_ = PF2_ALL_HIT;
+
+  new str_dps_trinket_4_cb_t( effect );
+}
+
+void item::str_dps_trinket_3( special_effect_t& effect )
+{
+  struct str_dps_trinket_3_damage_t: public melee_attack_t
+  {
+    str_dps_trinket_3_damage_t( const special_effect_t& effect ):
+      melee_attack_t( "fel_cleave", effect.player, effect.driver() -> effectN( 1 ).trigger() )
+    {
+      background = special = may_crit = true;
+      base_dd_min = base_dd_max = data().effectN( 1 ).average( effect.item );
+      weapon_multiplier = 0;
+      aoe = -1;
+    }
+  };
+
+  action_t* action = effect.player -> find_action( "fel_cleave" );
+
+  if ( !action )
+  {
+    action = effect.player -> create_proc_action( "fel_cleave", effect );
+  }
+
+  if ( !action )
+  {
+    action = new str_dps_trinket_3_damage_t( effect );
+  }
+
+  effect.execute_action = action;
+  effect.proc_flags2_ = PF2_ALL_HIT;
+  effect.rppm_scale = RPPM_HASTE;
+
+  new dbc_proc_callback_t( effect.player, effect );
+}
+
+struct hammering_blows_buff_t : public stat_buff_t
+{
+  struct enable_event_t : public event_t
+  {
+    dbc_proc_callback_t* driver;
+
+    enable_event_t( dbc_proc_callback_t* cb ) :
+      event_t( *cb -> listener ), driver( cb )
+    { add_event( timespan_t::zero() ); }
+
+    const char* name() const
+    { return "hammering_blows_enable_event"; }
+
+    void execute()
+    {
+      driver -> activate();
+    }
+  };
+
+  dbc_proc_callback_t* stack_driver;
+
+  hammering_blows_buff_t( const special_effect_t& source_effect ) :
+    stat_buff_t( stat_buff_creator_t( source_effect.player, "hammering_blows",
+                 source_effect.trigger(), source_effect.item )
+                 .refresh_behavior( BUFF_REFRESH_DISABLED ) ),
+    stack_driver( 0 )
+  { }
+
+  void execute( int stacks, double value, timespan_t duration )
+  {
+    bool state_change = current_stack == 0;
+    stat_buff_t::execute( stacks, value, duration );
+
+    if ( state_change )
+    {
+      new ( *sim ) enable_event_t( stack_driver );
+    }
+  }
+
+  void expire_override( int expiration_stacks, timespan_t remaining_duration )
+  {
+    stat_buff_t::expire_override( expiration_stacks, remaining_duration );
+
+    stack_driver -> deactivate();
+  }
+
+  void reset()
+  {
+    stat_buff_t::reset();
+
+    stack_driver -> deactivate();
+  }
+};
+
+// Secondary initialization for the stack-gain driver for insatiable hunger
+static void insatiable_hunger_2( special_effect_t& effect )
+{
+  effect.proc_chance_ = 1.0;
+  effect.custom_buff = buff_t::find( effect.player, "hammering_blows" );
+
+  hammering_blows_buff_t* b = static_cast<hammering_blows_buff_t*>( effect.custom_buff );
+
+  b -> stack_driver = new dbc_proc_callback_t( effect.player, effect );
+}
+
+void item::insatiable_hunger( special_effect_t& effect )
+{
+  // Setup a secondary driver when the buff is up to generate stacks to it
+  special_effect_t* effect_driver = new special_effect_t( effect.player );
+  effect_driver -> type = SPECIAL_EFFECT_CUSTOM;
+  effect_driver -> name_str = "hammering_blows_driver";
+  effect_driver -> spell_id = effect.trigger() -> id();
+  effect_driver -> custom_init = insatiable_hunger_2;
+
+  // And make it a player-special effect for now
+  effect.player -> special_effects.push_back( effect_driver );
+
+  // Instatiate the actual buff
+  effect.custom_buff = new hammering_blows_buff_t( effect );
+
+  new dbc_proc_callback_t( effect.player, effect );
+}
+
 // Int DPS 4 trinket base driver, handles the proccing (triggering) of Mark of Doom on targets
 struct int_dps_trinket_4_driver_t : public dbc_proc_callback_t
 {
@@ -2208,6 +2418,136 @@ void item::int_dps_trinket_3( special_effect_t& effect )
 
   effect.execute_action = action;
   effect.proc_flags2_= PF2_ALL_HIT;
+
+  new dbc_proc_callback_t( effect.player, effect );
+}
+
+// Agi DPS Trinket 3
+
+struct agi_dps_trinket_3_cb_t : public dbc_proc_callback_t
+{
+  double stored_value;
+
+  agi_dps_trinket_3_cb_t( const special_effect_t& effect ) :
+    dbc_proc_callback_t( effect.player, effect ), stored_value( 0 )
+  { }
+
+  void reset()
+  {
+    dbc_proc_callback_t::reset();
+
+    stored_value = 0;
+  }
+
+  void activate()
+  {
+    if ( ! active )
+    {
+      stored_value = 0;
+    }
+
+    dbc_proc_callback_t::activate();
+  }
+
+  void execute( action_t* /* a */, action_state_t* trigger_state )
+  {
+    if ( listener -> sim -> debug )
+    {
+      listener -> sim -> out_debug.printf( "%s spirit_shift accumulates %.0f damage.", listener -> name(), trigger_state -> result_amount );
+    }
+    stored_value += trigger_state -> result_amount;
+  }
+};
+
+struct agi_dps_trinket_3_explosion_t : public spell_t
+{
+  double explosion_multiplier;
+
+  agi_dps_trinket_3_explosion_t( player_t* player, special_effect_t& effect ) :
+    spell_t( "spirit_eruption", player, player -> find_spell( 184559 ) ),
+    explosion_multiplier( 0 )
+  {
+    background = split_aoe_damage = true;
+    callbacks = false;
+    aoe = -1;
+
+    explosion_multiplier = 1.0 + player -> find_spell( effect.spell_id ) -> effectN( 1 ).average( effect.item ) / 10000.0;
+  }
+
+  void init() override
+  {
+    spell_t::init();
+
+    snapshot_flags = update_flags = 0;
+  }
+
+  virtual double calculate_direct_amount( action_state_t* s ) override
+  {
+    return spell_t::calculate_direct_amount( s ) * explosion_multiplier;
+  }
+};
+
+struct agi_dps_trinket_3_buff_t : public buff_t
+{
+  // Explosion here
+  spell_t* explosion;
+  agi_dps_trinket_3_cb_t* cb;
+
+  agi_dps_trinket_3_buff_t( player_t* player, special_effect_t& effect ) :
+    buff_t( buff_creator_t( player, "spirit_shift", player -> find_spell( 184293 ) ) ),
+    explosion( new agi_dps_trinket_3_explosion_t( player, effect ) ), cb( 0 )
+  {
+    player -> buffs.spirit_shift = this;
+  }
+
+  void expire_override( int expiration_stacks, timespan_t remaining_duration )
+  {
+    buff_t::expire_override( expiration_stacks, remaining_duration );
+
+    if ( cb -> stored_value > 0 && ! player -> is_sleeping() )
+    {
+      explosion -> base_dd_min = explosion -> base_dd_max = cb -> stored_value;
+      explosion -> execute();
+    }
+
+    cb -> deactivate();
+  }
+
+  void execute( int stacks, double value, timespan_t duration )
+  {
+    buff_t::execute( stacks, value, duration );
+
+    cb -> activate();
+  }
+
+  void reset()
+  {
+    buff_t::reset();
+
+    cb -> deactivate();
+  }
+};
+
+static void initialize_agi_dps_trinket_3( special_effect_t& effect )
+{
+  agi_dps_trinket_3_cb_t* damage_cb = new agi_dps_trinket_3_cb_t( effect );
+  static_cast<agi_dps_trinket_3_buff_t*>( effect.custom_buff ) -> cb = damage_cb;
+}
+
+void item::agi_dps_trinket_3( special_effect_t& effect )
+{
+  effect.custom_buff = new agi_dps_trinket_3_buff_t( effect.player, effect );
+
+  special_effect_t damage_effect( effect.player );
+  damage_effect.name_str = "spirit_shift";
+  damage_effect.type = SPECIAL_EFFECT_CUSTOM;
+  damage_effect.proc_chance_ = 1.0;
+  damage_effect.proc_flags_ = PF_ALL_DAMAGE | PF_PERIODIC;
+  damage_effect.proc_flags2_ = PF2_ALL_HIT | PF2_ALL_MULTISTRIKE;
+  damage_effect.custom_buff = effect.custom_buff;
+  damage_effect.custom_init = initialize_agi_dps_trinket_3;
+
+  effect.player -> special_effects.push_back( new special_effect_t( damage_effect ) );
 
   new dbc_proc_callback_t( effect.player, effect );
 }
@@ -2825,8 +3165,12 @@ void unique_gear::register_special_effect( unsigned spell_id, const std::string&
 void unique_gear::register_special_effects()
 {
   /* Warlords of Draenor 6.2 */
+  register_special_effect( 184291, item::agi_dps_trinket_3              );
+  register_special_effect( 183942, item::insatiable_hunger              );
   register_special_effect( 184066, item::int_dps_trinket_4              );
   register_special_effect( 183951, item::int_dps_trinket_3              );
+  register_special_effect( 184249, item::str_dps_trinket_3              );
+  register_special_effect( 184257, item::str_dps_trinket_4              );
 
   /* Warlords of Draenor 6.0 */
   register_special_effect( 177085, item::blackiron_micro_crucible       );
