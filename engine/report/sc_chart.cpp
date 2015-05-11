@@ -463,7 +463,7 @@ bool chart::generate_spent_time( highchart::pie_chart_t& pc, const player_t* p )
        sc_js_t e;
        e.set( "color", color );
        e.set( "y", stats -> total_time.total_seconds() );
-       e.set( "name", stats -> name_str );
+       e.set( "name", report::decorate_html_string( stats -> name_str, color ) );
 
        pc.add( "series.0.data", e );
      }
