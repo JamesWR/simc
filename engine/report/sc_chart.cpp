@@ -72,6 +72,8 @@ struct filter_non_performing_players
       return true;
     else if ( type == "tmi" && p -> collected_data.theck_meloree_index.mean() <= 0 )
       return true;
+    else if ( type == "apm" && p -> collected_data.executed_foreground_actions.mean() <= 0 )
+      return true;
 
     return false;
   }
@@ -612,6 +614,11 @@ bool chart::generate_raid_aps( highchart::bar_chart_t& bc,
     long_type = "Theck-Meloree Index";
     range::remove_copy_if( s -> players_by_tmi, back_inserter( player_list ), filter_non_performing_players( type ) );
   }
+  else if ( util::str_compare_ci( type, "apm" ) )
+  {
+    long_type = "Actions Per Minute";
+    range::remove_copy_if( s -> players_by_apm, back_inserter( player_list ), filter_non_performing_players( type ) );
+  }
 
   // Nothing to visualize
   if ( player_list.size() == 0 )
@@ -636,6 +643,15 @@ bool chart::generate_raid_aps( highchart::bar_chart_t& bc,
       value = p -> collected_data.dtps.mean();
     else if ( util::str_compare_ci( type, "tmi" ) )
       value = p -> collected_data.theck_meloree_index.mean();
+    else if ( util::str_compare_ci( type, "apm" ) )
+    {
+      double fight_length = p -> collected_data.fight_length.mean();
+      double foreground_actions = p -> collected_data.executed_foreground_actions.mean();
+      if ( fight_length > 0 )
+      {
+        value = 60 * foreground_actions / fight_length;
+      }
+    }
 
     std::string aid = "#player";
     aid += util::to_string( p -> index );

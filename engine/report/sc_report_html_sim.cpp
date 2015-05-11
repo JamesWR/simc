@@ -698,6 +698,25 @@ void print_html_raid_summary( report::sc_html_stream& os, sim_t* sim )
   os << "\t\t\t\t<div class=\"clear\"></div>\n"
      << "\t\t\t</div>\n"
      << "\t\t</div>\n\n";
+
+  os << "<div id=\"apm-summary\" class=\"section grouped-first\">\n\n";
+  os << "<h2 class=\"toggle\">Actions per Minute Summary</h2>\n";
+  os << "<div class=\"toggle-content hide\">\n";
+  os << "<ul class=\"params\">\n";
+
+  // Left side charts: dps, raid events
+  os << "<div class=\"charts charts-left\">\n";
+
+  highchart::bar_chart_t raid_apm( "raid_apm", sim );
+  if ( chart::generate_raid_aps( raid_apm, sim, "apm" ) )
+    os << raid_apm.to_string();
+
+  os << "</div>\n";
+  os << "</ul>\n";
+
+  os << "<div class=\"clear\"></div>\n"
+     << "</div>\n"
+     << "</div>\n\n";
 }
 
 // print_html_scale_factors =================================================
@@ -1062,7 +1081,7 @@ void print_html_head( report::sc_html_stream& os, sim_t* sim )
 {
   os << "<title>Simulationcraft Results</title>\n";
   os << "<meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\" />\n"
-     << "<script type=\"text/javascript\" src=\"http://code.jquery.com/jquery-1.11.2.min.js\"></script>\n"
+     << "<script type=\"text/javascript\" src=\"http://code.jquery.com/jquery-1.11.3.min.js\"></script>\n"
      << "<script src=\"http://code.highcharts.com/highcharts.js\"></script>\n"
      << "<script src=\"http://code.highcharts.com/highcharts-more.js\"></script>\n";
 // Disable exporting for now in the GUI.
