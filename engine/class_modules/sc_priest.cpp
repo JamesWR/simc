@@ -58,7 +58,6 @@ public:
   // Buffs
   struct
   {
-
     // Talents
     buff_t* glyph_of_levitate;
     buff_t* power_infusion;
@@ -102,6 +101,7 @@ public:
     buff_t* clear_thoughts; //t17 4pc disc
     buff_t* shadow_power; //WoD Shadow 2pc PvP
     buff_t* reperation; // T18 Disc 2p
+    buff_t* premonition; // T18 Shadow 4pc
   } buffs;
 
   // Talents
@@ -215,6 +215,7 @@ public:
     cooldown_t* penance;
     cooldown_t* power_word_shield;
     cooldown_t* shadowfiend;
+    cooldown_t* silence;
   } cooldowns;
 
   // Gains
@@ -381,6 +382,7 @@ public:
     benefits(),
     procs(),
     active_spells(),
+    active_items(),
     pets(),
     options(),
     glyphs()
@@ -420,6 +422,7 @@ public:
   virtual double    composite_spell_power_multiplier() const override;
   virtual double    composite_spell_crit() const override;
   virtual double    composite_melee_crit() const override;
+  virtual double    composite_multistrike() const override;
   virtual double    composite_player_multistrike_damage_multiplier() const override;
   virtual double    composite_player_multistrike_healing_multiplier() const override;
   virtual double    spirit() const;
@@ -602,8 +605,6 @@ struct base_fiend_pet_t : public priest_pet_t
 
   virtual void summon( timespan_t duration ) override
   {
-    dismiss();
-
     duration += timespan_t::from_seconds( 0.01 );
 
     priest_pet_t::summon( duration );
@@ -615,6 +616,14 @@ struct base_fiend_pet_t : public priest_pet_t
        */
       shadowcrawl_action -> cooldown -> ready = sim -> current_time() + timespan_t::from_seconds( 0.001 );
     }
+  }
+
+  virtual void demise() override
+  {
+    priest_pet_t::demise();
+
+    // T18 Shadow 4pc
+    o().buffs.premonition -> trigger();
   }
 
   virtual action_t* create_action( const std::string& name,
@@ -1454,7 +1463,10 @@ struct priest_heal_t : public priest_action_t<heal_t>
   {
     if ( priest.active_items.naarus_discipline )
     {
-      s -> target -> buffs.naarus_discipline -> trigger();
+      const item_t* item = priest.active_items.naarus_discipline -> item;
+      double stacks = 1;
+      double value = priest.active_items.naarus_discipline -> trigger() -> effectN( 1 ).average( item ) / 100.0;
+      s -> target -> buffs.naarus_discipline -> trigger( static_cast<int>(stacks), value );
     }
   }
 };
@@ -1594,9 +1606,9 @@ struct priest_spell_t : public priest_action_t<spell_t>
     if ( is_mind_spell )
     {
       priest_td_t& td = get_td( t );
-      if ( td.buffs.mental_fatigue -> check() )
+      if ( priest.active_items.mental_fatigue )
       {
-        am *= 1.0 + td.buffs.mental_fatigue -> check() * td.buffs.mental_fatigue -> data().effectN( 1 ).percent();
+        am *= 1.0 + td.buffs.mental_fatigue -> stack_value();
       }
     }
 
@@ -2019,21 +2031,24 @@ struct spirit_shell_t : public priest_spell_t
 struct summon_pet_t : public priest_spell_t
 {
   timespan_t summoning_duration;
+  std::string pet_name;
   pet_t* pet;
 
 public:
   summon_pet_t( const std::string& n, priest_t& p, const spell_data_t* sd = spell_data_t::nil() ) :
     priest_spell_t( n, p, sd ),
     summoning_duration ( timespan_t::zero() ),
-    pet( p.find_pet( n ) )
+    pet_name( n ),
+    pet( 0 )
   {
     harmful = false;
+  }
 
-    if ( ! pet )
-    {
-      sim -> errorf( "Player %s unable to find pet %s for summons.\n", player -> name(), n.c_str() );
-      background = true;
-    }
+  bool init_finished()
+  {
+    pet = player -> find_pet( pet_name );
+
+    return priest_spell_t::init_finished();
   }
 
   virtual void execute() override
@@ -2041,6 +2056,16 @@ public:
     pet -> summon( summoning_duration );
 
     priest_spell_t::execute();
+  }
+
+  bool ready()
+  {
+    if ( ! pet )
+    {
+      return false;
+    }
+
+    return priest_spell_t::ready();
   }
 };
 
@@ -2055,6 +2080,7 @@ struct summon_shadowfiend_t : public summon_pet_t
     summoning_duration = data().duration();
     cooldown = p.cooldowns.shadowfiend;
     cooldown -> duration = data().cooldown();
+    cooldown -> duration += priest.sets.set(PRIEST_SHADOW, T18, B2 ) -> effectN( 1 ).time_value();
   }
 };
 
@@ -2069,6 +2095,7 @@ struct summon_mindbender_t : public summon_pet_t
     summoning_duration = data().duration();
     cooldown = p.cooldowns.mindbender;
     cooldown -> duration = data().cooldown();
+    cooldown -> duration += priest.sets.set(PRIEST_SHADOW, T18, B2 ) -> effectN( 2 ).time_value();
   }
 };
 
@@ -2166,8 +2193,7 @@ struct mind_blast_t : public priest_spell_t
 
     // Glyph of Mind Harvest
     if ( priest.glyphs.mind_harvest -> ok() )
-      priest.cooldowns.mind_blast -> duration += timespan_t::from_millis( 6000 ); //priest.glyphs.mind_harvest -> effectN( 2 ).base_value() ); // Wrong data in DBC -- Twintop 2014/08/18
-
+      priest.cooldowns.mind_blast -> duration += priest.glyphs.mind_harvest -> effectN( 2 ).time_value(); //Effect #2 -- http://www.wowhead.com/spell=162532
     if ( priest.talents.clarity_of_power -> ok() )
       priest.cooldowns.mind_blast -> duration += priest.talents.clarity_of_power -> effectN( 3 ).time_value(); //Now Effect #3... wod.wowhead.com/spell=155246
   }
@@ -2194,7 +2220,7 @@ struct mind_blast_t : public priest_spell_t
         if ( !td.glyph_of_mind_harvest_consumed )
         {
           td.glyph_of_mind_harvest_consumed = true;
-          generate_shadow_orb( 2, priest.gains.shadow_orb_mind_harvest ); // no sensible spell data available, 2014/06/09
+          generate_shadow_orb( priest.glyphs.mind_harvest -> effectN( 1 ).base_value(), priest.gains.shadow_orb_mind_harvest ); //Effect #1 -- http://www.wowhead.com/spell=162532
 
           if ( sim -> debug )
             sim -> out_debug.printf( "%s consumed Glyph of Mind Harvest on target %s.", priest.name(), s -> target -> name() );
@@ -3102,17 +3128,17 @@ struct devouring_plague_t : public priest_spell_t
 
 // Mind Flay Spell ==========================================================
 template <bool insanity = false>
-struct mind_flay_base_t : public priest_spell_t
+struct mind_flay_base_t: public priest_spell_t
 {
-  mind_flay_base_t( priest_t& p, const std::string& options_str, const std::string& name = "mind_flay" ) :
+  mind_flay_base_t( priest_t& p, const std::string& options_str, const std::string& name = "mind_flay" ):
     priest_spell_t( name, p, p.find_class_spell( insanity ? "Insanity" : "Mind Flay" ) )
   {
     parse_options( options_str );
 
-    may_crit     = false;
-    channeled    = true;
+    may_crit = false;
+    channeled = true;
     hasted_ticks = false;
-    use_off_gcd  = true;
+    use_off_gcd = true;
     is_mind_spell = true;
 
     if ( priest.perks.enhanced_mind_flay -> ok() )
@@ -3140,7 +3166,7 @@ struct mind_flay_base_t : public priest_spell_t
 
     if ( priest.active_items.mental_fatigue )
     {
-      if ( d -> state && result_is_hit( d -> state -> result ))
+      if ( d -> state && result_is_hit( d -> state -> result ) )
       {
         // Assumes trigger on hit, not on damage
         priest_td_t& td = get_td( d -> state -> target );
@@ -4001,6 +4027,8 @@ private:
   }
 };
 
+// Void Entropy Spell =======================================================
+
 struct void_entropy_t : public priest_spell_t
 {
   void_entropy_t( priest_t& p, const std::string& options_str ) :
@@ -4024,7 +4052,7 @@ struct void_entropy_t : public priest_spell_t
 
       if ( priest.sets.has_set_bonus( PRIEST_SHADOW, T17, B2 ) )
       {
-        if ( priest.cooldowns.mind_blast->remains() == timespan_t::zero() )
+        if ( priest.cooldowns.mind_blast -> remains() == timespan_t::zero() )
         {
           priest.procs.t17_2pc_caster_mind_blast_reset_overflow -> occur();
         }
@@ -4056,6 +4084,45 @@ struct void_entropy_t : public priest_spell_t
   {
     //Only usable with 3 orbs, per Celestalon in Theorycraft thread - Twintop 2014/07/27
     if ( priest.resources.current[ RESOURCE_SHADOW_ORB ] < 3.0 )
+      return false;
+
+    return priest_spell_t::ready();
+  }
+};
+
+// Silence Spell =======================================================
+
+struct silence_t : public priest_spell_t
+{
+  silence_t( priest_t& player, const std::string& options_str ) :
+    priest_spell_t( "silence", player, player.find_class_spell( "Silence" ) )
+  {
+    parse_options( options_str );
+    may_miss = may_crit = false;
+    ignore_false_positive = true;
+
+    cooldown = priest.cooldowns.silence;
+    cooldown -> duration = data().cooldown();
+
+    // Glyph of Silence
+    if ( priest.specialization() == PRIEST_SHADOW && priest.glyphs.silence -> ok() )
+    {
+      cooldown -> duration += priest.glyphs.silence -> effectN( 1 ).time_value();
+    }
+
+  }
+
+  virtual void execute()
+  {
+    priest_spell_t::execute();
+
+    //Only interrupts, does not keep target silenced. This works in most cases since bosses are rarely able to be completely silenced.
+    target -> debuffs.casting -> expire();
+  }
+
+  virtual bool ready()
+  {
+    if ( ! target -> debuffs.casting -> check() || cooldown -> remains() > timespan_t::zero() )
       return false;
 
     return priest_spell_t::ready();
@@ -4252,6 +4319,8 @@ struct flash_heal_t : public priest_heal_t
 
     if ( ! priest.buffs.spirit_shell -> check() )
       trigger_strength_of_soul( s -> target );
+
+    trigger_naarus_discipline( s );
   }
 
   virtual timespan_t execute_time() const override
@@ -4323,6 +4392,8 @@ struct _heal_t : public priest_heal_t
 
     if ( ! priest.buffs.spirit_shell -> check() )
       trigger_strength_of_soul( s -> target );
+
+    trigger_naarus_discipline( s );
   }
 
   virtual double action_multiplier() const override
@@ -4330,6 +4401,12 @@ struct _heal_t : public priest_heal_t
     double am = priest_heal_t::action_multiplier();
 
     am *= 1.0 + priest.sets.set( SET_HEALER, T16, B2 ) -> effectN( 1 ).percent() * priest.buffs.serendipity -> check();
+
+    if ( priest.active_items.complete_healing && priest.buffs.chakra_sanctuary -> check() )
+    {
+      const item_t* item = priest.active_items.complete_healing -> item;
+      am *= 1.0 + priest.active_items.complete_healing -> driver() -> effectN( 3 ).average( item ) / 100.0;
+    }
 
     return am;
   }
@@ -4341,6 +4418,12 @@ struct _heal_t : public priest_heal_t
     if ( priest.buffs.serendipity -> check() )
       c *= 1.0 + priest.buffs.serendipity -> check() * priest.buffs.serendipity -> data().effectN( 2 ).percent();
 
+    if ( priest.active_items.complete_healing && priest.buffs.chakra_sanctuary -> check() )
+    {
+      const item_t* item = priest.active_items.complete_healing -> item;
+      c *= 1.0 + priest.active_items.complete_healing -> driver() -> effectN( 1 ).average( item ) / 100.0;
+    }
+
     return c;
   }
 
@@ -4350,6 +4433,13 @@ struct _heal_t : public priest_heal_t
 
     if ( priest.buffs.serendipity -> check() )
       et *= 1.0 + priest.buffs.serendipity -> check() * priest.buffs.serendipity -> data().effectN( 1 ).percent();
+
+
+    if ( priest.active_items.complete_healing && priest.buffs.chakra_sanctuary -> check() )
+    {
+      const item_t* item = priest.active_items.complete_healing -> item;
+      et *= 1.0 + priest.active_items.complete_healing -> driver() -> effectN( 1 ).average( item ) / 100.0;
+    }
 
     return et;
   }
@@ -4588,7 +4678,7 @@ struct lightwell_t : public priest_spell_t
   lightwell_t( priest_t& p, const std::string& options_str ) :
     priest_spell_t( "lightwell", p, p.find_class_spell( "Lightwell" ) ),
     consume_interval( timespan_t::from_seconds( 10 ) ),
-    lightwell_renew_cd( priest.pets.lightwell -> get_cooldown( "lightwell_renew" ) )
+    lightwell_renew_cd( 0 )
   {
     add_option( opt_timespan( "consume_interval", consume_interval ) );
     parse_options( options_str );
@@ -4598,6 +4688,13 @@ struct lightwell_t : public priest_spell_t
     castable_in_shadowform = false;
 
     assert( consume_interval > timespan_t::zero() && consume_interval < cooldown -> duration );
+  }
+
+  bool init_finished()
+  {
+    lightwell_renew_cd = priest.pets.lightwell -> get_cooldown( "lightwell_renew" );
+
+    return priest_spell_t::init_finished();
   }
 
   virtual void execute() override
@@ -4644,6 +4741,8 @@ struct penance_heal_t : public priest_heal_t
         // 2015-04-14: Your Penance [...] each time it deals damage or heals.
         priest.buffs.reperation -> trigger();
       }
+
+      trigger_naarus_discipline( state );
     }
   };
 
@@ -4779,6 +4878,12 @@ struct prayer_of_healing_t : public priest_heal_t
     trigger_divine_insight();
   }
 
+  virtual void impact( action_state_t* s ) override
+  {
+    priest_heal_t::impact( s );
+
+    trigger_naarus_discipline( s );
+  }
   virtual double action_multiplier() const override
   {
     double am = priest_heal_t::action_multiplier();
@@ -5236,8 +5341,11 @@ priest_td_t::priest_td_t( player_t* target, priest_t& p ) :
                              .cd( timespan_t::zero() )
                              .activated( false );
 
-  buffs.mental_fatigue = buff_creator_t( *this, "mental_fatigue" )
-                         .spell( p.find_spell( 185104 ) );
+  if ( priest.active_items.mental_fatigue )
+  {
+    buffs.mental_fatigue = buff_creator_t( *this, "mental_fatigue", priest.active_items.mental_fatigue -> driver() -> effectN( 1 ).trigger() )
+      .default_value( priest.active_items.mental_fatigue -> driver() -> effectN( 1 ).trigger() -> effectN( 1 ).average( priest.active_items.mental_fatigue -> item ) / 100.0 );
+  }
 
   target -> callbacks_on_demise.push_back( std::bind( &priest_td_t::target_demise, this ) );
 }
@@ -5273,6 +5381,7 @@ void priest_t::create_cooldowns()
   cooldowns.penance           = get_cooldown( "penance" );
   cooldowns.power_word_shield = get_cooldown( "power_word_shield" );
   cooldowns.shadowfiend       = get_cooldown( "shadowfiend" );
+  cooldowns.silence           = get_cooldown( "silence" );
 
   cooldowns.angelic_feather -> charges = 3;
   cooldowns.angelic_feather -> duration = timespan_t::from_seconds( 10.0 );
@@ -5624,6 +5733,18 @@ double priest_t::composite_melee_crit() const
   return cmc;
 }
 
+double priest_t::composite_multistrike() const
+{
+  double cm = base_t::composite_multistrike();
+
+  if ( buffs.premonition -> check() )
+  {
+    cm += buffs.premonition -> data().effectN( 1 ).percent();
+  }
+
+  return cm;
+}
+
 // Multistrike Effect Multipliers ====================
 
 double priest_t::composite_player_multistrike_damage_multiplier() const
@@ -5813,6 +5934,7 @@ action_t* priest_t::create_action( const std::string& name,
   if ( name == "pain_suppression"       ) return new pain_suppression_t      ( *this, options_str );
   if ( name == "power_infusion"         ) return new power_infusion_t        ( *this, options_str );
   if ( name == "shadowform"             ) return new shadowform_t            ( *this, options_str );
+  if ( name == "silence"                ) return new silence_t               ( *this, options_str );
   if ( name == "vampiric_embrace"       ) return new vampiric_embrace_t      ( *this, options_str );
   if ( name == "spirit_shell"           ) return new spirit_shell_t          ( *this, options_str );
 
@@ -5895,8 +6017,16 @@ void priest_t::create_pets()
 {
   base_t::create_pets();
 
-  pets.shadowfiend      = create_pet( "shadowfiend" );
-  pets.mindbender       = create_pet( "mindbender"  );
+  if ( find_action( "shadowfiend" ) && ! talents.mindbender -> ok() )
+  {
+    pets.shadowfiend      = create_pet( "shadowfiend" );
+  }
+
+  if ( ( find_action( "mindbender" ) || find_action( "shadowfiend" ) ) &&
+       talents.mindbender -> ok() )
+  {
+    pets.mindbender       = create_pet( "mindbender"  );
+  }
 
   if ( find_class_spell( "Lightwell" ) -> ok() )
     pets.lightwell        = create_pet( "lightwell"   );
@@ -6044,25 +6174,25 @@ void priest_t::init_spells()
   perks.enhanced_shadow_word_death    = find_perk_spell( "Enhanced Shadow Word: Death" );
 
   // Glyphs
-  glyphs.dispel_magic                 = find_glyph_spell( "Glyph of Dispel Magic" );            //NYI
-  glyphs.fade                         = find_glyph_spell( "Glyph of Fade" );                    //NYI
-  glyphs.fear_ward                    = find_glyph_spell( "Glyph of Fear Ward" );               //NYI
-  glyphs.leap_of_faith                = find_glyph_spell( "Glyph of Leap of Faith" );           //NYI
+  //glyphs.dispel_magic                 = find_glyph_spell( "Glyph of Dispel Magic" );            //NYI
+  //glyphs.fade                         = find_glyph_spell( "Glyph of Fade" );                    //NYI
+  //glyphs.fear_ward                    = find_glyph_spell( "Glyph of Fear Ward" );               //NYI
+  //glyphs.leap_of_faith                = find_glyph_spell( "Glyph of Leap of Faith" );           //NYI
   glyphs.levitate                     = find_glyph_spell( "Glyph of Levitate" );
-  glyphs.mass_dispel                  = find_glyph_spell( "Glyph of Mass Dispel" );             //NYI
+  //glyphs.mass_dispel                  = find_glyph_spell( "Glyph of Mass Dispel" );             //NYI
   glyphs.power_word_shield            = find_glyph_spell( "Glyph of Power Word: Shield" );
   glyphs.prayer_of_mending            = find_glyph_spell( "Glyph of Prayer of Mending" );
-  glyphs.psychic_scream               = find_glyph_spell( "Glyph of Psychic Scream" );          //NYI
-  glyphs.reflective_shield            = find_glyph_spell( "Glyph of Reflective Shield" );       //NYI
-  glyphs.restored_faith               = find_glyph_spell( "Glyph of Restored Faith" );          //NYI
-  glyphs.scourge_imprisonment         = find_glyph_spell( "Glyph of Scourge Imprisonment" );    //NYI
-  glyphs.weakened_soul                = find_glyph_spell( "Glyph of Weakened Soul" );           //NYI
+  //glyphs.psychic_scream               = find_glyph_spell( "Glyph of Psychic Scream" );          //NYI
+  //glyphs.reflective_shield            = find_glyph_spell( "Glyph of Reflective Shield" );       //NYI
+  //glyphs.restored_faith               = find_glyph_spell( "Glyph of Restored Faith" );          //NYI
+  //glyphs.scourge_imprisonment         = find_glyph_spell( "Glyph of Scourge Imprisonment" );    //NYI
+  //glyphs.weakened_soul                = find_glyph_spell( "Glyph of Weakened Soul" );           //NYI
 
   //Healing Specs
   glyphs.holy_fire                    = find_glyph_spell( "Glyph of Holy Fire" );
   glyphs.inquisitor                   = find_glyph_spell( "Glyph of the Inquisitor" );
-  glyphs.purify                       = find_glyph_spell( "Glyph of Purify" );                  //NYI
-  glyphs.shadow_magic                 = find_glyph_spell( "Glyph of Shadow Magic" );            //NYI
+  //glyphs.purify                       = find_glyph_spell( "Glyph of Purify" );                  //NYI
+  //glyphs.shadow_magic                 = find_glyph_spell( "Glyph of Shadow Magic" );            //NYI
   glyphs.smite                        = find_glyph_spell( "Glyph of Smite" );
 
   //Discipline
@@ -6070,26 +6200,26 @@ void priest_t::init_spells()
   glyphs.penance                      = find_glyph_spell( "Glyph of Penance" );
 
   //Holy
-  glyphs.binding_heal                 = find_glyph_spell( "Glyph of Binding Heal" );            //NYI
+  //glyphs.binding_heal                 = find_glyph_spell( "Glyph of Binding Heal" );            //NYI
   glyphs.circle_of_healing            = find_glyph_spell( "Glyph of Circle of Healing" );
   glyphs.deep_wells                   = find_glyph_spell( "Glyph of Deep Wells" );
-  glyphs.guardian_spirit              = find_glyph_spell( "Glyph of Guardian Spirit" );         //NYI
-  glyphs.lightwell                    = find_glyph_spell( "Glyph of Lightwell" );               //NYI
-  glyphs.redeemer                     = find_glyph_spell( "Glyph of the Redeemer" );            //NYI
+  //glyphs.guardian_spirit              = find_glyph_spell( "Glyph of Guardian Spirit" );         //NYI
+  //glyphs.lightwell                    = find_glyph_spell( "Glyph of Lightwell" );               //NYI
+  //glyphs.redeemer                     = find_glyph_spell( "Glyph of the Redeemer" );            //NYI
   glyphs.renew                        = find_glyph_spell( "Glyph of Renew" );
-  glyphs.spirit_of_redemption         = find_glyph_spell( "Glyph of Spirit of Redemption" );    //NYI
+  //glyphs.spirit_of_redemption         = find_glyph_spell( "Glyph of Spirit of Redemption" );    //NYI
 
   //Shadow
   glyphs.delayed_coalescence          = find_glyph_spell( "Glyph of Delayed Coalescence" );
   glyphs.dispersion                   = find_glyph_spell( "Glyph of Dispersion" );
-  glyphs.focused_mending              = find_glyph_spell( "Glyph of Focused Mending" );         //NYI
+  //glyphs.focused_mending              = find_glyph_spell( "Glyph of Focused Mending" );         //NYI
   glyphs.free_action                  = find_glyph_spell( "Glyph of Free Action" );
   glyphs.mind_blast                   = find_glyph_spell( "Glyph of Mind Blast" );
   glyphs.mind_flay                    = find_glyph_spell( "Glyph of Mind Flay" );
   glyphs.mind_harvest                 = find_glyph_spell( "Glyph of Mind Harvest" );
   glyphs.mind_spike                   = find_glyph_spell( "Glyph of Mind Spike" );
-  glyphs.miraculous_dispelling        = find_glyph_spell( "Glyph of Miraculous Dispelling" );   //NYI
-  glyphs.psychic_horror               = find_glyph_spell( "Glyph of Psychic Horror" );          //NYI
+  //glyphs.miraculous_dispelling        = find_glyph_spell( "Glyph of Miraculous Dispelling" );   //NYI
+  //glyphs.psychic_horror               = find_glyph_spell( "Glyph of Psychic Horror" );          //NYI
   glyphs.shadow_word_death            = find_glyph_spell( "Glyph of Shadow Word: Death" );
   glyphs.silence                      = find_glyph_spell( "Glyph of Silence" );                 //NYI
   glyphs.vampiric_embrace             = find_glyph_spell( "Glyph of Vampiric Embrace" );
@@ -6261,6 +6391,11 @@ void priest_t::create_buffs()
                      .chance( sets.has_set_bonus( PRIEST_DISCIPLINE, T18, B2 ) )
                      .add_invalidate( CACHE_PLAYER_DAMAGE_MULTIPLIER )
                      .add_invalidate( CACHE_PLAYER_HEAL_MULTIPLIER );
+
+  buffs.premonition = buff_creator_t( this, "premonition" )
+                       .spell( find_spell( 188779 ) )
+                       .chance( sets.has_set_bonus( PRIEST_SHADOW, T18, B4 ) )
+                       .add_invalidate( CACHE_MULTISTRIKE );
 
   //Glyphs
   buffs.glyph_of_levitate = buff_creator_t( this, "glyph_of_levitate", glyphs.levitate )
@@ -6466,6 +6601,7 @@ void priest_t::apl_shadow()
   }
 
   default_list -> add_action( "power_infusion,if=talent.power_infusion.enabled" );
+  default_list -> add_action( "silence,if=target.debuff.casting.react" );
 
   // Racials
   std::vector<std::string> racial_actions = get_racial_actions();
@@ -6476,7 +6612,7 @@ void priest_t::apl_shadow()
   default_list -> add_action( "call_action_list,name=decision" );
 
   // Choose which APL to use based on talents and fight conditions.
-  decision -> add_action( "call_action_list,name=main,if=!talent.clarity_of_power.enabled&!talent.void_entropy.enabled" );
+  decision -> add_action( "call_action_list,name=main,if=(!talent.clarity_of_power.enabled&!talent.void_entropy.enabled)|(talent.clarity_of_power.enabled&buff.bloodlust.up&buff.power_infusion.up)" );
   decision -> add_action( "call_action_list,name=vent,if=talent.void_entropy.enabled&!talent.clarity_of_power.enabled&!talent.auspicious_spirits.enabled" );
   decision -> add_action( "call_action_list,name=cop,if=talent.clarity_of_power.enabled&!talent.insanity.enabled" );
   decision -> add_action( "call_action_list,name=cop_dotweave,if=talent.clarity_of_power.enabled&talent.insanity.enabled&target.health.pct>20&active_enemies<=6" );
@@ -6497,10 +6633,11 @@ void priest_t::apl_shadow()
   main -> add_action( "devouring_plague,if=shadow_orb>=3&talent.auspicious_spirits.enabled&shadowy_apparitions_in_flight>=3" );
   main -> add_action( "devouring_plague,if=shadow_orb>=4&talent.auspicious_spirits.enabled&shadowy_apparitions_in_flight>=2" );
   main -> add_action( "devouring_plague,if=shadow_orb>=3&buff.mental_instinct.remains<gcd&buff.mental_instinct.remains>(gcd*0.7)&buff.mental_instinct.remains" );
-  main -> add_action( "devouring_plague,if=shadow_orb>=4&talent.auspicious_spirits.enabled&((cooldown.mind_blast.remains<gcd&!set_bonus.tier17_2pc)|(natural_shadow_word_death_range&cooldown.shadow_word_death.remains<gcd))&!target.dot.devouring_plague_tick.ticking&talent.surge_of_darkness.enabled,cycle_targets=1" );
-  main -> add_action( "devouring_plague,if=shadow_orb>=4&talent.auspicious_spirits.enabled&((cooldown.mind_blast.remains<gcd&!set_bonus.tier17_2pc)|(target.health.pct<20&cooldown.shadow_word_death.remains<gcd))" );
-  main -> add_action( "devouring_plague,if=shadow_orb>=3&!talent.auspicious_spirits.enabled&((cooldown.mind_blast.remains<gcd&!set_bonus.tier17_2pc)|(natural_shadow_word_death_range&cooldown.shadow_word_death.remains<gcd))&!target.dot.devouring_plague_tick.ticking&talent.surge_of_darkness.enabled,cycle_targets=1" );
-  main -> add_action( "devouring_plague,if=shadow_orb>=3&!talent.auspicious_spirits.enabled&((cooldown.mind_blast.remains<gcd&!set_bonus.tier17_2pc)|(target.health.pct<20&cooldown.shadow_word_death.remains<gcd))" );
+  main -> add_action( "devouring_plague,if=shadow_orb>=4&talent.auspicious_spirits.enabled&((cooldown.mind_blast.remains<gcd&!set_bonus.tier17_2pc&(!set_bonus.tier18_4pc&!talent.mindbender.enabled))|(natural_shadow_word_death_range&cooldown.shadow_word_death.remains<gcd))&!target.dot.devouring_plague_tick.ticking&talent.surge_of_darkness.enabled,cycle_targets=1" );
+  main -> add_action( "devouring_plague,if=shadow_orb>=4&talent.auspicious_spirits.enabled&((cooldown.mind_blast.remains<gcd&!set_bonus.tier17_2pc&(!set_bonus.tier18_4pc&!talent.mindbender.enabled))|(target.health.pct<20&cooldown.shadow_word_death.remains<gcd))" );
+  main -> add_action( "devouring_plague,if=shadow_orb>=3&!talent.auspicious_spirits.enabled&((cooldown.mind_blast.remains<gcd&!set_bonus.tier17_2pc&(!set_bonus.tier18_4pc&!talent.mindbender.enabled))|(natural_shadow_word_death_range&cooldown.shadow_word_death.remains<gcd))&!target.dot.devouring_plague_tick.ticking&talent.surge_of_darkness.enabled,cycle_targets=1" );
+  main -> add_action( "devouring_plague,if=shadow_orb>=3&!talent.auspicious_spirits.enabled&((cooldown.mind_blast.remains<gcd&!set_bonus.tier17_2pc&(!set_bonus.tier18_4pc&!talent.mindbender.enabled))|(target.health.pct<20&cooldown.shadow_word_death.remains<gcd))" );
+  main -> add_action( "devouring_plague,if=shadow_orb>=3&talent.auspicious_spirits.enabled&set_bonus.tier18_4pc&talent.mindbender.enabled&buff.premonition.up" );
   main -> add_action( "mind_blast,if=glyph.mind_harvest.enabled&mind_harvest=0,cycle_targets=1" );
   main -> add_action( "mind_blast,if=talent.auspicious_spirits.enabled&active_enemies<=4&cooldown_react" );
   main -> add_action( "shadow_word_pain,if=talent.auspicious_spirits.enabled&remains<(18*0.3)&target.time_to_die>(18*0.75)&miss_react,cycle_targets=1,max_cycle_targets=7" );
@@ -6511,19 +6648,24 @@ void priest_t::apl_shadow()
   main -> add_action( "insanity,chain=1,if=active_enemies<=2,interrupt_if=(cooldown.mind_blast.remains<=0.1|cooldown.shadow_word_death.remains<=0.1|shadow_orb=5)" );
   main -> add_action( "halo,if=talent.halo.enabled&target.distance<=30&active_enemies>2" );
   main -> add_action( "cascade,if=talent.cascade.enabled&active_enemies>2&target.distance<=40" );
-  main -> add_action( "divine_star,if=talent.divine_star.enabled&active_enemies>4&target.distance<=24" ); // TODO: Update enemies threshold after 6.1 is released
+  main -> add_action( "divine_star,if=talent.divine_star.enabled&active_enemies>4&target.distance<=24" );
   main -> add_action( "shadow_word_pain,if=!talent.auspicious_spirits.enabled&remains<(18*0.3)&target.time_to_die>(18*0.75)&miss_react&active_enemies<=5,cycle_targets=1,max_cycle_targets=5" );
   main -> add_action( "vampiric_touch,if=remains<(15*0.3+cast_time)&target.time_to_die>(15*0.75+cast_time)&miss_react&active_enemies<=5,cycle_targets=1,max_cycle_targets=5" );
   main -> add_action( "devouring_plague,if=!talent.void_entropy.enabled&shadow_orb>=3&ticks_remain<=1" );
+  main -> add_action( "mind_spike,if=buff.surge_of_darkness.react&active_enemies<=5&set_bonus.tier18_4pc&buff.premonition.up" );
   main -> add_action( "mind_spike,if=active_enemies<=5&buff.surge_of_darkness.react=3" );
   main -> add_action( "halo,if=talent.halo.enabled&target.distance<=30&target.distance>=17" );
   main -> add_action( "cascade,if=talent.cascade.enabled&(active_enemies>1|target.distance>=28)&target.distance<=40&target.distance>=11" );
   main -> add_action( "divine_star,if=talent.divine_star.enabled&(active_enemies>1&target.distance<=24)" );
   main -> add_action( "wait,sec=cooldown.shadow_word_death.remains,if=natural_shadow_word_death_range&cooldown.shadow_word_death.remains<0.5&active_enemies<=1,cycle_targets=1" );
   main -> add_action( "wait,sec=cooldown.mind_blast.remains,if=cooldown.mind_blast.remains<0.5&cooldown.mind_blast.remains&active_enemies<=1" );
-  main -> add_action( "mind_spike,if=buff.surge_of_darkness.react&active_enemies<=5" );
+  main -> add_action( "mind_spike,if=buff.surge_of_darkness.react&active_enemies<=5&!set_bonus.tier18_4pc" );
+  main -> add_action( "mind_spike,if=buff.surge_of_darkness.react&active_enemies<=5&set_bonus.tier18_4pc&buff.premonition.up" );
+  main -> add_action( "mind_spike,if=buff.surge_of_darkness.react&active_enemies<=5&set_bonus.tier18_4pc&cooldown.shadowfiend.remains<23" );
+  main -> add_action( "mind_spike,if=buff.surge_of_darkness.react&active_enemies<=5&set_bonus.tier18_4pc&cooldown.shadowfiend.remains>38&buff.surge_of_darkness.remains<(1.1*gcd*buff.surge_of_darkness.react)" );
   main -> add_action( "divine_star,if=talent.divine_star.enabled&target.distance<=28&active_enemies>1" );
   main -> add_action( "mind_sear,chain=1,if=active_enemies>=4,interrupt_if=(cooldown.mind_blast.remains<=0.1|cooldown.shadow_word_death.remains<=0.1|shadow_orb=5)" );
+  main -> add_action( "shadow_word_pain,if=talent.auspicious_spirits.enabled&remains<(18*0.9)&target.time_to_die>(18*0.75)&active_enemies>=3&miss_react,cycle_targets=1,max_cycle_targets=7" );
   main -> add_action( "shadow_word_pain,if=shadow_orb>=2&ticks_remain<=3&target.time_to_die>(18*0.75)&talent.insanity.enabled" );
   main -> add_action( "vampiric_touch,if=shadow_orb>=2&ticks_remain<=3.5&target.time_to_die>(15*0.75+cast_time)&talent.insanity.enabled" );
   main -> add_action( "mind_flay,chain=1,interrupt_if=(cooldown.mind_blast.remains<=0.1|cooldown.shadow_word_death.remains<=0.1|shadow_orb=5)" );
@@ -6535,6 +6677,8 @@ void priest_t::apl_shadow()
   main -> add_action( "shadow_word_pain,moving=1,cycle_targets=1" );
 
   // Void Entropy
+  vent -> add_action( "mindbender,if=set_bonus.tier18_2pc&talent.mindbender.enabled" );
+  vent -> add_action( "shadowfiend,if=set_bonus.tier18_2pc&!talent.mindbender.enabled" );
   vent -> add_action( "void_entropy,if=shadow_orb=3&!ticking&target.time_to_die>60&active_enemies=1" );
   vent -> add_action( "void_entropy,if=!dot.void_entropy.ticking&shadow_orb=5&active_enemies>=1&target.time_to_die>60,cycle_targets=1,max_cycle_targets=6" );
   vent -> add_action( "devouring_plague,if=shadow_orb=5&dot.void_entropy.ticking&dot.void_entropy.remains<=gcd*2&cooldown_react&active_enemies=1" );
@@ -6543,11 +6687,12 @@ void priest_t::apl_shadow()
   vent -> add_action( "devouring_plague,if=shadow_orb=5&dot.void_entropy.remains<10&active_enemies>2,cycle_targets=1" );
   vent -> add_action( "devouring_plague,if=shadow_orb=5&dot.void_entropy.remains<15&active_enemies>3,cycle_targets=1" );
   vent -> add_action( "devouring_plague,if=shadow_orb=5&dot.void_entropy.remains<20&active_enemies>4,cycle_targets=1" );
-  vent -> add_action( "devouring_plague,if=shadow_orb=5&dot.void_entropy.remains&(cooldown.mind_blast.remains<=gcd*2|(natural_shadow_word_death_range&cooldown.shadow_word_death.remains<=gcd*2))&active_enemies=1" );
-  vent -> add_action( "devouring_plague,if=shadow_orb=5&dot.void_entropy.remains&(cooldown.mind_blast.remains<=gcd*2|(natural_shadow_word_death_range&cooldown.shadow_word_death.remains<=gcd*2))&active_enemies>1,cycle_targets=1" );
+  vent -> add_action( "devouring_plague,if=shadow_orb=5&(dot.void_entropy.remains|target.time_to_die<=60)&(cooldown.mind_blast.remains<=gcd*2|(natural_shadow_word_death_range&cooldown.shadow_word_death.remains<=gcd*2))&active_enemies=1" );
+  vent -> add_action( "devouring_plague,if=shadow_orb=5&(dot.void_entropy.remains|target.time_to_die<=60)&(cooldown.mind_blast.remains<=gcd*2|(natural_shadow_word_death_range&cooldown.shadow_word_death.remains<=gcd*2))&active_enemies>1,cycle_targets=1" );
   vent -> add_action( "devouring_plague,if=shadow_orb>=3&dot.void_entropy.ticking&active_enemies=1&buff.mental_instinct.remains<(gcd*1.4)&buff.mental_instinct.remains>(gcd*0.7)&buff.mental_instinct.remains" );
-  vent -> add_action( "mindbender,if=talent.mindbender.enabled&cooldown.mind_blast.remains>=gcd" );
-  vent -> add_action( "shadowfiend,if=!talent.mindbender.enabled&cooldown.mind_blast.remains>=gcd" );
+  vent -> add_action( "devouring_plague,if=shadow_orb>=3&target.time_to_die<=gcd*4&active_enemies=1" );
+  vent -> add_action( "mindbender,if=!set_bonus.tier18_2pc&talent.mindbender.enabled&cooldown.mind_blast.remains>=gcd" );
+  vent -> add_action( "shadowfiend,if=!set_bonus.tier18_2pc&!talent.mindbender.enabled&cooldown.mind_blast.remains>=gcd" );
   vent -> add_action( "halo,if=talent.halo.enabled&target.distance<=30&active_enemies>=4" );
   vent -> add_action( "mind_blast,if=glyph.mind_harvest.enabled&mind_harvest=0&shadow_orb<=2,cycle_targets=1" );
   vent -> add_action( "devouring_plague,if=glyph.mind_harvest.enabled&mind_harvest=0&shadow_orb>=3,cycle_targets=1" );
@@ -6558,12 +6703,17 @@ void priest_t::apl_shadow()
   vent -> add_action( "shadow_word_pain,if=shadow_orb=4&remains<(18*0.50)&set_bonus.tier17_2pc&cooldown.mind_blast.remains<1.2*gcd&cooldown.mind_blast.remains>0.2*gcd" );
   vent -> add_action( "insanity,if=buff.insanity.remains<0.5*gcd&active_enemies<=3&cooldown.mind_blast.remains>0.5*gcd,chain=1,interrupt_if=(cooldown.mind_blast.remains<=0.1|cooldown.shadow_word_death.remains<=0.1)" );
   vent -> add_action( "insanity,chain=1,if=active_enemies<=3&cooldown.mind_blast.remains>0.5*gcd,interrupt_if=(cooldown.mind_blast.remains<=0.1|cooldown.shadow_word_death.remains<=0.1)" );
+  vent -> add_action( "mind_spike,if=buff.surge_of_darkness.react&active_enemies<=5&set_bonus.tier18_4pc&buff.premonition.up" );
   vent -> add_action( "mind_spike,if=active_enemies<=5&buff.surge_of_darkness.react=3" );
   vent -> add_action( "shadow_word_pain,if=remains<(18*0.3)&target.time_to_die>(18*0.75)&miss_react,cycle_targets=1,max_cycle_targets=5" );
   vent -> add_action( "vampiric_touch,if=remains<(15*0.3+cast_time)&target.time_to_die>(15*0.75+cast_time)&miss_react,cycle_targets=1,max_cycle_targets=5" );
   vent -> add_action( "halo,if=talent.halo.enabled&target.distance<=30&cooldown.mind_blast.remains>0.5*gcd" );
   vent -> add_action( "cascade,if=talent.cascade.enabled&target.distance<=40&cooldown.mind_blast.remains>0.5*gcd" );
-  vent -> add_action( "divine_star,if=talent.divine_star.enabled&active_enemies>4&target.distance<=24&cooldown.mind_blast.remains>0.5*gcd" ); // TODO: Update enemies threshold after 6.1 is released
+  vent -> add_action( "divine_star,if=talent.divine_star.enabled&active_enemies>4&target.distance<=24&cooldown.mind_blast.remains>0.5*gcd" );
+  vent -> add_action( "mind_spike,if=buff.surge_of_darkness.react&active_enemies<=5&!set_bonus.tier18_4pc" );
+  vent -> add_action( "mind_spike,if=buff.surge_of_darkness.react&active_enemies<=5&set_bonus.tier18_4pc&buff.premonition.up" );
+  vent -> add_action( "mind_spike,if=buff.surge_of_darkness.react&active_enemies<=5&set_bonus.tier18_4pc&cooldown.shadowfiend.remains<23" );
+  vent -> add_action( "mind_spike,if=buff.surge_of_darkness.react&active_enemies<=5&set_bonus.tier18_4pc&cooldown.shadowfiend.remains>38&buff.surge_of_darkness.remains<(1.1*gcd*buff.surge_of_darkness.react)" );
   vent -> add_action( "mind_spike,if=active_enemies<=5&buff.surge_of_darkness.react&cooldown.mind_blast.remains>0.5*gcd" );
   vent -> add_action( "mind_sear,chain=1,if=active_enemies>=3&cooldown.mind_blast.remains>0.5*gcd,interrupt_if=(cooldown.mind_blast.remains<=0.1|cooldown.shadow_word_death.remains<=0.1)" );
   vent -> add_action( "mind_flay,if=cooldown.mind_blast.remains>0.5*gcd,interrupt=1,chain=1" );
@@ -7130,16 +7280,12 @@ struct priest_module_t : public module_t
     return p;
   }
   virtual bool valid() const override { return true; }
-  virtual void init( sim_t* sim ) const override
+  virtual void init( player_t* p ) const override
   {
-    for ( size_t i = 0; i < sim -> actor_list.size(); i++ )
-    {
-      player_t* p = sim -> actor_list[ i ];
-      p -> buffs.guardian_spirit  = buff_creator_t( p, "guardian_spirit", p -> find_spell( 47788 ) ); // Let the ability handle the CD
-      p -> buffs.pain_supression  = buff_creator_t( p, "pain_supression", p -> find_spell( 33206 ) ); // Let the ability handle the CD
-      p -> buffs.naarus_discipline  = buff_creator_t( p, "naarus_discipline", p -> find_spell( 185103 ) );
-      p -> buffs.weakened_soul    = new buffs::weakened_soul_t( p );
-    }
+    p -> buffs.guardian_spirit  = buff_creator_t( p, "guardian_spirit", p -> find_spell( 47788 ) ); // Let the ability handle the CD
+    p -> buffs.pain_supression  = buff_creator_t( p, "pain_supression", p -> find_spell( 33206 ) ); // Let the ability handle the CD
+    p -> buffs.naarus_discipline  = buff_creator_t( p, "naarus_discipline", p -> find_spell( 185103 ) );
+    p -> buffs.weakened_soul    = new buffs::weakened_soul_t( p );
   }
   virtual void static_init() const override
   {

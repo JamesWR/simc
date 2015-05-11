@@ -131,6 +131,7 @@ double monk_weapon_damage( action_t* action,
   {
     assert( mh -> slot != SLOT_OFF_HAND );
     double dmg = sim -> averaged_range( mh -> min_dmg, mh -> max_dmg ) + mh -> bonus_dmg;
+      
     dmg /= mh -> swing_time.total_seconds();
     total_dmg += dmg;
 
@@ -148,6 +149,7 @@ double monk_weapon_damage( action_t* action,
   {
     assert( oh -> slot == SLOT_OFF_HAND );
     double dmg = sim -> averaged_range( oh -> min_dmg, oh -> max_dmg ) + oh -> bonus_dmg;
+      
     dmg /= oh -> swing_time.total_seconds();
     // OH penalty
     dmg *= 0.5;
@@ -359,6 +361,7 @@ public:
     const spell_data_t* way_of_the_monk_aa_speed;
     const spell_data_t* zen_meditaiton;
     const spell_data_t* fortifying_brew;
+    const spell_data_t* expel_harm_damage;
     // Brewmaster
     const spell_data_t* bladed_armor;
     const spell_data_t* breath_of_fire;
@@ -521,6 +524,7 @@ public:
     light_stagger_threshold( 0 ),
     moderate_stagger_threshold( 0.035 ),
     heavy_stagger_threshold( 0.065 ),
+    weapon_power_mod( 0 ),
     eluding_movements( 0 ),
     soothing_breeze( 0 ),
     furious_sun( 0 )
@@ -623,6 +627,7 @@ public:
   const double light_stagger_threshold;
   const double moderate_stagger_threshold;
   const double heavy_stagger_threshold;
+  double weapon_power_mod;
   double  clear_stagger();
   bool  has_stagger();
 
@@ -1203,7 +1208,7 @@ struct storm_earth_and_fire_pet_t : public pet_t
     sef_fists_of_fury_t( storm_earth_and_fire_pet_t* player ) :
       sef_melee_attack_t( "fists_of_fury", player, player -> o() -> find_specialization_spell( "Fists of Fury" ) )
     {
-      channeled = tick_zero = interrupt_auto_attack = true;
+      channeled = tick_zero = true;
       may_crit = may_miss = may_block = may_dodge = may_parry = callbacks = false;
 
       weapon_power_mod = 0;
@@ -1984,9 +1989,14 @@ struct monk_spell_t: public monk_action_t < spell_t >
   virtual double composite_target_multiplier( player_t* t ) const
   {
     double m = base_t::composite_target_multiplier( t );
+    double d_rsk = td( t ) -> debuff.rising_sun_kick -> default_value;
 
-    if ( td( t ) -> debuff.rising_sun_kick -> check() )
-      m *= 1.0 + td( t ) -> debuff.rising_sun_kick -> data().effectN( 1 ).percent();
+    // Your Rising Sun Kick increases the damage the target receives from your abilities by an additional 6%.
+    if ( maybe_ptr( p() -> dbc.ptr ) &&  p() -> sets.has_set_bonus( MONK_MISTWEAVER, T18, B2 ) )
+      d_rsk += p() -> sets.set( MONK_MISTWEAVER, T18, B2 ) -> effectN( 2 ).percent();
+
+    if ( td( t ) -> debuff.rising_sun_kick -> check() && special )
+      m *= 1.0 + d_rsk;
 
     return m;
   }
@@ -2042,6 +2052,9 @@ struct monk_melee_attack_t: public monk_action_t < melee_attack_t >
   // Both MH and OH are directly weaved into one damage number
   virtual double calculate_weapon_damage( double ap )
   {
+    // For use with the spell Expel Harm since Weapon Power Mod does not seem to be available for spells
+    if (p() -> weapon_power_mod == 0)
+      p() -> weapon_power_mod = weapon_power_mod;
     // Use monk specific weapon damage calculation if mh or oh (monk specific weapons) are
     // specificed.
     if ( mh || oh )
@@ -2054,9 +2067,14 @@ struct monk_melee_attack_t: public monk_action_t < melee_attack_t >
   virtual double composite_target_multiplier( player_t* t ) const
   {
     double m = base_t::composite_target_multiplier( t );
+    double d_rsk = td( t ) -> debuff.rising_sun_kick -> default_value;
+
+    // Your Rising Sun Kick increases the damage the target receives from your abilities by an additional 6%.
+    if ( maybe_ptr( p() -> dbc.ptr ) && p() -> sets.has_set_bonus( MONK_MISTWEAVER, T18, B2 ) )
+      d_rsk += p() -> sets.set( MONK_MISTWEAVER, T18, B2 ) -> effectN( 2 ).percent();
 
     if ( td( t ) -> debuff.rising_sun_kick -> check() && special )
-      m *= 1.0 + td( t ) -> debuff.rising_sun_kick -> data().effectN( 1 ).percent();
+      m *= 1.0 + d_rsk;
 
     return m;
   }
@@ -2170,7 +2188,7 @@ struct tiger_palm_t: public monk_melee_attack_t
     stancemask = STURDY_OX | FIERCE_TIGER | SPIRITED_CRANE;
     mh = &( player -> main_hand_weapon );
     oh = &( player -> off_hand_weapon );
-    base_multiplier = 3;
+    base_multiplier = 3.6;
     if ( maybe_ptr( p -> dbc.ptr ) )
       base_multiplier = 3.42; // hardcoded into tooltip
     if ( p -> specialization() == MONK_MISTWEAVER )
@@ -2753,6 +2771,7 @@ struct tick_action_t : public monk_melee_attack_t
     aoe = -1;
     mh = &( player -> main_hand_weapon );
     oh = &( player -> off_hand_weapon );
+    radius = 10.0;
 
     // Reset some variables to ensure proper execution
     dot_duration = timespan_t::zero();
@@ -2956,7 +2975,6 @@ struct fists_of_fury_t: public monk_melee_attack_t
 
     channeled = tick_zero = true;
     may_crit = may_miss = may_block = may_dodge = may_parry = callbacks = false;
-    interrupt_auto_attack = true;
 
     base_multiplier *= 7.755; // hardcoded into tooltip
     if ( maybe_ptr( p -> dbc.ptr ) )
@@ -3392,73 +3410,6 @@ struct touch_of_karma_t: public monk_melee_attack_t
 };
 
 // ==========================================================================
-// Expel Harm
-// ==========================================================================
-
-struct expel_harm_t: public monk_melee_attack_t
-{
-  double result_total;
-  expel_harm_t( monk_t* p ):
-    monk_melee_attack_t( "expel_harm", p, p -> find_class_spell( "Expel Harm" ) )
-  {
-    stancemask = STURDY_OX | FIERCE_TIGER | SPIRITED_CRANE;
-    background = true;
-    may_crit = may_block = false;
-
-    mh = &( player -> main_hand_weapon );
-    oh = &( player -> off_hand_weapon );
-
-    base_multiplier = 7.5; // hardcoded into tooltip
-    base_multiplier *= p -> find_spell( 115129 ) -> effectN( 2 ).percent(); // 33% of the heal is done as damage
-
-    if ( p -> glyph.targeted_expulsion -> ok() )
-      base_multiplier *= 1.0 - p -> glyph.targeted_expulsion -> effectN( 2 ).percent();
-    spell_power_mod.direct = 0.0;
-  }
-
-  virtual double cost() const
-  {
-    double c = monk_melee_attack_t::cost();
-    if ( player -> health_percentage() < 35 && p() -> glyph.expel_harm -> ok() )
-      c += p() -> glyph.expel_harm -> effectN( 1 ).base_value();
-
-    return c;
-  }
-
-  void execute()
-  {
-    monk_melee_attack_t::execute();
-
-    if ( p() -> buff.power_strikes -> up() )
-    {
-      if ( p() -> resources.current[RESOURCE_CHI] < p() -> resources.max[RESOURCE_CHI] )
-        p() -> resource_gain( RESOURCE_CHI,
-        p() -> buff.power_strikes -> default_value,
-        0, this );
-      else
-        p() -> buff.chi_sphere -> trigger();
-
-      p() -> buff.power_strikes -> expire();
-    }
-    if ( maybe_ptr( p() -> dbc.ptr ) &&  p() -> sets.has_set_bonus( MONK_BREWMASTER, T18, B4 ) && p() -> cooldown.guard -> down() )
-      p() -> cooldown.guard -> duration + p() -> sets.set( MONK_BREWMASTER, T18, B4 ) -> effectN( 1 ).time_value(); // T18 set bonus is saved as "-5000"
-  }
-
-  double trigger_attack()
-  {
-    execute();
-    return result_total;
-  }
-
-  void impact( action_state_t* s )
-  {
-    monk_melee_attack_t::impact( s );
-
-    result_total = s -> result_total;
-  }
-};
-
-// ==========================================================================
 // Provoke
 // ==========================================================================
 
@@ -3853,18 +3804,26 @@ struct serenity_t: public monk_spell_t
 struct summon_pet_t: public monk_spell_t
 {
   timespan_t summoning_duration;
+  std::string pet_name;
   pet_t* pet;
 
 public:
-  summon_pet_t( const std::string& n, const std::string& pet_name, monk_t* p, const spell_data_t* sd = spell_data_t::nil() ):
+  summon_pet_t( const std::string& n, const std::string& pname, monk_t* p, const spell_data_t* sd = spell_data_t::nil() ):
     monk_spell_t( n, p, sd ),
-    summoning_duration( timespan_t::zero() ),
-    pet( p -> find_pet( pet_name ) )
+    summoning_duration( timespan_t::zero() ), pet_name( pname ), pet( 0 )
   {
     harmful = false;
+  }
 
-    if ( !pet )
-      sim -> errorf( "Player %s unable to find pet %s for summons.\n", player -> name(), pet_name.c_str() );
+  bool init_finished()
+  {
+    pet = player -> find_pet( pet_name );
+    if ( ! pet )
+    {
+      background = true;
+    }
+
+    return monk_spell_t::init_finished();
   }
 
   virtual void execute()
@@ -3872,6 +3831,15 @@ public:
     pet -> summon( summoning_duration );
 
     monk_spell_t::execute();
+  }
+
+  bool ready()
+  {
+    if ( ! pet )
+    {
+      return false;
+    }
+    return monk_spell_t::ready();
   }
 };
 
@@ -4076,7 +4044,10 @@ struct breath_of_fire_t: public monk_spell_t
     monk_td_t& td = *this -> td( s -> target );
     // Improved Breath of Fire
     if ( ( td.debuff.dizzying_haze -> up() ) || p() -> perk.improved_breath_of_fire -> ok() )
+    {
+      dot_action -> target = s -> target;
       dot_action -> execute();
+    }
   }
 };
 
@@ -4532,60 +4503,75 @@ struct enveloping_mist_t: public monk_heal_t
 };
 
 // ==========================================================================
-// Expel Harm (Heal)
+// Expel Harm
 // ==========================================================================
-/*
-TODO: Verify healing values.
-*/
 
-struct expel_harm_heal_t: public monk_heal_t
+struct expel_harm_damage_t : public monk_spell_t
 {
-  attacks::expel_harm_t* attack;
-  action_t* action;
+  expel_harm_damage_t(monk_t* p) :
+    monk_spell_t( "expel_harm", p, p -> spec.expel_harm_damage )
+  {
+    background = true;
+    may_crit = false;
+    base_multiplier = p -> spec.expel_harm_damage -> effectN( 2 ).percent();
+    trigger_gcd = timespan_t::zero();
+  }
+};
+
+struct expel_harm_heal_t : public monk_heal_t
+{
+  expel_harm_damage_t* damage;
   expel_harm_heal_t( monk_t& p, const std::string& options_str ):
     monk_heal_t( "expel_harm_heal", p, p.find_class_spell( "Expel Harm" ) ),
-    action( 0 )
+    damage( new expel_harm_damage_t( &p ) )
   {
     parse_options( options_str );
 
     stancemask = STURDY_OX | FIERCE_TIGER | SPIRITED_CRANE;
-    if ( !p.glyph.targeted_expulsion -> ok() )
-      target = &p;
+
     base_multiplier = 7.5;
 
-    attack = new attacks::expel_harm_t( &p );
+    if ( p.glyph.targeted_expulsion -> ok() )
+      base_multiplier *= 1.0 - p.glyph.targeted_expulsion -> effectN( 2 ).percent();
 
-    action = this;
-
-    if ( p.specialization() == MONK_MISTWEAVER )
-      base_costs[RESOURCE_MANA] = 0;
-    else
-      base_costs[RESOURCE_ENERGY] = 0;
+    may_crit = true;
+    may_multistrike = 1;
+    base_dd_min = base_dd_max = 1;
   }
 
-  virtual double action_multiplier() const
+  void init()
   {
-    double am = monk_heal_t::action_multiplier();
+    monk_heal_t::init();
 
-    weapon_t mh = p() -> main_hand_weapon;
-    weapon_t oh = p() -> off_hand_weapon;
-      
-    double weapon_damage = monk_util::monk_weapon_damage( action, &( mh ), &( oh ), weapon_power_mod, 
-      (p() -> specialization() == MONK_MISTWEAVER ? p() -> composite_spell_power( SCHOOL_MAX ) : p() -> composite_melee_attack_power() ) );
-    am *= weapon_damage;
+    if ( p() -> specialization() == MONK_BREWMASTER )
+      snapshot_flags |= STATE_RESOLVE;
+  }
 
-    return am;
+  virtual double cost() const
+  {
+    double c = monk_heal_t::cost();
+    if ( player -> health_percentage() < 35 && p() -> glyph.expel_harm -> ok() )
+      c += p() -> glyph.expel_harm -> effectN( 1 ).base_value();
+
+    return c;
   }
 
   void impact( action_state_t* s )
   {
     monk_heal_t::impact( s );
     summon_gots_orb( 1.00 );
+
+    damage -> base_dd_min = damage -> base_dd_max = s -> result_total;
+    damage -> execute();
   }
 
   virtual void execute()
   {
-    base_dd_min = base_dd_max = attack -> trigger_attack();
+    weapon_t mh = p() -> main_hand_weapon;
+    weapon_t oh = p() -> off_hand_weapon;
+
+    base_dd_min = base_dd_max = monk_util::monk_weapon_damage( this, &( mh ), &( oh ), p() -> weapon_power_mod,
+      ( p() -> specialization() == MONK_MISTWEAVER ? p() -> composite_spell_power( SCHOOL_MAX ) : p() -> composite_melee_attack_power() ) );
 
     monk_heal_t::execute();
 
@@ -4600,6 +4586,23 @@ struct expel_harm_heal_t: public monk_heal_t
       p() -> resource_gain( RESOURCE_ENERGY, p() -> passives.tier15_2pc_melee -> effectN( 1 ).base_value(), p() -> gain.tier15_2pc_melee );
       p() -> proc.tier15_2pc_melee -> occur();
     }
+
+    // Power Strike manipulation
+    if ( p() -> buff.power_strikes -> up() )
+    {
+      if ( p() -> resources.current[RESOURCE_CHI] < p() -> resources.max[RESOURCE_CHI] )
+        p() -> resource_gain( RESOURCE_CHI,
+        p() -> buff.power_strikes -> default_value,
+        0, this );
+      else
+        p() -> buff.chi_sphere -> trigger();
+
+      p() -> buff.power_strikes -> expire();
+    }
+
+    // Every time you use Expel Harm, the remaining cooldown of your Guard is reduced by 5 sec.
+    if ( maybe_ptr( p() -> dbc.ptr ) &&  p() -> sets.has_set_bonus( MONK_BREWMASTER, T18, B4 ) && p() -> cooldown.guard -> down() )
+      p() -> cooldown.guard -> duration + p() -> sets.set( MONK_BREWMASTER, T18, B4 ) -> effectN( 1 ).time_value(); // T18 set bonus is saved as "-5000"
   }
 };
 
@@ -4884,6 +4887,7 @@ struct gift_of_the_ox_t: public monk_heal_t
   {
     parse_options( options_str );
     harmful = false;
+    background = true;
     trigger_gcd = timespan_t::zero();
   }
 
@@ -4908,6 +4912,7 @@ struct healing_elixirs_t: public monk_heal_t
     monk_heal_t( "healing_elixirs", p, p.talent.healing_elixirs )
   {
     harmful = may_crit = false;
+    background = true;
     may_multistrike = 0;
     trigger_gcd = timespan_t::zero();
     pct_heal = p.passives.healing_elixirs -> effectN( 1 ).percent();
@@ -4926,6 +4931,7 @@ struct healing_sphere_t: public monk_heal_t
     monk_heal_t( "healing_sphere", p, p.spec.healing_sphere )
   {
     harmful = false;
+    background = true;
     trigger_gcd = timespan_t::zero();
     cooldown -> duration = timespan_t::from_seconds( p.glyph.fortuitous_spheres -> effectN( 2 ).base_value() );
   }
@@ -5064,9 +5070,14 @@ dots( dots_t() ),
 debuff( buffs_t() ),
 monk( *p )
 {
-  debuff.rising_sun_kick = buff_creator_t( *this, "rising_sun_kick" ).spell( p -> find_spell( 130320 ) );
-  debuff.dizzying_haze = buff_creator_t( *this, "dizzying_haze" ).spell( p -> find_spell( 123727 ) );
-  debuff.storm_earth_and_fire = buff_creator_t( *this, "storm_earth_and_fire_target" ).cd( timespan_t::zero() );
+  debuff.rising_sun_kick = buff_creator_t( *this, "rising_sun_kick" )
+    .spell( p -> find_spell( 130320 ) )
+    .default_value( p -> find_spell( 130320 ) -> effectN( 1 ).percent() );
+  debuff.dizzying_haze = buff_creator_t( *this, "dizzying_haze" )
+    .spell( p -> find_spell( 116330 ) )
+    .default_value( p -> find_spell( 116330 ) -> effectN( 1 ).percent() );
+  debuff.storm_earth_and_fire = buff_creator_t( *this, "storm_earth_and_fire_target" )
+    .cd( timespan_t::zero() );
 
   dots.enveloping_mist = target -> get_dot( "enveloping_mist", p );
   dots.renewing_mist = target -> get_dot( "renewing_mist", p );
@@ -5150,9 +5161,12 @@ void monk_t::create_pets()
 {
   base_t::create_pets();
 
-  create_pet( "xuen_the_white_tiger" );
+  if ( talent.invoke_xuen -> ok() && find_action( "invoke_xuen" ) )
+  {
+    create_pet( "xuen_the_white_tiger" );
+  }
 
-  if ( specialization() == MONK_WINDWALKER )
+  if ( specialization() == MONK_WINDWALKER && find_action( "storm_earth_and_fire" ) )
   {
     pet.sef[ SEF_FIRE ] = new pets::storm_earth_and_fire_pet_t( "fire_spirit", sim, this, true );
     pet.sef[ SEF_STORM ] = new pets::storm_earth_and_fire_pet_t( "storm_spirit", sim, this, true );
@@ -5220,6 +5234,7 @@ void monk_t::init_spells()
   spec.way_of_the_monk_aa_damage     = find_spell( 108977 );
   spec.way_of_the_monk_aa_speed      = find_spell( 140737 );
   spec.fortifying_brew               = find_class_spell( "Fortifying Brew" );
+  spec.expel_harm_damage             = find_spell( 115129 );
 
   // Windwalker Passives
   spec.brewing_tigereye_brew         = find_specialization_spell( "Brewing: Tigereye Brew" );
@@ -7082,14 +7097,11 @@ struct monk_module_t: public module_t
     unique_gear::register_special_effect( 184908, furious_sun );
   }
 
-  virtual void init( sim_t* sim ) const
+  virtual void init( player_t* p ) const
   {
-    for ( unsigned int i = 0; i < sim -> actor_list.size(); i++ )
-    {
-      player_t* p = sim -> actor_list[i];
-      p -> buffs.fierce_tiger_movement_aura = buff_creator_t( p, "fierce_tiger_movement_aura", p -> find_spell( 103985 ) )
-        .duration( timespan_t::from_seconds( 0 ) );
-    }
+    p -> buffs.fierce_tiger_movement_aura = buff_creator_t( p, "fierce_tiger_movement_aura",
+                                                            p -> find_spell( 103985 ) )
+      .duration( timespan_t::from_seconds( 0 ) );
   }
   virtual void combat_begin( sim_t* ) const {}
   virtual void combat_end( sim_t* ) const {}

@@ -80,12 +80,13 @@ namespace item
   void spellbound_solium_band( special_effect_t& );
 
   /* Warlords of Draenor 6.2 */
-  void agi_dps_trinket_3( special_effect_t& );
+  void discordant_chorus( special_effect_t& );
+  void empty_drinking_horn( special_effect_t& );
   void insatiable_hunger( special_effect_t& );
-  void int_dps_trinket_3( special_effect_t& );
-  void int_dps_trinket_4( special_effect_t& );
-  void str_dps_trinket_3( special_effect_t& );
-  void str_dps_trinket_4( special_effect_t& );
+  void mirror_of_the_blademaster( special_effect_t& );
+  void prophecy_of_fear( special_effect_t& );
+  void soul_capacitor( special_effect_t& );
+  void unblinking_gaze_of_sethe( special_effect_t& );
 }
 
 namespace gem
@@ -2157,9 +2158,9 @@ struct fel_burn_t : public debuff_t
   }
 };
 
-struct str_dps_trinket_4_damage_t : public melee_attack_t
+struct empty_drinking_horn_damage_t : public melee_attack_t
 {
-  str_dps_trinket_4_damage_t( const special_effect_t& effect  ) :
+  empty_drinking_horn_damage_t( const special_effect_t& effect  ) :
     melee_attack_t( "fel_burn", effect.player, effect.player -> find_spell( 184256 ) )
   {
     background = special = tick_may_crit = true;
@@ -2180,10 +2181,10 @@ struct str_dps_trinket_4_damage_t : public melee_attack_t
   }
 };
 
-struct str_dps_trinket_4_cb_t : public dbc_proc_callback_t
+struct empty_drinking_horn_cb_t : public dbc_proc_callback_t
 {
   action_t* burn;
-  str_dps_trinket_4_cb_t( const special_effect_t& effect ):
+  empty_drinking_horn_cb_t( const special_effect_t& effect ):
     dbc_proc_callback_t( effect.player, effect )
   {
     burn = effect.player -> find_action( "fel_burn" );
@@ -2194,7 +2195,7 @@ struct str_dps_trinket_4_cb_t : public dbc_proc_callback_t
 
     if ( !burn )
     {
-      burn = new str_dps_trinket_4_damage_t( effect );
+      burn = new empty_drinking_horn_damage_t( effect );
     }
   }
 
@@ -2220,18 +2221,18 @@ struct str_dps_trinket_4_cb_t : public dbc_proc_callback_t
   }
 };
 
-void item::str_dps_trinket_4( special_effect_t& effect )
+void item::empty_drinking_horn( special_effect_t& effect )
 {
   effect.proc_flags2_ = PF2_ALL_HIT;
 
-  new str_dps_trinket_4_cb_t( effect );
+  new empty_drinking_horn_cb_t( effect );
 }
 
-void item::str_dps_trinket_3( special_effect_t& effect )
+void item::discordant_chorus( special_effect_t& effect )
 {
-  struct str_dps_trinket_3_damage_t: public melee_attack_t
+  struct fel_cleave_t: public melee_attack_t
   {
-    str_dps_trinket_3_damage_t( const special_effect_t& effect ):
+    fel_cleave_t( const special_effect_t& effect ):
       melee_attack_t( "fel_cleave", effect.player, effect.driver() -> effectN( 1 ).trigger() )
     {
       background = special = may_crit = true;
@@ -2250,7 +2251,7 @@ void item::str_dps_trinket_3( special_effect_t& effect )
 
   if ( !action )
   {
-    action = new str_dps_trinket_3_damage_t( effect );
+    action = new fel_cleave_t( effect );
   }
 
   effect.execute_action = action;
@@ -2343,10 +2344,10 @@ void item::insatiable_hunger( special_effect_t& effect )
   new dbc_proc_callback_t( effect.player, effect );
 }
 
-// Int DPS 4 trinket base driver, handles the proccing (triggering) of Mark of Doom on targets
-struct int_dps_trinket_4_driver_t : public dbc_proc_callback_t
+// Prophecy of Fear base driver, handles the proccing (triggering) of Mark of Doom on targets
+struct prophecy_of_fear_driver_t : public dbc_proc_callback_t
 {
-  int_dps_trinket_4_driver_t( const special_effect_t& effect ) :
+  prophecy_of_fear_driver_t( const special_effect_t& effect ) :
     dbc_proc_callback_t( effect.player, effect )
   { }
 
@@ -2382,11 +2383,11 @@ struct int_dps_trinket_4_driver_t : public dbc_proc_callback_t
   }
 };
 
-void item::int_dps_trinket_4( special_effect_t& effect )
+void item::prophecy_of_fear( special_effect_t& effect )
 {
   effect.proc_flags2_ = PF2_ALL_HIT;
 
-  new int_dps_trinket_4_driver_t( effect );
+  new prophecy_of_fear_driver_t( effect );
 }
 
 struct darklight_ray_t : public spell_t
@@ -2403,7 +2404,7 @@ struct darklight_ray_t : public spell_t
   }
 };
 
-void item::int_dps_trinket_3( special_effect_t& effect )
+void item::unblinking_gaze_of_sethe( special_effect_t& effect )
 {
   action_t* action = effect.player -> find_action( "darklight_ray" );
   if ( ! action )
@@ -2422,13 +2423,11 @@ void item::int_dps_trinket_3( special_effect_t& effect )
   new dbc_proc_callback_t( effect.player, effect );
 }
 
-// Agi DPS Trinket 3
-
-struct agi_dps_trinket_3_cb_t : public dbc_proc_callback_t
+struct soul_capacitor_cb_t : public dbc_proc_callback_t
 {
   double stored_value;
 
-  agi_dps_trinket_3_cb_t( const special_effect_t& effect ) :
+  soul_capacitor_cb_t( const special_effect_t& effect ) :
     dbc_proc_callback_t( effect.player, effect ), stored_value( 0 )
   { }
 
@@ -2459,11 +2458,11 @@ struct agi_dps_trinket_3_cb_t : public dbc_proc_callback_t
   }
 };
 
-struct agi_dps_trinket_3_explosion_t : public spell_t
+struct soul_capacitor_explosion_t : public spell_t
 {
   double explosion_multiplier;
 
-  agi_dps_trinket_3_explosion_t( player_t* player, special_effect_t& effect ) :
+  soul_capacitor_explosion_t( player_t* player, special_effect_t& effect ) :
     spell_t( "spirit_eruption", player, player -> find_spell( 184559 ) ),
     explosion_multiplier( 0 )
   {
@@ -2487,15 +2486,15 @@ struct agi_dps_trinket_3_explosion_t : public spell_t
   }
 };
 
-struct agi_dps_trinket_3_buff_t : public buff_t
+struct soul_capacitor_buff_t : public buff_t
 {
   // Explosion here
   spell_t* explosion;
-  agi_dps_trinket_3_cb_t* cb;
+  soul_capacitor_cb_t* cb;
 
-  agi_dps_trinket_3_buff_t( player_t* player, special_effect_t& effect ) :
+  soul_capacitor_buff_t( player_t* player, special_effect_t& effect ) :
     buff_t( buff_creator_t( player, "spirit_shift", player -> find_spell( 184293 ) ) ),
-    explosion( new agi_dps_trinket_3_explosion_t( player, effect ) ), cb( 0 )
+    explosion( new soul_capacitor_explosion_t( player, effect ) ), cb( 0 )
   {
     player -> buffs.spirit_shift = this;
   }
@@ -2528,15 +2527,15 @@ struct agi_dps_trinket_3_buff_t : public buff_t
   }
 };
 
-static void initialize_agi_dps_trinket_3( special_effect_t& effect )
+static void initialize_soul_capacitor( special_effect_t& effect )
 {
-  agi_dps_trinket_3_cb_t* damage_cb = new agi_dps_trinket_3_cb_t( effect );
-  static_cast<agi_dps_trinket_3_buff_t*>( effect.custom_buff ) -> cb = damage_cb;
+  soul_capacitor_cb_t* damage_cb = new soul_capacitor_cb_t( effect );
+  static_cast<soul_capacitor_buff_t*>( effect.custom_buff ) -> cb = damage_cb;
 }
 
-void item::agi_dps_trinket_3( special_effect_t& effect )
+void item::soul_capacitor( special_effect_t& effect )
 {
-  effect.custom_buff = new agi_dps_trinket_3_buff_t( effect.player, effect );
+  effect.custom_buff = new soul_capacitor_buff_t( effect.player, effect );
 
   special_effect_t damage_effect( effect.player );
   damage_effect.name_str = "spirit_shift";
@@ -2545,11 +2544,145 @@ void item::agi_dps_trinket_3( special_effect_t& effect )
   damage_effect.proc_flags_ = PF_ALL_DAMAGE | PF_PERIODIC;
   damage_effect.proc_flags2_ = PF2_ALL_HIT | PF2_ALL_MULTISTRIKE;
   damage_effect.custom_buff = effect.custom_buff;
-  damage_effect.custom_init = initialize_agi_dps_trinket_3;
+  damage_effect.custom_init = initialize_soul_capacitor;
 
   effect.player -> special_effects.push_back( new special_effect_t( damage_effect ) );
 
   new dbc_proc_callback_t( effect.player, effect );
+}
+
+struct felstorm_tick_t : public melee_attack_t
+{
+  felstorm_tick_t( pet_t* p ) :
+    melee_attack_t( "felstorm_tick", p, p -> find_spell( 184280 ) )
+  {
+    school = SCHOOL_PHYSICAL;
+
+    background = special = may_crit = true;
+    callbacks = false;
+    aoe = -1;
+
+    weapon = &( p -> main_hand_weapon );
+  }
+
+  bool init_finished()
+  {
+    // Find first blademaster pet, it'll be the first trinket-created pet
+    pet_t* main_pet = player -> cast_pet() -> owner -> find_pet( "mirror_image_(trinket)" );
+    if ( player != main_pet )
+    {
+      stats = main_pet -> find_action( "felstorm_tick" ) -> stats;
+    }
+
+    return melee_attack_t::init_finished();
+  }
+};
+
+struct felstorm_t : public melee_attack_t
+{
+  felstorm_t( pet_t* p ) :
+    melee_attack_t( "felstorm", p, p -> find_spell( 184279 ) )
+  {
+    callbacks = may_miss = false;
+    channeled = true;
+
+    tick_action = new felstorm_tick_t( p );
+  }
+
+  bool init_finished()
+  {
+    pet_t* main_pet = player -> cast_pet() -> owner -> find_pet( "mirror_image_(trinket)" );
+    if ( player != main_pet )
+    {
+      stats = main_pet -> find_action( "felstorm" ) -> stats;
+    }
+
+    return melee_attack_t::init_finished();
+  }
+};
+
+struct blademaster_pet_t : public pet_t
+{
+  blademaster_pet_t( player_t* owner ) :
+    pet_t( owner -> sim, owner, "mirror_image_(trinket)", true, true )
+  {
+    main_hand_weapon.type = WEAPON_BEAST;
+    // TODO: Verify in-game
+    main_hand_weapon.swing_time = timespan_t::from_seconds( 2.0 );
+
+    // TODO: Verify in-game, this is also likely the thing that scales the pets
+    owner_coeff.ap_from_ap = 1.0;
+  }
+
+  void init_action_list()
+  {
+    action_list_str = "felstorm";
+
+    pet_t::init_action_list();
+  }
+
+  action_t* create_action( const std::string& name,
+                           const std::string& options_str )
+  {
+    if ( name == "felstorm" ) return new felstorm_t( this );
+
+    return pet_t::create_action( name, options_str );
+  }
+};
+
+struct burning_mirror_t : public spell_t
+{
+  size_t n_mirrors;
+  std::vector<blademaster_pet_t*> pets;
+  const spell_data_t* summon_spell;
+
+  burning_mirror_t( const special_effect_t& effect ) :
+    spell_t( "burning_mirror", effect.player, effect.driver() ),
+    n_mirrors( static_cast<size_t>( effect.driver() -> effectN( 1 ).base_value() ) ),
+    summon_spell( effect.player -> find_spell( 184271 ) )
+  {
+    background = true;
+    may_miss = may_crit = callbacks = harmful = false;
+
+    if ( effect.player -> specialization() == HUNTER_BEAST_MASTERY )
+    {
+      n_mirrors /= 2;
+    }
+
+    for ( size_t i = 0; i < n_mirrors; ++i )
+    {
+      pets.push_back( new blademaster_pet_t( effect.player ) );
+    }
+  }
+
+  void execute()
+  {
+    spell_t::execute();
+
+    for ( size_t i = 0; i < n_mirrors; ++i )
+    {
+      pets[ i ] -> summon( summon_spell -> duration() );
+    }
+  }
+};
+
+void item::mirror_of_the_blademaster( special_effect_t& effect )
+{
+  action_t* action = effect.player -> find_action( "burning_mirror" );
+  if ( ! action )
+  {
+    action = effect.player -> create_proc_action( "burning_mirror", effect );
+  }
+
+  if ( ! action )
+  {
+    action = new burning_mirror_t( effect );
+  }
+
+  effect.execute_action = action;
+  // Changing the special effect type to _USE (from _CUSTOM) is necessary so use_item_t action can
+  // properly detect the special effect.
+  effect.type = SPECIAL_EFFECT_USE;
 }
 
 } // UNNAMED NAMESPACE
@@ -3165,12 +3298,13 @@ void unique_gear::register_special_effect( unsigned spell_id, const std::string&
 void unique_gear::register_special_effects()
 {
   /* Warlords of Draenor 6.2 */
-  register_special_effect( 184291, item::agi_dps_trinket_3              );
+  register_special_effect( 184270, item::mirror_of_the_blademaster      );
+  register_special_effect( 184291, item::soul_capacitor                 );
   register_special_effect( 183942, item::insatiable_hunger              );
-  register_special_effect( 184066, item::int_dps_trinket_4              );
-  register_special_effect( 183951, item::int_dps_trinket_3              );
-  register_special_effect( 184249, item::str_dps_trinket_3              );
-  register_special_effect( 184257, item::str_dps_trinket_4              );
+  register_special_effect( 184066, item::prophecy_of_fear               );
+  register_special_effect( 183951, item::unblinking_gaze_of_sethe       );
+  register_special_effect( 184249, item::discordant_chorus              );
+  register_special_effect( 184257, item::empty_drinking_horn            );
 
   /* Warlords of Draenor 6.0 */
   register_special_effect( 177085, item::blackiron_micro_crucible       );

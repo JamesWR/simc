@@ -471,7 +471,7 @@ struct rogue_t : public player_t
   virtual void      init_resources( bool force );
   virtual bool      init_items();
   virtual void      init_special_effects();
-  virtual void      init_finished();
+  virtual bool      init_finished();
   virtual void      create_buffs();
   virtual void      create_options();
   virtual void      copy_from( player_t* source );
@@ -1888,7 +1888,7 @@ struct envenom_t : public rogue_attack_t
     ability_type = ENVENOM;
     weapon = &( p -> main_hand_weapon );
     base_costs[ RESOURCE_COMBO_POINT ] = 1;
-    attack_power_mod.direct       = 0.306;
+    attack_power_mod.direct = maybe_ptr( p -> dbc.ptr ) ? 0.417 : 0.306;
     dot_duration = timespan_t::zero();
     weapon_multiplier = weapon_power_mod = 0.0;
     base_multiplier *= 1.05; // Hard-coded tooltip.
@@ -2004,7 +2004,7 @@ struct eviscerate_t : public rogue_attack_t
     weapon = &( player -> main_hand_weapon );
     weapon_multiplier = weapon_power_mod = 0;
 
-    attack_power_mod.direct = 0.577;
+    attack_power_mod.direct = maybe_ptr( p -> dbc.ptr ) ? 0.559 : 0.577;
     // Hard-coded tooltip.
     attack_power_mod.direct *= 0.88;
 
@@ -3466,6 +3466,8 @@ struct blade_flurry_attack_t : public rogue_attack_t
     aoe = p -> spec.blade_flurry -> effectN( 4 ).base_value();
     weapon = &p -> main_hand_weapon;
     weapon_multiplier = 0;
+    radius = 5;
+    range = -1.0;
     if ( p -> perk.enhanced_blade_flurry -> ok() )
       aoe = -1;
 
@@ -3482,16 +3484,16 @@ struct blade_flurry_attack_t : public rogue_attack_t
 
   size_t available_targets( std::vector< player_t* >& tl ) const
   {
-    tl.clear();
+    rogue_attack_t::available_targets( tl );
 
-    for ( size_t i = 0, actors = sim -> target_non_sleeping_list.size(); i < actors; i++ )
+    for ( size_t i = 0; i < tl.size(); i++ )
     {
-      player_t* t = sim -> target_non_sleeping_list[ i ];
-
-      if ( t -> is_enemy() && t != target )
-        tl.push_back( t );
+      if ( tl[i] == target ) // Cannot hit the original target.
+      {
+        tl.erase( tl.begin() + i );
+        break;
+      }
     }
-
     return tl.size();
   }
 };
@@ -4017,10 +4019,15 @@ void rogue_t::trigger_blade_flurry( const action_state_t* state )
   if ( active_blade_flurry -> target != state -> target )
     active_blade_flurry -> target_cache.is_valid = false;
   active_blade_flurry -> target = state -> target;
-  // Note, unmitigated damage
-  active_blade_flurry -> base_dd_min = state -> result_total;
-  active_blade_flurry -> base_dd_max = state -> result_total;
-  active_blade_flurry -> schedule_execute();
+
+  active_blade_flurry -> target_list();
+  if ( active_blade_flurry -> target_cache.list.size() > 0 )
+  {
+    // Note, unmitigated damage
+    active_blade_flurry -> base_dd_min = state -> result_total;
+    active_blade_flurry -> base_dd_max = state -> result_total;
+    active_blade_flurry -> schedule_execute();
+  }
 }
 
 void rogue_t::trigger_shadow_reflection( const action_state_t* state )
@@ -6215,12 +6222,12 @@ void rogue_t::init_special_effects()
 
 // rogue_t::init_finished ===================================================
 
-void rogue_t::init_finished()
+bool rogue_t::init_finished()
 {
-  player_t::init_finished();
-
   weapon_data[ WEAPON_MAIN_HAND ].initialize();
   weapon_data[ WEAPON_OFF_HAND ].initialize();
+
+  return player_t::init_finished();
 }
 
 // rogue_t::reset ===========================================================
@@ -6433,7 +6440,10 @@ stat_e rogue_t::convert_hybrid_stat( stat_e s ) const
 
 void rogue_t::create_pets()
 {
-  shadow_reflection = new shadow_reflection_pet_t( this );
+  if ( talent.shadow_reflection -> ok() && find_action( "shadow_reflection" ) )
+  {
+    shadow_reflection = new shadow_reflection_pet_t( this );
+  }
 }
 
 /* Report Extension Class
@@ -6552,11 +6562,8 @@ struct rogue_module_t : public module_t
     unique_gear::register_special_effect( 184918, from_the_shadows   );
   }
 
-  virtual void init( sim_t* ) const
-  { }
-
+  virtual void init( player_t* ) const { }
   virtual void combat_begin( sim_t* ) const {}
-
   virtual void combat_end( sim_t* ) const {}
 };
 

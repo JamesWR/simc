@@ -14,14 +14,14 @@
 set /p ask=Build with PGO data? Only applies to 64-bit installation. (y/n)
 @echo on
 
-set simcversion=612-02
+set simcversion=612-03
 :: For bumping the minor version, just change the above line.  Make sure to also change setup32.iss and setup64.iss as well. 
 set simcfiles=E:\Simulationcraft\
 :: Location of source files
 set ssllocation32=C:\OpenSSL-Win32\bin
 set ssllocation64=C:\OpenSSL-Win64\bin
 :: Location of openssl32/64
-set qt_dir=C:\Qt\Qt5.4.1\5.4\
+set qt_dir=C:\Qt\Qt5.5.0\5.5\
 :: Location of QT
 set redist=C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\redist\
 :: This is a really standard location for VS2013, but change it if you installed it somewhere else.
@@ -49,7 +49,7 @@ set filename=%install%-%mydate%-%revision%
 call start winscp /command "open downloads" "put %download%\%filename%.zip -nopreservetime -nopermissions -transfer=binary" "exit"
 
 ::WebEngine compilation.
-set install=simc-%simcversion%-win64
+set install=simc-%simcversion%-win64-webengine
 rd %install% /s /q
 
 for /f "skip=2 tokens=2,*" %%A in ('reg.exe query "HKLM\SOFTWARE\Microsoft\MSBuild\ToolsVersions\12.0" /v MSBuildToolsPath') do SET MSBUILDDIR=%%B
@@ -60,7 +60,7 @@ if %ask%==n "%MSBUILDDIR%msbuild.exe" %simcfiles%\simc_vs2013.sln /p:configurati
 robocopy "%redist%x64\Microsoft.VC120.CRT" %install%\ msvcp120.dll msvcr120.dll vccorlib120.dll
 robocopy locale\ %install%\locale sc_de.qm sc_zh.qm sc_it.qm
 robocopy %qt_dir%msvc2013_64\bin\ %install%\ Qt5Core.dll
-robocopy %qt_dir%msvc2013_64\bin\ %install%\ Qt5Quick.dll Qt5Qml.dll Qt5Svg.dll Qt5Gui.dll Qt5Widgets.dll Qt5Network.dll Qt5WebEngineCore.dll Qt5WebEngine.dll Qt5WebEngineWidgets.dll libGLESv2.dll icudt53.dll icuin53.dll icuuc53.dll libEGL.dll D3DCompiler_47.dll QtWebEngineProcess.exe Qt5OpenGl.dll
+robocopy %qt_dir%msvc2013_64\bin\ %install%\ Qt5Quick.dll Qt5Qml.dll Qt5Svg.dll Qt5Gui.dll Qt5Widgets.dll Qt5Network.dll Qt5WebEngineCore.dll Qt5WebEngine.dll Qt5WebEngineWidgets.dll libGLESv2.dll icudt54.dll icuin54.dll icuuc54.dll libEGL.dll D3DCompiler_47.dll QtWebEngineProcess.exe Qt5OpenGl.dll Qt5WebChannel.dll Qt5Positioning.dll
 robocopy winreleasescripts\ %install%\ qt.conf
 robocopy %qt_dir%msvc2013_64\ %install%\ icudtl.dat
 robocopy %qt_dir%msvc2013_64\plugins\platforms %install%\platforms\ qwindows.dll
@@ -76,13 +76,13 @@ call start winscp /command "open downloads" "put %download%\SimcSetup-%simcversi
 7z a -r %install% %install% -mx9 -md=32m
 call start winscp /command "open downloads" "put %download%\%install%.7z -nopreservetime -nopermissions -transfer=binary" "exit"
 
-set install=simc-%simcversion%-win32
+set install=simc-%simcversion%-win32-webengine
 "%MSBUILDDIR%msbuild.exe" %simcfiles%\simc_vs2013.sln /p:configuration=WebEngine /p:platform=win32 /nr:true /m:8
 
 robocopy "%redist%x86\Microsoft.VC120.CRT" %install%\ msvcp120.dll msvcr120.dll vccorlib120.dll
 robocopy locale\ %install%\locale sc_de.qm sc_zh.qm sc_it.qm
 robocopy %qt_dir%msvc2013_64\bin\ %install%\ Qt5Core.dll
-robocopy %qt_dir%msvc2013\bin\ %install%\ Qt5Quick.dll Qt5Qml.dll Qt5Svg.dll Qt5Gui.dll Qt5Widgets.dll Qt5Network.dll Qt5WebEngineCore.dll Qt5WebEngine.dll Qt5WebEngineWidgets.dll libGLESv2.dll icudt53.dll icuin53.dll icuuc53.dll libEGL.dll D3DCompiler_47.dll QtWebEngineProcess.exe Qt5OpenGl.dll
+robocopy %qt_dir%msvc2013\bin\ %install%\ Qt5Quick.dll Qt5Qml.dll Qt5Svg.dll Qt5Gui.dll Qt5Widgets.dll Qt5Network.dll Qt5WebEngineCore.dll Qt5WebEngine.dll Qt5WebEngineWidgets.dll libGLESv2.dll icudt54.dll icuin54.dll icuuc54.dll libEGL.dll D3DCompiler_47.dll QtWebEngineProcess.exe Qt5OpenGl.dll Qt5WebChannel.dll Qt5Positioning.dll
 robocopy winreleasescripts\ %install%\ qt.conf
 robocopy %qt_dir%msvc2013\ %install%\ icudtl.dat
 robocopy %qt_dir%msvc2013\plugins\platforms %install%\platforms\ qwindows.dll

@@ -39,12 +39,14 @@ struct warlock_td_t: public actor_target_data_t
 
   buff_t* debuffs_haunt;
   buff_t* debuffs_shadowflame;
+  buff_t* debuffs_flamelicked;
 
   bool ds_started_below_20;
   int agony_stack;
   double soc_trigger, soulburn_soc_trigger;
 
-  warlock_td_t( player_t* target, warlock_t* source );
+  warlock_t& warlock;
+  warlock_td_t( player_t* target, warlock_t& p );
 
   void reset()
   {
@@ -53,6 +55,8 @@ struct warlock_td_t: public actor_target_data_t
     soc_trigger = 0;
     soulburn_soc_trigger = 0;
   }
+
+  void target_demise();
 };
 
 struct warlock_t: public player_t
@@ -70,6 +74,8 @@ public:
     std::array<pets::wild_imp_pet_t*, WILD_IMP_LIMIT> wild_imps;
     pet_t* inner_demon;
   } pets;
+
+  std::vector<std::string> pet_name_list;
 
   // Talents
   struct talents_t
@@ -280,7 +286,7 @@ public:
     buff_t* tier16_2pc_destructive_influence;
     buff_t* tier16_2pc_empowered_grasp;
     buff_t* tier16_2pc_fiery_wrath;
-
+    buff_t* tier18_2pc_demonology;
   } buffs;
 
   // Gains
@@ -303,6 +309,7 @@ public:
     gain_t* siphon_life;
     gain_t* seed_of_corruption;
     gain_t* haunt_tier16_4pc;
+    gain_t* shard_target_death;
   } gains;
 
   // Procs
@@ -311,6 +318,8 @@ public:
     proc_t* wild_imp;
     proc_t* t17_2pc_demo;
     proc_t* havoc_waste;
+    proc_t* fragment_wild_imp;
+    proc_t* t18_4pc_destruction;
   } procs;
 
   struct spells_t
@@ -372,6 +381,11 @@ public:
 
   timespan_t ember_react, shard_react;
 
+    // Tier 18 (WoD 6.2) trinket effects
+  const special_effect_t* affliction_trinket;
+  const special_effect_t* demonology_trinket;
+  const special_effect_t* destruction_trinket;
+
   warlock_t( sim_t* sim, const std::string& name, race_e r = RACE_UNDEAD );
 
   // Character Definition
@@ -422,7 +436,7 @@ public:
     warlock_td_t*& td = target_data[target];
     if ( ! td )
     {
-      td = new warlock_td_t( target, const_cast<warlock_t*>( this ) );
+      td = new warlock_td_t( target, const_cast<warlock_t&>( *this ) );
     }
     return td;
   }
@@ -437,6 +451,40 @@ private:
   void apl_destruction();
   void apl_global_filler();
 };
+
+static void do_trinket_init(  warlock_t*               player,
+                              specialization_e         spec,
+                              const special_effect_t*& ptr,
+                              const special_effect_t&  effect )
+{
+  // Ensure we have the spell data. This will prevent the trinket effect from working on live
+  // Simulationcraft. Also ensure correct specialization.
+  if ( !player -> find_spell( effect.spell_id ) -> ok() ||
+    player -> specialization() != spec )
+  {
+    return;
+  }
+  // Set pointer, module considers non-null pointer to mean the effect is "enabled"
+  ptr = &( effect );
+}
+
+static void affliction_trinket( special_effect_t& effect )
+{
+  warlock_t* warlock = debug_cast<warlock_t*>( effect.player );
+  do_trinket_init( warlock, WARLOCK_AFFLICTION, warlock -> affliction_trinket, effect );
+}
+
+static void demonology_trinket( special_effect_t& effect )
+{
+  warlock_t* warlock = debug_cast<warlock_t*>( effect.player );
+  do_trinket_init( warlock, WARLOCK_DEMONOLOGY, warlock -> demonology_trinket, effect );
+}
+
+static void destruction_trinket( special_effect_t& effect )
+{
+  warlock_t* warlock = debug_cast<warlock_t*>( effect.player );
+  do_trinket_init( warlock, WARLOCK_DESTRUCTION, warlock -> destruction_trinket, effect);
+}
 
 void parse_spell_coefficient( action_t& a )
 {
@@ -1077,6 +1125,7 @@ double warlock_pet_t::composite_player_multiplier( school_e school ) const
   {
     double mastery = o() -> cache.mastery();
     m *= 1.0 + mastery * o() -> mastery_spells.master_demonologist -> effectN( 1 ).mastery_value();
+    m *= 1.0 + o() -> buffs.tier18_2pc_demonology -> stack_value();
   }
 
   if ( o() -> talents.grimoire_of_supremacy -> ok() && pet_type != PET_WILD_IMP )
@@ -1989,6 +2038,15 @@ public:
       return spell_t::current_resource();
   }
 
+  virtual double composite_target_crit( player_t* target ) const
+  {
+    double c = spell_t::composite_target_crit( target );
+    if ( p() -> destruction_trinket )
+      c += td( target ) -> debuffs_flamelicked -> stack_value();
+
+    return c;
+  }
+
   void trigger_seed_of_corruption( warlock_td_t* td, warlock_t* p, double amount )
   {
     if ( ( ( td -> dots_seed_of_corruption -> current_action && id == td -> dots_seed_of_corruption -> current_action -> id )
@@ -2175,6 +2233,16 @@ struct agony_t: public warlock_spell_t
     warlock_spell_t( p, "Agony" )
   {
     may_crit = false;
+
+    if ( p -> affliction_trinket )
+    {
+      const spell_data_t* data = p -> affliction_trinket -> driver();
+      double period_value = data -> effectN( 1 ).average( p -> affliction_trinket -> item ) / 100.0;
+      double duration_value = data -> effectN( 2 ).average( p -> affliction_trinket -> item ) / 100.0;
+
+      base_tick_time *= 1.0 + period_value;
+      dot_duration *= 1.0 + duration_value;
+    }
   }
 
   virtual void last_tick( dot_t* d )
@@ -2371,8 +2439,11 @@ struct hand_of_guldan_t: public warlock_spell_t
 {
   shadowflame_t* shadowflame;
 
+  double demonology_trinket_chance;
+
   hand_of_guldan_t( warlock_t* p ):
-    warlock_spell_t( p, "Hand of Gul'dan" )
+    warlock_spell_t( p, "Hand of Gul'dan" ),
+    demonology_trinket_chance( 0.0 )
   {
     aoe = -1;
 
@@ -2383,6 +2454,13 @@ struct hand_of_guldan_t: public warlock_spell_t
     add_child( shadowflame );
 
     parse_effect_data( p -> find_spell( 86040 ) -> effectN( 1 ) );
+
+    if ( p -> demonology_trinket && p -> specialization() == WARLOCK_DEMONOLOGY )
+    {
+      const spell_data_t* data = p -> find_spell( p -> demonology_trinket -> spell_id );
+      demonology_trinket_chance = data -> effectN( 1 ).average( p -> demonology_trinket -> item );
+      demonology_trinket_chance /= 100.0;
+    }
   }
 
   virtual timespan_t travel_time() const
@@ -2404,6 +2482,16 @@ struct hand_of_guldan_t: public warlock_spell_t
     warlock_spell_t::execute();
 
     p() -> trigger_demonology_t17_2pc( execute_state );
+
+    if ( p() -> demonology_trinket && p() -> rng().roll( demonology_trinket_chance ) )
+    {
+      trigger_wild_imp( p() );
+      trigger_wild_imp( p() );
+      trigger_wild_imp( p() );
+      p() -> procs.fragment_wild_imp -> occur();
+      p() -> procs.fragment_wild_imp -> occur();
+      p() -> procs.fragment_wild_imp -> occur();
+    }
   }
 
   virtual bool ready()
@@ -2575,6 +2663,16 @@ struct corruption_t: public warlock_spell_t
     dot_duration = data().effectN( 1 ).trigger() -> duration();
     spell_power_mod.tick = data().effectN( 1 ).trigger() -> effectN( 1 ).sp_coeff();
     base_tick_time = data().effectN( 1 ).trigger() -> effectN( 1 ).period();
+
+    if ( p -> affliction_trinket )
+    {
+      const spell_data_t* data = p -> affliction_trinket ->  driver();
+      double period_value = data -> effectN( 1 ).average( p -> affliction_trinket -> item ) / 100.0;
+      double duration_value = data -> effectN( 2 ).average( p -> affliction_trinket -> item ) / 100.0;
+
+      base_tick_time *= 1.0 + period_value;
+      dot_duration *= 1.0 + duration_value;
+    }
   }
 
   timespan_t travel_time() const
@@ -2733,6 +2831,16 @@ struct unstable_affliction_t: public warlock_spell_t
     may_crit = false;
     if ( p -> glyphs.unstable_affliction -> ok() )
       base_execute_time *= 1.0 + p -> glyphs.unstable_affliction -> effectN( 1 ).percent();
+
+    if ( p -> affliction_trinket )
+    {
+      const spell_data_t* data = p -> affliction_trinket -> driver();
+      double period_value = data -> effectN( 1 ).average( p -> affliction_trinket -> item ) / 100.0;
+      double duration_value = data -> effectN( 2 ).average( p -> affliction_trinket -> item ) / 100.0;
+
+      base_tick_time *= 1.0 + period_value;
+      dot_duration *= 1.0 + duration_value;
+    }
   }
 
   virtual double action_multiplier() const
@@ -3092,7 +3200,6 @@ struct conflagrate_t: public warlock_spell_t
 struct incinerate_t: public warlock_spell_t
 {
   incinerate_t* fnb;
-
   // Normal incinerate
   incinerate_t( warlock_t* p ):
     warlock_spell_t( p, "Incinerate" ),
@@ -3192,6 +3299,16 @@ struct incinerate_t: public warlock_spell_t
     warlock_spell_t::schedule_travel( s );
   }
 
+  void execute()
+  {
+    warlock_spell_t::execute();
+    if ( p() -> destruction_trinket )
+    {
+      warlock_td_t* td = p() -> get_target_data( execute_state -> target );
+      td -> debuffs_flamelicked -> trigger( 1 );
+    }
+  }
+
   void impact( action_state_t* s )
   {
     warlock_spell_t::impact( s );
@@ -3243,6 +3360,7 @@ struct soul_fire_t: public warlock_spell_t
 
   virtual void execute()
   {
+    p() -> buffs.tier18_2pc_demonology -> trigger();
     if ( meta_spell && p() -> buffs.metamorphosis -> check() )
     {
       meta_spell -> time_to_execute = time_to_execute;
@@ -3337,6 +3455,9 @@ struct chaos_bolt_t: public warlock_spell_t
     havoc_consume = 3;
     backdraft_consume = 3;
     base_execute_time += p -> perk.enhanced_chaos_bolt -> effectN( 1 ).time_value();
+
+    base_multiplier *= 1.0 + ( p -> sets.set( WARLOCK_DESTRUCTION, T18, B2 ) -> effectN( 2 ).percent() );
+    base_execute_time += p -> sets.set( WARLOCK_DESTRUCTION, T18, B2 ) -> effectN( 1 ).time_value();
   }
 
   chaos_bolt_t( const std::string& n, warlock_t* p, const spell_data_t* spell ):
@@ -3346,6 +3467,9 @@ struct chaos_bolt_t: public warlock_spell_t
     aoe = -1;
     backdraft_consume = 3;
     base_execute_time += p -> perk.enhanced_chaos_bolt -> effectN( 1 ).time_value();
+
+    base_multiplier *= 1.0 + ( p -> sets.set( WARLOCK_DESTRUCTION, T18, B2 ) -> effectN( 2 ).percent() );
+    base_execute_time += ( p -> sets.set( WARLOCK_DESTRUCTION, T18, B2 ) -> effectN( 1 ).time_value() );
 
     stats = p -> get_stats( "chaos_bolt_fnb", this );
     gain = p -> get_gain( "chaos_bolt_fnb" );
@@ -3361,17 +3485,32 @@ struct chaos_bolt_t: public warlock_spell_t
       warlock_spell_t::schedule_execute( state );
   }
 
-  virtual double composite_crit() const
+  void consume_resource()
+  {
+    if ( p() -> sets.has_set_bonus( WARLOCK_DESTRUCTION, T18, B4 ) )
+    {
+      if ( rng().roll( p() -> sets.set( WARLOCK_DESTRUCTION, T18, B4 ) -> effectN( 1 ).percent() ) )
+      {
+        if ( use_backdraft() ) // Since we are skipping consume_resource, we still need to consume the backdraft.
+          p() -> buffs.backdraft -> decrement( backdraft_consume );
+        p() -> procs.t18_4pc_destruction -> occur();
+        return;
+      }
+    }
+    warlock_spell_t::consume_resource();
+  }
+
+  double composite_crit() const
   {
     return 1.0;
   }
 
-  virtual double composite_target_crit( player_t* ) const
+  double composite_target_crit( player_t* ) const
   {
     return 0.0;
   }
 
-  virtual double cost() const
+  double cost() const
   {
     double c = warlock_spell_t::cost();
 
@@ -3384,7 +3523,7 @@ struct chaos_bolt_t: public warlock_spell_t
     return c;
   }
 
-  virtual double action_multiplier() const
+  double action_multiplier() const
   {
     double m = warlock_spell_t::action_multiplier();
 
@@ -3405,7 +3544,7 @@ struct chaos_bolt_t: public warlock_spell_t
     return m;
   }
 
-  virtual void execute()
+  void execute()
   {
     warlock_spell_t::execute();
 
@@ -3601,6 +3740,7 @@ struct chaos_wave_t: public warlock_spell_t
   {
     warlock_spell_t::execute();
 
+    p() -> buffs.molten_core -> trigger();
     p() -> trigger_demonology_t17_2pc( execute_state );
   }
 
@@ -3726,6 +3866,15 @@ struct drain_soul_t: public warlock_spell_t
   virtual void tick( dot_t* d )
   {
     warlock_spell_t::tick( d );
+
+    if ( p() -> sets.has_set_bonus( WARLOCK_AFFLICTION, T18, B4 ) && p() -> buffs.dark_soul -> check() && td( p() -> target ) -> debuffs_haunt -> check() )
+    {
+      td( p() -> target ) -> debuffs_haunt -> trigger( 1, buff_t::DEFAULT_VALUE(), -1.0, td( p() -> target ) -> dots_haunt -> remains() );
+    }
+
+    if ( p() -> sets.has_set_bonus( WARLOCK_AFFLICTION, T18, B2 ) && rng().roll( p() -> sets.set( WARLOCK_AFFLICTION, T18, B2 ) -> proc_chance() ) && p() -> buffs.dark_soul -> check() )
+      p() -> buffs.dark_soul -> extend_duration( p(), p() -> sets.set ( WARLOCK_AFFLICTION, T18, B2 ) -> effectN( 1 ).time_value()  );
+
 
     trigger_soul_leech( p(), d -> state -> result_amount * p() -> talents.soul_leech -> effectN( 1 ).percent() * 2 );
 
@@ -4488,19 +4637,20 @@ struct soul_swap_t: public warlock_spell_t
 struct summon_pet_t: public warlock_spell_t
 {
   timespan_t summoning_duration;
+  std::string pet_name;
   pets::warlock_pet_t* pet;
 
 private:
-  void _init_summon_pet_t( std::string pet_name )
+  void _init_summon_pet_t()
   {
+    util::tokenize( pet_name );
     harmful = false;
 
-    util::tokenize( pet_name );
-
-    pet = dynamic_cast<pets::warlock_pet_t*>( player -> find_pet( pet_name ) );
-    if ( ! pet )
+    if ( data().ok() &&
+         std::find( p() -> pet_name_list.begin(), p() -> pet_name_list.end(), pet_name ) ==
+         p() -> pet_name_list.end() )
     {
-      sim -> errorf( "Player %s unable to find pet %s for summons.\n", player -> name(), pet_name.c_str() );
+      p() -> pet_name_list.push_back( pet_name );
     }
   }
 
@@ -4508,25 +4658,31 @@ public:
   summon_pet_t( const std::string& n, warlock_t* p, const std::string& sname = "" ):
     warlock_spell_t( p, sname.empty() ? "Summon " + n : sname ),
     summoning_duration( timespan_t::zero() ),
-    pet( 0 )
+    pet_name( sname.empty() ? n : sname ), pet( 0 )
   {
-    _init_summon_pet_t( n );
+    _init_summon_pet_t();
   }
 
   summon_pet_t( const std::string& n, warlock_t* p, int id ):
     warlock_spell_t( n, p, p -> find_spell( id ) ),
     summoning_duration( timespan_t::zero() ),
-    pet( 0 )
+    pet_name( n ), pet( 0 )
   {
-    _init_summon_pet_t( n );
+    _init_summon_pet_t();
   }
 
   summon_pet_t( const std::string& n, warlock_t* p, const spell_data_t* sd ):
     warlock_spell_t( n, p, sd ),
     summoning_duration( timespan_t::zero() ),
-    pet( 0 )
+    pet_name( n ), pet( 0 )
   {
-    _init_summon_pet_t( n );
+    _init_summon_pet_t();
+  }
+
+  bool init_finished()
+  {
+    pet = debug_cast<pets::warlock_pet_t*>( player -> find_pet( pet_name ) );
+    return warlock_spell_t::init_finished();
   }
 
   virtual void execute()
@@ -4534,6 +4690,16 @@ public:
     pet -> summon( summoning_duration );
 
     warlock_spell_t::execute();
+  }
+
+  bool ready()
+  {
+    if ( ! pet )
+    {
+      return false;
+    }
+
+    return warlock_spell_t::ready();
   }
 };
 
@@ -4726,7 +4892,16 @@ struct summon_doomguard_t: public warlock_spell_t
     harmful = false;
     summon_doomguard2 = new summon_doomguard2_t( p, data().effectN( 2 ).trigger() );
     summon_doomguard2 -> stats = stats;
-    summon_doomguard2 -> pet -> summon_stats = stats;
+  }
+
+  bool init_finished()
+  {
+    if ( summon_doomguard2 -> pet )
+    {
+      summon_doomguard2 -> pet -> summon_stats = stats;
+    }
+
+    return warlock_spell_t::init_finished();
   }
 
   virtual void execute()
@@ -4822,8 +4997,14 @@ struct grimoire_of_service_t: public summon_pet_t
     cooldown = p -> get_cooldown( "grimoire_of_service" );
     cooldown -> duration = data().cooldown();
     summoning_duration = data().duration();
+  }
+
+  bool init_finished()
+  {
     if ( pet )
       pet -> summon_stats = stats;
+
+    return summon_pet_t::init_finished();
   }
 };
 
@@ -4845,27 +5026,48 @@ struct mannoroths_fury_t: public warlock_spell_t
 
 } // end actions namespace
 
-warlock_td_t::warlock_td_t( player_t* target, warlock_t* p ):
-actor_target_data_t( target, p ),
+warlock_td_t::warlock_td_t( player_t* target, warlock_t& p ):
+actor_target_data_t( target, &p ),
 ds_started_below_20( false ),
 agony_stack( 1 ),
 soc_trigger( 0 ),
-soulburn_soc_trigger( 0 )
+soulburn_soc_trigger( 0 ),
+warlock( p )
 {
-  dots_corruption = target -> get_dot( "corruption", p );
-  dots_unstable_affliction = target -> get_dot( "unstable_affliction", p );
-  dots_agony = target -> get_dot( "agony", p );
-  dots_doom = target -> get_dot( "doom", p );
-  dots_immolate = target -> get_dot( "immolate", p );
-  dots_shadowflame = target -> get_dot( "shadowflame", p );
-  dots_seed_of_corruption = target -> get_dot( "seed_of_corruption", p );
-  dots_soulburn_seed_of_corruption = target -> get_dot( "soulburn_seed_of_corruption", p );
-  dots_haunt = target -> get_dot( "haunt", p );
+  dots_corruption = target -> get_dot( "corruption", &p );
+  dots_unstable_affliction = target -> get_dot( "unstable_affliction", &p );
+  dots_agony = target -> get_dot( "agony", &p );
+  dots_doom = target -> get_dot( "doom", &p );
+  dots_drain_soul = target -> get_dot( "drain_soul", &p );
+  dots_immolate = target -> get_dot( "immolate", &p );
+  dots_shadowflame = target -> get_dot( "shadowflame", &p );
+  dots_seed_of_corruption = target -> get_dot( "seed_of_corruption", &p );
+  dots_soulburn_seed_of_corruption = target -> get_dot( "soulburn_seed_of_corruption", &p );
+  dots_haunt = target -> get_dot( "haunt", &p );
 
   debuffs_haunt = buff_creator_t( *this, "haunt", source -> find_class_spell( "Haunt" ) )
     .refresh_behavior( BUFF_REFRESH_PANDEMIC );
   debuffs_shadowflame = buff_creator_t( *this, "shadowflame", source -> find_spell( 47960 ) )
     .refresh_behavior( BUFF_REFRESH_PANDEMIC );
+  if ( warlock.destruction_trinket )
+  {
+    debuffs_flamelicked = buff_creator_t( *this, "flamelicked", warlock.destruction_trinket -> driver() -> effectN( 1 ).trigger() )
+      .default_value( warlock.destruction_trinket -> driver() -> effectN( 1 ).trigger() -> effectN( 1 ).average( warlock.destruction_trinket -> item ) / 100.0 );
+  }
+
+  target -> callbacks_on_demise.push_back( std::bind( &warlock_td_t::target_demise, this ) );
+}
+
+void warlock_td_t::target_demise()
+{
+  if ( dots_drain_soul )
+  {
+    if ( warlock.sim -> log )
+    {
+      warlock.sim -> out_debug.printf( "Player %s demised. Warlock %s gains a shard by channeling drain soul during this.", target -> name(), warlock.name() );
+    }
+    warlock.resource_gain( RESOURCE_SOUL_SHARD, 1, warlock.gains.shard_target_death );
+  }
 }
 
 warlock_t::warlock_t( sim_t* sim, const std::string& name, race_e r ):
@@ -4892,7 +5094,10 @@ warlock_t::warlock_t( sim_t* sim, const std::string& name, race_e r ):
     initial_demonic_fury( 200 ),
     default_pet( "" ),
     ember_react( ( initial_burning_embers >= 1.0 ) ? timespan_t::zero() : timespan_t::max() ),
-    shard_react( timespan_t::zero() )
+    shard_react( timespan_t::zero() ),
+    affliction_trinket( 0 ),
+    demonology_trinket( 0 ),
+    destruction_trinket( 0 )
 {
   base.distance = 40;
 
@@ -5188,27 +5393,13 @@ pet_t* warlock_t::create_pet( const std::string& pet_name,
 
 void warlock_t::create_pets()
 {
-  create_pet( "felhunter"  );
-  create_pet( "imp"        );
-  create_pet( "succubus"   );
-  create_pet( "voidwalker" );
-  create_pet( "infernal"   );
-  create_pet( "doomguard"  );
-
-  create_pet( "observer"    );
-  create_pet( "fel_imp"     );
-  create_pet( "shivarra"    );
-  create_pet( "voidlord"    );
-  create_pet( "abyssal"     );
-  create_pet( "terrorguard" );
+  for ( size_t i = 0; i < pet_name_list.size(); ++i )
+  {
+    create_pet( pet_name_list[ i ] );
+  }
 
   if ( specialization() == WARLOCK_DEMONOLOGY )
   {
-    create_pet( "felguard"   );
-    create_pet( "wrathguard" );
-    create_pet( "doomguard"  );
-    create_pet( "service_felguard" );
-
     for ( size_t i = 0; i < pets.wild_imps.size(); i++ )
     {
       pets.wild_imps[ i ] = new pets::wild_imp_pet_t( sim, this );
@@ -5216,16 +5407,11 @@ void warlock_t::create_pets()
         pets.wild_imps[ i ] -> quiet = 1;
     }
 
-    if ( level >= 100 )
+    if ( sets.has_set_bonus( WARLOCK_DEMONOLOGY, T17, B2 ) )
+    {
       pets.inner_demon = new pets::inner_demon_t( this );
+    }
   }
-
-  create_pet( "service_felhunter"  );
-  create_pet( "service_imp"        );
-  create_pet( "service_succubus"   );
-  create_pet( "service_voidwalker" );
-  create_pet( "service_doomguard"  );
-  create_pet( "service_infernal"   );
 }
 
 void warlock_t::init_spells()
@@ -5475,6 +5661,8 @@ void warlock_t::create_buffs()
     .duration( timespan_t::from_seconds( 10 ) )
     .add_invalidate( CACHE_PLAYER_DAMAGE_MULTIPLIER )
     .default_value( find_spell( 145085 ) -> effectN( 1 ).percent() );
+  buffs.tier18_2pc_demonology = buff_creator_t( this, "demon_rush", sets.set( WARLOCK_DEMONOLOGY, T18, B2 ) -> effectN( 1 ).trigger() )
+    .default_value( sets.set( WARLOCK_DEMONOLOGY, T18, B2 ) -> effectN( 1 ).trigger() -> effectN( 1 ).percent() );
 }
 
 void warlock_t::init_rng()
@@ -5505,6 +5693,7 @@ void warlock_t::init_gains()
   gains.siphon_life = get_gain( "siphon_life" );
   gains.seed_of_corruption = get_gain( "seed_of_corruption" );
   gains.haunt_tier16_4pc = get_gain( "haunt_tier16_4pc" );
+  gains.shard_target_death = get_gain( "shard_target_death" );
 }
 
 // warlock_t::init_procs ===============================================
@@ -5516,6 +5705,8 @@ void warlock_t::init_procs()
   procs.wild_imp = get_proc( "wild_imp" );
   procs.t17_2pc_demo = get_proc( "t17_2pc_demo" );
   procs.havoc_waste = get_proc( "Havoc: Buff expiration" );
+  procs.fragment_wild_imp = get_proc( "fragment_wild_imp" );
+  procs.t18_4pc_destruction = get_proc( "t18_4pc_destruction" );
 }
 
 void warlock_t::apl_precombat()
@@ -6051,8 +6242,16 @@ struct warlock_module_t: public module_t
     p -> report_extension = std::shared_ptr<player_report_extension_t>( new warlock_report_t( *p ) );
     return p;
   }
+
+  virtual void static_init() const
+  {
+    unique_gear::register_special_effect( 184922, affliction_trinket);
+    unique_gear::register_special_effect( 184923, demonology_trinket);
+    unique_gear::register_special_effect( 184924, destruction_trinket);
+  }
+
   virtual bool valid() const { return true; }
-  virtual void init( sim_t* ) const {}
+  virtual void init( player_t* ) const {}
   virtual void combat_begin( sim_t* ) const {}
   virtual void combat_end( sim_t* ) const {}
 };

@@ -1103,6 +1103,7 @@ void print_xml_summary( sim_t* sim, xml_writer_t & writer, sim_report_informatio
     writer.print_text( priority_dps.to_xml() );
     writer.end_tag( "chart" );
   }
+
   highchart::bar_chart_t raid_hps( "raid_hps", sim );
   if ( chart::generate_raid_aps( raid_hps, sim, "hps" ) )
   {
@@ -1120,7 +1121,6 @@ void print_xml_summary( sim_t* sim, xml_writer_t & writer, sim_report_informatio
     writer.print_attribute_unescaped( "img_src", ri.gear_charts[ i ] );
     writer.end_tag( "chart" );
   }
-
 
   // Raid DPET
   highchart::bar_chart_t bc( "raid_dpet", sim );

@@ -327,6 +327,8 @@ void print_html_contents( report::sc_html_stream& os, const sim_t* sim )
     {
       os << "<li><a href=\"#raid-summary\">Raid Summary</a></li>\n";
       ci++;
+      os << "<li><a href=\"#apm-summary\">Actions per Minute Summary</a></li>\n";
+      ci++;
       if ( sim -> scaling -> has_scale_factors() )
       {
         os << "<li><a href=\"#raid-scale-factors\">Scale Factors</a></li>\n";

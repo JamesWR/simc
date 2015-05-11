@@ -6,7 +6,7 @@
 #define SIMULATIONCRAFT_H
 
 #define SC_MAJOR_VERSION "612"
-#define SC_MINOR_VERSION "02"
+#define SC_MINOR_VERSION "03"
 #define SC_USE_PTR ( 1 )
 #define SC_BETA ( 0 )
 #define SC_BETA_STR "wod"
@@ -2607,7 +2607,7 @@ private:
 struct sim_report_information_t
 {
   bool charts_generated;
-  std::vector<std::string> dps_charts, priority_dps_charts, hps_charts, dtps_charts, tmi_charts, gear_charts, dpet_charts;
+  std::vector<std::string> dps_charts, priority_dps_charts, hps_charts, dtps_charts, tmi_charts, gear_charts, dpet_charts, apm_charts;
   std::string timeline_chart, downtime_chart;
   sim_report_information_t() { charts_generated = false; }
 };
@@ -2751,6 +2751,10 @@ struct sim_t : private sc_thread_t
   bool disable_set_bonuses; // Disables set bonuses.
   bool disable_2_set_bonus; // Disables all 2 set bonuses (Does not include 4)
   bool disable_4_set_bonus; // Disables all 4 set bonuses
+  unsigned int disable_2_set; // Disables all 2 set bonuses for this tier/integer that this is set as
+  unsigned int disable_4_set; // Disables all 4 set bonuses for this tier/integer that this is set as
+  unsigned int enable_2_set;// Enables all 2 set bonuses for the tier/integer that this is set as
+  unsigned int enable_4_set; // Enables all 4 set bonuses for the tier/integer that this is set as
   bool pvp_crit; // Sets critical strike damage to 150% instead of 200%, and limits multistrike to one roll.
   bool equalize_plot_weights; // Plot option.
 
@@ -2854,6 +2858,7 @@ struct sim_t : private sc_thread_t
   std::vector<player_t*> players_by_dtps;
   std::vector<player_t*> players_by_tmi;
   std::vector<player_t*> players_by_name;
+  std::vector<player_t*> players_by_apm;
   std::vector<player_t*> targets_by_name;
   std::vector<std::string> id_dictionary;
   std::map<double, std::vector<double> > divisor_timeline_cache;
@@ -2959,6 +2964,8 @@ struct sim_t : private sc_thread_t
   bool      check_actors();
   bool      init_parties();
   bool      init_actors();
+  bool      init_actor( player_t* );
+  bool      init_actor_pets();
  private:
   bool      init_items();
   bool      init_actions();
@@ -3016,7 +3023,7 @@ struct module_t
   virtual ~module_t() {}
   virtual player_t* create_player( sim_t* sim, const std::string& name, race_e r = RACE_NONE ) const = 0;
   virtual bool valid() const = 0;
-  virtual void init( sim_t* ) const = 0;
+  virtual void init( player_t* ) const = 0;
   virtual void static_init() const { }
   virtual void combat_begin( sim_t* ) const = 0;
   virtual void combat_end( sim_t* ) const = 0;
@@ -4825,7 +4832,7 @@ struct player_t : public actor_t
 
     // 6.2 trinket proxy buffs
     buff_t* naarus_discipline; // Priest-Discipline Boss 13 T18 trinket
-    buff_t* spirit_shift; // Agi DPS Trinket 3
+    buff_t* spirit_shift; // Soul Capacitor trinket
   } buffs;
 
   struct debuffs_t
@@ -4945,12 +4952,12 @@ struct player_t : public actor_t
   virtual void init_benefits();
   virtual void init_rng();
   virtual void init_stats();
-  virtual void init_finished();
   virtual void register_callbacks();
   // Class specific hook for first-phase initializing special effects. Returns true if the class-specific hook initialized something, false otherwise.
   virtual bool init_special_effect( special_effect_t& /* effect */, unsigned /* spell_id */ ) { return false; }
 
   virtual bool init_actions();
+  virtual bool init_finished();
 
   virtual void reset();
   virtual void combat_begin();
@@ -5922,7 +5929,7 @@ struct action_t : public noncopyable
   double rp_gain;
   timespan_t min_gcd, trigger_gcd;
   double range; // This is how far away the target can be from the player, and still be hit or targeted.
-  double radius; // This is how far away the target can be from the original target, while still being hit.
+  double radius; // This is used for AoE abilities to show their area of influence. Typically anything that has a radius, but not a range, is based on the players location. 
   double weapon_power_mod;
   struct {
   double direct, tick;
@@ -6038,7 +6045,7 @@ struct action_t : public noncopyable
   virtual bool   usable_moving() const;
   virtual bool   ready();
   virtual void   init();
-  virtual void   init_finished() {}
+  virtual bool   init_finished();
   virtual void   init_target_cache();
   virtual void   reset();
   virtual void   cancel();
@@ -6169,6 +6176,8 @@ public:
   { return base_dd_adder; }
   virtual double bonus_ta( const action_state_t* ) const
   { return base_ta_adder; }
+  virtual double range_() const { return range; }
+  virtual double radius_() const { return radius; }
 
   virtual double action_multiplier() const { return base_multiplier; }
   virtual double action_da_multiplier() const { return base_dd_multiplier; }
@@ -7293,23 +7302,6 @@ struct multistrike_execute_event_t : public event_t
         state -> action -> assess_damage( state -> result_type, state );
       else
         state -> action -> impact( state );
-
-      // Multistrike callbacks, if there are any
-      if ( state -> action -> callbacks )
-      {
-        proc_types pt = state -> proc_type();
-        proc_types2 pt2 = state -> execute_proc_type2();
-        if ( pt2 == PROC2_LANDED )
-          pt2 = state -> impact_proc_type2();
-
-        // "On an execute result"
-        if ( pt != PROC1_INVALID && pt2 != PROC2_INVALID )
-        {
-          action_callback_t::trigger( state -> action -> player -> callbacks.procs[ pt ][ pt2 ],
-                                      state -> action,
-                                      state );
-        }
-      }
     }
 
     action_state_t::release( state );

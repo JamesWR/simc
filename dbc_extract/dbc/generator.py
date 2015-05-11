@@ -1292,7 +1292,8 @@ class SpellDataGenerator(DataGenerator):
          175457, 175456, 175439,    # Focus Augmentation / Hyper Augmentation / Stout Augmentation
          179154, 179155, 179156, 179157, # T17 LFR cloth dps set bonus nukes
          183950,                    # Darklight Ray (WoD 6.2 Int DPS Trinket 3 damage spell)
-	 184559,                    # Spirit Eruption (WoD 6.2 Agi DPS Trinket 3 damage spell)
+         184559,                    # Spirit Eruption (WoD 6.2 Agi DPS Trinket 3 damage spell)
+         184279,                    # Felstorm (WoD 6.2 Agi DPS Trinket 2 damage spell)
         ),
 
         # Warrior:
@@ -1326,13 +1327,9 @@ class SpellDataGenerator(DataGenerator):
           ( 171457, 0 ), # Chimaera Shot - Nature
           ( 90967, 0 ),  # Kill Command cooldown
           ( 157708, 2 ), # Marks Kill Shot
-          ( 178875, 0 ), # BM T17 4P 
-		  ( 188200, 0 ), # BM T18 2P
-		  ( 188201, 0 ), # BM T18 4P
-		  ( 188198, 0 ), # SV T18 2P
-		  ( 188199, 0 ), # SV T18 4P
-		  ( 188190, 0 ), # MM T18 2P
-		  ( 188191, 0 ), # MM T18 4P
+          ( 178875, 0 ), # BM T17 4P
+		  ( 188507, 0 ), # BM T18 4P
+		  ( 188402, 0 ), # SV T18 4P
         ),
 
         # Rogue:
@@ -1382,6 +1379,8 @@ class SpellDataGenerator(DataGenerator):
           ( 57330, 0, True ), # Horn of Winter needs to be explicitly put in the general tree, as our (over)zealous filtering thinks it's not an active ability
           ( 47568, 0, True ), # Same goes for Empower Rune Weapon
           ( 170205, 0 ), # Frost T17 4pc driver continued ...
+          ( 187981, 0 ), ( 187970, 0 ), # T18 4pc unholy relevant spells
+          ( 184982, 0 ),    # Frozen Obliteration
         ),
 
         # Shaman:
@@ -1450,6 +1449,9 @@ class SpellDataGenerator(DataGenerator):
             ( 104225, 0 ),
             ( 89653, 0 ),         # Drain Life heal
 			( 129476, 0 ),        # Immolation Aura
+			( 189297, 0 ),        # Demonology Warlock T18 4P Pet
+			( 189298, 0 ),        # Demonology Warlock T18 4P Pet
+			( 189296, 0 ),        # Demonology Warlock T18 4P Pet
         ),
 
         # Monk:
@@ -1488,6 +1490,7 @@ class SpellDataGenerator(DataGenerator):
 	  ( 155784, 0 ),       # Primal Tenacity buff
 	  ( 137542, 0 ),       # Displacer Beast buff
 	  ( 185321, 0 ),       # Stalwart Guardian buff (T18 trinket)
+	  ( 188046, 0 ),       # T18 2P Faerie casts this spell
         ),
     ]
 

@@ -227,9 +227,8 @@ public:
   } active;
 
   // Pets
-  pet_t* pet_feral_spirit[ 2 ];
-  pet_t* pet_mirror_images[ 3 ];
   pet_t* pet_force_of_nature[ 4 ]; // Add another pet, you can(maybe?) have 4 up with AoC
+  pet_t* pet_fey_moonwing[ 11 ]; // 30 second duration, 3 second internal icd... create 11 to be safe.
 
   // Auto-attacks
   weapon_t caster_form_weapon;
@@ -279,6 +278,7 @@ public:
     buff_t* solar_peak;
     buff_t* shooting_stars;
     buff_t* starfall;
+    buff_t* faerie_blessing; // T18 4P Balance
 
     // Feral
     buff_t* berserk;
@@ -330,6 +330,7 @@ public:
     cooldown_t* starfallsurge;
     cooldown_t* swiftmend;
     cooldown_t* tigers_fury;
+    cooldown_t* fey_faerie; // T18 2P Balance
   } cooldown;
 
   // Gains
@@ -595,6 +596,7 @@ public:
   } talent;
 
   bool inflight_starsurge;
+  real_ppm_t rppm_fey_moonwing;
 
   druid_t( sim_t* sim, const std::string& name, race_e r = RACE_NIGHT_ELF ) :
     player_t( sim, DRUID, name, r ),
@@ -629,7 +631,8 @@ public:
     spec( specializations_t() ),
     spell( spells_t() ),
     talent( talents_t() ),
-    inflight_starsurge( false )
+    inflight_starsurge( false ),
+    rppm_fey_moonwing( *this, std::numeric_limits<double>::min(), RPPM_NONE )
   {
     t16_2pc_starfall_bolt = 0;
     t16_2pc_sun_bolt      = 0;
@@ -652,6 +655,8 @@ public:
     cooldown.starfallsurge       = get_cooldown( "starfallsurge"       );
     cooldown.swiftmend           = get_cooldown( "swiftmend"           );
     cooldown.tigers_fury         = get_cooldown( "tigers_fury"         );
+    cooldown.fey_faerie          = get_cooldown( "fey_faerie"          );
+    cooldown.fey_faerie -> duration = timespan_t::from_seconds( 3.0 ); // ICD on the set bonus
     
     cooldown.pvp_4pc_melee -> duration = timespan_t::from_seconds( 30.0 );
     cooldown.starfallsurge -> charges = 3;
@@ -1089,6 +1094,57 @@ namespace pets {
 // ==========================================================================
 // Pets and Guardians
 // ==========================================================================
+
+// T18 2PC Balance Fairies ==================================================
+
+  struct fey_moonwing_t: public pet_t
+  {
+    struct fey_missile_t: public spell_t
+    {
+      fey_missile_t( fey_moonwing_t* player ):
+        spell_t( "fey_missile", player, player -> find_spell( 113769 ) )
+      {
+        if ( player -> o() -> pet_fey_moonwing[0] )
+          stats = player -> o() -> pet_fey_moonwing[0] -> get_stats( "fey_missile" );
+        may_crit = true;
+      }
+    };
+    druid_t* o() { return static_cast<druid_t*>( owner ); }
+
+    fey_moonwing_t( sim_t* sim, druid_t* owner ):
+      pet_t( sim, owner, "fey_moonwing", true /*GUARDIAN*/, true )
+    {
+      owner_coeff.sp_from_sp = 1.0;
+      regen_type = REGEN_DISABLED;
+    }
+
+    void init_base_stats()
+    {
+      pet_t::init_base_stats();
+
+      resources.base[RESOURCE_HEALTH] = owner -> resources.max[RESOURCE_HEALTH] * 0.4;
+      resources.base[RESOURCE_MANA] = 0;
+
+      initial.stats.attribute[ATTR_INTELLECT] = 0;
+      initial.spell_power_per_intellect = 0;
+      intellect_per_owner = 0;
+      stamina_per_owner = 0;
+      action_list_str = "fey_missile";
+    }
+
+    void summon( timespan_t duration )
+    {
+      pet_t::summon( duration );
+      o() -> buff.faerie_blessing -> trigger();
+    }
+
+    action_t* create_action( const std::string& name,
+      const std::string& options_str )
+    {
+      if ( name == "fey_missile"  ) return new fey_missile_t( this );
+      return pet_t::create_action( name, options_str );
+    }
+  };
 
 // Balance Force of Nature ==================================================
 
@@ -4559,7 +4615,7 @@ struct displacer_beast_t : public druid_spell_t
     parse_options( options_str );
     harmful = may_crit = may_miss = false;
     ignore_false_positive = true;
-    base_teleport_distance = p -> talent.displacer_beast -> effectN( 1 ).radius();
+    base_teleport_distance = radius;
     movement_directionality = MOVEMENT_OMNI;
   }
 
@@ -4803,6 +4859,8 @@ struct incarnation_t : public druid_spell_t
       if ( ! p() -> perk.enhanced_faerie_fire -> ok() )
         p() -> cooldown.faerie_fire -> reset( false ); 
       break;
+    default:
+      break;
     }
   }
 };
@@ -4865,6 +4923,22 @@ struct sunfire_t: public druid_spell_t
     {
       druid_spell_t::tick( d );
 
+      if ( p() -> sets.has_set_bonus( DRUID_BALANCE, T18, B2 ) && p() -> cooldown.fey_faerie -> up() )
+      {
+        if ( p() -> rppm_fey_moonwing.trigger() )
+        {
+          for ( size_t i = 0; i < sizeof_array( p() -> pet_fey_moonwing ); i++ )
+          {
+            if ( p() -> pet_fey_moonwing[i] -> is_sleeping() )
+            {
+              p() -> pet_fey_moonwing[i] -> summon( timespan_t::from_seconds( 30 ) );
+              p() -> cooldown.fey_faerie -> start();
+              break;
+            }
+          }
+        }
+      }
+
       if ( result_is_hit( d -> state -> result ) )
         p() -> trigger_shooting_stars( d -> state );
     }
@@ -4922,6 +4996,22 @@ struct sunfire_t: public druid_spell_t
   {
     druid_spell_t::tick( d );
 
+    if ( p() -> sets.has_set_bonus( DRUID_BALANCE, T18, B2 ) && p() -> cooldown.fey_faerie -> up() )
+    {
+      if ( p() -> rppm_fey_moonwing.trigger() )
+      {
+        for ( size_t i = 0; i < sizeof_array( p() -> pet_fey_moonwing ); i++ )
+        {
+          if ( p() -> pet_fey_moonwing[i] -> is_sleeping() )
+          {
+            p() -> pet_fey_moonwing[i] -> summon( timespan_t::from_seconds( 30 ) );
+            p() -> cooldown.fey_faerie -> start();
+            break;
+          }
+        }
+      }
+    }
+
     if ( result_is_hit( d -> state -> result ) )
       p() -> trigger_shooting_stars( d -> state );
   }
@@ -4958,18 +5048,18 @@ struct sunfire_t: public druid_spell_t
 struct moonfire_t : public druid_spell_t
 {
   // Moonfire also applies the Sunfire DoT during Celestial Alignment.
-  struct sunfire_CA_t : public druid_spell_t
+  struct sunfire_CA_t: public druid_spell_t
   {
-    sunfire_CA_t( druid_t* player ) :
+    sunfire_CA_t( druid_t* player ):
       druid_spell_t( "sunfire", player, player -> find_spell( 93402 ) )
     {
       const spell_data_t* dmg_spell = player -> find_spell( 164815 );
-      dot_duration                  = dmg_spell -> duration();
-      dot_duration                 += player -> sets.set( SET_CASTER, T14, B4 ) -> effectN( 1 ).time_value();
-      base_tick_time                = dmg_spell -> effectN( 2 ).period();
-      spell_power_mod.tick          = dmg_spell -> effectN( 2 ).sp_coeff();
+      dot_duration = dmg_spell -> duration();
+      dot_duration += player -> sets.set( SET_CASTER, T14, B4 ) -> effectN( 1 ).time_value();
+      base_tick_time = dmg_spell -> effectN( 2 ).period();
+      spell_power_mod.tick = dmg_spell -> effectN( 2 ).sp_coeff();
 
-      base_td_multiplier           *= 1.0 + player -> talent.balance_of_power -> effectN( 3 ).percent();
+      base_td_multiplier *= 1.0 + player -> talent.balance_of_power -> effectN( 3 ).percent();
 
       // Does no direct damage, costs no mana
       attack_power_mod.direct = 0;
@@ -4986,6 +5076,22 @@ struct moonfire_t : public druid_spell_t
 
       if ( result_is_hit( d -> state -> result ) )
         p() -> trigger_shooting_stars( d -> state );
+
+      if ( p() -> sets.has_set_bonus( DRUID_BALANCE, T18, B2 ) && p() -> cooldown.fey_faerie -> up() )
+      {
+        if ( p() -> rppm_fey_moonwing.trigger() )
+        {
+          for ( size_t i = 0; i < sizeof_array( p() -> pet_fey_moonwing ); i++ )
+          {
+            if ( p() -> pet_fey_moonwing[i] -> is_sleeping() )
+            {
+              p() -> pet_fey_moonwing[i] -> summon( timespan_t::from_seconds( 30 ) );
+              p() -> cooldown.fey_faerie -> start();
+              break;
+            }
+          }
+        }
+      }
     }
   };
 
@@ -5023,6 +5129,22 @@ struct moonfire_t : public druid_spell_t
 
     if ( result_is_hit( d -> state -> result ) )
       p() -> trigger_shooting_stars( d -> state );
+
+    if ( p() -> sets.has_set_bonus( DRUID_BALANCE, T18, B2 ) && p() -> cooldown.fey_faerie -> up() )
+    {
+      if ( p() -> rppm_fey_moonwing.trigger() )
+      {
+        for ( size_t i = 0; i < sizeof_array( p() -> pet_fey_moonwing ); i++ )
+        {
+          if ( p() -> pet_fey_moonwing[i] -> is_sleeping() )
+          {
+            p() -> pet_fey_moonwing[i] -> summon( timespan_t::from_seconds( 30 ) );
+            p() -> cooldown.fey_faerie -> start();
+            break;
+          }
+        }
+      }
+    }
   }
 
   double action_multiplier() const
@@ -5433,6 +5555,7 @@ struct starfall_t : public druid_spell_t
     {
       direct_tick = true;
       aoe = -1;
+      radius = 40;
     }
   };
 
@@ -5494,6 +5617,7 @@ struct starshards_t : public starfall_t
   {
     background = true;
     target = sim -> target;
+    radius = 40;
     cooldown = player -> get_cooldown( "starshards" );
   }
   
@@ -5979,20 +6103,31 @@ pet_t* druid_t::create_pet( const std::string& pet_name,
 
 void druid_t::create_pets()
 {
-  if ( specialization() == DRUID_BALANCE )
+  player_t::create_pets();
+
+  if ( sets.has_set_bonus( DRUID_BALANCE, T18, B2 ) )
   {
-    for ( size_t i = 0; i < sizeof_array( pet_force_of_nature ); ++i )
-      pet_force_of_nature[ i ] = new pets::force_of_nature_balance_t( sim, this );
+    for ( size_t i = 0; i < sizeof_array( pet_fey_moonwing ); ++i )
+      pet_fey_moonwing[i] = new pets::fey_moonwing_t( sim, this );
   }
-  else if ( specialization() == DRUID_FERAL )
+
+  if ( talent.force_of_nature -> ok() && find_action( "force_of_nature" ) )
   {
-    for ( size_t i = 0; i < sizeof_array( pet_force_of_nature ); ++i )
-      pet_force_of_nature[ i ] = new pets::force_of_nature_feral_t( sim, this );
-  }
-  else if ( specialization() == DRUID_GUARDIAN )
-  {
-    for ( size_t i = 0; i < sizeof_array( pet_force_of_nature ); i++ )
-      pet_force_of_nature[ i ] = new pets::force_of_nature_guardian_t( sim, this );
+    if ( specialization() == DRUID_BALANCE )
+    {
+      for ( size_t i = 0; i < sizeof_array( pet_force_of_nature ); ++i )
+        pet_force_of_nature[ i ] = new pets::force_of_nature_balance_t( sim, this );
+    }
+    else if ( specialization() == DRUID_FERAL )
+    {
+      for ( size_t i = 0; i < sizeof_array( pet_force_of_nature ); ++i )
+        pet_force_of_nature[ i ] = new pets::force_of_nature_feral_t( sim, this );
+    }
+    else if ( specialization() == DRUID_GUARDIAN )
+    {
+      for ( size_t i = 0; i < sizeof_array( pet_force_of_nature ); i++ )
+        pet_force_of_nature[ i ] = new pets::force_of_nature_guardian_t( sim, this );
+    }
   }
 }
 
@@ -6256,6 +6391,8 @@ void druid_t::init_base_stats()
   // initialize resolve for Guardians
   if ( specialization() == DRUID_GUARDIAN )
     resolve_manager.init();
+
+  rppm_fey_moonwing.set_frequency( 3 );
 }
 
 // druid_t::init_buffs ======================================================
@@ -6309,6 +6446,8 @@ void druid_t::create_buffs()
     case DRUID_RESTORATION: buff.incarnation = buff_creator_t( this, "incarnation", talent.incarnation_tree )
                              .duration( timespan_t::from_seconds( 30 ) );
                             break;
+    default:
+      break;
   }
 
   if ( specialization() == DRUID_GUARDIAN )
@@ -6353,6 +6492,10 @@ void druid_t::create_buffs()
 
   buff.starfall                  = buff_creator_t( this, "starfall", spell.starfall_aura )
                                    .refresh_behavior( BUFF_REFRESH_PANDEMIC );
+
+  buff.faerie_blessing           = buff_creator_t( this, "faerie_blessing", find_spell( 188086 ) )
+                                   .chance( sets.has_set_bonus( DRUID_BALANCE, T18, B4 ) )
+                                   .add_invalidate( CACHE_PLAYER_DAMAGE_MULTIPLIER );
 
   // Feral
   buff.tigers_fury           = buff_creator_t( this, "tigers_fury", find_specialization_spell( "Tiger's Fury" ) )
@@ -6950,6 +7093,7 @@ void druid_t::reset()
 {
   player_t::reset();
 
+  rppm_fey_moonwing.reset();
   inflight_starsurge = false;
   double_dmg_triggered = false;
   eclipse_amount = 0;
@@ -7129,11 +7273,12 @@ double druid_t::composite_player_multiplier( school_e school ) const
     {
       if ( buff.moonkin_form -> check() )
         m *= 1.0 + spell.moonkin_form -> effectN( 2 ).percent();
-      if ( buff.incarnation -> check() && specialization() == DRUID_BALANCE )
+      if ( buff.incarnation -> check() )
         m *= 1.0 + buff.incarnation -> default_value;
+      if ( buff.faerie_blessing -> check() )
+        m *= 1.0 + buff.faerie_blessing -> data().effectN( 1 ).percent();
     }
   }
-
   return m;
 }
 
@@ -8259,15 +8404,11 @@ struct druid_module_t : public module_t
     return p;
   }
   virtual bool valid() const { return true; }
-  virtual void init( sim_t* sim ) const
+  virtual void init( player_t* p ) const
   {
-    for ( unsigned int i = 0; i < sim -> actor_list.size(); i++ )
-    {
-      player_t* p = sim -> actor_list[ i ];
-      p -> buffs.stampeding_roar        = buff_creator_t( p, "stampeding_roar", p -> find_spell( 77764 ) )
-                                          .max_stack( 1 )
-                                          .duration( timespan_t::from_seconds( 8.0 ) );
-    }
+    p -> buffs.stampeding_roar = buff_creator_t( p, "stampeding_roar", p -> find_spell( 77764 ) )
+                                 .max_stack( 1 )
+                                 .duration( timespan_t::from_seconds( 8.0 ) );
   }
 
   virtual void static_init() const

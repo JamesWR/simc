@@ -1041,11 +1041,40 @@ size_t action_t::available_targets( std::vector< player_t* >& tl ) const
 
   for ( size_t i = 0, actors = sim -> target_non_sleeping_list.size(); i < actors; i++ )
   {
-    player_t* t = sim -> target_non_sleeping_list[ i ];
+    player_t* t = sim -> target_non_sleeping_list[i];
 
     if ( t -> is_enemy() && ( t != target ) )
+    {
+      if ( sim -> fancy_target_distance_stuff )
+      {
+        if ( sim -> log )
+        {
+          sim -> out_debug.printf( "%s action %s - Range %.3f, Radius %.3f, player location x=%.3f,y=%.3f, original target: %s - location: x=%.3f,y=%.3f, impact target: %s - location: x=%.3f,y=%.3f",
+            player -> name(), name(), range, radius, player -> x_position, player -> y_position, target -> name(), target -> x_position, target -> y_position, t -> name(), t -> x_position, t -> y_position );
+        }
+        if ( radius > 0 )
+        {
+          if ( range > 0 ) // Abilities with range/radius radiate from the target.
+          {
+            if ( target -> get_position_distance( t -> x_position, t -> y_position ) <= radius )
+              tl.push_back( t );
+          } // If they do not have a range, they are likely based on the distance from the player.
+          else if ( t -> get_position_distance( player -> x_position, player -> y_position ) <= radius )
             tl.push_back( t );
         }
+        else if ( range > 0 ) // If they only have a range, then they are a single target ability.
+        {
+          if ( t -> get_position_distance( player -> x_position, player -> y_position ) <= range )
+            tl.push_back( t );
+        }
+
+        }
+      else
+      {
+        tl.push_back( t );
+      }
+    }
+  }
 
   if ( sim -> debug )
   {
@@ -1177,7 +1206,10 @@ void action_t::execute()
     return;
 
   if ( !fancy_target_stuff_execute() )
+  {
+    cancel();
     return;
+  }
 
   if ( sim -> log && ! dual )
   {
@@ -1906,21 +1938,6 @@ void action_t::init()
     sim -> errorf( "Player %s trying to use both cycle_targets and a numerical target for action %s - defaulting to cycle_targets\n", player -> name(), name() );
   }
 
-  if ( ! if_expr_str.empty() )
-  {
-    if_expr = expr_t::parse( this, if_expr_str, sim -> optimize_expressions );
-  }
-
-  if ( ! interrupt_if_expr_str.empty() )
-  {
-    interrupt_if_expr = expr_t::parse( this, interrupt_if_expr_str, sim -> optimize_expressions );
-  }
-
-  if ( ! early_chain_if_expr_str.empty() )
-  {
-    early_chain_if_expr = expr_t::parse( this, early_chain_if_expr_str, sim -> optimize_expressions );
-  }
-
   if ( tick_action )
   {
     tick_action -> direct_tick = true;
@@ -2008,6 +2025,31 @@ void action_t::init()
 
   // Setup default target in init
   default_target = target;
+}
+
+bool action_t::init_finished()
+{
+  bool ret = true;
+
+  if ( ! if_expr_str.empty() &&
+       ( if_expr = expr_t::parse( this, if_expr_str, sim -> optimize_expressions ) ) == 0 )
+  {
+    ret = false;
+  }
+
+  if ( ! interrupt_if_expr_str.empty() &&
+       ( interrupt_if_expr = expr_t::parse( this, interrupt_if_expr_str, sim -> optimize_expressions ) ) == 0 )
+  {
+    ret = false;
+  }
+
+  if ( ! early_chain_if_expr_str.empty() &&
+       ( early_chain_if_expr = expr_t::parse( this, early_chain_if_expr_str, sim -> optimize_expressions ) ) == 0 )
+  {
+    ret = false;
+  }
+
+  return ret;
 }
 
 void action_t::init_target_cache()
@@ -2442,12 +2484,47 @@ expr_t* action_t::create_expression( const std::string& name_str )
 
   if ( splits.size() == 2 )
   {
-    if ( splits[ 0 ] == "prev" )
+    if ( splits[0] == "active_enemies_within" )
     {
-      struct prev_expr_t : public action_expr_t
+      struct active_enemies_t: public expr_t
+      {
+        action_t* action;
+        const std::string& yards;
+        double yards_from_player;
+        int num_targets;
+        active_enemies_t( action_t* p, const std::string& r ):
+          expr_t( "active_enemies_within" ), action( p ), yards( r )
+        {
+          yards_from_player = util::str_to_num<int>( yards );
+          num_targets = 0;
+        }
+
+        double evaluate()
+        {
+          num_targets = 0;
+          for ( size_t i = 0, actors = action -> player -> sim -> target_non_sleeping_list.size(); i < actors; i++ )
+          {
+            player_t* t = action -> player -> sim -> target_non_sleeping_list[i];
+            if ( action -> player -> get_position_distance( t -> x_position, t -> y_position ) <= yards_from_player )
+              num_targets++;
+          }
+          return num_targets;
+        }
+
+        void reset()
+        {
+          active_enemies_t::reset();
+          num_targets = 0;
+        }
+      };
+      return new active_enemies_t( this, splits[1] );
+    }
+    if ( splits[0] == "prev" )
+    {
+      struct prev_expr_t: public action_expr_t
       {
         action_t* prev;
-        prev_expr_t( action_t& a, const std::string& prev_action ) : action_expr_t( "prev", a ),
+        prev_expr_t( action_t& a, const std::string& prev_action ): action_expr_t( "prev", a ),
           prev( a.player -> find_action( prev_action ) )
         {}
         virtual double evaluate()
@@ -2457,7 +2534,7 @@ expr_t* action_t::create_expression( const std::string& name_str )
           return false;
         }
       };
-      return new prev_expr_t( *this, splits[ 1 ] );
+      return new prev_expr_t( *this, splits[1] );
     }
     else if ( splits[0] == "prev_gcd" )
     {
@@ -2501,7 +2578,7 @@ expr_t* action_t::create_expression( const std::string& name_str )
       };
       return new prev_gcd_expr_t( *this, splits[1] );
     }
-    else if ( splits[ 0 ] == "gcd" )
+    else if ( splits[0] == "gcd" )
     {
       if ( splits[1] == "max" )
       {
@@ -2542,6 +2619,27 @@ expr_t* action_t::create_expression( const std::string& name_str )
         };
         return new gcd_remains_expr_t( *this );
       }
+    }
+    else if ( splits[0] == "spell_targets" )
+    {
+      struct spell_targets_t: public expr_t
+      {
+        action_t* spell;
+        spell_targets_t( action_t& a, const std::string& spell_name ): expr_t( "spell_targets" )
+        {
+          spell = a.player -> find_action( spell_name );
+        }
+        double evaluate()
+        {
+          if ( spell )
+          {
+            spell -> target_list();
+            return static_cast<double>( spell -> target_list().size() );
+          }
+          return 0;
+        }
+      };
+      return new spell_targets_t( *this, splits[1] );
     }
   }
 
@@ -2856,29 +2954,14 @@ void action_t::schedule_travel( action_state_t* s )
   do_schedule_travel( s, time_to_travel );
 }
 
-bool action_t::fancy_target_stuff_impact( action_state_t* s )
+bool action_t::fancy_target_stuff_impact( action_state_t* /*s*/ ) // This is for abilities with unusual mechanics, such as glaive toss. 
 {
-  if ( sim -> log )
-  {
-    sim -> out_debug.printf( "%s action %s - Range %.3f, Radius %.3f, player location x=%.3f,y=%.3f, original target: %s - location: x=%.3f,y=%.3f, impact target: %s - location: x=%.3f,y=%.3f",
-      player -> name(), name(), range, radius, player -> x_position, player -> y_position, target -> name(), target -> x_position, target -> y_position, s -> target -> name(), s -> target -> x_position, s -> target -> y_position );
-  }
-  if ( radius > 0 || range > 0 )
-  {
-    if ( radius > 0 ) // Check radius first, typically anything that has a radius (with a few exceptions) deal damage based on the original target.
-    {
-      if ( target -> get_position_distance( s -> target -> x_position, s -> target -> y_position ) > radius )
-        return false;
-    } // If they do not have a radius, they are likely based on the distance from the player.
-    else if ( s -> target -> get_position_distance( player -> x_position, player -> y_position ) > range )
-      return false;
-  }
   return true;
 }
 
 void action_t::impact( action_state_t* s )
 {
-  if ( sim -> fancy_target_distance_stuff && is_aoe() )
+  if ( sim -> fancy_target_distance_stuff )
   {
     if ( !fancy_target_stuff_impact( s ) )
       return;
