@@ -662,7 +662,7 @@ bool chart::generate_raid_aps( highchart::bar_chart_t& bc,
     bc.add( "series.0.data", e );
   }
 
-  bc.height_ = 95 + player_list.size() * 24;
+  bc.height_ = 95 + player_list.size() * 26;
   bc.set_title( long_type + " Ranking" );
   bc.set( "yAxis.title.text", long_type.c_str() );
   // Make the Y-axis a bit longer, so we can put in all numbers on the right
