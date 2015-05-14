@@ -545,6 +545,7 @@ struct water_elemental_pet_t : public pet_t
       aoe = -1;
       may_crit = true;
       ignore_false_positive = true;
+      action_skill = 1;
     }
 
     virtual void impact( action_state_t* s )
@@ -1758,12 +1759,6 @@ struct arcane_missiles_t : public mage_spell_t
     }
 
     return am;
-  }
-
-  // Flag Arcane Missiles as direct damage for triggering effects
-  dmg_e amount_type( const action_state_t* /* state */, bool /* periodic */ ) const
-  {
-    return DMG_DIRECT;
   }
 
   virtual void execute()
@@ -4111,6 +4106,7 @@ struct prismatic_crystal_t : public mage_spell_t
     may_miss = may_crit = harmful = callbacks = false;
     min_gcd = data().gcd();
     ignore_false_positive = true;
+    action_skill = 1;
   }
 
   void execute()
@@ -4165,6 +4161,7 @@ struct choose_target_t : public action_t
 
     harmful = may_miss = may_crit = callbacks = false;
     ignore_false_positive = true;
+    action_skill = 1;
 
     std::string::size_type offset = target_if_str.find( ':' );
     if ( offset != std::string::npos )
@@ -4399,6 +4396,7 @@ struct start_pyro_chain_t : public action_t
     trigger_gcd = timespan_t::zero();
     harmful = false;
     ignore_false_positive = true;
+    action_skill = 1;
   }
 
   virtual void execute()
@@ -4438,6 +4436,7 @@ struct stop_pyro_chain_t : public action_t
     trigger_gcd = timespan_t::zero();
     harmful = false;
     ignore_false_positive = true;
+    action_skill = 1;
   }
 
   virtual void execute()
@@ -4479,6 +4478,7 @@ struct start_burn_phase_t : public action_t
     trigger_gcd = timespan_t::zero();
     harmful = false;
     ignore_false_positive = true;
+    action_skill = 1;
   }
 
   virtual void execute()
@@ -4518,6 +4518,7 @@ struct stop_burn_phase_t : public action_t
     trigger_gcd = timespan_t::zero();
     harmful = false;
     ignore_false_positive = true;
+    action_skill = 1;
   }
 
   virtual void execute()
@@ -4636,6 +4637,7 @@ struct water_jet_t : public action_t
     dual = true;
     trigger_gcd = timespan_t::zero();
     ignore_false_positive = true;
+    action_skill = 1;
   }
 
   void reset()
@@ -5299,7 +5301,6 @@ void mage_t::init_action_list()
   player_t::init_action_list();
 }
 
-
 // mage_t::has_t18_class_trinket ==============================================
 
 bool mage_t::has_t18_class_trinket() const
@@ -5319,7 +5320,6 @@ bool mage_t::has_t18_class_trinket() const
 
   return false;
 }
-
 
 //Pre-combat Action Priority List============================================
 
@@ -5537,7 +5537,7 @@ void mage_t::apl_arcane()
   burn -> add_action( this, "Arcane Barrage",
                       "if=talent.arcane_orb.enabled&active_enemies>=3&buff.arcane_charge.stack=4&(cooldown.arcane_orb.remains<gcd.max|prev_gcd.arcane_orb)" );
   burn -> add_action( this, "Presence of Mind",
-                      "if=mana.pct>96&(!talent.prismatic_crystal.enabled|!cooldown.prismatic_crystal.up)" );
+                      "if=(mana.pct>96&(!talent.prismatic_crystal.enabled|!cooldown.prismatic_crystal.up))|set_bonus.tier18_2pc" );
   burn -> add_action( this, "Arcane Blast",
                       "if=buff.arcane_charge.stack=4&mana.pct>93" );
   burn -> add_action( this, "Arcane Missiles",
@@ -5565,7 +5565,7 @@ void mage_t::apl_arcane()
   conserve -> add_talent( this, "Arcane Orb",
                           "if=buff.arcane_charge.stack<2" );
   conserve -> add_action( this, "Presence of Mind",
-                          "if=mana.pct>96&(!talent.prismatic_crystal.enabled|!cooldown.prismatic_crystal.up)" );
+                          "if=(mana.pct>96&(!talent.prismatic_crystal.enabled|!cooldown.prismatic_crystal.up))|set_bonus.tier18_2pc" );
   conserve -> add_action( this, "Arcane Blast",
                           "if=buff.arcane_charge.stack=4&mana.pct>93" );
   conserve -> add_action( this, "Arcane Barrage",

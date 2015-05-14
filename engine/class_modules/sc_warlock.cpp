@@ -3299,16 +3299,6 @@ struct incinerate_t: public warlock_spell_t
     warlock_spell_t::schedule_travel( s );
   }
 
-  void execute()
-  {
-    warlock_spell_t::execute();
-    if ( p() -> destruction_trinket )
-    {
-      warlock_td_t* td = p() -> get_target_data( execute_state -> target );
-      td -> debuffs_flamelicked -> trigger( 1 );
-    }
-  }
-
   void impact( action_state_t* s )
   {
     warlock_spell_t::impact( s );
@@ -3324,6 +3314,11 @@ struct incinerate_t: public warlock_spell_t
 
     if ( result_is_hit( s -> result ) )
       trigger_soul_leech( p(), s -> result_amount * p() -> talents.soul_leech -> effectN( 1 ).percent() );
+
+    if ( p() -> destruction_trinket )
+    {
+      td( s -> target ) -> debuffs_flamelicked -> trigger( 1 );
+    }
   }
 
   virtual bool ready()
@@ -3825,8 +3820,10 @@ struct touch_of_chaos_t: public warlock_spell_t
 
 struct drain_soul_t: public warlock_spell_t
 {
+  bool haunt_t18_4p_bonus;
   drain_soul_t( warlock_t* p ):
-    warlock_spell_t( "Drain Soul", p, p -> find_spell( 103103 ) )
+    warlock_spell_t( "Drain Soul", p, p -> find_spell( 103103 ) ),
+    haunt_t18_4p_bonus( false )
   {
     channeled = true;
     hasted_ticks = false;
@@ -3835,6 +3832,9 @@ struct drain_soul_t: public warlock_spell_t
     stats -> add_child( p -> get_stats( "agony_ds" ) );
     stats -> add_child( p -> get_stats( "corruption_ds" ) );
     stats -> add_child( p -> get_stats( "unstable_affliction_ds" ) );
+
+    if ( p -> sets.has_set_bonus( WARLOCK_AFFLICTION, T18, B4 ) )
+      haunt_t18_4p_bonus = true;
   }
 
   virtual double composite_target_multiplier( player_t* t ) const
@@ -3855,7 +3855,6 @@ struct drain_soul_t: public warlock_spell_t
 
     m *= 1.0 + p() -> talents.grimoire_of_sacrifice -> effectN( 4 ).percent() * p() -> buffs.grimoire_of_sacrifice -> stack();
 
-
     if ( p() ->  buffs.tier16_2pc_empowered_grasp -> up() )
     {
       m *= 1.0 + p() ->  buffs.tier16_2pc_empowered_grasp -> value();
@@ -3867,14 +3866,17 @@ struct drain_soul_t: public warlock_spell_t
   {
     warlock_spell_t::tick( d );
 
-    if ( p() -> sets.has_set_bonus( WARLOCK_AFFLICTION, T18, B4 ) && p() -> buffs.dark_soul -> check() && td( p() -> target ) -> debuffs_haunt -> check() )
+    if ( haunt_t18_4p_bonus && p() -> buffs.dark_soul -> check() && td( d -> target ) -> debuffs_haunt -> check() )
     {
-      td( p() -> target ) -> debuffs_haunt -> trigger( 1, buff_t::DEFAULT_VALUE(), -1.0, td( p() -> target ) -> dots_haunt -> remains() );
+      td( d -> target ) -> dots_haunt -> refresh_duration();
+      td( d -> target ) -> debuffs_haunt -> trigger( 1, buff_t::DEFAULT_VALUE(), -1.0, td( d -> target ) -> dots_haunt -> remains() );
     }
 
-    if ( p() -> sets.has_set_bonus( WARLOCK_AFFLICTION, T18, B2 ) && rng().roll( p() -> sets.set( WARLOCK_AFFLICTION, T18, B2 ) -> proc_chance() ) && p() -> buffs.dark_soul -> check() )
-      p() -> buffs.dark_soul -> extend_duration( p(), p() -> sets.set ( WARLOCK_AFFLICTION, T18, B2 ) -> effectN( 1 ).time_value()  );
-
+    if ( p() -> sets.has_set_bonus( WARLOCK_AFFLICTION, T18, B2 ) && p() -> buffs.dark_soul -> check() )
+    {
+      if ( rng().roll( p() -> sets.set( WARLOCK_AFFLICTION, T18, B2 ) -> proc_chance() ) )
+        p() -> buffs.dark_soul -> extend_duration( p(), p() -> sets.set( WARLOCK_AFFLICTION, T18, B2 ) -> effectN( 1 ).time_value() );
+    }
 
     trigger_soul_leech( p(), d -> state -> result_amount * p() -> talents.soul_leech -> effectN( 1 ).percent() * 2 );
 
@@ -5244,8 +5246,7 @@ double warlock_t::mana_regen_per_second() const
 {
   double mp5 = player_t::mana_regen_per_second();
 
-  if ( spec.chaotic_energy -> ok() )
-    mp5 /= cache.spell_haste();
+  mp5 /= cache.spell_haste();
 
   return mp5;
 }
@@ -5838,10 +5839,11 @@ void warlock_t::apl_affliction()
 
   add_action( "Soulburn", "cycle_targets=1,if=!talent.soulburn_haunt.enabled&active_enemies>2&dot.corruption.remains<=dot.corruption.duration*0.3" );
   add_action( "Seed of Corruption", "cycle_targets=1,if=!talent.soulburn_haunt.enabled&active_enemies>2&!dot.seed_of_corruption.remains&buff.soulburn.remains" );
-  add_action( "Haunt", "if=shard_react&!talent.soulburn_haunt.enabled&!in_flight_to_target&(dot.haunt.remains<duration*0.3+cast_time+travel_time|soul_shard=4)&(trinket.proc.any.react|trinket.stacking_proc.any.react>6|buff.dark_soul.up|soul_shard>2|soul_shard*14<=target.time_to_die)" );
+  add_action( "Haunt", "if=shard_react&!talent.soulburn_haunt.enabled&!in_flight_to_target&(dot.haunt.remains<duration*0.3+cast_time+travel_time|soul_shard=4)&(trinket.proc.any.react|trinket.stacking_proc.any.react>6|buff.dark_soul.up|soul_shard>2|soul_shard*14<=target.time_to_die)&(buff.dark_soul.down|set_bonus.tier18_4pc=0)" );
   add_action( "Soulburn", "if=shard_react&talent.soulburn_haunt.enabled&buff.soulburn.down&(buff.haunting_spirits.remains<=buff.haunting_spirits.duration*0.3)" );
   add_action( "Haunt", "if=shard_react&talent.soulburn_haunt.enabled&!in_flight_to_target&((buff.soulburn.up&((buff.haunting_spirits.remains<=buff.haunting_spirits.duration*0.3&dot.haunt.remains<=dot.haunt.duration*0.3)|buff.haunting_spirits.down)))" );
-  add_action( "Haunt", "if=shard_react&talent.soulburn_haunt.enabled&!in_flight_to_target&buff.haunting_spirits.remains>=buff.haunting_spirits.duration*0.5&(dot.haunt.remains<duration*0.3+cast_time+travel_time|soul_shard=4)&(trinket.proc.any.react|trinket.stacking_proc.any.react>6|buff.dark_soul.up|soul_shard>2|soul_shard*14<=target.time_to_die)" );
+  add_action( "Haunt", "if=shard_react&talent.soulburn_haunt.enabled&!in_flight_to_target&buff.haunting_spirits.remains>=buff.haunting_spirits.duration*0.5&(dot.haunt.remains<duration*0.3+cast_time+travel_time|soul_shard=4)&(trinket.proc.any.react|trinket.stacking_proc.any.react>6|buff.dark_soul.up|soul_shard>2|soul_shard*14<=target.time_to_die)&(buff.dark_soul.down|set_bonus.tier18_4pc=0)" );
+  add_action( "Haunt", "if=shard_react&!in_flight_to_target&buff.dark_soul.remains>cast_time+travel_time&!dot.haunt.ticking&set_bonus.tier18_4pc=1" );
   add_action( "Agony", "cycle_targets=1,if=target.time_to_die>16&remains<=(duration*0.3)&((talent.cataclysm.enabled&remains<=(cooldown.cataclysm.remains+action.cataclysm.cast_time))|!talent.cataclysm.enabled)" );
   add_action( "Unstable Affliction", "cycle_targets=1,if=target.time_to_die>10&remains<=(duration*0.3)" );
   add_action( "Seed of Corruption", "cycle_targets=1,if=!talent.soulburn_haunt.enabled&active_enemies>3&!dot.seed_of_corruption.ticking" );

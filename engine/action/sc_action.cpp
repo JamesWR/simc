@@ -1596,6 +1596,11 @@ void action_t::assess_damage( dmg_e    type,
       player -> priority_iteration_dmg += s -> result_amount;
     }
 
+    if ( player -> buffs.legendary_aoe_ring && player -> buffs.legendary_aoe_ring -> check() )
+    {
+      player -> buffs.legendary_aoe_ring -> current_value += s -> result_amount;
+    }
+
     // Leeching .. sanity check that the result type is a damaging one, so things hopefully don't
     // break in the future if we ever decide to not separate heal and damage assessing.
     double leech_pct = 0;
@@ -1607,6 +1612,16 @@ void action_t::assess_damage( dmg_e    type,
       player -> spell.leech -> base_dd_min = player -> spell.leech -> base_dd_max = leech_amount;
       player -> spell.leech -> schedule_execute();
     }
+  }
+  else if ( s -> result_amount > 0 && player -> buffs.spirit_shift -> check() )
+  {
+    if ( sim -> debug )
+    {
+      player -> sim -> out_debug.printf( "%s spirit_shift accumulates %.0f damage.",
+          player -> name(), s -> result_amount );
+    }
+
+    player -> buffs.spirit_shift -> current_value += s -> result_amount;
   }
 
   // New callback system; proc spells on impact.

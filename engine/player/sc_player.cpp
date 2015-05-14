@@ -2987,6 +2987,9 @@ double player_t::composite_player_multiplier( school_e /* school */ ) const
     m *= 1.0 + buffs.brute_strength -> data().effectN( 1 ).percent();
   }
 
+  if ( buffs.legendary_aoe_ring && buffs.legendary_aoe_ring -> up() )
+    m *= 1.0 + buffs.legendary_aoe_ring -> default_value;
+
   return m;
 }
 
@@ -5167,11 +5170,17 @@ void player_t::assess_damage( school_e school,
 
   account_legendary_tank_cloak( *this, s );
 
-  collect_dmg_taken_data( *this, s, result_ignoring_external_absorbs );
-
   double actual_amount = 0.0;
-  if ( s -> result_amount > 0.0 )
-    actual_amount = resource_loss( RESOURCE_HEALTH, s -> result_amount, nullptr, s -> action );
+  // Prevent double-dipping on damage if the source has a spirit shift trinket up. Cthulhu save us
+  // all from this kludge.
+  if ( ! s -> action -> player -> buffs.spirit_shift ||
+       ! s -> action -> player -> buffs.spirit_shift -> check() )
+  {
+    collect_dmg_taken_data( *this, s, result_ignoring_external_absorbs );
+
+    if ( s -> result_amount > 0.0 )
+      actual_amount = resource_loss( RESOURCE_HEALTH, s -> result_amount, nullptr, s -> action );
+  }
 
   // New callback system; proc abilities on incoming events.
   // TODO: How to express action causing/not causing incoming callbacks?
@@ -6406,16 +6415,22 @@ struct use_item_t : public action_t
     const special_effect_t& e = item -> special_effect( SPECIAL_EFFECT_SOURCE_NONE, SPECIAL_EFFECT_USE );
     if ( e.type == SPECIAL_EFFECT_USE )
     {
-      buff = buff_t::find( player, e.name() );
-      if ( ! buff )
+      if ( e.buff_type() != SPECIAL_EFFECT_BUFF_NONE )
       {
-        buff = e.create_buff();
+        buff = buff_t::find( player, e.name() );
+        if ( ! buff )
+        {
+          buff = e.create_buff();
+        }
       }
 
-      action = player -> find_action( e.name() );
-      if ( ! action )
+      if ( e.action_type() != SPECIAL_EFFECT_ACTION_NONE )
       {
-        action = e.create_action();
+        action = player -> find_action( e.name() );
+        if ( ! action )
+        {
+          action = e.create_action();
+        }
       }
 
       stats = player ->  get_stats( name_str, this );
@@ -6464,7 +6479,15 @@ struct use_item_t : public action_t
     update_ready();
 
     if ( triggered && buff )
-      lockout( buff -> buff_duration );
+    {
+      // Warlords of Draenor Legendary Ring On-Use effect does not trigger shared item cooldown. Match
+      // based on the buff spell id
+      unsigned buff_id = buff -> data().id();
+      if ( buff_id != 187619 && buff_id != 187620 && buff_id != 187616 )
+      {
+        lockout( buff -> buff_duration );
+      }
+    }
   }
 
   virtual bool ready()

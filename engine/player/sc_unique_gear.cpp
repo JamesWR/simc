@@ -78,6 +78,7 @@ namespace item
   void humming_blackiron_trigger( special_effect_t& );
   void spellbound_runic_band( special_effect_t& );
   void spellbound_solium_band( special_effect_t& );
+  void legendary_ring( special_effect_t& );
 
   /* Warlords of Draenor 6.2 */
   void discordant_chorus( special_effect_t& );
@@ -616,8 +617,6 @@ void enchants::executioner( special_effect_t& effect )
 
 struct nitro_boosts_action_t : public action_t
 {
-  buff_t* buff;
-
   nitro_boosts_action_t( player_t* p ) :
     action_t( ACTION_USE, "nitro_boosts", p )
   {
@@ -625,8 +624,9 @@ struct nitro_boosts_action_t : public action_t
     cooldown = p -> get_cooldown( "potion" );
   }
 
-  virtual void execute()
+  void execute()
   {
+    action_t::execute();
     if ( sim -> log ) sim -> out_log.printf( "%s performs %s", player -> name(), name() );
 
     player -> buffs.nitro_boosts-> trigger();
@@ -1561,6 +1561,110 @@ void item::spellbound_solium_band( special_effect_t& effect )
   new dbc_proc_callback_t( p, effect );
 }
 
+
+void item::legendary_ring( special_effect_t& effect )
+{
+  maintenance_check( 528 );
+
+  player_t* p = effect.item -> player;
+  buff_t* buff = 0;
+
+  struct legendary_ring_damage_t: public spell_t
+  {
+    double damage_coeff;
+    legendary_ring_damage_t( special_effect_t& originaleffect, const spell_data_t* spell ):
+      spell_t( spell -> name_cstr(), originaleffect.player, spell ),
+      damage_coeff( 0 )
+    {
+      damage_coeff = originaleffect.player -> find_spell( originaleffect.spell_id ) -> effectN( 1 ).average( originaleffect.item ) / 10000.0;
+      background = split_aoe_damage = true;
+      callbacks = false;
+      trigger_gcd = timespan_t::zero();
+      aoe = -1;
+      radius = 20;
+      range = -1;
+      travel_speed = 0.0;
+    }
+
+    void init() override
+    {
+      spell_t::init();
+
+      snapshot_flags = STATE_MUL_DA;
+      update_flags = 0;
+    }
+
+    double composite_da_multiplier( const action_state_t* ) const
+    {
+      return damage_coeff;
+    }
+  };
+
+  struct legendary_ring_buff_t: public buff_t
+  {
+    action_t* boom;
+    legendary_ring_buff_t( special_effect_t& originaleffect, const spell_data_t* buff, const spell_data_t* damagespell ):
+      buff_t( buff_creator_t( originaleffect.player, buff -> name_cstr(), buff ).add_invalidate( CACHE_PLAYER_DAMAGE_MULTIPLIER ).
+      default_value( originaleffect.player -> find_spell( originaleffect.spell_id ) -> effectN( 1 ).average( originaleffect.item ) / 10000.0 ) ),
+      boom( 0 )
+    {
+      boom = originaleffect.player -> find_action( damagespell -> name_cstr() );
+
+      if ( !boom )
+      {
+        boom = originaleffect.player -> create_proc_action( damagespell -> name_cstr(), originaleffect );
+      }
+
+      if ( !boom )
+      {
+        boom = new legendary_ring_damage_t( originaleffect, damagespell );
+      }
+      originaleffect.player -> buffs.legendary_aoe_ring = this;
+    }
+
+  void expire_override( int expiration_stacks, timespan_t remaining_duration )
+  {
+    double cv = current_value;
+
+    buff_t::expire_override( expiration_stacks, remaining_duration );
+
+    if ( cv > 0 && !player -> is_sleeping() )
+    {
+      boom -> base_dd_min = boom -> base_dd_max = cv;
+      boom -> execute();
+    }
+  }
+};
+
+  const spell_data_t* buffspell;
+  const spell_data_t* actionspell;
+
+  switch ( p -> convert_hybrid_stat( STAT_STR_AGI_INT ) )
+  {
+  case STAT_STRENGTH:
+    buffspell = p -> find_spell( 187619 );
+    actionspell = p -> find_spell( 187624 );
+    buff = new legendary_ring_buff_t( effect, buffspell, actionspell );
+    break;
+  case STAT_AGILITY:
+    buffspell = p -> find_spell( 187620 );
+    actionspell = p -> find_spell( 187626 );
+    buff = new legendary_ring_buff_t( effect, buffspell, actionspell );
+    break;
+  case STAT_INTELLECT:
+    buffspell = p -> find_spell( 187616 );
+    actionspell = p -> find_spell( 187625 );
+    buff = new legendary_ring_buff_t( effect, buffspell, actionspell );
+    break;
+  default:
+    break;
+  }
+
+  effect.custom_buff = buff;
+  effect.type = SPECIAL_EFFECT_USE;
+  effect.cooldown_ = timespan_t::from_seconds( 120 );
+}
+
 void item::black_blood_of_yshaarj( special_effect_t& effect )
 {
   maintenance_check( 528 );
@@ -2423,41 +2527,6 @@ void item::unblinking_gaze_of_sethe( special_effect_t& effect )
   new dbc_proc_callback_t( effect.player, effect );
 }
 
-struct soul_capacitor_cb_t : public dbc_proc_callback_t
-{
-  double stored_value;
-
-  soul_capacitor_cb_t( const special_effect_t& effect ) :
-    dbc_proc_callback_t( effect.player, effect ), stored_value( 0 )
-  { }
-
-  void reset()
-  {
-    dbc_proc_callback_t::reset();
-
-    stored_value = 0;
-  }
-
-  void activate()
-  {
-    if ( ! active )
-    {
-      stored_value = 0;
-    }
-
-    dbc_proc_callback_t::activate();
-  }
-
-  void execute( action_t* /* a */, action_state_t* trigger_state )
-  {
-    if ( listener -> sim -> debug )
-    {
-      listener -> sim -> out_debug.printf( "%s spirit_shift accumulates %.0f damage.", listener -> name(), trigger_state -> result_amount );
-    }
-    stored_value += trigger_state -> result_amount;
-  }
-};
-
 struct soul_capacitor_explosion_t : public spell_t
 {
   double explosion_multiplier;
@@ -2477,76 +2546,43 @@ struct soul_capacitor_explosion_t : public spell_t
   {
     spell_t::init();
 
-    snapshot_flags = update_flags = 0;
+    snapshot_flags = STATE_MUL_DA;
+    update_flags = 0;
   }
 
-  virtual double calculate_direct_amount( action_state_t* s ) override
-  {
-    return spell_t::calculate_direct_amount( s ) * explosion_multiplier;
-  }
+  double composite_da_multiplier( const action_state_t* ) const
+  { return explosion_multiplier; }
 };
 
 struct soul_capacitor_buff_t : public buff_t
 {
   // Explosion here
   spell_t* explosion;
-  soul_capacitor_cb_t* cb;
 
   soul_capacitor_buff_t( player_t* player, special_effect_t& effect ) :
     buff_t( buff_creator_t( player, "spirit_shift", player -> find_spell( 184293 ) ) ),
-    explosion( new soul_capacitor_explosion_t( player, effect ) ), cb( 0 )
+    explosion( new soul_capacitor_explosion_t( player, effect ) )
   {
     player -> buffs.spirit_shift = this;
   }
 
   void expire_override( int expiration_stacks, timespan_t remaining_duration )
   {
+    double cv = current_value;
+
     buff_t::expire_override( expiration_stacks, remaining_duration );
 
-    if ( cb -> stored_value > 0 && ! player -> is_sleeping() )
+    if ( cv > 0 && ! player -> is_sleeping() )
     {
-      explosion -> base_dd_min = explosion -> base_dd_max = cb -> stored_value;
+      explosion -> base_dd_min = explosion -> base_dd_max = cv;
       explosion -> execute();
     }
-
-    cb -> deactivate();
-  }
-
-  void execute( int stacks, double value, timespan_t duration )
-  {
-    buff_t::execute( stacks, value, duration );
-
-    cb -> activate();
-  }
-
-  void reset()
-  {
-    buff_t::reset();
-
-    cb -> deactivate();
   }
 };
-
-static void initialize_soul_capacitor( special_effect_t& effect )
-{
-  soul_capacitor_cb_t* damage_cb = new soul_capacitor_cb_t( effect );
-  static_cast<soul_capacitor_buff_t*>( effect.custom_buff ) -> cb = damage_cb;
-}
 
 void item::soul_capacitor( special_effect_t& effect )
 {
   effect.custom_buff = new soul_capacitor_buff_t( effect.player, effect );
-
-  special_effect_t damage_effect( effect.player );
-  damage_effect.name_str = "spirit_shift";
-  damage_effect.type = SPECIAL_EFFECT_CUSTOM;
-  damage_effect.proc_chance_ = 1.0;
-  damage_effect.proc_flags_ = PF_ALL_DAMAGE | PF_PERIODIC;
-  damage_effect.proc_flags2_ = PF2_ALL_HIT | PF2_ALL_MULTISTRIKE;
-  damage_effect.custom_buff = effect.custom_buff;
-  damage_effect.custom_init = initialize_soul_capacitor;
-
-  effect.player -> special_effects.push_back( new special_effect_t( damage_effect ) );
 
   new dbc_proc_callback_t( effect.player, effect );
 }
@@ -2607,11 +2643,10 @@ struct blademaster_pet_t : public pet_t
     pet_t( owner -> sim, owner, "mirror_image_(trinket)", true, true )
   {
     main_hand_weapon.type = WEAPON_BEAST;
+    // Verified 5/11/15, TODO: Check if this is still the same on live
+    owner_coeff.ap_from_ap = 1.0;
     // TODO: Verify in-game
     main_hand_weapon.swing_time = timespan_t::from_seconds( 2.0 );
-
-    // TODO: Verify in-game, this is also likely the thing that scales the pets
-    owner_coeff.ap_from_ap = 1.0;
   }
 
   void init_action_list()
@@ -2652,6 +2687,10 @@ struct burning_mirror_t : public spell_t
     for ( size_t i = 0; i < n_mirrors; ++i )
     {
       pets.push_back( new blademaster_pet_t( effect.player ) );
+
+      // Spawn every other image in front of the target
+      if ( i % 2 )
+        pets[ i ] -> base.position = POSITION_FRONT;
     }
   }
 
@@ -3305,6 +3344,9 @@ void unique_gear::register_special_effects()
   register_special_effect( 183951, item::unblinking_gaze_of_sethe       );
   register_special_effect( 184249, item::discordant_chorus              );
   register_special_effect( 184257, item::empty_drinking_horn            );
+  register_special_effect( 187614, item::legendary_ring                 );
+  register_special_effect( 187611, item::legendary_ring                 );
+  register_special_effect( 187615, item::legendary_ring                 );
 
   /* Warlords of Draenor 6.0 */
   register_special_effect( 177085, item::blackiron_micro_crucible       );

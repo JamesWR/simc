@@ -997,7 +997,7 @@ public:
     {
       if ( !( stats_list[i] -> parent ) )
       {
-        if ( sets.has_set_bonus( HUNTER_BEAST_MASTERY, T18, B4 ) )
+        if ( o() -> sets.has_set_bonus( HUNTER_BEAST_MASTERY, T18, B4 ) )
           o() -> stats_tier18_4pc_bm -> add_child( stats_list[i] );
         else
           o() -> stats_tier17_4pc_bm -> add_child( stats_list[i] );
@@ -1009,7 +1009,7 @@ public:
     owner_coeff.ap_from_ap = 0.6;
     owner_coeff.sp_from_ap = 0.6;
 
-    if ( sets.has_set_bonus( HUNTER_BEAST_MASTERY, T17, B4 ) )
+    if ( o() -> sets.has_set_bonus( HUNTER_BEAST_MASTERY, T17, B4 ) )
     {
       buffs.tier17_4pc_bm -> trigger( 1, buff_t::DEFAULT_VALUE(), 1.0, duration );
     }
@@ -4142,6 +4142,7 @@ void hunter_t::apl_bm()
   default_list -> add_action( this, "Bestial Wrath", "if=focus>30&!buff.bestial_wrath.up" );
   default_list -> add_action( this, "Multi-Shot", "if=active_enemies>1&pet.cat.buff.beast_cleave.remains<0.5" );
   default_list -> add_action( this, "Focus Fire", "five_stacks=1,if=buff.focus_fire.down" );
+  default_list -> add_action( this, "Focus Fire", "five_stacks=1,if=buff.focus_fire.stack<5&pet.cat.buff.frenzy.stack=5" );
   default_list -> add_talent( this, "Barrage", "if=active_enemies>1" );
   default_list -> add_action( this, "Explosive Trap", "if=active_enemies>5" );
   default_list -> add_action( this, "Multi-Shot", "if=active_enemies>5" );
