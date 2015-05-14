@@ -4985,6 +4985,7 @@ void paladin_t::create_buffs()
                                  .duration( timespan_t::from_seconds( 4 ) );
   buffs.wings_of_liberty       = buff_creator_t( this, "wings_of_liberty", find_spell( 185655 ) -> effectN( 1 ).trigger() )
                                  .add_invalidate( CACHE_PLAYER_DAMAGE_MULTIPLIER )
+                                 .duration( timespan_t::from_millis( 1001 ) ) // Spelldata says 5, testing says 1... 1.001 seconds so the stacks don't fall off.
                                  .default_value( find_spell( 185655 ) -> effectN( 1 ).trigger() -> effectN( 1 ).percent() );
   buffs.wings_of_liberty_driver = buff_creator_t( this, "wings_of_liberty_driver", find_spell( 185655 ) )
                                  .chance( sets.has_set_bonus( PALADIN_RETRIBUTION, T18, B4 ) )
