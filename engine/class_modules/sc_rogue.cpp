@@ -12,10 +12,6 @@
 // - Balanced Blades [artifact power] spell data claims it's not flat modifier?
 // - Poisoned Knives [artifact power] does the damage doubledip in any way?
 // - Does Kingsbane debuff get procced 2x on Mutilate? (If both hands apply lethal poison).
-//
-// Outlaw:
-// - Blunderbuss [artifact power]
-// - For some reason, Between the Eyes is not affected by Blurred Time
 
 #include "simulationcraft.hpp"
 
@@ -219,6 +215,7 @@ struct rogue_t : public player_t
     buff_t* death;
     buff_t* t19_4pc_outlaw;
     buff_t* t19oh_8pc;
+    buff_t* blunderbuss;
 
     // Roll the bones
     buff_t* roll_the_bones;
@@ -2184,13 +2181,6 @@ struct between_the_eyes_t : public rogue_attack_t
     base_multiplier *= 1.0 + p -> artifact.black_powder.percent();
   }
 
-  void init() override
-  {
-    rogue_attack_t::init();
-
-    affected_by.blurred_time = false;
-  }
-
   void execute() override
   {
     rogue_attack_t::execute();
@@ -2895,10 +2885,10 @@ struct kingsbane_t : public rogue_attack_t
 
 // Pistol Shot =========================================================
 
-struct pistol_shot_t : public rogue_attack_t
+struct shot_base_t : public rogue_attack_t
 {
-  pistol_shot_t( rogue_t* p, const std::string& options_str ) :
-    rogue_attack_t( "pistol_shot", p, p -> find_specialization_spell( "Pistol Shot" ), options_str )
+  shot_base_t( rogue_t* p, const std::string& name, const spell_data_t* spell, const std::string& options_str ) :
+    rogue_attack_t( name, p, spell, options_str )
   {
     base_crit += p -> artifact.gunslinger.percent();
   }
@@ -2960,6 +2950,70 @@ struct pistol_shot_t : public rogue_attack_t
       {
         p() -> resource_gain( RESOURCE_COMBO_POINT, n_cp, p() -> gains.curse_of_the_dreadblades, this );
       }
+    }
+  }
+};
+
+struct blunderbuss_damage_t : public rogue_attack_t
+{
+  blunderbuss_damage_t( rogue_t* p ) :
+    rogue_attack_t( "blunderbuss", p, p -> find_spell( 202895 ) )
+  {
+    callbacks = false,
+    background = dual = true;
+    attack_power_mod.direct = data().effectN( 4 ).ap_coeff();
+    energize_type = ENERGIZE_NONE; // Main spell does the energizing
+    energize_amount = 0;
+    base_costs[ RESOURCE_ENERGY ] = 0;
+  }
+};
+
+struct blunderbuss_t : public shot_base_t
+{
+  blunderbuss_damage_t* damage;
+
+  blunderbuss_t( rogue_t* p ) :
+    shot_base_t( p, "blunderbuss", p -> find_spell( 202895 ), "" ),
+    damage( new blunderbuss_damage_t( p ) )
+  {
+    background = true;
+    attack_power_mod.direct = data().effectN( 1 ).ap_coeff();
+  }
+
+  void execute() override
+  {
+    shot_base_t::execute();
+
+    damage -> target = execute_state -> target;
+    damage -> execute();
+    damage -> execute();
+    damage -> execute();
+
+    p() -> buffs.blunderbuss -> decrement();
+  }
+};
+
+struct pistol_shot_t : public shot_base_t
+{
+  blunderbuss_t* blunderbuss;
+
+  pistol_shot_t( rogue_t* p, const std::string& options_str ) :
+    shot_base_t( p, "pistol_shot", p -> find_specialization_spell( "Pistol Shot" ), options_str ),
+    blunderbuss( new blunderbuss_t( p ) )
+  {
+    add_child( blunderbuss );
+  }
+
+  void execute() override
+  {
+    if ( p() -> buffs.blunderbuss -> up() )
+    {
+      blunderbuss -> target = target;
+      blunderbuss -> execute();
+    }
+    else
+    {
+      shot_base_t::execute();
     }
   }
 };
@@ -3359,6 +3413,9 @@ struct saber_slash_t : public rogue_attack_t
       spell -> target = target;
       spell -> execute();
       spell -> saberslash_proc_event = nullptr;
+
+      rogue_t* r = debug_cast<rogue_t*>( player() );
+      r -> buffs.blunderbuss -> trigger();
     }
   };
 
@@ -6669,6 +6726,8 @@ void rogue_t::create_buffs()
   buffs.t19oh_8pc = stat_buff_creator_t( this, "shadowstalkers_avidity" )
     .spell( sets.set( specialization(), T19OH, B8 ) -> effectN( 1 ).trigger() )
     .trigger_spell( sets.set( specialization(), T19OH, B8 ) );
+  buffs.blunderbuss = buff_creator_t( this, "blunderbuss", find_spell( 202848 ) )
+    .chance( artifact.blunderbuss.data().effectN( 2 ).percent() );
 }
 
 // rogue_t::create_options ==================================================

@@ -57,7 +57,6 @@ namespace { // UNNAMED NAMESPACE
 struct druid_t;
 
 // Active actions
-struct brambles_t;
 struct stalwart_guardian_t;
 namespace spells {
 struct moonfire_t;
@@ -66,14 +65,12 @@ struct shooting_stars_t;
 }
 namespace heals {
 struct cenarion_ward_hot_t;
-struct yseras_tick_t;
 }
 namespace cat_attacks {
 struct gushing_wound_t;
 }
 namespace bear_attacks {
 struct bear_attack_t;
-struct brambles_pulse_t;
 }
 
 enum form_e {
@@ -274,21 +271,22 @@ public:
 
   struct active_actions_t
   {
-    bear_attacks::brambles_pulse_t* brambles_pulse;
-    brambles_t*                     brambles;
     stalwart_guardian_t*            stalwart_guardian;
     cat_attacks::gushing_wound_t*   gushing_wound;
     heals::cenarion_ward_hot_t*     cenarion_ward_hot;
-    heals::yseras_tick_t*           yseras_gift;
-    spell_t*  rage_of_the_sleeper;
-    spell_t*  galactic_guardian;
-    spell_t*  starfall;
-    spell_t*  echoing_stars;
-    spell_t*  starshards;
     attack_t* ashamanes_rip;
-    spell_t*  shooting_stars;
-    attack_t* shadow_thrash;
+    action_t* brambles;
+    action_t* brambles_pulse;
+    spell_t*  echoing_stars;
+    spell_t*  galactic_guardian;
     spell_t*  goldrinns_fang;
+    action_t* natures_guardian;
+    spell_t*  rage_of_the_sleeper;
+    attack_t* shadow_thrash;
+    spell_t*  shooting_stars;
+    spell_t*  starfall;
+    spell_t*  starshards;
+    action_t* yseras_gift;
   } active;
 
   // Pets
@@ -428,6 +426,7 @@ public:
 
     // Guardian (Bear)
     gain_t* bear_form;
+    gain_t* blood_frenzy;
     gain_t* brambles;
     gain_t* bristling_fur;
     gain_t* galactic_guardian;
@@ -515,7 +514,6 @@ public:
     const spell_data_t* bear_form;
     const spell_data_t* gore;
     const spell_data_t* ironfur;
-    const spell_data_t* resolve;
     const spell_data_t* thick_hide; // Guardian Affinity
     const spell_data_t* thrash_bear_dot; // For Rend and Tear modifier
 
@@ -767,6 +765,7 @@ public:
   virtual double    composite_spell_crit_chance() const override;
   virtual double    composite_spell_haste() const override;
   virtual double    composite_spell_power( school_e school ) const override;
+  virtual double    composite_spell_power_multiplier() const override;
   virtual double    temporary_movement_modifier() const override;
   virtual double    passive_movement_modifier() const override;
   virtual double    matching_gear_multiplier( attribute_e attr ) const override;
@@ -791,6 +790,7 @@ public:
   void shapeshift( form_e );
   void init_beast_weapon( weapon_t&, double );
   const spell_data_t* find_affinity_spell( const std::string& );
+  void trigger_natures_guardian( const action_state_t* );
 
 private:
   void              apl_precombat();
@@ -815,69 +815,6 @@ snapshot_counter_t::snapshot_counter_t( druid_t* player , buff_t* buff ) :
   b.push_back( buff );
   p -> counters.push_back( this );
 }
-
-// Stalwart Guardian ( 6.2 T18 Guardian Trinket) ============================
-
-struct brambles_t : public absorb_t
-{
-  struct brambles_reflect_t : public attack_t
-  {
-    brambles_reflect_t( druid_t* p ) :
-      attack_t( "brambles_reflect", p, p -> find_spell( 203958 ) )
-    {
-      may_block = may_dodge = may_parry = may_miss = true;
-      may_crit = true;
-    }
-  };
-
-  double incoming_damage;
-  double absorb_size;
-  player_t* triggering_enemy;
-  brambles_reflect_t* reflect;
-
-  brambles_t( druid_t* p ) :
-    absorb_t( "brambles_bg", p, p -> find_spell( 185321 ) ),
-    incoming_damage( 0 ), absorb_size( 0 ),
-    reflect( new brambles_reflect_t( p ) )
-  {
-    background = quiet = true;
-    may_crit = false;
-    target = p;
-    harmful = false;
-
-    attack_power_mod.direct = 0.2; // FIXME: not in spell data?
-  }
-
-  druid_t* p() const
-  { return static_cast<druid_t*>( player ); }
-
-  void init() override
-  {
-    absorb_t::init();
-
-    snapshot_flags &= ~STATE_VERSATILITY; // Is not affected by versatility.
-  }
-
-  void execute() override
-  {
-    absorb_t::execute();
-
-    // Trigger damage reflect
-    double resolve = 1.0;
-    if ( p() -> resolve_manager.is_started() )
-      resolve *= 1.0 + player -> buffs.resolve -> check_value() / 100.0;
-
-    // Base damage is equal to the size of the absorb pre-resolve.
-    reflect -> base_dd_min = absorb_size / resolve;
-    reflect -> target = triggering_enemy;
-    reflect -> execute();
-  }
-
-  void impact( action_state_t* s ) override
-  {
-    absorb_size = s -> result_total;
-  }
-};
 
 // Stalwart Guardian ( 6.2 T18 Guardian Trinket) ============================
 
@@ -927,13 +864,7 @@ struct stalwart_guardian_t : public absorb_t
   {
     absorb_t::execute();
 
-    // Trigger damage reflect
-    double resolve = 1.0;
-    if ( p() -> resolve_manager.is_started() )
-      resolve *= 1.0 + player -> buffs.resolve -> check_value() / 100.0;
-
-    // Base damage is equal to the size of the absorb pre-resolve.
-    reflect -> base_dd_min = absorb_size / resolve;
+    reflect -> base_dd_min = absorb_size;
     reflect -> target = triggering_enemy;
     reflect -> execute();
   }
@@ -1083,9 +1014,6 @@ public:
     swap_melee( druid.caster_melee_attack, druid.caster_form_weapon );
 
     druid.recalculate_resource_max( RESOURCE_HEALTH );
-
-    if ( druid.specialization() == DRUID_GUARDIAN )
-      druid.resolve_manager.stop();
   }
 
   virtual void start( int stacks, double value, timespan_t duration ) override
@@ -1094,9 +1022,6 @@ public:
     druid.buff.cat_form -> expire();
 
     druid.buff.tigers_fury -> expire(); // Mar 03 2016: Tiger's Fury ends when you enter bear form.
-
-    if ( druid.specialization() == DRUID_GUARDIAN )
-      druid.resolve_manager.start();
 
     swap_melee( druid.bear_melee_attack, druid.bear_weapon );
 
@@ -1294,6 +1219,7 @@ public:
   bool rend_and_tear;
   bool hasted_gcd;
   double gore_chance;
+  bool triggers_galactic_guardian;
 
   druid_action_t( const std::string& n, druid_t* player,
                   const spell_data_t* s = spell_data_t::nil() ) :
@@ -1301,7 +1227,7 @@ public:
     form_mask( ab::data().stance_mask() ), may_autounshift( true ), autoshift( 0 ),
     rend_and_tear( ab::data().affected_by( player -> spec.thrash_bear_dot -> effectN( 2 ) ) ),
     hasted_gcd( ab::data().affected_by( player -> spec.druid -> effectN( 4 ) ) ),
-    gore_chance( player -> spec.gore -> proc_chance() )
+    gore_chance( player -> spec.gore -> proc_chance() ), triggers_galactic_guardian( true )
   {
     ab::may_crit      = true;
     ab::tick_may_crit = true;
@@ -1344,6 +1270,8 @@ public:
 
     if ( p() -> buff.feral_tier17_4pc -> check() )
       trigger_gushing_wound( s -> target, s -> result_amount );
+
+    trigger_galactic_guardian( s );
   }
 
   virtual void tick( dot_t* d )
@@ -1352,6 +1280,8 @@ public:
 
     if ( p() -> buff.feral_tier17_4pc -> check() )
       trigger_gushing_wound( d -> target, d -> state -> result_amount );
+
+    trigger_galactic_guardian( d -> state );
   }
 
   virtual void schedule_execute( action_state_t* s = nullptr ) override
@@ -1411,6 +1341,32 @@ public:
       return true;
     }
     return false;
+  }
+
+  virtual void trigger_galactic_guardian( action_state_t* s )
+  {
+    if ( ! ( triggers_galactic_guardian && ! ab::proc && ab::harmful ) )
+      return;
+    if ( ! p() -> talent.galactic_guardian -> ok() )
+      return;
+    if ( s -> target == p() )
+      return;
+    if ( ! ab::result_is_hit( s -> result ) )
+      return;
+    if ( s -> result_total <= 0 )
+      return;
+
+    if ( ab::rng().roll( p() -> talent.galactic_guardian -> proc_chance() ) )
+    {
+      // Trigger Moonfire
+      action_state_t* gg_s = p() -> active.galactic_guardian -> get_state();
+      gg_s -> target = s -> target;
+      p() -> active.galactic_guardian -> snapshot_state( gg_s, DMG_DIRECT );
+      p() -> active.galactic_guardian -> schedule_execute( gg_s );
+
+      // Trigger buff
+      p() -> buff.galactic_guardian -> trigger();
+    }
   }
 };
 
@@ -1783,6 +1739,7 @@ struct moonfire_t : public druid_spell_t
       }
 
       may_miss = false;
+      triggers_galactic_guardian = false;
       dual = background = true;
       dot_duration       += p -> spec.balance_overrides -> effectN( 4 ).time_value();
       base_dd_multiplier *= 1.0 + p -> spec.guardian -> effectN( 4 ).percent();
@@ -1797,7 +1754,7 @@ struct moonfire_t : public druid_spell_t
         base_td_multiplier *= 1.0 + p -> spec.feral_overrides -> effectN( 2 ).percent();
       }
 
-      base_multiplier    *= 1.0 + p -> artifact.twilight_glow.percent();
+      base_multiplier *= 1.0 + p -> artifact.twilight_glow.percent();
     }
 
     double composite_target_multiplier( player_t* t ) const override
@@ -1809,22 +1766,6 @@ struct moonfire_t : public druid_spell_t
               + p() -> mastery.starlight -> ok() * p() -> cache.mastery_value() ) * ( 1.0 + p() -> artifact.falling_star.percent() );
 
       return tm;
-    }
-
-    void impact( action_state_t* s ) override
-    {
-      druid_spell_t::impact( s );
-
-      if ( result_is_hit( s -> result ) )
-      {
-        trigger_gore();
-
-        if ( p() -> buff.galactic_guardian -> check() )
-        {
-          p() -> resource_gain( RESOURCE_RAGE, p() -> buff.galactic_guardian -> value(), p() -> gain.galactic_guardian );
-          p() -> buff.galactic_guardian -> expire();
-        }
-      }
     }
 
     void tick( dot_t* d ) override
@@ -1846,10 +1787,10 @@ struct moonfire_t : public druid_spell_t
     damage = new moonfire_damage_t( player );
     damage -> stats = stats;
 
-    if (player->spec.balance->ok())
+    if ( player -> spec.balance -> ok() )
     {
       energize_resource = RESOURCE_ASTRAL_POWER;
-      energize_amount = player->spec.balance->effectN(3).resource(RESOURCE_ASTRAL_POWER);
+      energize_amount = player -> spec.balance -> effectN( 3 ).resource( RESOURCE_ASTRAL_POWER );
     }
     else
     {
@@ -1857,6 +1798,22 @@ struct moonfire_t : public druid_spell_t
     }
 
     // Add damage modifiers in moonfire_damage_t, not here.
+  }
+
+  void impact( action_state_t* s ) override
+  {
+    druid_spell_t::impact( s );
+
+    if ( result_is_hit( s -> result ) )
+    {
+      trigger_gore();
+
+      if ( p() -> buff.galactic_guardian -> check() )
+      {
+        p() -> resource_gain( RESOURCE_RAGE, p() -> buff.galactic_guardian -> value(), p() -> gain.galactic_guardian );
+        p() -> buff.galactic_guardian -> expire();
+      }
+    }
   }
 
   void execute() override
@@ -3129,42 +3086,6 @@ struct bear_attack_t : public druid_attack_t<melee_attack_t>
     if ( hit_any_target && gore )
       trigger_gore();
   }
-
-  virtual void impact( action_state_t* s ) override
-  {
-    base_t::impact( s );
-
-    if ( result_is_hit( s -> result ) )
-    {
-      if ( p() -> talent.galactic_guardian -> ok() )
-        trigger_galactic_guardian( s );
-    }
-  }
-
-  virtual void tick( dot_t* d ) override
-  {
-    base_t::tick( d );
-
-    trigger_galactic_guardian( d -> state );
-  }
-
-  // TOCHECK: does it proc off of ANY damage event? or just bear attacks
-  virtual void trigger_galactic_guardian( action_state_t* s )
-  {
-    if ( ! p() -> talent.galactic_guardian -> ok() )
-      return;
-    if ( ! result_is_hit( s -> result ) )
-      return;
-    if ( s -> result_total <= 0 )
-      return;
-
-    if ( rng().roll( p() -> talent.galactic_guardian -> proc_chance() ) )
-    {
-      p() -> active.galactic_guardian -> target = s -> target;
-      p() -> active.galactic_guardian -> execute();
-      p() -> buff.galactic_guardian -> trigger();
-    }
-  }
 }; // end bear_attack_t
 
 // Bear Melee Attack ========================================================
@@ -3192,18 +3113,6 @@ struct bear_melee_t : public bear_attack_t
       return timespan_t::from_seconds( 0.01 );
 
     return bear_attack_t::execute_time();
-  }
-};
-
-// Brambles =================================================================
-
-struct brambles_pulse_t : public bear_attack_t
-{
-  brambles_pulse_t( druid_t* p ) :
-    bear_attack_t( "brambles_pulse", p, p -> find_spell( 213709 ) )
-  {
-    background = dual = true;
-    aoe = -1;
   }
 };
 
@@ -3388,7 +3297,8 @@ struct thrash_bear_t : public bear_attack_t
   double blood_frenzy_amount;
 
   thrash_bear_t( druid_t* p, const std::string& options_str ) :
-    bear_attack_t( "thrash_bear", p, p -> find_spell( 77758 ), options_str )
+    bear_attack_t( "thrash_bear", p, p -> find_spell( 77758 ), options_str ),
+    blood_frenzy_amount( 0 )
   {
     aoe = -1;
     spell_power_mod.direct = 0;
@@ -3412,8 +3322,7 @@ struct thrash_bear_t : public bear_attack_t
   {
     bear_attack_t::tick( d );
 
-    if ( p() -> talent.blood_frenzy -> ok() && d -> current_stack() == d -> max_stack )
-      p() -> resource_gain( RESOURCE_RAGE, blood_frenzy_amount, gain );
+    p() -> resource_gain( RESOURCE_RAGE, blood_frenzy_amount, p() -> gain.blood_frenzy );
   }
 };
 
@@ -3757,6 +3666,27 @@ struct lifebloom_t : public druid_heal_t
   }
 };
 
+// Nature's Guardian ========================================================
+
+struct natures_guardian_t : public druid_heal_t
+{
+  natures_guardian_t( druid_t* p ) :
+    druid_heal_t( "natures_guardian", p, p -> find_spell( 227034 ) )
+  {
+    background = true;
+    may_crit = false;
+    target = p;
+  }
+
+  void init() override
+  {
+    druid_heal_t::init();
+
+    // Not affected by multipliers of any sort.
+    snapshot_flags &= ~STATE_NO_MULTIPLIER;
+  }
+};
+
 // Regrowth =================================================================
 
 struct regrowth_t : public druid_heal_t
@@ -3832,13 +3762,6 @@ struct renewal_t : public druid_heal_t
     druid_heal_t( "renewal", p, p -> find_talent_spell( "Renewal" ), options_str )
   {
     may_crit = false;
-  }
-
-  virtual void init() override
-  {
-    druid_heal_t::init();
-
-    snapshot_flags &= ~STATE_RESOLVE; // Is not affected by resolve.
   }
 
   virtual void execute() override
@@ -3942,21 +3865,21 @@ struct wild_growth_t : public druid_heal_t
 
 // Ysera's Gift =============================================================
 
-struct yseras_tick_t : public druid_heal_t
+struct yseras_gift_t : public druid_heal_t
 {
-  yseras_tick_t( druid_t* p ) :
+  yseras_gift_t( druid_t* p ) :
     druid_heal_t( "yseras_gift", p, p -> find_spell( 145110 ) )
   {
     may_crit = false;
     background = dual = true;
+    base_pct_heal = p -> spec.yseras_gift -> effectN( 1 ).percent();
   }
 
-  virtual void init() override
+  void init() override
   {
     druid_heal_t::init();
 
-    snapshot_flags &= ~STATE_RESOLVE; // Is not affected by resolve.
-    // TODO: What other multipliers does this not scale with?
+    snapshot_flags &= ~STATE_VERSATILITY; // Is not affected by versatility.
   }
 
   virtual double action_multiplier() const override
@@ -4147,6 +4070,27 @@ struct blessing_of_elune_t : public druid_spell_t
       return false;
 
     return druid_spell_t::ready();
+  }
+};
+
+// Brambles =================================================================
+
+struct brambles_t : public druid_spell_t
+{
+  brambles_t( druid_t* p ) :
+    druid_spell_t( "brambles_reflect", p, p -> find_spell( 203958 ) )
+  {
+    background = may_crit = proc = may_miss = true;
+  }
+};
+
+struct brambles_pulse_t : public druid_spell_t
+{
+  brambles_pulse_t( druid_t* p ) :
+    druid_spell_t( "brambles_pulse", p, p -> find_spell( 213709 ) )
+  {
+    background = dual = true;
+    aoe = -1;
   }
 };
 
@@ -4820,7 +4764,7 @@ struct rage_of_the_sleeper_t : public druid_spell_t
     rage_of_the_sleeper_reflect_t( druid_t* p ) :
       druid_spell_t( "rage_of_the_sleeper_reflect", p, p -> find_spell( 219432 ) )
     {
-      background = true;
+      background = proc = true;
       may_miss = may_crit = false;
     }
   };
@@ -5560,14 +5504,23 @@ double brambles_handler( const action_state_t* s )
   assert( p -> talent.brambles -> ok() );
   assert( s );
 
-  // Pass incoming damage value so the absorb can be calculated.
-  // TOCHECK: Does this use result_amount or result_mitigated?
-  p -> active.brambles -> incoming_damage = s -> result_mitigated;
-  // Pass the triggering enemy so that the damage reflect has a target;
-  p -> active.brambles -> triggering_enemy = s -> action -> player;
-  p -> active.brambles -> execute();
+  /* Calculate the maximum amount absorbed. This is not affected by
+     versatility (and likely other player modifiers). */
+  double absorb_cap = 0.24 * p -> cache.attack_power() *
+    p -> composite_attack_power_multiplier();
 
-  return p -> active.brambles -> absorb_size;
+  // Calculate actual amount absorbed.
+  double amount_absorbed = std::min( s -> result_mitigated, absorb_cap );
+
+  // Schedule reflected damage.
+  p -> active.brambles -> base_dd_min = p -> active.brambles -> base_dd_max = 
+    amount_absorbed;
+  action_state_t* ref_s = p -> active.brambles -> get_state();
+  ref_s -> target = s -> action -> player;
+  p -> active.brambles -> snapshot_state( ref_s, DMG_DIRECT );
+  p -> active.brambles -> schedule_execute( ref_s );
+
+  return amount_absorbed;
 }
 
 // Earthwarden Absorb Handler ===============================================
@@ -5806,7 +5759,6 @@ void druid_t::init_spells()
   spec.guardian                   = find_specialization_spell( "Guardian Druid" );
   spec.guardian_overrides         = find_specialization_spell( "Guardian Overrides Passive" );
   spec.ironfur                    = find_specialization_spell( "Ironfur" );
-  spec.resolve                    = find_specialization_spell( "Resolve" );
   spec.thrash_bear_dot            = find_specialization_spell( "Thrash" ) -> ok() ? find_spell( 192090 ) : spell_data_t::not_found();
   
   // Talents ================================================================
@@ -5984,16 +5936,16 @@ void druid_t::init_spells()
   if ( talent.cenarion_ward -> ok() )
     active.cenarion_ward_hot  = new heals::cenarion_ward_hot_t( this );
   if ( spec.yseras_gift )
-    active.yseras_gift        = new heals::yseras_tick_t( this );
+    active.yseras_gift        = new heals::yseras_gift_t( this );
   if ( sets.has_set_bonus( DRUID_FERAL, T17, B4 ) )
     active.gushing_wound      = new cat_attacks::gushing_wound_t( this );
   if ( talent.brambles -> ok() )
   {
-    active.brambles           = new brambles_t( this );
+    active.brambles           = new spells::brambles_t( this );
+    active.brambles_pulse     = new spells::brambles_pulse_t( this );
+
     instant_absorb_list[ talent.brambles -> id() ] =
       new instant_absorb_t( this, talent.brambles, "brambles", &brambles_handler );
-
-    active.brambles_pulse     = new bear_attacks::brambles_pulse_t( this );
   }
   if ( talent.galactic_guardian -> ok() )
   {
@@ -6002,6 +5954,8 @@ void druid_t::init_spells()
   }
   if ( artifact.ashamanes_bite.rank() )
     active.ashamanes_rip = new cat_attacks::ashamanes_rip_t( this );
+  if ( mastery.natures_guardian -> ok() )
+    active.natures_guardian = new heals::natures_guardian_t( this );
 }
 
 // druid_t::init_base =======================================================
@@ -6042,10 +5996,6 @@ void druid_t::init_base_stats()
   base.mana_regen_per_second *= 1.0 + spec.druid -> effectN( 5 ).percent();
 
   base_gcd = timespan_t::from_seconds( 1.5 );
-
-  // initialize resolve for Guardians
-  if ( specialization() == DRUID_GUARDIAN )
-    resolve_manager.init();
 }
 
 // druid_t::init_buffs ======================================================
@@ -6264,10 +6214,8 @@ void druid_t::create_buffs()
   {
     buff.yseras_gift         = buff_creator_t( this, "yseras_gift_driver", spec.yseras_gift )
                                .quiet( true )
-                               .default_value( spec.yseras_gift -> effectN( 1 ).percent() )
-                               .tick_callback( [ this ]( buff_t* b, int, const timespan_t& ) {
-                                 active.yseras_gift -> base_dd_min = b -> value() * resources.max[ RESOURCE_HEALTH ];
-                                 active.yseras_gift -> execute(); } )
+                               .tick_callback( [ this ]( buff_t*, int, const timespan_t& ) {
+                                 active.yseras_gift -> schedule_execute(); } )
                                .tick_zero( true );
   }
 
@@ -6811,6 +6759,7 @@ void druid_t::init_gains()
 
   // Guardian
   gain.bear_form             = get_gain( "bear_form"             );
+  gain.blood_frenzy          = get_gain( "blood_frenzy"          );
   gain.brambles              = get_gain( "brambles"              );
   gain.bristling_fur         = get_gain( "bristling_fur"         );
   gain.galactic_guardian     = get_gain( "galactic_guardian"     );
@@ -7033,22 +6982,22 @@ void druid_t::invalidate_cache( cache_e c )
   {
   case CACHE_ATTACK_POWER:
     if ( spec.nurturing_instinct -> ok() )
-      player_t::invalidate_cache( CACHE_SPELL_POWER );
+      invalidate_cache( CACHE_SPELL_POWER );
     break;
   case CACHE_INTELLECT:
     if ( spec.killer_instinct -> ok() && ( buff.cat_form -> check() || buff.bear_form -> check() ) )
-      player_t::invalidate_cache( CACHE_AGILITY );
+      invalidate_cache( CACHE_AGILITY );
     break;
   case CACHE_MASTERY:
     if ( mastery.natures_guardian -> ok() )
     {
-      player_t::invalidate_cache( CACHE_ATTACK_POWER );
+      invalidate_cache( CACHE_ATTACK_POWER );
       recalculate_resource_max( RESOURCE_HEALTH );
     }
     break;
   case CACHE_CRIT_CHANCE:
     if ( specialization() == DRUID_GUARDIAN )
-      player_t::invalidate_cache( CACHE_DODGE );
+      invalidate_cache( CACHE_DODGE );
   default:
     break;
   }
@@ -7059,6 +7008,8 @@ void druid_t::invalidate_cache( cache_e c )
 double druid_t::composite_attack_power_multiplier() const
 {
   double ap = player_t::composite_attack_power_multiplier();
+
+  // All modifiers MUST invalidate CACHE_ATTACK_POWER or Nurturing Instinct will break.
 
   if ( mastery.natures_guardian -> ok() )
     ap *= 1.0 + cache.mastery() * mastery.natures_guardian_AP -> effectN( 1 ).mastery_value();
@@ -7220,11 +7171,23 @@ double druid_t::composite_spell_power( school_e school ) const
   // Nurturing Instinct overrides SP from other sources.
   if ( spec.nurturing_instinct -> ok() )
   {
-    return spec.nurturing_instinct -> effectN( 1 ).percent()
-      * cache.attack_power() * composite_attack_power_multiplier();
+    return spec.nurturing_instinct -> effectN( 1 ).percent() * cache.attack_power() *
+      composite_attack_power_multiplier();
   }
 
   return player_t::composite_spell_power( school );
+}
+
+// druid_t::composite_spell_power_multiplier ================================
+
+double druid_t::composite_spell_power_multiplier() const
+{
+  if ( spec.nurturing_instinct -> ok() )
+  {
+    return 1.0;
+  }
+
+  return player_t::composite_spell_power_multiplier();
 }
 
 // druid_t::composite_attribute =============================================
@@ -7637,6 +7600,8 @@ void druid_t::assess_heal( school_e school,
     s -> result_total *= 1.0 + cache.mastery_value();
 
   player_t::assess_heal( school, dmg_type, s );
+
+  trigger_natures_guardian( s );
 }
 
 // druid_t::shapeshift ======================================================
@@ -7731,6 +7696,25 @@ const spell_data_t* druid_t::find_affinity_spell( const std::string& name )
   }
 
   return spell_data_t::not_found();
+}
+
+// druid_t::trigger_natures_guardian ========================================
+
+void druid_t::trigger_natures_guardian( const action_state_t* trigger_state )
+{
+  if ( ! mastery.natures_guardian -> ok() )
+    return;
+  if ( trigger_state -> result_total <= 0 )
+    return;
+  if ( trigger_state -> action == active.natures_guardian )
+    return;
+
+  active.natures_guardian -> base_dd_min = active.natures_guardian -> base_dd_max =
+    trigger_state -> result_total * cache.mastery_value();
+  action_state_t* s = active.natures_guardian -> get_state();
+  s -> target = this;
+  active.natures_guardian -> snapshot_state( s, HEAL_DIRECT );
+  active.natures_guardian -> schedule_execute( s );
 }
 
 druid_td_t::druid_td_t( player_t& target, druid_t& source )
